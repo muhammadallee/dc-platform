@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1000" width="1400" height="1000">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1000" fill="#ffffff"/>
+<text x="700" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">Layered Architecture Diagram</text>
+<text x="700" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">Compile-time layers of the platform — arrows show the only allowed dependency direction</text>
+<rect x="80" y="92" width="1010" height="56" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="96" y="125" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">Applications</text>
+<text x="360" y="116" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">team services on platform-service-parent — explicit starters only, no platform internals</text>
+<line x1="585" y1="148" x2="585" y2="166" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="166" width="1010" height="56" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="96" y="199" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">Starter Layer</text>
+<text x="360" y="190" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">platform-starter-&lt;cap&gt;[-provider] — POM-only aggregation, zero code</text>
+<line x1="585" y1="222" x2="585" y2="240" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="240" width="1010" height="76" rx="6" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="96" y="283" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">Auto-Configuration</text>
+<text x="360" y="264" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">@AutoConfiguration + conditions · kill switches · @ConditionalOnMissingBean back-off</text>
+<text x="360" y="280" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">immutable @ConfigurationProperties · ordered customizers · CapabilityDescriptor</text>
+<line x1="585" y1="316" x2="585" y2="334" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="334" width="1010" height="76" rx="6" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="96" y="377" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">Implementations</text>
+<text x="360" y="358" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">kafka · rabbit · inmemory · s3 · fs · redis · jdbc · vault · env · openfeature …</text>
+<text x="360" y="374" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">one provider per module; never impl → impl</text>
+<line x1="585" y1="410" x2="585" y2="428" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="428" width="1010" height="76" rx="6" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.6"/>
+<text x="96" y="471" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">SPI Layer</text>
+<text x="360" y="452" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">EventTransport · ObjectStoreProvider · LockProvider · AuditSink · FlagProvider …</text>
+<text x="360" y="468" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">extender contract, TCK-certified</text>
+<line x1="585" y1="504" x2="585" y2="522" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="522" width="1010" height="76" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="96" y="565" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">API Layer</text>
+<text x="360" y="546" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">EventPublisher · ObjectStore · LockManager · FeatureFlags · error model · annotations</text>
+<text x="360" y="562" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">consumer contract — SemVer binary compatibility</text>
+<line x1="585" y1="598" x2="585" y2="616" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="616" width="1010" height="56" rx="6" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="96" y="649" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">platform-core-api</text>
+<text x="360" y="640" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">CorrelationId · RequestContext · PlatformException · ErrorCode  (≤ 25 public types)</text>
+<line x1="585" y1="672" x2="585" y2="690" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="690" width="1010" height="56" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="96" y="723" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">Spring Boot / Spring</text>
+<text x="360" y="714" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">auto-configuration engine · Micrometer/Observation · Security · Data</text>
+<line x1="585" y1="746" x2="585" y2="764" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="80" y="764" width="1010" height="56" rx="6" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="96" y="797" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="start" font-weight="bold">JVM — Java 21 LTS</text>
+<text x="360" y="788" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="start">virtual threads · records · AOT/native-image readiness</text>
+<rect x="1120" y="120" width="230" height="180" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1235" y="141" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«parents &amp; BOMs»</text>
+<text x="1235" y="156" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Alignment</text>
+<text x="1235" y="174" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform-parent</text>
+<text x="1235" y="189" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform-service-parent</text>
+<text x="1235" y="204" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform-bom</text>
+<text x="1235" y="219" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform-dependencies</text>
+<text x="1235" y="234" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">one train version</text>
+<rect x="1120" y="340" width="230" height="180" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.6"/>
+<text x="1235" y="361" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#6d28d9" text-anchor="middle" font-style="italic">«fitness functions»</text>
+<text x="1235" y="376" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Build Gates</text>
+<text x="1235" y="394" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">enforcer PlatformLayerRule</text>
+<text x="1235" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">ArchUnit constitution</text>
+<text x="1235" y="424" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">japicmp (api/spi)</text>
+<text x="1235" y="439" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">coverage · checkstyle</text>
+<text x="1235" y="454" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">cycles = build failure</text>
+<rect x="1120" y="560" width="230" height="170" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="1235" y="581" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«cross-cutting»</text>
+<text x="1235" y="596" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Quality &amp; Docs</text>
+<text x="1235" y="614" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">ContextRunner matrices</text>
+<text x="1235" y="629" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">TCKs per SPI</text>
+<text x="1235" y="644" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">generated property &amp;</text>
+<text x="1235" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">error-code references</text>
+<text x="1235" y="674" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">runbooks</text>
+<text x="1235" y="780" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#64748b" text-anchor="middle">cross-cutting — applies to</text>
+<text x="1235" y="795" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#64748b" text-anchor="middle">every layer at build time</text>
+<text x="585" y="856" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#475569" text-anchor="middle" font-weight="bold">Rules: depth ≤ 4 platform hops · no cycles · no starter→starter · no impl→impl · api never depends downward · *.internal is unreachable</text>
+</svg>

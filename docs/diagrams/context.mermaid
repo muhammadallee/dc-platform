@@ -1,0 +1,20 @@
+flowchart TB
+  plat["ACME Platform Chassis<br>starters, auto-configuration, APIs and SPIs,<br>one BOM, one release train"]
+  teams["Application Teams<br>hundreds of services"]
+  ext["Enterprise Extenders<br>custom providers"]
+  pteam["Platform Team<br>capability owners, governance"]
+  repo["Artifact Repository<br>BOM and starters"]
+  ci["CI/CD<br>gates, smoke matrix, releases"]
+  idp["Identity Provider - OIDC"]
+  infra["Runtime Infrastructure<br>Kafka, RabbitMQ, PostgreSQL, Redis, S3, Vault"]
+  obs["Observability Stack<br>OTLP, Prometheus, log pipeline"]
+
+  teams -->|build on service-parent, add starters| plat
+  ext -->|implement SPIs, certify via TCKs| plat
+  pteam -->|design, review, release trains| plat
+  plat -->|published through| repo
+  repo -->|consumed by| teams
+  ci -->|enforces constitution and quality gates| plat
+  plat -->|security baseline delegates to| idp
+  plat -->|providers connect to| infra
+  plat -->|emits telemetry to| obs

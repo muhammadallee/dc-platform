@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" width="1500" height="1000">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1500" height="1000" fill="#ffffff"/>
+<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">C4 — Level 3 Component Diagram</text>
+<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">Inside one capability slice: platform-messaging (the pattern every capability follows)</text>
+<rect x="60" y="100" width="1100" height="820" rx="10" fill="none" stroke="#1d4ed8" stroke-width="1.6" stroke-dasharray="7,5"/>
+<text x="80" y="124" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#1d4ed8" text-anchor="start" font-weight="bold">messaging capability  «module boundary»</text>
+<rect x="100" y="150" width="300" height="90" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="250" y="171" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«starter»</text>
+<text x="250" y="186" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">starter-messaging-kafka</text>
+<text x="250" y="204" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">POM only — autoconfigure</text>
+<text x="250" y="219" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">+ kafka provider + client</text>
+<rect x="430" y="150" width="300" height="90" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="580" y="171" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«starter»</text>
+<text x="580" y="186" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">starter-messaging-rabbit</text>
+<text x="580" y="204" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">P</text>
+<text x="580" y="219" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">O</text>
+<text x="580" y="234" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">M</text>
+<text x="580" y="249" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="580" y="264" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">o</text>
+<text x="580" y="279" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="580" y="294" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">l</text>
+<text x="580" y="309" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">y</text>
+<rect x="760" y="150" width="300" height="90" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="910" y="171" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«starter»</text>
+<text x="910" y="186" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">starter-messaging-inmemory</text>
+<text x="910" y="204" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">P</text>
+<text x="910" y="219" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">O</text>
+<text x="910" y="234" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">M</text>
+<text x="910" y="249" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="910" y="264" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">o</text>
+<text x="910" y="279" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="910" y="294" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">l</text>
+<text x="910" y="309" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">y</text>
+<text x="910" y="324" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="910" y="339" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">—</text>
+<text x="910" y="354" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="910" y="369" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">l</text>
+<text x="910" y="384" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">o</text>
+<text x="910" y="399" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">c</text>
+<text x="910" y="414" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">a</text>
+<text x="910" y="429" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">l</text>
+<text x="910" y="444" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="910" y="459" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">&amp;</text>
+<text x="910" y="474" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="910" y="489" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<text x="910" y="504" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e</text>
+<text x="910" y="519" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="910" y="534" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<text x="910" y="549" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<rect x="100" y="290" width="960" height="200" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="580" y="311" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#b45309" text-anchor="middle" font-style="italic">«auto-configuration»</text>
+<text x="580" y="326" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#0f172a" text-anchor="middle" font-weight="bold">platform-messaging-autoconfigure</text>
+<rect x="130" y="340" width="280" height="120" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="270" y="361" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">MessagingAutoConfiguration</text>
+<text x="270" y="379" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">@ConditionalOnClass/-Property</text>
+<text x="270" y="394" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">@ConditionalOnMissingBean back-off</text>
+<text x="270" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">applies customizers in order</text>
+<rect x="440" y="340" width="280" height="120" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="580" y="361" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">DefaultEventPublisher</text>
+<text x="580" y="379" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">correlation + type headers</text>
+<text x="580" y="394" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Observation around publish</text>
+<text x="580" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">serializer → transport.send</text>
+<rect x="750" y="340" width="280" height="120" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="890" y="361" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">EventHandlerRegistrar</text>
+<text x="890" y="379" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">scans @EventHandler beans</text>
+<text x="890" y="394" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">subscribes with retry → DLQ</text>
+<text x="890" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">metrics: outcome tags</text>
+<rect x="100" y="540" width="460" height="150" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="330" y="561" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#1d4ed8" text-anchor="middle" font-style="italic">«api — consumer contract»</text>
+<text x="330" y="576" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">platform-messaging-api</text>
+<text x="330" y="594" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventPublisher · @EventHandler</text>
+<text x="330" y="609" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventEnvelope&lt;T&gt; · @EventType</text>
+<text x="330" y="624" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventPublishException (ACME-MSG-…)</text>
+<rect x="600" y="540" width="460" height="150" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.6"/>
+<text x="830" y="561" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#6d28d9" text-anchor="middle" font-style="italic">«spi — provider contract»</text>
+<text x="830" y="576" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">platform-messaging-spi</text>
+<text x="830" y="594" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventTransport (send/subscribe/ack)</text>
+<text x="830" y="609" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventSerializer (default: Jackson)</text>
+<text x="830" y="624" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">implementors certified by messaging TCK</text>
+<rect x="100" y="750" width="280" height="130" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="240" y="771" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«implementation»</text>
+<text x="240" y="786" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">InMemoryEventTransport</text>
+<text x="240" y="804" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">bounded queues · virtual-thread</text>
+<text x="240" y="819" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">dispatch · awaitIdle() for tests</text>
+<text x="240" y="834" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">reference implementation</text>
+<rect x="440" y="750" width="280" height="130" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="580" y="771" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«implementation»</text>
+<text x="580" y="786" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">KafkaEventTransport</text>
+<text x="580" y="804" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">over spring-kafka templates</text>
+<text x="580" y="819" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">DLQ via recoverer</text>
+<text x="580" y="834" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">config from spring.kafka.*</text>
+<rect x="780" y="750" width="280" height="130" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="920" y="771" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«implementation»</text>
+<text x="920" y="786" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">RabbitEventTransport</text>
+<text x="920" y="804" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">exchange:routingKey mapping</text>
+<text x="920" y="819" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">DLX dead-lettering</text>
+<rect x="1220" y="300" width="220" height="110" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="1330" y="321" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Team Code</text>
+<text x="1330" y="339" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">controllers/services inject</text>
+<text x="1330" y="354" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">EventPublisher; annotate</text>
+<text x="1330" y="369" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">handlers @EventHandler</text>
+<rect x="1220" y="560" width="220" height="100" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1330" y="581" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external»</text>
+<text x="1330" y="596" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Enterprise Extension</text>
+<text x="1330" y="614" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e.g. PulsarTransport:</text>
+<text x="1330" y="629" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">implement SPI + pass TCK</text>
+<rect x="1220" y="780" width="220" height="100" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="1330" y="801" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«infrastructure»</text>
+<text x="1330" y="816" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Kafka / Rabbit Broker</text>
+<line x1="250" y1="240" x2="250" y2="290" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="580" y1="240" x2="580" y2="290" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="910" y1="240" x2="910" y2="290" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="300" y1="460" x2="320" y2="540" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="560" y1="460" x2="400" y2="540" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="480" y="494" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">implements api</text>
+<line x1="880" y1="460" x2="830" y2="540" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="855" y="494" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">binds to any EventTransport bean</text>
+<line x1="240" y1="750" x2="700" y2="690" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="580" y1="750" x2="790" y2="690" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<line x1="920" y1="750" x2="880" y2="690" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="600" y="725" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">providers implement the SPI — platform default backs off if a user/extension bean exists</text>
+<line x1="1220" y1="355" x2="560" y2="560" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="890" y="452" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">depends only on api</text>
+<line x1="1220" y1="610" x2="1060" y2="610" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<text x="1140" y="604" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">implements</text>
+<line x1="720" y1="815" x2="1220" y2="825" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="970" y="814" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">client protocol</text>
+</svg>

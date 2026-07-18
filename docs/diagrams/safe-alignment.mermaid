@@ -1,0 +1,21 @@
+flowchart TB
+  subgraph portfolio["Portfolio Level"]
+    e1["Enabler epic: Enterprise Microservice Chassis"]
+    e2["Architectural runway: capabilities built ahead of team demand"]
+    e3["Guardrails: LTS policy, support windows, lean budget for platform team"]
+  end
+  subgraph program["Program Level - the platform as an Agile Release Train"]
+    pi["PI cadence maps to the release train: minor every 6-8 weeks"]
+    sa["System architects own core-api and the dependency constitution"]
+    demo["System demo: golden-path script and starter smoke matrix"]
+  end
+  subgraph team["Team Level"]
+    t1["Platform capability teams: two named maintainers per slice"]
+    t2["Stream-aligned product teams consume starters and conventions"]
+    t3["Enterprise extension teams ship TCK-certified providers"]
+  end
+  portfolio --> program
+  program --> team
+  fb["Feedback loops: upgrade-check reports, actuator platform endpoint data, ADR proposals, deprecation telemetry"]
+  team -.-> fb
+  fb -.-> portfolio

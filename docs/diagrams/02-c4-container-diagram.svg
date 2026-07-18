@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 960" width="1500" height="960">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1500" height="960" fill="#ffffff"/>
+<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">C4 — Level 2 Container Diagram</text>
+<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">A typical service (Order Service) built on the ACME Platform chassis</text>
+<circle cx="190" cy="120" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<rect x="80" y="138" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="190" y="159" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">API Consumer</text>
+<text x="190" y="177" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">web / mobile / other services</text>
+<rect x="430" y="110" width="700" height="560" rx="10" fill="none" stroke="#1d4ed8" stroke-width="1.6" stroke-dasharray="7,5"/>
+<text x="460" y="135" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#1d4ed8" text-anchor="start" font-weight="bold">Order Service  «system boundary»</text>
+<rect x="490" y="160" width="580" height="250" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="780" y="181" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#1d4ed8" text-anchor="middle" font-style="italic">«container: Java 21 / Boot 3.x»</text>
+<text x="780" y="196" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Spring Boot Application</text>
+<text x="780" y="214" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">team code: controllers · services · entities</text>
+<text x="780" y="229" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">— chassis via starters —</text>
+<text x="780" y="244" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">core (correlation) · errors (ProblemDetail) · logging (JSON)</text>
+<text x="780" y="259" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">security (OIDC) · validation · openapi · observability</text>
+<text x="780" y="274" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">messaging (EventPublisher) · data-jpa · cache · resilience</text>
+<text x="780" y="289" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">audit · idempotency · feature flags</text>
+<rect x="490" y="470" width="270" height="150" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="625" y="491" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«container: database»</text>
+<text x="625" y="506" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">PostgreSQL</text>
+<text x="625" y="524" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">orders schema (Flyway)</text>
+<text x="625" y="539" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform_lock · platform_audit</text>
+<text x="625" y="554" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">platform_idempotency</text>
+<rect x="800" y="470" width="270" height="150" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="935" y="491" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«container: cache/store»</text>
+<text x="935" y="506" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Redis</text>
+<text x="935" y="524" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">cache entries (key convention)</text>
+<text x="935" y="539" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">rate-limit counters</text>
+<text x="935" y="554" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">distributed locks</text>
+<rect x="120" y="470" width="270" height="130" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="255" y="491" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external»</text>
+<text x="255" y="506" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Identity Provider</text>
+<text x="255" y="524" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">i</text>
+<text x="255" y="539" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="255" y="554" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="255" y="569" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">u</text>
+<text x="255" y="584" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e</text>
+<text x="255" y="599" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="255" y="614" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="255" y="629" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">J</text>
+<text x="255" y="644" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">W</text>
+<text x="255" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">T</text>
+<text x="255" y="674" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="255" y="689" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="255" y="704" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">·</text>
+<text x="255" y="719" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="255" y="734" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">J</text>
+<text x="255" y="749" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">W</text>
+<text x="255" y="764" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">K</text>
+<text x="255" y="779" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">S</text>
+<text x="255" y="794" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="255" y="809" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e</text>
+<text x="255" y="824" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="255" y="839" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">d</text>
+<text x="255" y="854" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">p</text>
+<text x="255" y="869" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">o</text>
+<text x="255" y="884" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">i</text>
+<text x="255" y="899" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="255" y="914" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<rect x="1180" y="160" width="250" height="130" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="1305" y="181" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«container: broker»</text>
+<text x="1305" y="196" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Kafka</text>
+<text x="1305" y="214" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">topics: acme.orders …</text>
+<text x="1305" y="229" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">DLQ: acme.orders.dlq</text>
+<rect x="1180" y="330" width="250" height="120" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1305" y="351" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external»</text>
+<text x="1305" y="366" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Other Services</text>
+<text x="1305" y="384" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">consume/produce</text>
+<text x="1305" y="399" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">integration events</text>
+<rect x="1180" y="490" width="250" height="120" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1305" y="511" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external»</text>
+<text x="1305" y="526" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Observability</text>
+<text x="1305" y="544" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">OTLP collector /</text>
+<text x="1305" y="559" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Prometheus scrape</text>
+<rect x="1180" y="650" width="250" height="110" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="1305" y="671" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«container»</text>
+<text x="1305" y="686" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Object Storage (S3)</text>
+<text x="1305" y="704" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">i</text>
+<text x="1305" y="719" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="1305" y="734" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">v</text>
+<text x="1305" y="749" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">o</text>
+<text x="1305" y="764" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">i</text>
+<text x="1305" y="779" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">c</text>
+<text x="1305" y="794" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e</text>
+<text x="1305" y="809" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<text x="1305" y="824" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">,</text>
+<text x="1305" y="839" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle"> </text>
+<text x="1305" y="854" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">a</text>
+<text x="1305" y="869" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<text x="1305" y="884" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<text x="1305" y="899" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">a</text>
+<text x="1305" y="914" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">c</text>
+<text x="1305" y="929" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">h</text>
+<text x="1305" y="944" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">m</text>
+<text x="1305" y="959" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">e</text>
+<text x="1305" y="974" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">n</text>
+<text x="1305" y="989" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">t</text>
+<text x="1305" y="1004" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">s</text>
+<line x1="300" y1="170" x2="490" y2="230" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="395" y="194" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">JSON/HTTPS + JWT</text>
+<line x1="620" y1="410" x2="620" y2="470" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="620" y="434" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">JDBC / JPA</text>
+<line x1="930" y1="410" x2="930" y2="470" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="930" y="434" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">Lettuce</text>
+<line x1="255" y1="470" x2="300" y2="240" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="240" y="445" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">validates tokens against JWKS</text>
+<line x1="1070" y1="230" x2="1180" y2="230" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1125" y="224" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">publish/subscribe (at-least-once)</text>
+<line x1="1180" y1="380" x2="1305" y2="290" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<line x1="1070" y1="330" x2="1180" y2="520" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1125" y="419" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">OTLP + /actuator/prometheus</text>
+<line x1="1070" y1="380" x2="1180" y2="690" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1125" y="529" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">streaming put/get</text>
+<text x="750" y="720" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle" font-style="italic">Everything inside the app labeled &#x27;chassis&#x27; arrives via platform starters — zero boilerplate in team code.</text>
+</svg>

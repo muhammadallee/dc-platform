@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Parent is Spring Boot's starter-parent, NOT the platform aggregator: this POM must stand
+       alone in application repos, and apps should inherit Boot's plugin defaults unmodified. -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <!-- Keep in lockstep with spring-boot.version in the aggregator (release checklist item). -->
+    <version>3.5.3</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.acme.platform</groupId>
+  <artifactId>platform-service-parent</artifactId>
+  <version>${revision}</version>
+  <packaging>pom</packaging>
+
+  <name>ACME Platform :: Service Parent</name>
+  <description>
+    The ONE parent application teams use. Deliberately small (target under ~120 lines):
+    Boot defaults + platform BOM + a few build conveniences. Capabilities are added by teams
+    as explicit starter dependencies (ADR-007: explicit dependencies) - nothing is auto-injected.
+  </description>
+
+  <properties>
+    <revision>0.1.0-SNAPSHOT</revision> <!-- resolved by flatten at deploy; reactor overrides via -Drevision -->
+    <java.version>21</java.version>
+    <maven.compiler.parameters>true</maven.compiler.parameters>
+    <platform.test.excludedGroups>docker</platform.test.excludedGroups>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- One import = the whole tested platform + third-party set. Upgrades = bump parent version. -->
+      <dependency>
+        <groupId>com.acme.platform</groupId>
+        <artifactId>platform-bom</artifactId>
+        <version>${revision}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <!-- Repackaged, layered jar + build-info (feeds /actuator/info and platform diagnostics). -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals><goal>build-info</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Same docker-tag convention as the platform so team tests behave identically. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludedGroups>${platform.test.excludedGroups}</excludedGroups>
+        </configuration>
+      </plugin>
+
+      <!-- Coverage report for services; thresholds are a team choice, so none imposed here. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.12</version>
+        <executions>
+          <execution><id>prepare-agent</id><goals><goal>prepare-agent</goal></goals></execution>
+          <execution><id>report</id><phase>verify</phase><goals><goal>report</goal></goals></execution>
+        </executions>
+      </plugin>
+
+      <!-- Resolves ${revision} when this parent itself is deployed from the platform reactor. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.6.0</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution><id>flatten</id><phase>process-resources</phase><goals><goal>flatten</goal></goals></execution>
+          <execution><id>flatten.clean</id><phase>clean</phase><goals><goal>clean</goal></goals></execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>docker</id>
+      <properties>
+        <platform.test.excludedGroups/>
+      </properties>
+    </profile>
+  </profiles>
+</project>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.acme.platform</groupId>
+    <artifactId>acme-platform</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>platform-parent</artifactId>
+  <packaging>pom</packaging>
+
+  <name>ACME Platform :: Parent (platform modules)</name>
+  <description>
+    Build conventions for the platform's OWN modules. Application teams never use this parent;
+    they use platform-service-parent. Custom gates (checkstyle, PlatformLayerRule, ArchUnit,
+    japicmp) are wired here in phase 2.
+  </description>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.acme.platform</groupId>
+        <artifactId>platform-dependencies</artifactId>
+        <version>${revision}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <!-- Test toolkit every platform module gets for free (versions from Boot's BOM). -->
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- Managed here, activated per phase:
+             phase 2: maven-checkstyle-plugin, japicmp-maven-plugin, custom enforcer rules -->
+        <plugin>
+          <groupId>com.github.siom79.japicmp</groupId>
+          <artifactId>japicmp-maven-plugin</artifactId>
+          <version>0.21.2</version>
+          <configuration>
+            <!-- Off until the first release exists to compare against (phase 4 flips this). -->
+            <skip>true</skip>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring-boot.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <release>21</release>
+          <parameters>true</parameters> <!-- Spring binds constructor params by name -->
+        </configuration>
+      </plugin>
+
+      <!-- JUnit tag 'docker' is excluded by default so the reactor builds with no Docker.
+           The 'docker' profile below clears the exclusion. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludedGroups>${platform.test.excludedGroups}</excludedGroups>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <excludedGroups>${platform.test.excludedGroups}</excludedGroups>
+        </configuration>
+        <executions>
+          <execution>
+            <goals><goal>integration-test</goal><goal>verify</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco-maven-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+          <!-- Coverage threshold (80%) is added in phase 2 together with exclusions,
+               so phase 1 POM-only modules don't trip it. -->
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>platform-enforcer</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion><version>[21,)</version></requireJavaVersion>
+                <requireMavenVersion><version>[3.9,)</version></requireMavenVersion>
+                <banDuplicatePomDependencyVersions/>
+                <dependencyConvergence/> <!-- exceptions require a decision-log entry, not an exclusion -->
+                <!-- phase 2 adds: PlatformLayerRule (custom), requireUpperBoundDeps, no-version-tags check -->
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <properties>
+    <platform.test.excludedGroups>docker</platform.test.excludedGroups>
+  </properties>
+
+  <profiles>
+    <!-- mvn -Pdocker verify : also runs @Tag("docker") suites (Testcontainers manages containers). -->
+    <profile>
+      <id>docker</id>
+      <properties>
+        <platform.test.excludedGroups/>
+      </properties>
+    </profile>
+  </profiles>
+</project>

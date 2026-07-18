@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.acme.platform</groupId>
+    <artifactId>acme-platform</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>platform-dependencies</artifactId>
+  <packaging>pom</packaging>
+
+  <name>ACME Platform :: Dependencies (third-party BOM)</name>
+  <description>
+    The ONLY place third-party versions are declared (constitution: no version tags outside build/).
+    Imports spring-boot-dependencies, then pins only what Boot does not manage.
+  </description>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Boot's curated universe first; everything below only ADDS, never overrides. -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
+           Phase 2: archunit-junit5, classgraph
+           Phase 4: logstash-logback-encoder (or ECS encoder), jspecify
+           Phase 5: springdoc-openapi-starter-webmvc-ui
+           Phase 6: mockwebserver (test)
+           Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)
+           Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <!-- Published as a standalone BOM: flatten strips the parent so consumers outside the
+           reactor can import it without resolving the aggregator. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <configuration>
+          <flattenMode>bom</flattenMode>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

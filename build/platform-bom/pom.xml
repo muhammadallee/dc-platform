@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.acme.platform</groupId>
+    <artifactId>acme-platform</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>platform-bom</artifactId>
+  <packaging>pom</packaging>
+
+  <name>ACME Platform :: BOM</name>
+  <description>
+    Every publishable platform artifact at the single train version, plus the third-party BOM.
+    Applications import ONLY this. Checklist: every new module is appended here in the same PR
+    (enforced by platform-build-maven-plugin:check-bom from phase 2).
+  </description>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Third-party alignment rides along so one import gives apps the whole tested set. -->
+      <dependency>
+        <groupId>com.acme.platform</groupId>
+        <artifactId>platform-dependencies</artifactId>
+        <version>${revision}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- ==== platform artifacts (appended per phase) ====
+      Phase 3 adds, e.g.:
+      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-starter-core</artifactId><version>${revision}</version></dependency>
+      -->
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <configuration>
+          <flattenMode>bom</flattenMode>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

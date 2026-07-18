@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 960" width="1400" height="960">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1400" height="960" fill="#ffffff"/>
+<text x="700" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">SAFe View — Platform as Architectural Runway</text>
+<text x="700" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">How the chassis maps onto Scaled Agile portfolio, ART and team levels</text>
+<rect x="70" y="92" width="1260" height="210" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.6"/>
+<text x="86" y="118" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#0f172a" text-anchor="start" font-weight="bold">Portfolio Level</text>
+<text x="1314" y="118" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" text-anchor="end" font-style="italic">intentional architecture defined here</text>
+<rect x="90" y="130" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="236" y="151" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Strategic Themes</text>
+<text x="236" y="169" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">developer productivity</text>
+<text x="236" y="184" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">operational excellence</text>
+<text x="236" y="199" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">compliance by default</text>
+<rect x="90" y="130" width="293.0" height="154" rx="6" fill="none" stroke="#6d28d9" stroke-width="1"/>
+<rect x="399.0" y="130" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="546" y="151" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Enabler Epic</text>
+<text x="546" y="169" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">&#x27;Enterprise Microservice</text>
+<text x="546" y="184" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">Chassis&#x27; — funded as a</text>
+<text x="546" y="199" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">long-lived platform product</text>
+<rect x="399.0" y="130" width="293.0" height="154" rx="6" fill="none" stroke="#6d28d9" stroke-width="1"/>
+<rect x="708.0" y="130" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="854" y="151" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Lean Budget &amp; Guardrails</text>
+<text x="854" y="169" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">platform team capacity</text>
+<text x="854" y="184" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">architecture constitution</text>
+<text x="854" y="199" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">= guardrail-as-code</text>
+<rect x="708.0" y="130" width="293.0" height="154" rx="6" fill="none" stroke="#6d28d9" stroke-width="1"/>
+<rect x="1017.0" y="130" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="1164" y="151" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Architectural Runway</text>
+<text x="1164" y="169" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">platform capabilities ARE</text>
+<text x="1164" y="184" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">the runway consumed by</text>
+<text x="1164" y="199" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">all value streams</text>
+<rect x="1017.0" y="130" width="293.0" height="154" rx="6" fill="none" stroke="#6d28d9" stroke-width="1"/>
+<rect x="70" y="332" width="1260" height="210" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="86" y="358" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#0f172a" text-anchor="start" font-weight="bold">Program / ART Level</text>
+<text x="1314" y="358" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" text-anchor="end" font-style="italic">SAFe &#x27;release train&#x27; maps 1:1 to the platform train</text>
+<rect x="90" y="370" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="236" y="391" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Platform Team = Enabler ART</text>
+<text x="236" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">builds &amp; operates the chassis</text>
+<text x="236" y="424" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">capability squads own slices</text>
+<text x="236" y="439" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">(CODEOWNERS)</text>
+<rect x="90" y="370" width="293.0" height="154" rx="6" fill="none" stroke="#b45309" stroke-width="1"/>
+<rect x="399.0" y="370" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="546" y="391" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">PI Cadence = Release Train</text>
+<text x="546" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">minor train every 6–8 weeks</text>
+<text x="546" y="424" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">patch trains on demand</text>
+<text x="546" y="439" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">PI objectives = phase milestones</text>
+<rect x="399.0" y="370" width="293.0" height="154" rx="6" fill="none" stroke="#b45309" stroke-width="1"/>
+<rect x="708.0" y="370" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="854" y="391" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">System Demo</text>
+<text x="854" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">golden-path script</text>
+<text x="854" y="424" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">example apps · smoke matrix</text>
+<text x="854" y="439" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">= demo-able every train</text>
+<rect x="708.0" y="370" width="293.0" height="154" rx="6" fill="none" stroke="#b45309" stroke-width="1"/>
+<rect x="1017.0" y="370" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="1164" y="391" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">CD Pipeline</text>
+<text x="1164" y="409" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">merge gates · nightly docker</text>
+<text x="1164" y="424" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">+ native + N-1 compat jobs</text>
+<text x="1164" y="439" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">tag-triggered releases</text>
+<rect x="1017.0" y="370" width="293.0" height="154" rx="6" fill="none" stroke="#b45309" stroke-width="1"/>
+<rect x="70" y="572" width="1260" height="210" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="86" y="598" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#0f172a" text-anchor="start" font-weight="bold">Team Level</text>
+<text x="1314" y="598" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#64748b" text-anchor="end" font-style="italic">emergent design within intentional guardrails</text>
+<rect x="90" y="610" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="236" y="631" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Stream-Aligned Teams</text>
+<text x="236" y="649" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">consume starters à la carte</text>
+<text x="236" y="664" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">archetype: service &lt; 10 min</text>
+<text x="236" y="679" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">upgrade = one version bump</text>
+<rect x="90" y="610" width="293.0" height="154" rx="6" fill="none" stroke="#047857" stroke-width="1"/>
+<rect x="399.0" y="610" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="546" y="631" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Enabler Stories</text>
+<text x="546" y="649" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">new capability / provider</text>
+<text x="546" y="664" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">runbooks/new-capability.md</text>
+<text x="546" y="679" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">is the story template</text>
+<rect x="399.0" y="610" width="293.0" height="154" rx="6" fill="none" stroke="#047857" stroke-width="1"/>
+<rect x="708.0" y="610" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="854" y="631" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Built-In Quality</text>
+<text x="854" y="649" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">ContextRunner matrices</text>
+<text x="854" y="664" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">TCK certification · coverage</text>
+<text x="854" y="679" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">constitution enforced in build</text>
+<rect x="708.0" y="610" width="293.0" height="154" rx="6" fill="none" stroke="#047857" stroke-width="1"/>
+<rect x="1017.0" y="610" width="293.0" height="154" rx="8" fill="#ffffff" stroke="#ffffff00" stroke-width="1.6"/>
+<text x="1164" y="631" font-family="Helvetica, Arial, sans-serif" font-size="12.5" fill="#0f172a" text-anchor="middle" font-weight="bold">Emergent Design</text>
+<text x="1164" y="649" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">customizers &amp; SPI providers</text>
+<text x="1164" y="664" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">let teams extend without</text>
+<text x="1164" y="679" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1e293b" text-anchor="middle">forking the platform</text>
+<rect x="1017.0" y="610" width="293.0" height="154" rx="6" fill="none" stroke="#047857" stroke-width="1"/>
+<line x1="700" y1="302" x2="700" y2="332" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="700" y="311" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">funds &amp; steers</text>
+<line x1="700" y1="542" x2="700" y2="572" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="700" y="551" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">delivers runway each PI / train</text>
+<line x1="700" y1="782" x2="700" y2="812" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<rect x="430" y="812" width="540" height="100" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="700" y="833" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Balance (SAFe principle)</text>
+<text x="700" y="851" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">Intentional architecture: constitution, ADRs, API/SPI contracts</text>
+<text x="700" y="866" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">+ Emergent design: customizers, providers, feature-gated evolution</text>
+</svg>

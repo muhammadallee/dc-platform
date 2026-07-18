@@ -1,0 +1,21 @@
+flowchart TB
+  l0["Application layer<br>Controller, Service, application.yml"]
+  l1["Starter layer<br>POM-only composition, one per capability-provider"]
+  l2["Auto-configuration layer<br>conditions, properties, customizers, back-off"]
+  l3["Implementation layer<br>kafka, rabbit, jpa, redis, s3, vault, fs, jdbc, inmemory"]
+  l4["SPI layer<br>provider contracts, TCK-certified"]
+  l5["API layer<br>consumer contracts, SemVer guaranteed"]
+  l6["core-api<br>correlation, error codes, capped at 25 public types"]
+  l7["Spring Boot 3.x and Spring Framework"]
+  l8["JVM - Java 21, virtual threads"]
+  l0 --> l1
+  l1 --> l2
+  l2 --> l3
+  l3 --> l4
+  l4 --> l5
+  l5 --> l6
+  l6 --> l7
+  l7 --> l8
+  rules["Constitution: downward-only edges, max depth 4,<br>no starter-to-starter, no impl-to-impl,<br>API never depends on implementation"]
+  rules -.- l1
+  rules -.- l5

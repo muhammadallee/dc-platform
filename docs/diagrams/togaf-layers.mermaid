@@ -1,0 +1,29 @@
+flowchart TB
+  subgraph biz["Business Architecture"]
+    b1["Product teams ship services fast with low cognitive load"]
+    b2["Platform org: capability owners, architecture board, CODEOWNERS"]
+    b3["Processes: release train, deprecation lifecycle, ADR governance"]
+  end
+  subgraph appa["Application Architecture"]
+    a1["Microservices on platform-service-parent plus a-la-carte starters"]
+    a2["Platform capabilities as reusable application services"]
+    a3["Extension model: customizer tier and TCK-certified provider tier"]
+  end
+  subgraph dataa["Data Architecture"]
+    da1["Integration event schemas: EventType name plus version"]
+    da2["Platform-owned tables: audit, lock, idempotency via Flyway"]
+    da3["Configuration data: acme.platform.* keys, secret references"]
+  end
+  subgraph tech["Technology Architecture"]
+    t1["Java 21 LTS, Spring Boot 3.x, Maven multi-module"]
+    t2["Kafka, RabbitMQ, PostgreSQL, Redis, S3, Vault"]
+    t3["Micrometer, Observation API, OTLP, Actuator"]
+  end
+  biz --> appa
+  appa --> dataa
+  dataa --> tech
+  xc["Cross-cutting concerns: security baseline, observability defaults, build-time governance gates"]
+  xc -.- biz
+  xc -.- appa
+  xc -.- dataa
+  xc -.- tech

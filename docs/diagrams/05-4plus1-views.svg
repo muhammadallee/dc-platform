@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1000" width="1500" height="1000">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1500" height="1000" fill="#ffffff"/>
+<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">4+1 Architectural View Model (Kruchten)</text>
+<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">The platform through five views — scenarios in the center bind them together</text>
+<rect x="70" y="100" width="620" height="360" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="380" y="121" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Logical View</text>
+<text x="380" y="139" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">WHAT the platform offers (capability slices)</text>
+<text x="380" y="154" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="380" y="169" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">core · errors · logging · validation · security/authz</text>
+<text x="380" y="184" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">observability · openapi · restclient · messaging · events</text>
+<text x="380" y="199" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">data-jpa · cache · redis · storage · secrets · flags</text>
+<text x="380" y="214" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">resilience · locking · scheduling · idempotency</text>
+<text x="380" y="229" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">ratelimit · audit · files · tenancy (optional)</text>
+<text x="380" y="244" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="380" y="259" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">each slice: API (consumers) + SPI (extenders)</text>
+<rect x="810" y="100" width="620" height="360" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="1120" y="121" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Development View</text>
+<text x="1120" y="139" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">HOW the code is organized (Maven monorepo)</text>
+<text x="1120" y="154" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="1120" y="169" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">build/  parents · BOMs · build-tools · maven-plugin</text>
+<text x="1120" y="184" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">&lt;cap&gt;/  -api  -spi  -&lt;provider&gt;  -autoconfigure  starter-*</text>
+<text x="1120" y="199" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">test/  test-api · starter-test · tck/*</text>
+<text x="1120" y="214" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">docs/  site + generated references     examples/  4 apps</text>
+<text x="1120" y="229" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="1120" y="244" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">gates: enforcer · ArchUnit · japicmp · coverage</text>
+<text x="1120" y="259" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">single ${revision} train · flatten CI-friendly versions</text>
+<rect x="70" y="560" width="620" height="360" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.6"/>
+<text x="380" y="581" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Process View</text>
+<text x="380" y="599" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">RUNTIME concurrency &amp; control flow</text>
+<text x="380" y="614" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="380" y="629" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">HTTP: CorrelationIdFilter → security chain → MVC</text>
+<text x="380" y="644" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">  → @Transactional service → ProblemDetail on error</text>
+<text x="380" y="659" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">events: publisher (blocking, observed) → transport;</text>
+<text x="380" y="674" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">  handlers on virtual-thread dispatchers, retry → DLQ</text>
+<text x="380" y="689" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">jobs: @LockedSchedule — single runner via LockManager</text>
+<text x="380" y="704" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">context propagation: MDC + Micrometer, no ThreadLocal leaks</text>
+<rect x="810" y="560" width="620" height="360" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1120" y="581" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Physical / Deployment View</text>
+<text x="1120" y="599" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">WHERE it runs</text>
+<text x="1120" y="614" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle"></text>
+<text x="1120" y="629" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">laptop: mvn verify — zero infra (inmemory/fs/H2/env)</text>
+<text x="1120" y="644" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">        optional docker-compose.local.yml for real infra</text>
+<text x="1120" y="659" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">cluster: service pods (layered Boot images, liveness/</text>
+<text x="1120" y="674" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">        readiness groups) · Kafka/Rabbit · PostgreSQL</text>
+<text x="1120" y="689" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">        Redis · Vault · S3 · OTLP collector · IdP</text>
+<text x="1120" y="704" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">artifacts: repository ← CI release train pipeline</text>
+<rect x="560" y="430" width="380" height="200" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="750" y="451" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#0f172a" text-anchor="middle" font-weight="bold">Scenarios  (+1)</text>
+<text x="750" y="469" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">S1  new service to first endpoint &lt; 10 min</text>
+<text x="750" y="484" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">S2  publish → handle event, at-least-once, DLQ</text>
+<text x="750" y="499" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">S3  upgrade = bump one version + upgrade-check</text>
+<text x="750" y="514" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">S4  add provider: implement SPI, pass TCK,</text>
+<text x="750" y="529" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#1e293b" text-anchor="middle">      no platform modules modified</text>
+<line x1="750" y1="530" x2="380" y2="460" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<line x1="750" y1="530" x2="1120" y2="460" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<line x1="750" y1="530" x2="380" y2="560" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<line x1="750" y1="530" x2="1120" y2="560" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)" stroke-dasharray="4,4"/>
+<text x="750" y="960" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#64748b" text-anchor="middle" font-style="italic">Scenarios validate every view: they are executable (golden-path.sh, smoke matrix, TCKs, upgrade-check).</text>
+</svg>

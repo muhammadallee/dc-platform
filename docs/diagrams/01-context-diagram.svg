@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 940" width="1500" height="940">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<rect x="0" y="0" width="1500" height="940" fill="#ffffff"/>
+<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">ACME Platform — System Context Diagram (C4 Level 1)</text>
+<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">Who and what interacts with the platform as a product</text>
+<circle cx="250" cy="100" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<rect x="140" y="118" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="250" y="139" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Application Teams</text>
+<text x="250" y="157" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">build services on the chassis</text>
+<circle cx="750" cy="100" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<rect x="640" y="118" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="750" y="139" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Platform Team</text>
+<text x="750" y="157" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">designs, builds, releases the train</text>
+<circle cx="1250" cy="100" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<rect x="1140" y="118" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
+<text x="1250" y="139" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">Extension Teams</text>
+<text x="1250" y="157" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">add providers via SPI + TCK</text>
+<rect x="550" y="380" width="400" height="190" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
+<text x="750" y="401" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#1d4ed8" text-anchor="middle" font-style="italic">«software system»</text>
+<text x="750" y="416" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#0f172a" text-anchor="middle" font-weight="bold">ACME Platform</text>
+<text x="750" y="434" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Enterprise Spring Boot chassis</text>
+<text x="750" y="449" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">parents · BOMs · starters · APIs/SPIs</text>
+<text x="750" y="464" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">auto-configuration · test kit · docs</text>
+<text x="750" y="479" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">one release-train version vX.Y.Z</text>
+<rect x="90" y="400" width="300" height="120" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="240" y="421" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external system»</text>
+<text x="240" y="436" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Artifact Repository</text>
+<text x="240" y="454" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Nexus / Artifactory</text>
+<text x="240" y="469" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">hosts platform + service artifacts</text>
+<rect x="1110" y="400" width="300" height="120" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1260" y="421" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external system»</text>
+<text x="1260" y="436" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">CI/CD</text>
+<text x="1260" y="454" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">merge gates: enforcer · ArchUnit</text>
+<text x="1260" y="469" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">japicmp · coverage · golden path</text>
+<rect x="90" y="760" width="300" height="110" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="240" y="781" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external system»</text>
+<text x="240" y="796" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Spring Boot / Maven Central</text>
+<text x="240" y="814" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">upstream framework +</text>
+<text x="240" y="829" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">third-party dependencies</text>
+<rect x="430" y="760" width="330" height="110" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
+<text x="595" y="781" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«external systems»</text>
+<text x="595" y="796" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Runtime Infrastructure</text>
+<text x="595" y="814" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Kafka · RabbitMQ · Redis</text>
+<text x="595" y="829" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">PostgreSQL · Vault · S3</text>
+<rect x="800" y="760" width="300" height="110" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="950" y="781" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external system»</text>
+<text x="950" y="796" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Identity Provider</text>
+<text x="950" y="814" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">OIDC / JWT issuer for the</text>
+<text x="950" y="829" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">security baseline</text>
+<rect x="1140" y="760" width="270" height="110" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+<text x="1275" y="781" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external system»</text>
+<text x="1275" y="796" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Observability Backend</text>
+<text x="1275" y="814" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">OTLP collector · Prometheus</text>
+<text x="1275" y="829" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">traces, metrics, logs</text>
+<line x1="250" y1="176" x2="590" y2="380" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="420" y="272" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">consume service-parent, BOM, starters</text>
+<line x1="750" y1="176" x2="750" y2="380" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="750" y="272" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">build, govern, release</text>
+<line x1="1250" y1="176" x2="910" y2="380" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1080" y="272" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">certify providers with TCKs</text>
+<line x1="550" y1="470" x2="390" y2="470" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="470" y="464" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">publishes train artifacts</text>
+<line x1="950" y1="470" x2="1110" y2="470" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1030" y="464" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">verified by</text>
+<line x1="600" y1="570" x2="300" y2="760" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="450" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">builds on / aligns versions via BOM</text>
+<line x1="700" y1="570" x2="620" y2="760" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="660" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">provides conventions + providers for</text>
+<line x1="820" y1="570" x2="930" y2="760" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="875" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">secure-by-default resource server</text>
+<line x1="920" y1="570" x2="1230" y2="760" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<text x="1075" y="659" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#475569" text-anchor="middle" style="paint-order:stroke;stroke:#ffffff;stroke-width:4px;stroke-linejoin:round">ships metrics/traces/logs conventions</text>
+</svg>

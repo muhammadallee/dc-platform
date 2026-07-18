@@ -1,0 +1,30 @@
+flowchart TB
+  subgraph scen["Scenarios - the plus-one view"]
+    s1["Golden path: archetype to running service in under 10 min"]
+    s2["Publish event, handler consumes with retry then DLQ"]
+    s3["Extend: custom ObjectStore provider passes the storage TCK"]
+    s4["Upgrade: bump one version, run upgrade-check, verify"]
+  end
+  subgraph logical["Logical View"]
+    l1["Capability slices: core, errors, logging, security, messaging, events, data, cache, storage, resilience, locking, flags, secrets, audit"]
+    l2["Two contract tiers: API for consumers, SPI for extenders"]
+  end
+  subgraph process["Process View"]
+    p1["HTTP: correlation filter, security chain, controller, ProblemDetail mapping"]
+    p2["Messaging: at-least-once, ack on return, nack on throw, retry then DLQ"]
+    p3["Virtual threads for blocking IO, distributed-lock guarded schedulers"]
+  end
+  subgraph devview["Development View"]
+    d1["Maven monorepo, single release-train version, one BOM"]
+    d2["Module kinds: api, spi, impl, autoconfigure, starter, test-support"]
+    d3["Gates as code: enforcer layer rules, ArchUnit, japicmp, jacoco 80"]
+  end
+  subgraph phys["Physical View"]
+    ph1["Service fat JARs on JVM 21 in containers"]
+    ph2["Kafka, RabbitMQ, PostgreSQL, Redis, S3, Vault"]
+    ph3["OTLP collector and Prometheus scrape"]
+  end
+  scen --- logical
+  scen --- process
+  scen --- devview
+  scen --- phys

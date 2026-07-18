@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Platform checkstyle: minimal and non-annoying by design (phase-02 spec).
+  Scope: imports hygiene, no System.out, javadoc on public types outside .internal., 140 columns.
+-->
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="error"/>
+
+  <module name="LineLength">
+    <property name="max" value="140"/>
+    <!-- Long URLs and import/package lines are not worth wrapping. -->
+    <property name="ignorePattern" value="^(package|import) .*|a href|https?://"/>
+  </module>
+
+  <module name="TreeWalker">
+    <module name="UnusedImports"/>
+    <module name="AvoidStarImport"/>
+    <module name="CustomImportOrder">
+      <property name="customImportOrderRules" value="STATIC###THIRD_PARTY_PACKAGE"/>
+      <property name="sortImportsInGroupAlphabetically" value="true"/>
+      <property name="separateLineBetweenGroups" value="true"/>
+    </module>
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="System\s*\.\s*(out|err)\s*\."/>
+      <property name="ignoreComments" value="true"/>
+      <property name="message" value="Use SLF4J instead of System.out/System.err (coding-standards §3)."/>
+    </module>
+    <module name="MissingJavadocType">
+      <property name="scope" value="public"/>
+    </module>
+  </module>
+
+  <!-- Javadoc is REQUIRED only outside .internal. packages (coding-standards §2). -->
+  <module name="SuppressionSingleFilter">
+    <property name="checks" value="MissingJavadocType"/>
+    <property name="files" value="[\\/]internal[\\/]"/>
+  </module>
+</module>

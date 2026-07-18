@@ -30,6 +30,12 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Managed so every module can declare its ArchConstitutionTest dependency version-less. -->
+      <dependency>
+        <groupId>com.acme.platform</groupId>
+        <artifactId>platform-build-tools</artifactId>
+        <version>${revision}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -45,15 +51,32 @@
   <build>
     <pluginManagement>
       <plugins>
-        <!-- Managed here, activated per phase:
-             phase 2: maven-checkstyle-plugin, japicmp-maven-plugin, custom enforcer rules -->
+        <!-- Binary compatibility gate. Fully configured, but platform.japicmp.skip=true keeps it
+             inert until the first release exists to compare against (phase 4 flips the property
+             after tag 0.1.0). api/spi modules opt into build-breaking via platform.japicmp.breakBuild. -->
         <plugin>
           <groupId>com.github.siom79.japicmp</groupId>
           <artifactId>japicmp-maven-plugin</artifactId>
           <version>0.21.2</version>
           <configuration>
-            <!-- Off until the first release exists to compare against (phase 4 flips this). -->
-            <skip>true</skip>
+            <skip>${platform.japicmp.skip}</skip>
+            <oldVersion>
+              <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>${project.artifactId}</artifactId>
+                <version>RELEASE</version>
+                <type>jar</type>
+              </dependency>
+            </oldVersion>
+            <parameter>
+              <onlyModified>true</onlyModified>
+              <excludes>
+                <exclude>*.internal.*</exclude>
+              </excludes>
+              <breakBuildOnBinaryIncompatibleModifications>${platform.japicmp.breakBuild}</breakBuildOnBinaryIncompatibleModifications>
+              <!-- First build after a rename/new module has no baseline: report, don't fail. -->
+              <ignoreMissingOldVersion>true</ignoreMissingOldVersion>
+            </parameter>
           </configuration>
         </plugin>
         <plugin>
@@ -100,6 +123,17 @@
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>${jacoco-maven-plugin.version}</version>
+        <configuration>
+          <!-- internal packages ARE counted (phase-02 spec); only generated code, autoconfigure
+               classes (covered by the ContextRunner matrix, mostly declarative) and config-props
+               records are excluded from the ratio. -->
+          <excludes>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/*AutoConfiguration.class</exclude>
+            <exclude>**/*AutoConfiguration$*.class</exclude>
+            <exclude>**/*Properties.class</exclude>
+          </excludes>
+        </configuration>
         <executions>
           <execution>
             <id>prepare-agent</id>
@@ -110,8 +144,25 @@
             <phase>verify</phase>
             <goals><goal>report</goal></goals>
           </execution>
-          <!-- Coverage threshold (80%) is added in phase 2 together with exclusions,
-               so phase 1 POM-only modules don't trip it. -->
+          <execution>
+            <id>check</id>
+            <goals><goal>check</goal></goals>
+            <configuration>
+              <haltOnFailure>true</haltOnFailure>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 
@@ -119,6 +170,14 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
         <version>3.5.0</version>
+        <dependencies>
+          <!-- Brings the custom platformLayerRule into the enforcer's runtime. -->
+          <dependency>
+            <groupId>com.acme.platform</groupId>
+            <artifactId>platform-build-tools</artifactId>
+            <version>${revision}</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <id>platform-enforcer</id>
@@ -129,9 +188,48 @@
                 <requireMavenVersion><version>[3.9,)</version></requireMavenVersion>
                 <banDuplicatePomDependencyVersions/>
                 <dependencyConvergence/> <!-- exceptions require a decision-log entry, not an exclusion -->
-                <!-- phase 2 adds: PlatformLayerRule (custom), requireUpperBoundDeps, no-version-tags check -->
+                <requireUpperBoundDeps/>
+                <!-- The dependency constitution: layer matrix, fan-out ceilings, version-tag ban. -->
+                <platformLayerRule/>
               </rules>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Shared checkstyle gate; config ships inside platform-build-tools. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.acme.platform</groupId>
+            <artifactId>platform-build-tools</artifactId>
+            <version>${revision}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <configLocation>checkstyle/platform-checkstyle.xml</configLocation>
+          <failOnViolation>true</failOnViolation>
+          <includeTestSourceDirectory>false</includeTestSourceDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>checkstyle</id>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.siom79.japicmp</groupId>
+        <artifactId>japicmp-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>japicmp</id>
+            <phase>verify</phase>
+            <goals><goal>cmp</goal></goals>
           </execution>
         </executions>
       </plugin>
@@ -140,6 +238,10 @@
 
   <properties>
     <platform.test.excludedGroups>docker</platform.test.excludedGroups>
+    <!-- japicmp stays off until the first release exists (phase 4 flips this after tag 0.1.0);
+         api/spi modules set breakBuild=true so ONLY contract artifacts break the build. -->
+    <platform.japicmp.skip>true</platform.japicmp.skip>
+    <platform.japicmp.breakBuild>false</platform.japicmp.breakBuild>
   </properties>
 
   <profiles>

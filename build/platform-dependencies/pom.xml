@@ -31,8 +31,19 @@
         <scope>import</scope>
       </dependency>
 
+      <!-- Phase 2: ArchUnit for every module's ArchConstitutionTest (Boot does not manage it). -->
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit</artifactId>
+        <version>${archunit.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${archunit.version}</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 2: archunit-junit5, classgraph
            Phase 4: logstash-logback-encoder (or ECS encoder), jspecify
            Phase 5: springdoc-openapi-starter-webmvc-ui
            Phase 6: mockwebserver (test)

@@ -32,7 +32,10 @@
         <scope>import</scope>
       </dependency>
 
-      <!-- ==== platform artifacts (appended per phase) ====
+      <!-- ==== platform artifacts (appended per phase) ==== -->
+      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-build-tools</artifactId><version>${revision}</version></dependency>
+
+      <!--
       Phase 3 adds, e.g.:
       <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>

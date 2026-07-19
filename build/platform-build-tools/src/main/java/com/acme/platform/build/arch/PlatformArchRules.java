@@ -2,7 +2,6 @@ package com.acme.platform.build.arch;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
@@ -57,7 +56,8 @@ public final class PlatformArchRules {
                         });
                     }
                 })
-                .because("internals are module-private (CLAUDE.md rule 5); use the api/spi types instead");
+                .because("internals are module-private (CLAUDE.md rule 5); use the api/spi types instead")
+                .allowEmptyShould(true); // fresh/POM-only modules have no classes yet
     }
 
     /** API root packages (com.acme.platform.&lt;cap&gt; and .annotation) stay dependency-poor. */
@@ -86,14 +86,16 @@ public final class PlatformArchRules {
         return ArchRuleDefinition.classes()
                 .that(inApiPackage)
                 .should().onlyDependOnClassesThat(allowedTarget)
-                .because("api packages carry contracts only: jdk + spring core annotations + core (CLAUDE.md rule 5)");
+                .because("api packages carry contracts only: jdk + spring core annotations + core (CLAUDE.md rule 5)")
+                .allowEmptyShould(true);
     }
 
     /** Constructor injection only (CLAUDE.md rule 6). Matches by name so Spring stays optional. */
     static ArchRule noFieldInjection() {
         return ArchRuleDefinition.noFields()
                 .should().beAnnotatedWith(AUTOWIRED)
-                .because("field injection is banned; use constructor injection (CLAUDE.md rule 6)");
+                .because("field injection is banned; use constructor injection (CLAUDE.md rule 6)")
+                .allowEmptyShould(true);
     }
 
     /** No cycles between capability slices. */
@@ -101,7 +103,8 @@ public final class PlatformArchRules {
         return SlicesRuleDefinition.slices()
                 .matching(PLATFORM_ROOT + ".(*)..")
                 .should().beFreeOfCycles()
-                .because("capabilities must form a DAG (CLAUDE.md rule 5)");
+                .because("capabilities must form a DAG (CLAUDE.md rule 5)")
+                .allowEmptyShould(true);
     }
 
     /** Auto-configurations are @AutoConfiguration-annotated and live in ..autoconfigure.. */
@@ -111,7 +114,8 @@ public final class PlatformArchRules {
                 .and().haveSimpleNameEndingWith("AutoConfiguration")
                 .should().beAnnotatedWith(AUTO_CONFIGURATION)
                 .andShould().resideInAPackage("..autoconfigure..")
-                .because("the canonical autoconfigure pattern (reference/autoconfigure-pattern.md) requires it");
+                .because("the canonical autoconfigure pattern (reference/autoconfigure-pattern.md) requires it")
+                .allowEmptyShould(true);
     }
 
     /** {@code @ConfigurationProperties} types are immutable records (CLAUDE.md rule 8). */
@@ -127,6 +131,7 @@ public final class PlatformArchRules {
                         }
                     }
                 })
-                .because("properties are immutable records with defaults in code (CLAUDE.md rule 8)");
+                .because("properties are immutable records with defaults in code (CLAUDE.md rule 8)")
+                .allowEmptyShould(true);
     }
 }

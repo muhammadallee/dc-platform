@@ -52,6 +52,7 @@
     <module>errors/platform-starter-errors</module>
     <module>logging/platform-logging-api</module>
     <module>logging/platform-logging-autoconfigure</module>
+    <module>logging/platform-starter-logging</module>
   </modules>
 
   <build>

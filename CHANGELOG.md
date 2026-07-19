@@ -12,6 +12,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-starter-logging` — POM-only starter (autoconfigure +
+  logstash-logback-encoder); `docs/modules/logging.md`.
 - Phase 4: `platform-logging-autoconfigure` — `PlatformLoggingEnvironmentPostProcessor`
   (spring.factories; the one allowed legacy registration) defaulting `logging.config` to the
   shipped `logback-platform.xml` (logstash JSON, ECS-ish fields `@timestamp`/`level`/`logger`/

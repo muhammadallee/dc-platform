@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-logging</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Logging :: Starter</name>
+  <description>
+    Structured JSON logs for every DC platform service: logstash-encoded stdout with service and
+    correlation fields, console fallback on the local profile.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5); logging-api transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-logging-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- The named runtime lib: logback-platform.xml needs the encoder on the classpath
+         (optional in the autoconfigure module so console-only consumers can skip it). -->
+    <dependency>
+      <groupId>net.logstash.logback</groupId>
+      <artifactId>logstash-logback-encoder</artifactId>
+    </dependency>
+  </dependencies>
+</project>

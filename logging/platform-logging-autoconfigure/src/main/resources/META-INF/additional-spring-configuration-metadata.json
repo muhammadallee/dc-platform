@@ -1,0 +1,14 @@
+{
+  "properties": [],
+  "hints": [
+    {
+      "name": "logging.config",
+      "values": [
+        {
+          "value": "classpath:ae/gov/dubaicustoms/platform/logging/logback-platform.xml",
+          "description": "Platform JSON logging (the default PlatformLoggingEnvironmentPostProcessor applies via the lowest-precedence 'platform-logging-defaults' property source; any user-set value wins)."
+        }
+      ]
+    }
+  ]
+}

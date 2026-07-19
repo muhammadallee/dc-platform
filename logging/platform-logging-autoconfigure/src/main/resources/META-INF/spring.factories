@@ -1,0 +1,4 @@
+# The ONE legacy spring.factories registration the platform allows: logging must be configured
+# BEFORE the application context exists, so AutoConfiguration.imports is too late.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformLoggingEnvironmentPostProcessor

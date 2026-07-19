@@ -12,6 +12,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-logging-autoconfigure` — `PlatformLoggingEnvironmentPostProcessor`
+  (spring.factories; the one allowed legacy registration) defaulting `logging.config` to the
+  shipped `logback-platform.xml` (logstash JSON, ECS-ish fields `@timestamp`/`level`/`logger`/
+  `message`/`service`/`correlationId`/`stack_trace`) via the lowest-precedence
+  `platform-logging-defaults` source; console fallback on the `local` profile; kill switch
+  `dc.platform.logging.enabled`; banner line reports the effective format.
 - Phase 4: `platform-logging-api` — `Kv.of(key, value)` structured-argument helper and the
   `LogSanitizer` customizer SPI-lite; pure JDK, no logstash/slf4j types in signatures.
 - Phase 4: `platform-starter-errors` — POM-only starter for the errors capability (autoconfigure

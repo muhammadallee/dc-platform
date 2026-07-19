@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Platform JSON logging: one logstash-encoded line per event on stdout, ECS-ish field names
+     (@timestamp, level, logger, message, service, correlationId via MDC, stack_trace).
+     Activated by PlatformLoggingEnvironmentPostProcessor defaulting logging.config to this file;
+     Boot processes it, so <springProperty> works. Setting logging.config yourself replaces it. -->
+<configuration>
+
+  <springProperty name="service" source="dc.platform.logging.service-name" defaultValue="application"/>
+  <springProperty name="includeMdc" source="dc.platform.logging.include-mdc" defaultValue="true"/>
+
+  <appender name="PLATFORM_JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <!-- correlationId (and everything else the core filter publishes) rides in via MDC. -->
+      <includeMdc>${includeMdc}</includeMdc>
+      <customFields>{"service":"${service}"}</customFields>
+      <fieldNames>
+        <logger>logger</logger>
+        <!-- Noise for dashboards; drop rather than rename. -->
+        <thread>[ignore]</thread>
+        <version>[ignore]</version>
+        <levelValue>[ignore]</levelValue>
+      </fieldNames>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="PLATFORM_JSON"/>
+  </root>
+
+</configuration>

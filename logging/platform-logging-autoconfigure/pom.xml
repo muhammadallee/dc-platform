@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-logging-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Logging :: Auto Configuration</name>
+  <description>
+    Auto-configuration for the logging capability: an EnvironmentPostProcessor pointing the
+    logging system at the platform JSON logback configuration (console fallback for the local
+    profile), plus the capability banner line.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api (+ core-api for the CapabilityDescriptor contract). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-logging-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- JSON encoder used by logback-platform.xml; optional so the choice of shipping it stays
+         with the starter (console-only consumers do not need it on the classpath). -->
+    <dependency>
+      <groupId>net.logstash.logback</groupId>
+      <artifactId>logstash-logback-encoder</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Generates config metadata from the properties record at compile time. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boots a real (non-web) Spring application in tests so the EPP + logback-platform.xml
+         run end to end and stdout can be asserted as JSON. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -43,8 +43,16 @@
         <version>${archunit.version}</version>
       </dependency>
 
+      <!-- Phase 3: classgraph backs core-api's executable public-type-count cap (test scope there).
+           Boot's BOM does not manage it. jspecify needs NO pin: Boot 4.x manages 1.0.0. -->
+      <dependency>
+        <groupId>io.github.classgraph</groupId>
+        <artifactId>classgraph</artifactId>
+        <version>4.8.184</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 4: logstash-logback-encoder (or ECS encoder), jspecify
+           Phase 4: logstash-logback-encoder (or ECS encoder)
            Phase 5: springdoc-openapi-starter-webmvc-ui
            Phase 6: mockwebserver (test)
            Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)

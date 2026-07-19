@@ -51,8 +51,14 @@
         <version>4.8.184</version>
       </dependency>
 
+      <!-- Phase 4: JSON log encoder behind platform-logging (Boot does not manage it). -->
+      <dependency>
+        <groupId>net.logstash.logback</groupId>
+        <artifactId>logstash-logback-encoder</artifactId>
+        <version>8.1</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 4: logstash-logback-encoder (or ECS encoder)
            Phase 5: springdoc-openapi-starter-webmvc-ui
            Phase 6: mockwebserver (test)
            Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)

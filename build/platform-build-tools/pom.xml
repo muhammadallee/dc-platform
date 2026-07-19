@@ -35,6 +35,20 @@
     <assertj.version>3.26.3</assertj.version>
   </properties>
 
+  <dependencyManagement>
+    <dependencies>
+      <!-- Test-only convenience: versions for the whitelist fixtures (spring-web, jakarta.validation)
+           come from Boot's BOM instead of hand-pinned literals. -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <!-- New-style (3.2.1+) enforcer rule API; the plugin provides it at run time. -->
     <dependency>
@@ -82,6 +96,18 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
       <version>${spring-boot.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Test-only: fixtures proving the per-capability api whitelist admits ProblemDetail for
+         errors / jakarta.validation for validation, and ONLY there. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

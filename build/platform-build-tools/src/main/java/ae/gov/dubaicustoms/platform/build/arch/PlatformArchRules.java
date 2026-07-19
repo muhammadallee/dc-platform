@@ -8,6 +8,8 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
 import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
+import java.util.Map;
+import java.util.Set;
 
 // Bytecode-level half of the constitution: rules the POM-level PlatformLayerRule cannot see
 // (package boundaries, injection style, cycles). Every module runs these via ArchConstitutionTest.
@@ -60,6 +62,17 @@ public final class PlatformArchRules {
                 .allowEmptyShould(true); // fresh/POM-only modules have no classes yet
     }
 
+    /**
+     * The ONLY sanctioned third-party exceptions to "api packages carry contracts only", keyed by
+     * capability. Each entry is a standard model the capability's contract is defined in terms of:
+     * errors — {@code org.springframework.http} because ProblemDetail IS the RFC-9457 model
+     * (phase-04 ADR, errors-api README); validation — {@code jakarta.validation} because Bean
+     * Validation constraints must be meta-annotated with it. Additions require an ADR.
+     */
+    private static final Map<String, Set<String>> API_STANDARD_MODEL_PACKAGES = Map.of(
+            "errors", Set.of("org.springframework.http"),
+            "validation", Set.of("jakarta.validation"));
+
     /** API root packages (ae.gov.dubaicustoms.platform.&lt;cap&gt; and .annotation) stay dependency-poor. */
     static ArchRule apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore() {
         DescribedPredicate<JavaClass> inApiPackage = new DescribedPredicate<>(
@@ -69,25 +82,50 @@ public final class PlatformArchRules {
                 return clazz.getPackageName().matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+(\\.annotation)?");
             }
         };
-        DescribedPredicate<JavaClass> allowedTarget = new DescribedPredicate<>(
-                "jdk, spring core annotations, jspecify, or ae.gov.dubaicustoms.platform.core") {
-            @Override
-            public boolean test(JavaClass target) {
-                String pkg = target.getPackageName();
-                return pkg.isEmpty() // primitives and arrays
-                        || pkg.startsWith("java") || pkg.startsWith("jdk")
-                        || pkg.startsWith("org.springframework.core.annotation")
-                        || pkg.startsWith("org.springframework.lang")
-                        || pkg.startsWith("org.jspecify")
-                        || pkg.startsWith(PLATFORM_ROOT + ".core")
-                        || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+(\\.annotation)?"); // own api root
-            }
-        };
         return ArchRuleDefinition.classes()
                 .that(inApiPackage)
-                .should().onlyDependOnClassesThat(allowedTarget)
-                .because("api packages carry contracts only: jdk + spring core annotations + core (CLAUDE.md rule 5)")
+                .should(new ArchCondition<>(
+                        "depend only on jdk, spring core annotations, jspecify, core, own capability, "
+                                + "or the capability's whitelisted standard model") {
+                    @Override
+                    public void check(JavaClass origin, ConditionEvents events) {
+                        String capabilityPackage = capabilityPackageOf(origin.getPackageName());
+                        Set<String> standardModels = API_STANDARD_MODEL_PACKAGES.getOrDefault(
+                                capabilityPackage.substring(PLATFORM_ROOT.length() + 1), Set.of());
+                        origin.getDirectDependenciesFromSelf().forEach(dep -> {
+                            String pkg = dep.getTargetClass().getPackageName();
+                            boolean allowed = isUniversallyAllowedApiTarget(pkg)
+                                    // own capability: e.g. constraint annotations referencing
+                                    // their validators under .internal
+                                    || pkg.startsWith(capabilityPackage)
+                                    || standardModels.stream().anyMatch(pkg::startsWith);
+                            if (!allowed) {
+                                events.add(SimpleConditionEvent.violated(origin, dep.getDescription()));
+                            }
+                        });
+                    }
+                })
+                .because("api packages carry contracts only: jdk + spring core annotations + core, plus "
+                        + "per-capability standard models (CLAUDE.md rule 5)")
                 .allowEmptyShould(true);
+    }
+
+    /** Targets every api root package may use, regardless of capability. */
+    private static boolean isUniversallyAllowedApiTarget(String pkg) {
+        return pkg.isEmpty() // primitives and arrays
+                || pkg.startsWith("java") || pkg.startsWith("jdk")
+                || pkg.startsWith("org.springframework.core.annotation")
+                || pkg.startsWith("org.springframework.lang")
+                || pkg.startsWith("org.jspecify")
+                || pkg.startsWith(PLATFORM_ROOT + ".core")
+                || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+(\\.annotation)?"); // any api root
+    }
+
+    /** ae.gov.dubaicustoms.platform.errors[.annotation] -> ae.gov.dubaicustoms.platform.errors */
+    private static String capabilityPackageOf(String apiPackage) {
+        String rest = apiPackage.substring(PLATFORM_ROOT.length() + 1);
+        int dot = rest.indexOf('.');
+        return dot < 0 ? apiPackage : PLATFORM_ROOT + "." + rest.substring(0, dot);
     }
 
     /** Constructor injection only (CLAUDE.md rule 6). Matches by name so Spring stays optional. */

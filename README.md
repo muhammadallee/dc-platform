@@ -6,9 +6,13 @@ one `@SpringBootApplication`, a controller and a service — conventions handle 
 ## Build
 
 ```bash
-mvn -T1C verify            # full build, no Docker required
+mvn -T1C verify            # full build, no Docker required (gates: checkstyle, layer rule, coverage)
 mvn -Pdocker verify        # additionally runs @Tag("docker") infra tests (needs Docker)
 mvn -T1C install           # install locally to build apps against ${revision}
+
+# after an install: scaffold a module / check BOM completeness (see docs/decisions D2)
+mvn com.acme.platform:platform-build-maven-plugin:new-module -Dcapability=<cap> -Dkind=api
+mvn com.acme.platform:platform-build-maven-plugin:check-bom
 ```
 
 ## Use (application teams)

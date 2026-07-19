@@ -1,0 +1,45 @@
+# CI for acme-platform (phase-02 spec, section 3).
+#  - build: full no-Docker verify + BOM completeness check; every push/PR
+#  - docker-nightly: additionally runs the @Tag("docker") suites; nightly cron only
+# TODO(stretch, phase-02): PR path-filter incremental build (build only affected modules + dependents).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven # caches ~/.m2/repository keyed on **/pom.xml hashes
+      - name: Build and verify (no Docker, gates active)
+        run: mvn -B -T1C verify
+      # check-bom cannot bind to aggregator verify (the plugin is built by this same reactor;
+      # see docs/decisions/decision-log.md D2), so install it and invoke the goal explicitly.
+      - name: Install build plugin for check-bom
+        run: mvn -B -q -T1C -pl build/platform-build-maven-plugin -am install -DskipTests
+      - name: BOM completeness (check-bom)
+        run: mvn -B com.acme.platform:platform-build-maven-plugin:check-bom
+
+  docker-nightly:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Verify including @Tag("docker") suites (Testcontainers manages containers)
+        run: mvn -B -Pdocker verify

@@ -25,7 +25,7 @@
   <properties>
     <!-- Versions are legal in build/ modules (the no-version rule exempts them). -->
     <maven.version>3.9.9</maven.version>
-    <maven-plugin-tools.version>3.15.1</maven-plugin-tools.version>
+    <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version> <!-- 3.15.1 cannot read Java 25 class files -->
     <junit.version>5.11.4</junit.version>
     <assertj.version>3.26.3</assertj.version>
   </properties>

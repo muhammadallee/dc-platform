@@ -2,7 +2,7 @@
 
 **Audience:** Claude Code, executing incrementally on a local machine.
 **Repo name:** `acme-platform` · **groupId:** `com.acme.platform` · **version scheme:** `${revision}` (start `0.1.0-SNAPSHOT`)
-**Toolchain:** Java 21 (Temurin), Maven 3.9+, Docker Desktop *optional* (only for `-Pdocker` profiles), Spring Boot latest stable 3.x.
+**Toolchain:** Java 25, Maven 3.9+, Docker Desktop *optional* (only for `-Pdocker` profiles), Spring Boot latest stable 4.x (amended from 3.x — decision D6).
 
 ---
 

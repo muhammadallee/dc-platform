@@ -5,6 +5,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Changed
+- Platform baseline moved to Java 25 and Spring Boot 4.1.0 (decision D6); toolchain plugins bumped
+  for Java 25 class files (jacoco, sisu, maven-plugin-tools, enforcer, japicmp, archunit, flatten).
+
 ### Added
 - Phase 1: reactor foundation — aggregator, `platform-parent`, `platform-service-parent`,
   `platform-bom`, `platform-dependencies`, optional local docker compose, repo hygiene.

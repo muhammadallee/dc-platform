@@ -18,20 +18,20 @@
     <revision>0.1.0-SNAPSHOT</revision>
 
     <!-- The one place the Spring Boot line is chosen. Bump here to move the whole platform.
-         TODO before first build: set to the latest stable Boot 3.x. -->
-    <spring-boot.version>3.5.3</spring-boot.version>
+         Boot 4.x baseline per decision D6 (docs/decisions/decision-log.md). -->
+    <spring-boot.version>4.1.0</spring-boot.version>
 
-    <java.version>21</java.version>
-    <maven.compiler.release>21</maven.compiler.release>
+    <java.version>25</java.version>
+    <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!-- Reproducible builds: fixed timestamp in archives. Update once per release train. -->
     <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
 
     <!-- Plugin/library versions used by more than one POM in build/ live here so they can't drift. -->
-    <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
-    <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
-    <archunit.version>1.4.0</archunit.version>
+    <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+    <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version> <!-- 0.8.14+ required for Java 25 class files -->
+    <archunit.version>1.4.2</archunit.version>
   </properties>
 
   <modules>

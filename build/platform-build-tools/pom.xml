@@ -23,9 +23,13 @@
   </description>
 
   <properties>
+    <!-- This artifact is loaded INSIDE Maven's own JVM (enforcer rule discovery uses Maven's
+         embedded sisu bytecode scanner, which cannot read Java 25 class files on Maven 3.9.x).
+         Compile to 21 so the rule stays discoverable; it still runs fine on the Java 25 toolchain. -->
+    <maven.compiler.release>21</maven.compiler.release>
     <!-- Versions are legal in build/ modules (the no-version rule exempts them). -->
     <maven.version>3.9.9</maven.version>
-    <enforcer-api.version>3.5.0</enforcer-api.version>
+    <enforcer-api.version>3.6.3</enforcer-api.version> <!-- keep in lockstep with platform-parent's enforcer plugin -->
     <!-- archunit.version comes from the root aggregator (shared with platform-dependencies). -->
     <junit.version>5.11.4</junit.version>
     <assertj.version>3.26.3</assertj.version>
@@ -88,7 +92,7 @@
       <plugin>
         <groupId>org.eclipse.sisu</groupId>
         <artifactId>sisu-maven-plugin</artifactId>
-        <version>0.9.0.M3</version>
+        <version>1.0.1</version> <!-- 0.9.x cannot read Java 25 class files -->
         <executions>
           <execution>
             <id>index</id>

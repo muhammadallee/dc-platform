@@ -28,3 +28,16 @@ One line of context per decision; details live in the commit bodies referenced.
   parent/BOM exclusion.
 - **Spring-free build-tools.** `PlatformArchRules` matches Spring annotations by fully-qualified
   NAME, so build-tools has no Spring dependency and the rules run in modules where Spring is absent.
+
+## Pre-phase-3 baseline amendments
+
+- **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's
+  "Java 21, Spring Boot latest stable 3.x": the platform moves to Java 25 and Boot 4.1.0 BEFORE any
+  capability code exists, when the cost is purely build plumbing. Toolchain bumps required for
+  Java 25 class files (major 69): jacoco 0.8.15, sisu-maven-plugin 1.0.1, maven-plugin-tools 3.15.2,
+  maven-enforcer-plugin/enforcer-api 3.6.3, japicmp 0.26.1, archunit 1.4.2, flatten 1.7.3.
+  Boot 4 note: the modularized starters publish NEW canonical names (e.g.
+  `spring-boot-starter-webmvc`) while the classic names the specs reference
+  (`spring-boot-starter-web`, `spring-boot-autoconfigure`, `spring-boot-starter-test`) are still
+  published at 4.1.0, so spec references remain valid; prefer the new names in new code where the
+  spec does not pin one.

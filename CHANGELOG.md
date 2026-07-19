@@ -12,6 +12,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 3: `platform-core-autoconfigure` — `CoreContextAutoConfiguration` (correlation-id servlet
+  filter at highest precedence, kill switch `dc.platform.core.enabled`) and
+  `PlatformBannerAutoConfiguration` (`platform: core[ACTIVE], …` startup line collected from
+  `CapabilityDescriptor` beans in `ae.gov.dubaicustoms.platform.core.report`).
 - Phase 3: `platform-core-api` — `@PlatformApi`/`@PlatformInternal` markers, `PlatformException` +
   `ErrorCode` (`DC-<CAP>-<NNNN>`), `CorrelationId` + MDC-backed `RequestContext`; public API surface
   capped at 25 types by an executable test.

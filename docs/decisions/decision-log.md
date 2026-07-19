@@ -29,6 +29,17 @@ One line of context per decision; details live in the commit bodies referenced.
 - **Spring-free build-tools.** `PlatformArchRules` matches Spring annotations by fully-qualified
   NAME, so build-tools has no Spring dependency and the rules run in modules where Spring is absent.
 
+## Phase 3 — core
+
+- **D8 — module builds include the third-party BOM.** Maven 3.9's `-am` does not pull
+  import-scoped POMs into the reactor subset, so the per-module loop is
+  `mvn -T1C -pl build/platform-dependencies,<module> -am verify` (or run the root build) until
+  `platform-dependencies` is in the local repository. Root `mvn -T1C verify` is unaffected.
+- **D9 — no customizer SPI in core.** The matrix's "customizers apply in order" case has no
+  subject (the spec defines no core customizer); it is covered by the ordering-behavior tests
+  instead (filter registered at `Ordered.HIGHEST_PRECEDENCE`, banner output sorted by name).
+  A customizer interface would have invented public API the spec does not define.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

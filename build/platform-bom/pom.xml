@@ -34,8 +34,8 @@
 
       <!-- ==== platform artifacts (appended per phase) ==== -->
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-build-tools</artifactId><version>${revision}</version></dependency>
-
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

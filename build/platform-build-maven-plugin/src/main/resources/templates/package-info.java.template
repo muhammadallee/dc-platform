@@ -1,0 +1,6 @@
+/**
+ * TODO: overview of the @capability@ module: what it offers, who consumes it, key entry points.
+ *
+ * @since 0.1.0
+ */
+package @package@;

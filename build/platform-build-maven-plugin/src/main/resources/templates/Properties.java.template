@@ -1,0 +1,18 @@
+package @package@;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
+/**
+ * Configuration for the @capability@ capability. Bound from {@code acme.platform.@capability@.*}.
+ *
+ * <p>Immutable; defaults live in code (see specs/reference/property-conventions.md).
+ * TODO: add the real settings with javadoc on each component.
+ *
+ * @param enabled master kill switch for the capability
+ * @since 0.1.0
+ */
+@ConfigurationProperties(prefix = "acme.platform.@capability@")
+public record @Cap@Properties(
+        @DefaultValue("true") boolean enabled) {
+}

@@ -1,0 +1,28 @@
+package @package@;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+
+/** Mandatory ContextRunner matrix (specs/reference/autoconfigure-pattern.md, section 4). */
+class @Cap@AutoConfigurationTest {
+
+    private final ApplicationContextRunner runner = new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(@Cap@AutoConfiguration.class));
+
+    @Test
+    void activeByDefault() {
+        runner.run(ctx -> assertThat(ctx).hasSingleBean(@Cap@AutoConfiguration.class));
+    }
+
+    @Test
+    void killSwitchDisables() {
+        runner.withPropertyValues("acme.platform.@capability@.enabled=false")
+                .run(ctx -> assertThat(ctx).doesNotHaveBean(@Cap@AutoConfiguration.class));
+    }
+
+    // TODO(matrix): backsOffWhenUserBeanPresent, inactiveWhenClassMissing (FilteredClassLoader),
+    // customizersApplyInOrder - complete these when the main bean exists.
+}

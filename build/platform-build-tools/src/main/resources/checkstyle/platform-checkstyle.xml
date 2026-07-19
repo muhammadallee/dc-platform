@@ -39,4 +39,10 @@
     <property name="checks" value="MissingJavadocType"/>
     <property name="files" value="[\\/]internal[\\/]"/>
   </module>
+  <!-- Auto-configuration classes use the mandated leading /* comment block */ instead of javadoc
+       (coding-standards §2), so the javadoc requirement does not apply to them. -->
+  <module name="SuppressionSingleFilter">
+    <property name="checks" value="MissingJavadocType"/>
+    <property name="files" value=".*AutoConfiguration\.java$"/>
+  </module>
 </module>

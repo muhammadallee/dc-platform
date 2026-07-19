@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.acme.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>@artifactId@</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>ACME Platform :: @Cap@ :: Starter</name>
+  <description>TODO: what an application gets by adding this starter.</description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named impl(s) (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>com.acme.platform</groupId>
+      <artifactId>platform-@capability@-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- TODO: add the named impl this starter selects, e.g. platform-@capability@-@provider@. -->
+  </dependencies>
+</project>

@@ -46,6 +46,8 @@
     <module>core/platform-core-api</module>
     <module>core/platform-core-autoconfigure</module>
     <module>core/platform-starter-core</module>
+    <!-- Phase 4: errors, logging, validation slices. -->
+    <module>errors/platform-errors-api</module>
   </modules>
 
   <build>

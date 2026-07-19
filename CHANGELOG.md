@@ -12,6 +12,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-errors-api` — `BusinessException`/`NotFoundException`/`ConflictException`
+  with `HttpStatusHint`, and the `ProblemDetailCustomizer` SPI-lite; sanctioned `spring-web`
+  dependency because `ProblemDetail` is the RFC-9457 model (decision D11).
+- Phase 4: `CapabilityDescriptor` report contract moved from core-autoconfigure to core-api so
+  capability auto-configurations can register descriptors constitutionally (decision D12).
 - Phase 3: `platform-starter-core` — the smallest useful chassis (POM-only starter: core-api +
   core-autoconfigure + `spring-boot-starter`); `docs/modules/core.md`; service-parent README
   usage snippet (capabilities stay explicit, ADR-007).

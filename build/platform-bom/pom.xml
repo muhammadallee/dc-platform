@@ -37,6 +37,7 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-core</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-api</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-errors-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Errors :: API</name>
+  <description>
+    The business exception hierarchy (BusinessException, NotFoundException, ConflictException)
+    with HTTP status hints, and the ProblemDetailCustomizer SPI-lite. Depends on spring-web
+    because ProblemDetail IS the RFC-9457 standard model (see README, decision D11).
+  </description>
+
+  <!-- Contract artifact: binary-incompatible changes must break the build once a release
+       baseline exists (platform-parent wires japicmp; the skip flag flips after 0.1.0). -->
+  <properties>
+    <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
+  </properties>
+
+  <dependencies>
+    <!-- api -> core-api only (CLAUDE.md rule 5): PlatformException/ErrorCode live there. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Sanctioned exception to "no 3rd-party types in api signatures": ProblemDetail is the
+         RFC-9457 model itself, not an implementation detail (README ADR note, decision D11).
+         The ArchUnit whitelist admits org.springframework.http for this capability only. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

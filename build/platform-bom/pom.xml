@@ -40,6 +40,7 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-errors</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-api</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

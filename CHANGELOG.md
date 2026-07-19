@@ -12,6 +12,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-logging-api` — `Kv.of(key, value)` structured-argument helper and the
+  `LogSanitizer` customizer SPI-lite; pure JDK, no logstash/slf4j types in signatures.
 - Phase 4: `platform-starter-errors` — POM-only starter for the errors capability (autoconfigure
   only; the service brings its own web stack); `docs/modules/errors.md`.
 - Phase 4: `platform-errors-autoconfigure` — `PlatformErrorHandlingAutoConfiguration` registering

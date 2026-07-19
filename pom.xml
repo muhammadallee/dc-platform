@@ -50,6 +50,7 @@
     <module>errors/platform-errors-api</module>
     <module>errors/platform-errors-autoconfigure</module>
     <module>errors/platform-starter-errors</module>
+    <module>logging/platform-logging-api</module>
   </modules>
 
   <build>

@@ -12,6 +12,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-starter-errors` — POM-only starter for the errors capability (autoconfigure
+  only; the service brings its own web stack); `docs/modules/errors.md`.
 - Phase 4: `platform-errors-autoconfigure` — `PlatformErrorHandlingAutoConfiguration` registering
   the RFC-9457 advice pair (`platformExceptionHandler` + `platformValidationExceptionHandler`,
   kill switch `dc.platform.errors.enabled`): status from `HttpStatusHint`, `type` = base URI +

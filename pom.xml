@@ -49,6 +49,7 @@
     <!-- Phase 4: errors, logging, validation slices. -->
     <module>errors/platform-errors-api</module>
     <module>errors/platform-errors-autoconfigure</module>
+    <module>errors/platform-starter-errors</module>
   </modules>
 
   <build>

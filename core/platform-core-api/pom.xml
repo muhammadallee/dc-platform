@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-core-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Core :: API</name>
+  <description>
+    The platform's shared public contracts: API stability markers, the PlatformException/ErrorCode
+    model, and the correlation request context. Capped at 25 public types forever (enforced by
+    ApiSurfaceTest); Spring-free by design.
+  </description>
+
+  <!-- This is a contract artifact: binary-incompatible changes must break the build once a
+       release baseline exists (platform-parent wires japicmp; the skip flag flips in phase 4). -->
+  <properties>
+    <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
+  </properties>
+
+  <dependencies>
+    <!-- RequestContext is MDC-backed (spec phase-03 §1); slf4j never appears in signatures. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <!-- Nullability annotations only (JSpecify); managed by Boot's BOM. -->
+    <dependency>
+      <groupId>org.jspecify</groupId>
+      <artifactId>jspecify</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Backs ApiSurfaceTest: the "at most 25 public types" cap made executable. -->
+    <dependency>
+      <groupId>io.github.classgraph</groupId>
+      <artifactId>classgraph</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -12,6 +12,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 3: `platform-core-api` — `@PlatformApi`/`@PlatformInternal` markers, `PlatformException` +
+  `ErrorCode` (`DC-<CAP>-<NNNN>`), `CorrelationId` + MDC-backed `RequestContext`; public API surface
+  capped at 25 types by an executable test.
 - Phase 1: reactor foundation — aggregator, `platform-parent`, `platform-service-parent`,
   `platform-bom`, `platform-dependencies`, optional local docker compose, repo hygiene.
 - Phase 2: `platform-build-tools` — `PlatformLayerRule` enforcer rule (dependency constitution:

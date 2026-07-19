@@ -43,6 +43,7 @@
     <module>build/platform-build-tools</module>
     <module>build/platform-build-maven-plugin</module>
     <!-- Phase 3 appends: core/platform-core-api, core/platform-core-autoconfigure, core/platform-starter-core -->
+    <module>core/platform-core-api</module>
   </modules>
 
   <build>

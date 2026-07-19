@@ -45,6 +45,20 @@ One line of context per decision; details live in the commit bodies referenced.
   The constitution wins; applications still get core-api transitively via the autoconfigure
   module's compile dependency.
 
+## Phase 4 — errors, logging, validation
+
+- **D11 — api standard-model whitelist lives in the ArchUnit rule.** The spec's "Enforcer:
+  whitelist spring-web for errors-api only" targets `PlatformLayerRule`, but that rule polices
+  platform-group dependencies only; the gate that actually rejects third-party types in api
+  packages is `PlatformArchRules.apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore`. The
+  whitelist is therefore a per-capability map in that rule (errors -> `org.springframework.http`,
+  validation -> `jakarta.validation`), proven by pass/fail fixtures so it cannot silently widen.
+- **D12 — CapabilityDescriptor moved to core-api.** The canonical autoconfigure pattern requires
+  every capability to register a `CapabilityDescriptor` bean, but the constitution forbids
+  `<cap>-autoconfigure -> core-autoconfigure` (other capabilities are reachable only via `-api`).
+  Phase-3 placement made the type unreachable for every future capability; moved (same package
+  `…core.report`) before `0.1.0` exists, while the move is still free of compatibility cost.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

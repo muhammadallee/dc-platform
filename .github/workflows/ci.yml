@@ -1,4 +1,4 @@
-# CI for acme-platform (phase-02 spec, section 3).
+# CI for dc-platform (phase-02 spec, section 3).
 #  - build: full no-Docker verify + BOM completeness check; every push/PR
 #  - docker-nightly: additionally runs the @Tag("docker") suites; nightly cron only
 # TODO(stretch, phase-02): PR path-filter incremental build (build only affected modules + dependents).
@@ -29,7 +29,7 @@ jobs:
       - name: Install build plugin for check-bom
         run: mvn -B -q -T1C -pl build/platform-build-maven-plugin -am install -DskipTests
       - name: BOM completeness (check-bom)
-        run: mvn -B com.acme.platform:platform-build-maven-plugin:check-bom
+        run: mvn -B ae.gov.dubaicustoms.platform:platform-build-maven-plugin:check-bom
 
   docker-nightly:
     if: github.event_name == 'schedule'

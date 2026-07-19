@@ -1,7 +1,7 @@
-# ACME Platform — Implementation Spec Pack (Master Plan)
+# DC Platform — Implementation Spec Pack (Master Plan)
 
 **Audience:** Claude Code, executing incrementally on a local machine.
-**Repo name:** `acme-platform` · **groupId:** `com.acme.platform` · **version scheme:** `${revision}` (start `0.1.0-SNAPSHOT`)
+**Repo name:** `dc-platform` · **groupId:** `ae.gov.dubaicustoms.platform` · **version scheme:** `${revision}` (start `0.1.0-SNAPSHOT`)
 **Toolchain:** Java 25, Maven 3.9+, Docker Desktop *optional* (only for `-Pdocker` profiles), Spring Boot latest stable 4.x (amended from 3.x — decision D6).
 
 ---
@@ -55,7 +55,7 @@ Priorities: **P0** = platform unusable without it. **P1** = golden-path service 
 ## Cross-cutting requirements (apply to every phase)
 
 - **Javadoc:** policy in `reference/coding-standards.md` §2. Public API/SPI = full javadoc (class purpose, thread-safety, nullability, `@since`); internal = header comment stating why it exists; autoconfigure classes = comment block mapping conditions → behavior.
-- **Properties:** every `@ConfigurationProperties` is an immutable record under prefix `acme.platform.<cap>`, with defaults in code and metadata; see `reference/property-conventions.md`.
+- **Properties:** every `@ConfigurationProperties` is an immutable record under prefix `dc.platform.<cap>`, with defaults in code and metadata; see `reference/property-conventions.md`.
 - **Autoconfigure pattern:** copy the canonical template in `reference/autoconfigure-pattern.md` — including its comment skeleton.
 - **Tests per module:** ContextRunner condition matrix (enabled default / `enabled=false` / class missing / user bean back-off / customizer ordering) is mandatory for every autoconfigure module.
 - **Docs:** each capability adds `docs/modules/<cap>.md` in the same PR (template in phase-14 spec) — do not defer.

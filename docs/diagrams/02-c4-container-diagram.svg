@@ -2,7 +2,7 @@
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
 <rect x="0" y="0" width="1500" height="960" fill="#ffffff"/>
 <text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">C4 — Level 2 Container Diagram</text>
-<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">A typical service (Order Service) built on the ACME Platform chassis</text>
+<text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">A typical service (Order Service) built on the DC Platform chassis</text>
 <circle cx="190" cy="120" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
 <rect x="80" y="138" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
 <text x="190" y="159" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#0f172a" text-anchor="middle" font-weight="bold">API Consumer</text>
@@ -63,8 +63,8 @@
 <rect x="1180" y="160" width="250" height="130" rx="8" fill="#d1fae5" stroke="#047857" stroke-width="1.6"/>
 <text x="1305" y="181" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#047857" text-anchor="middle" font-style="italic">«container: broker»</text>
 <text x="1305" y="196" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Kafka</text>
-<text x="1305" y="214" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">topics: acme.orders …</text>
-<text x="1305" y="229" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">DLQ: acme.orders.dlq</text>
+<text x="1305" y="214" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">topics: dc.orders …</text>
+<text x="1305" y="229" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">DLQ: dc.orders.dlq</text>
 <rect x="1180" y="330" width="250" height="120" rx="8" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
 <text x="1305" y="351" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#334155" text-anchor="middle" font-style="italic">«external»</text>
 <text x="1305" y="366" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#0f172a" text-anchor="middle" font-weight="bold">Other Services</text>

@@ -5,8 +5,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
-    <artifactId>acme-platform</artifactId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
@@ -14,7 +14,7 @@
   <artifactId>platform-bom</artifactId>
   <packaging>pom</packaging>
 
-  <name>ACME Platform :: BOM</name>
+  <name>DC Platform :: BOM</name>
   <description>
     Every publishable platform artifact at the single train version, plus the third-party BOM.
     Applications import ONLY this. Checklist: every new module is appended here in the same PR
@@ -25,7 +25,7 @@
     <dependencies>
       <!-- Third-party alignment rides along so one import gives apps the whole tested set. -->
       <dependency>
-        <groupId>com.acme.platform</groupId>
+        <groupId>ae.gov.dubaicustoms.platform</groupId>
         <artifactId>platform-dependencies</artifactId>
         <version>${revision}</version>
         <type>pom</type>
@@ -33,13 +33,13 @@
       </dependency>
 
       <!-- ==== platform artifacts (appended per phase) ==== -->
-      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-build-tools</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-build-tools</artifactId><version>${revision}</version></dependency>
 
       <!--
       Phase 3 adds, e.g.:
-      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>com.acme.platform</groupId><artifactId>platform-starter-core</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-core</artifactId><version>${revision}</version></dependency>
       -->
     </dependencies>
   </dependencyManagement>

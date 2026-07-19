@@ -7,7 +7,7 @@ Modules: `platform-errors-api`, `platform-errors-autoconfigure`, `platform-start
 
 ### errors-api (signatures; full javadoc)
 ```java
-package com.acme.platform.errors;
+package ae.gov.dubaicustoms.platform.errors;
 
 /** Thrown for business-rule violations that map to HTTP 4xx. @since 0.1.0 */
 public class BusinessException extends PlatformException {
@@ -28,7 +28,7 @@ acceptable exception, documented: errors-api may depend on `spring-web` because 
 standard model (ADR note in module README). Enforcer: whitelist spring-web for errors-api only.)
 
 ### errors-autoconfigure
-- `ErrorsProperties` (`acme.platform.errors`): `include-stacktrace=false`, `type-base-uri="https://errors.acme.com/"`,
+- `ErrorsProperties` (`dc.platform.errors`): `include-stacktrace=false`, `type-base-uri="https://errors.dc.com/"`,
   `map-validation=true`.
 - `PlatformErrorHandlingAutoConfiguration` → `@RestControllerAdvice PlatformExceptionHandler`
   (`@ConditionalOnMissingBean(name="platformExceptionHandler")`):
@@ -36,7 +36,7 @@ standard model (ADR note in module README). Enforcer: whitelist spring-web for e
     `detail` = message, extensions: `code`, `correlationId` (from RequestContext), `timestamp`.
   * `MethodArgumentNotValidException`/`ConstraintViolationException` → 400 with `errors[]`
     (field, message, rejectedValue REDACTED for fields named like password/secret/token — comment why).
-  * fallback `Exception` → 500, code `ACME-CORE-0500`, message NOT leaked (generic text), full log with correlation.
+  * fallback `Exception` → 500, code `DC-CORE-0500`, message NOT leaked (generic text), full log with correlation.
   * applies `ProblemDetailCustomizer` beans in order.
 - **Error-code registry test** (lives here, runs at build): classgraph-scan reactor classpath for
   `ErrorCode` constants; assert regex + uniqueness; write `target/error-codes.csv` (docs pick it up phase 14).
@@ -48,7 +48,7 @@ Modules: `platform-logging-api`, `platform-logging-autoconfigure`, `platform-sta
   (`String sanitize(String key, String value)`) as customizer SPI-lite; `StructuredArguments`-style
   helper `Kv.of(key,value)` wrapper (thin, no logstash types in api).
 - logging-autoconfigure:
-  * `LoggingProperties` (`acme.platform.logging`): `format=json|console` (default `json`, but
+  * `LoggingProperties` (`dc.platform.logging`): `format=json|console` (default `json`, but
     auto-fallback to `console` when `spring.profiles.active` contains `local` — comment the DX rationale),
     `include-mdc=true`, `service-name=${spring.application.name}`.
   * Ship `logback-platform.xml` resource + `LoggingSystem` initialization via

@@ -28,9 +28,9 @@ version diff + property scan + link to train release notes. Output: console + `t
 #!/usr/bin/env bash — set -euo pipefail
 mvn -T1C install -DskipTests            # platform into local repo
 workdir=$(mktemp -d)
-(cd "$workdir" && mvn archetype:generate -B -DarchetypeGroupId=com.acme.platform \
+(cd "$workdir" && mvn archetype:generate -B -DarchetypeGroupId=ae.gov.dubaicustoms.platform \
    -DarchetypeArtifactId=platform-service-archetype -DarchetypeVersion=$REV \
-   -DgroupId=com.acme.demo -DartifactId=demo -Dfeatures=messaging)
+   -DgroupId=com.dc.demo -DartifactId=demo -Dfeatures=messaging)
 (cd "$workdir/demo" && mvn -q verify)
 (cd "$workdir/demo" && mvn -q spring-boot:start)   # uses start/stop goals for CI-friendliness
 curl -sf localhost:8080/actuator/health

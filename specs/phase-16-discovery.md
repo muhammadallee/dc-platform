@@ -48,10 +48,10 @@ Purpose: agents query authoritative platform facts instead of guessing from trai
 
 ## D. Layer 3 — Skill, adopt-recipes, llms.txt
 1. **Claude Skill (`tooling/platform-skill`):** build generates `SKILL.md` (description tuned to trigger
-   on "ACME platform", capability names, starter ids) + `resources/` (condensed per-capability guides,
+   on "DC platform", capability names, starter ids) + `resources/` (condensed per-capability guides,
    property cheat sheet) FROM docs sources at build time; packaged zip artifact `platform-skill.zip`
    published with the train. A staleness test: SKILL.md version == train version.
-2. **Adopt/upgrade recipes (`tooling/platform-migrations`, OpenRewrite):** recipe `com.acme.platform.AdoptPlatform`:
+2. **Adopt/upgrade recipes (`tooling/platform-migrations`, OpenRewrite):** recipe `ae.gov.dubaicustoms.platform.AdoptPlatform`:
    swap banned deps for starters; add parent if absent; add CLAUDE.md/AGENTS.md/.mcp.json/conformance test
    from templates; mechanical rewrites where safe (e.g. `@ControllerAdvice` removal flagged with TODO
    comment rather than deleted — comment the safety rationale); plus per-train `UpgradeTo_X_Y` recipe
@@ -62,7 +62,7 @@ Purpose: agents query authoritative platform facts instead of guessing from trai
 
 ## E. Layer 1/4 — archetype & catalog additions (edits: platform-service-archetype)
 Generate additionally: `.mcp.json` (platform MCP endpoint placeholder + stdio fallback),
-`catalog-info.yaml` (Backstage Component: name, owner param, `acme.platform/train` annotation),
+`catalog-info.yaml` (Backstage Component: name, owner param, `dc.platform/train` annotation),
 `AGENTS.md` (copy of CLAUDE.md). Golden-path script asserts all four generated files.
 
 ## F. Layer 4 — adoption telemetry

@@ -10,7 +10,7 @@ it is read on every agent session.
 ```markdown
 # CLAUDE.md — ${artifactId}
 
-This service is built on the **ACME Platform** chassis (parent: `platform-service-parent`).
+This service is built on the **DC Platform** chassis (parent: `platform-service-parent`).
 The platform provides cross-cutting behavior via starters + auto-configuration. Your job is
 business logic; DO NOT re-implement what the platform already does.
 
@@ -19,11 +19,11 @@ business logic; DO NOT re-implement what the platform already does.
 1. **Before adding ANY infrastructure dependency or cross-cutting code, check for a platform
    starter first.** Capability table: <docs-url>/modules/ (or run `mvn dependency:tree` and look
    at existing `platform-starter-*`). If a starter exists, use it.
-2. **Messaging:** publish via `com.acme.platform.messaging.EventPublisher` and consume via
+2. **Messaging:** publish via `ae.gov.dubaicustoms.platform.messaging.EventPublisher` and consume via
    `@EventHandler`. NEVER inject `KafkaTemplate` / `RabbitTemplate` or write listener containers
    directly — retry, DLQ, correlation, serialization and metrics are already handled.
 3. **Errors:** throw `PlatformException` subtypes (`BusinessException`, `NotFoundException`,
-   `ConflictException`) with an `ErrorCode` (`ACME-<CAP>-NNNN`). NEVER write your own
+   `ConflictException`) with an `ErrorCode` (`DC-<CAP>-NNNN`). NEVER write your own
    `@RestControllerAdvice` or build `ProblemDetail` by hand — the platform maps everything to
    RFC 9457 with correlation IDs.
 4. **Security:** endpoints are authenticated by default. Use `@RequiresPermission("res:action")`
@@ -32,7 +32,7 @@ business logic; DO NOT re-implement what the platform already does.
 5. **Outbound HTTP:** build clients from `PlatformRestClientFactory.builder("client-name")` —
    correlation, auth relay, timeouts, metrics and error mapping are pre-wired. No raw
    `RestTemplate`/`WebClient` unless a platform gap is documented in an issue.
-6. **Config:** platform behavior is tuned ONLY via `acme.platform.*` properties (IDE-completed).
+6. **Config:** platform behavior is tuned ONLY via `dc.platform.*` properties (IDE-completed).
    Never copy platform defaults into application.yml "to be safe" — set a key only to deviate.
 7. **Secrets:** reference via the platform secrets property source; NEVER `System.getenv` for
    secrets and never commit values.
@@ -56,16 +56,16 @@ business logic; DO NOT re-implement what the platform already does.
 
 `--debug` flag → condition report ·  `GET /actuator/platform` → active capabilities/providers ·
 `/actuator/env` → property sources named `platform-*-defaults` (anything above them overrides).
-Disable a capability: `acme.platform.<cap>.enabled=false`.
+Disable a capability: `dc.platform.<cap>.enabled=false`.
 
 ## Upgrading the platform
 
 Bump the parent version, then:
-`mvn com.acme.platform:platform-build-maven-plugin:upgrade-check -Dplatform.target=<version>`
+`mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:upgrade-check -Dplatform.target=<version>`
 Fix every reported deprecation. Read `<docs-url>/upgrade/<version>`.
 
 ## Reference
 
 Docs: <docs-url> · Property reference: <docs-url>/reference/properties ·
-Error codes: <docs-url>/reference/error-codes · This service's claimed code namespace: `ACME-<XX>-…`
+Error codes: <docs-url>/reference/error-codes · This service's claimed code namespace: `DC-<XX>-…`
 ```

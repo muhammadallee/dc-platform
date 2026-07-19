@@ -31,7 +31,7 @@ Profiles: `local` (console logs, H2/inmemory), `kafka`, `pg`, `redis` switch pro
 2. `GET /actuator/platform` → capability status + active providers.
 3. `GET /actuator/env` → look for `platform-<cap>-defaults` property sources (platform-set defaults; anything above them overrides).
 4. Startup log line `platform: …` lists capabilities.
-5. Kill switch a capability: `acme.platform.<cap>.enabled=false`.
+5. Kill switch a capability: `dc.platform.<cap>.enabled=false`.
 
 ## Troubleshooting
 - **Build fails in enforcer `PlatformLayerRule`** → the message names the violated edge and the fix; do not add exclusions.

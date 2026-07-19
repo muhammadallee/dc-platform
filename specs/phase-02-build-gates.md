@@ -9,7 +9,7 @@ Contents:
   import order, no star imports, no `System.out`, javadoc REQUIRED on public types in packages not
   matching `.*\.internal.*` (SeverityMatchFilter), line length 140.
 - `src/main/resources/enforcer/` — nothing; custom enforcer rule is a class:
-- `com.acme.platform.build.enforcer.PlatformLayerRule` implements `EnforcerRule2`:
+- `ae.gov.dubaicustoms.platform.build.enforcer.PlatformLayerRule` implements `EnforcerRule2`:
   reads the current module's artifactId + declared platform deps and enforces:
   * category inferred from artifactId suffix: `-api`, `-spi`, `-autoconfigure`, `starter-` prefix,
     `-test`/`tck-` = Test Support, `build/` = build, `example-` = examples, else Implementation.
@@ -18,13 +18,13 @@ Contents:
     dependency into the autoconfigure module or the consumer's POM").
   * fan-out ceilings: api≤1, spi≤2, impl≤3, autoconfigure≤6, starter≤4 (platform deps only).
   * Unit-test the rule with fake MavenProject fixtures (happy + each violation).
-- `com.acme.platform.build.arch.PlatformArchRules` — an ArchUnit library (not tests) exposing
+- `ae.gov.dubaicustoms.platform.build.arch.PlatformArchRules` — an ArchUnit library (not tests) exposing
   `public static ArchRule[] all()`:
   * no classes outside `..internal..` depend on classes in another module's `..internal..`
-  * api packages (`com.acme.platform.(cap)` root + `.annotation`) depend only on jdk, spring core
-    annotations, and `com.acme.platform.core`
+  * api packages (`ae.gov.dubaicustoms.platform.(cap)` root + `.annotation`) depend only on jdk, spring core
+    annotations, and `ae.gov.dubaicustoms.platform.core`
   * no field injection (`noFields().should().beAnnotatatedWith(Autowired.class)`)
-  * no cycles within `com.acme.platform.(cap)..` slices
+  * no cycles within `ae.gov.dubaicustoms.platform.(cap)..` slices
   * autoconfigure classes are annotated `@AutoConfiguration` and reside in `..autoconfigure..`
   * `@ConfigurationProperties` types are records
 - `resources/arch/ArchConstitutionTest.java.template` — a 15-line test class each module copies
@@ -62,7 +62,7 @@ mvn -T1C verify                                    # green, gates active
 git checkout -b tmp/violation                      # seed a starter→starter dep in a scratch module
 mvn -T1C verify                                    # MUST fail with PlatformLayerRule message
 git checkout - && git branch -D tmp/violation
-mvn com.acme.platform:platform-build-maven-plugin:new-module -Dcapability=scratch -Dkind=api
+mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:new-module -Dcapability=scratch -Dkind=api
 mvn -T1C verify                                    # generated module compiles & passes gates
 git clean -fd && git checkout .                    # remove scratch
 ```

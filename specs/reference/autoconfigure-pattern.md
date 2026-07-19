@@ -3,11 +3,11 @@
 ## 1. Properties record
 ```java
 /**
- * Configuration for the <cap> capability. Bound from {@code acme.platform.<cap>.*}.
+ * Configuration for the <cap> capability. Bound from {@code dc.platform.<cap>.*}.
  * Immutable; validated at startup.  @since 0.x.0
  */
 @Validated
-@ConfigurationProperties(prefix = "acme.platform.<cap>")
+@ConfigurationProperties(prefix = "dc.platform.<cap>")
 public record <Cap>Properties(
         /** Master switch for the capability. */
         @DefaultValue("true") boolean enabled,
@@ -19,14 +19,14 @@ public record <Cap>Properties(
 ## 2. Auto-configuration class
 ```java
 /*
- * Activates when: <Cap>Api on classpath AND acme.platform.<cap>.enabled != false
+ * Activates when: <Cap>Api on classpath AND dc.platform.<cap>.enabled != false
  * Backs off when: user defines a <MainBeanType> bean
  * Beans: <mainBean> — <one line>; <secondary> — <one line>
  * Order: after <X>AutoConfiguration because <why>
  */
 @AutoConfiguration(after = SomeSpringBootAutoConfiguration.class)
 @ConditionalOnClass(SomeApiType.class)
-@ConditionalOnProperty(prefix = "acme.platform.<cap>", name = "enabled",
+@ConditionalOnProperty(prefix = "dc.platform.<cap>", name = "enabled",
                        havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(<Cap>Properties.class)
 public class <Cap>AutoConfiguration {
@@ -59,7 +59,7 @@ class <Cap>AutoConfigurationTest {
     @Test void activeByDefault() { runner.run(ctx -> assertThat(ctx).hasSingleBean(MainBeanType.class)); }
 
     @Test void killSwitchDisables() {
-        runner.withPropertyValues("acme.platform.<cap>.enabled=false")
+        runner.withPropertyValues("dc.platform.<cap>.enabled=false")
               .run(ctx -> assertThat(ctx).doesNotHaveBean(MainBeanType.class)); }
 
     @Test void backsOffWhenUserBeanPresent() {

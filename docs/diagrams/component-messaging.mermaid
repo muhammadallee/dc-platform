@@ -9,7 +9,7 @@ flowchart LR
     dpub["DefaultEventPublisher<br>adds correlation, observation"]
     reg["EventHandlerRegistrar<br>retry and DLQ wrapper, metrics"]
     ser["Jackson serializer - default, replaceable"]
-    props["MessagingProperties<br>acme.platform.messaging.*"]
+    props["MessagingProperties<br>dc.platform.messaging.*"]
   end
   subgraph spi["messaging-spi"]
     tr["EventTransport"]

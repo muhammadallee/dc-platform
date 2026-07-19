@@ -5,8 +5,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
-    <artifactId>acme-platform</artifactId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
@@ -14,7 +14,7 @@
   <artifactId>platform-build-tools</artifactId>
   <packaging>jar</packaging>
 
-  <name>ACME Platform :: Build Tools</name>
+  <name>DC Platform :: Build Tools</name>
   <description>
     Gates-as-code: the PlatformLayerRule enforcer rule (dependency constitution), the
     PlatformArchRules ArchUnit library, the shared checkstyle configuration, and the

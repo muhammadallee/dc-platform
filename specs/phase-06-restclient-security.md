@@ -13,7 +13,7 @@ public interface PlatformRestClientFactory {
 public class RemoteCallException extends PlatformException { … }
 @FunctionalInterface public interface PlatformRestClientCustomizer { void customize(String name, RestClient.Builder b); }
 ```
-- autoconfigure: `RestClientProperties` (`acme.platform.restclient`): `defaults.connect-timeout=2s`,
+- autoconfigure: `RestClientProperties` (`dc.platform.restclient`): `defaults.connect-timeout=2s`,
   `defaults.read-timeout=10s`, per-client override map `clients.<name>.*`, `propagate-correlation=true`.
   Implementation uses JDK HttpClient request factory; applies customizers ordered; token relay applied
   ONLY `@ConditionalOnClass(OAuth2 …)` + `@ConditionalOnBean` — guarded optional edge to security api.
@@ -22,7 +22,7 @@ public class RemoteCallException extends PlatformException { … }
 ## B. Security (`security/`): security-api, security-autoconfigure, starter-security, authz-api, authz-spi, authz-autoconfigure, starter-authz
 - security-api: `SecurityCustomizer { void customize(HttpSecurity http) }` (ordered),
   `CurrentUser` record (subject, tenant?, roles, claims map) + `CurrentUserAccessor` interface.
-- security-autoconfigure (`acme.platform.security`): `mode=resource-server|disabled` (default resource-server),
+- security-autoconfigure (`dc.platform.security`): `mode=resource-server|disabled` (default resource-server),
   `permit-paths` list (defaults: actuator health/info, /v3/api-docs/**, swagger).
   Baseline `SecurityFilterChain` (`@ConditionalOnMissingBean(SecurityFilterChain.class)`):
   stateless, JWT resource server (issuer from standard `spring.security.oauth2.resourceserver.jwt.*`),

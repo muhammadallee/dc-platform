@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the ACME Platform. Format: [Keep a Changelog](https://keepachangelog.com),
+All notable changes to the DC Platform. Format: [Keep a Changelog](https://keepachangelog.com),
 versioning: Semantic Versioning on the release train (all artifacts share one version).
 
 ## [Unreleased]
@@ -8,6 +8,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ### Changed
 - Platform baseline moved to Java 25 and Spring Boot 4.1.0 (decision D6); toolchain plugins bumped
   for Java 25 class files (jacoco, sisu, maven-plugin-tools, enforcer, japicmp, archunit, flatten).
+- Platform identity renamed to `dc` / `ae.gov.dubaicustoms.platform` (decision D7): Maven groupId,
+  Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
 - Phase 1: reactor foundation — aggregator, `platform-parent`, `platform-service-parent`,

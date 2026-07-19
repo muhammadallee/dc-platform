@@ -14,12 +14,12 @@
     <relativePath/>
   </parent>
 
-  <groupId>com.acme.platform</groupId>
+  <groupId>ae.gov.dubaicustoms.platform</groupId>
   <artifactId>platform-service-parent</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
 
-  <name>ACME Platform :: Service Parent</name>
+  <name>DC Platform :: Service Parent</name>
   <description>
     The ONE parent application teams use. Deliberately small (target under ~120 lines):
     Boot defaults + platform BOM + a few build conveniences. Capabilities are added by teams
@@ -37,7 +37,7 @@
     <dependencies>
       <!-- One import = the whole tested platform + third-party set. Upgrades = bump parent version. -->
       <dependency>
-        <groupId>com.acme.platform</groupId>
+        <groupId>ae.gov.dubaicustoms.platform</groupId>
         <artifactId>platform-bom</artifactId>
         <version>${revision}</version>
         <type>pom</type>

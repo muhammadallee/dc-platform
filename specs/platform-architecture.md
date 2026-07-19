@@ -1,6 +1,6 @@
 # Enterprise Microservice Chassis — Platform Architecture Design
 
-**Codename:** `acme-platform` (substitute your organization's groupId: `com.acme.platform`)
+**Codename:** `dc-platform` (substitute your organization's groupId: `ae.gov.dubaicustoms.platform`)
 **Target:** Spring Boot 3.x (latest stable), Java 21 LTS, Maven multi-module
 **Status:** Implementation-ready design for incremental execution by Claude Code
 
@@ -85,7 +85,7 @@ platform-starter-<cap>
 
 ### 2.1 Guiding philosophy
 
-1. **The platform is a set of defaults, not a cage.** Every bean is `@ConditionalOnMissingBean`; every feature has a kill switch (`acme.platform.<cap>.enabled=false`); every default is overridable in `application.yml`.
+1. **The platform is a set of defaults, not a cage.** Every bean is `@ConditionalOnMissingBean`; every feature has a kill switch (`dc.platform.<cap>.enabled=false`); every default is overridable in `application.yml`.
 2. **Consumers see APIs, extenders see SPIs, nobody sees internals.** Three audiences, three package families, three compatibility promises.
 3. **Spring Boot mechanisms only.** Auto-configuration, conditions, `ConfigurationProperties`, `ObjectProvider`, ordering annotations. No custom lifecycle, registry, or DI.
 4. **A capability you don't add costs you nothing.** No transitive reach into Kafka from the logging starter. Optional/provided scopes and `@ConditionalOnClass` everywhere.
@@ -139,16 +139,16 @@ Maximum depth from starter to JDK-only code: **4 platform hops**. Cross-capabili
 For capability `messaging`:
 
 ```
-com.acme.platform.messaging                  → public API (stable)
-com.acme.platform.messaging.annotation      → public annotations
-com.acme.platform.messaging.spi             → SPI (stable-for-extenders)
-com.acme.platform.messaging.config          → @ConfigurationProperties (stable property names)
-com.acme.platform.messaging.autoconfigure   → @AutoConfiguration classes (semi-public: class names stable for exclude=)
-com.acme.platform.messaging.kafka           → provider public surface (small)
-com.acme.platform.messaging.kafka.internal  → internals (no guarantees)
-com.acme.platform.messaging.internal        → internals (no guarantees)
-com.acme.platform.messaging.migration       → deprecated bridges kept during a deprecation window
-com.acme.platform.messaging.testing         → test fixtures published from test-support
+ae.gov.dubaicustoms.platform.messaging                  → public API (stable)
+ae.gov.dubaicustoms.platform.messaging.annotation      → public annotations
+ae.gov.dubaicustoms.platform.messaging.spi             → SPI (stable-for-extenders)
+ae.gov.dubaicustoms.platform.messaging.config          → @ConfigurationProperties (stable property names)
+ae.gov.dubaicustoms.platform.messaging.autoconfigure   → @AutoConfiguration classes (semi-public: class names stable for exclude=)
+ae.gov.dubaicustoms.platform.messaging.kafka           → provider public surface (small)
+ae.gov.dubaicustoms.platform.messaging.kafka.internal  → internals (no guarantees)
+ae.gov.dubaicustoms.platform.messaging.internal        → internals (no guarantees)
+ae.gov.dubaicustoms.platform.messaging.migration       → deprecated bridges kept during a deprecation window
+ae.gov.dubaicustoms.platform.messaging.testing         → test fixtures published from test-support
 ```
 
 `*.internal.*` is excluded from javadoc, excluded from japicmp compatibility checks, and flagged by an ArchUnit rule if imported from application code in example/test builds.
@@ -161,7 +161,7 @@ Each row lists the modules the capability ships. Legend: A=api, S=spi, I=impl(s)
 
 | Capability | Modules | Providers / Notes |
 |---|---|---|
-| Core | core-api, core-autoconfigure, starter-core | Correlation ID, context conventions, banner, `acme.platform.*` root props |
+| Core | core-api, core-autoconfigure, starter-core | Correlation ID, context conventions, banner, `dc.platform.*` root props |
 | Logging | logging-api, logging-autoconfigure, starter-logging | Logback + ECS/JSON encoder by default; MDC ↔ tracing bridge |
 | Audit Logging | audit-api, audit-spi, audit-autoconfigure, audit-jdbc, audit-messaging, starter-audit(-jdbc/-messaging) | `@Audited`, structured audit events; sinks are SPI |
 | Security | security-api, security-autoconfigure, starter-security | Baseline: OAuth2 resource server, sane headers, actuator lockdown |
@@ -234,7 +234,7 @@ Each row lists the modules the capability ships. Legend: A=api, S=spi, I=impl(s)
 
 Every module declares its surface in its README and via annotations:
 
-- **Public packages** (`com.acme.platform.<cap>`, `…​.annotation`, `…​.config` property names): SemVer-guaranteed binary compatibility within a major train. Checked by japicmp on every build against the last released minor.
+- **Public packages** (`ae.gov.dubaicustoms.platform.<cap>`, `…​.annotation`, `…​.config` property names): SemVer-guaranteed binary compatibility within a major train. Checked by japicmp on every build against the last released minor.
 - **SPI packages** (`…​.spi`): binary compatible within a major; **new default methods allowed** in minors (documented as the only permitted expansion); implementors are warned that SPIs evolve faster than APIs.
 - **Internal packages** (`…​.internal`, `…​.kafka.internal`): no guarantees, may change in patches. Annotated `@PlatformInternal`; excluded from docs and japicmp.
 - **Configuration packages / property names**: property keys are API. Renames require a deprecation window with `additional-spring-configuration-metadata.json` deprecation entries and a `PropertiesMigrationListener`-style warning.
@@ -267,7 +267,7 @@ Two extension tiers: **Customizer tier** (tweak the default: `RestClientCustomiz
 ## 7. Auto-Configuration Strategy
 
 - **Registration:** every autoconfigure module ships `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. One `@AutoConfiguration` class per concern, small and focused.
-- **Conditions:** `@ConditionalOnClass` (provider on classpath) → `@ConditionalOnProperty(prefix="acme.platform.<cap>", name="enabled", matchIfMissing=true)` (kill switch) → `@ConditionalOnMissingBean` (user override) — in that order of evaluation cost.
+- **Conditions:** `@ConditionalOnClass` (provider on classpath) → `@ConditionalOnProperty(prefix="dc.platform.<cap>", name="enabled", matchIfMissing=true)` (kill switch) → `@ConditionalOnMissingBean` (user override) — in that order of evaluation cost.
 - **Customization:** collect `*Customizer` beans with `ObjectProvider<…>.orderedStream()`; apply in `@Order` order. Users add behavior without replacing beans.
 - **Replacement:** define the same bean type; platform backs off. Documented per bean in the config reference.
 - **Ordering:** platform configs declare `@AutoConfiguration(before/after = …)` explicitly against Spring Boot's classes (e.g., observability before `WebMvcAutoConfiguration` filter registration). Cross-capability order expressed only via before/after on autoconfig classes, never `@DependsOn` on beans.
@@ -329,9 +329,9 @@ Test-support modules publish fixtures (`@PlatformMessagingTest` slice, `TestEven
 
 **Create a new service** — `mvn archetype:generate -DarchetypeArtifactId=platform-service-archetype` (or `platform new-service` CLI wrapper): produces parent-POM project with `application.yml`, `@SpringBootApplication`, sample controller/service/test. Add capability = add one starter line. Time-to-first-endpoint target: **< 10 minutes**.
 
-**Override defaults** — set `acme.platform.*` properties (IDE-completed via config metadata), or define a `*Customizer` bean, or define the bean type yourself (platform backs off).
+**Override defaults** — set `dc.platform.*` properties (IDE-completed via config metadata), or define a `*Customizer` bean, or define the bean type yourself (platform backs off).
 
-**Disable features** — `acme.platform.<cap>.enabled=false`, or omit the starter, or `spring.autoconfigure.exclude` as a last resort.
+**Disable features** — `dc.platform.<cap>.enabled=false`, or omit the starter, or `spring.autoconfigure.exclude` as a last resort.
 
 **Replace implementations** — swap starter (`starter-messaging-kafka` → `starter-messaging-rabbit`) or contribute your own `EventTransport` bean.
 
@@ -566,10 +566,10 @@ Every phase ends in a green, releasable reactor. Complexity: S/M/L/XL.
 
 ## 17. Complete Repository Structure
 
-GroupId: `com.acme.platform`. Version: `${revision}` (single train version). Tree (Maven `artifactId` = directory name; category in brackets):
+GroupId: `ae.gov.dubaicustoms.platform`. Version: `${revision}` (single train version). Tree (Maven `artifactId` = directory name; category in brackets):
 
 ```
-acme-platform/                                  [aggregator pom]
+dc-platform/                                  [aggregator pom]
 ├── pom.xml                                     modules list, ${revision}
 ├── build/
 │   ├── platform-parent/                        [Parent]      parent: none (imports platform-dependencies)
@@ -579,7 +579,7 @@ acme-platform/                                  [aggregator pom]
 │   ├── platform-build-tools/                   [Build Plugin] enforcer rules, archunit-rules, style configs
 │   └── platform-build-maven-plugin/            [Build Plugin] new-module, upgrade-check goals
 ├── core/
-│   ├── platform-core-api/                      [API]         com.acme.platform.core{,.context,.annotation}
+│   ├── platform-core-api/                      [API]         ae.gov.dubaicustoms.platform.core{,.context,.annotation}
 │   ├── platform-core-autoconfigure/            [Auto Configuration] …core.autoconfigure, …core.internal
 │   └── platform-starter-core/                  [Starter]
 ├── logging/
@@ -751,7 +751,7 @@ Parent relationships: every `platform-*` module → `platform-parent`; examples 
 22. **Circular module dependencies (or "temporary" cycles)** — build order fragility; refactoring gridlock; they never stay temporary.
 23. **Forked/patched third-party libraries** — you own their CVE stream and upgrade merges forever; use customizers/decorators instead.
 24. **Hard requirement on external infrastructure to boot** (registry, config server, vault mandatory) — local dev and CI friction for every team, every day; degrade gracefully instead.
-25. **Blocking on custom annotations replacing standard ones** (`@AcmeTransactional`) — retraining cost, tooling blindness; extend semantics via conventions, keep standard annotations.
+25. **Blocking on custom annotations replacing standard ones** (`@DcTransactional`) — retraining cost, tooling blindness; extend semantics via conventions, keep standard annotations.
 26. **Un-versioned "latest" docs only** — teams on older trains get wrong instructions; support tickets replace self-service.
 27. **Relaxing quality gates "just this once"** — gates only work if unconditional; every exception is a precedent that compounds into decay.
 28. **JPMS module-info from day one** — ecosystem friction (unnamed-module deps, test hostility) for near-zero benefit inside one org; revisit when the ecosystem does.

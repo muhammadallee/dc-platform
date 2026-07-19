@@ -5,8 +5,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
-    <artifactId>acme-platform</artifactId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
@@ -14,7 +14,7 @@
   <artifactId>platform-build-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
 
-  <name>ACME Platform :: Build Maven Plugin</name>
+  <name>DC Platform :: Build Maven Plugin</name>
   <description>
     Scaffolding and reactor hygiene: new-module generates a constitution-compliant module skeleton
     (POM, packages, ArchConstitutionTest, autoconfigure canon) and registers it in the root reactor
@@ -51,7 +51,7 @@
     </dependency>
     <!-- Source of the ArchConstitutionTest template the scaffolder copies into new modules. -->
     <dependency>
-      <groupId>com.acme.platform</groupId>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
       <version>${revision}</version>
     </dependency>

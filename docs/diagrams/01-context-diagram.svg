@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 940" width="1500" height="940">
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
 <rect x="0" y="0" width="1500" height="940" fill="#ffffff"/>
-<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">ACME Platform — System Context Diagram (C4 Level 1)</text>
+<text x="750" y="34" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#0f172a" text-anchor="middle" font-weight="bold">DC Platform — System Context Diagram (C4 Level 1)</text>
 <text x="750" y="56" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#64748b" text-anchor="middle">Who and what interacts with the platform as a product</text>
 <circle cx="250" cy="100" r="14" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
 <rect x="140" y="118" width="220" height="58" rx="8" fill="#ffe4e6" stroke="#be123c" stroke-width="1.6"/>
@@ -17,7 +17,7 @@
 <text x="1250" y="157" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">add providers via SPI + TCK</text>
 <rect x="550" y="380" width="400" height="190" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.6"/>
 <text x="750" y="401" font-family="Helvetica, Arial, sans-serif" font-size="10" fill="#1d4ed8" text-anchor="middle" font-style="italic">«software system»</text>
-<text x="750" y="416" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#0f172a" text-anchor="middle" font-weight="bold">ACME Platform</text>
+<text x="750" y="416" font-family="Helvetica, Arial, sans-serif" font-size="18" fill="#0f172a" text-anchor="middle" font-weight="bold">DC Platform</text>
 <text x="750" y="434" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">Enterprise Spring Boot chassis</text>
 <text x="750" y="449" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">parents · BOMs · starters · APIs/SPIs</text>
 <text x="750" y="464" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#1e293b" text-anchor="middle">auto-configuration · test kit · docs</text>

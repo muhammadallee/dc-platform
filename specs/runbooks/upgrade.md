@@ -5,14 +5,14 @@
    property if you consume the BOM directly).
 3. Run the checker:
    ```bash
-   mvn com.acme.platform:platform-build-maven-plugin:upgrade-check -Dplatform.target=<version>
+   mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:upgrade-check -Dplatform.target=<version>
    ```
    Fix every deprecation it reports (it names the replacement key/type). Warnings today are removals
    at the next major — do not defer.
 4. `mvn verify`. Startup WARNs about deprecated properties count as failures for this checklist.
 5. Smoke locally: app boots, `/actuator/platform` capabilities all ACTIVE as expected, key flows pass.
 6. Majors only: apply the published OpenRewrite recipe first
-   (`mvn org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.recipeArtifactCoordinates=com.acme.platform:platform-migrations:<v>`),
+   (`mvn org.openrewrite.maven:rewrite-maven-plugin:run -Drewrite.recipeArtifactCoordinates=ae.gov.dubaicustoms.platform:platform-migrations:<v>`),
    then steps 1–5.
 7. Stuck? Check `--debug` condition report + docs/modules/<cap>.md "Replace/Disable" section before
    filing a platform issue; include your `/actuator/platform` output.

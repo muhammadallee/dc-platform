@@ -5,8 +5,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
-    <artifactId>acme-platform</artifactId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
@@ -14,7 +14,7 @@
   <artifactId>platform-parent</artifactId>
   <packaging>pom</packaging>
 
-  <name>ACME Platform :: Parent (platform modules)</name>
+  <name>DC Platform :: Parent (platform modules)</name>
   <description>
     Build conventions for the platform's OWN modules. Application teams never use this parent;
     they use platform-service-parent. Custom gates (checkstyle, PlatformLayerRule, ArchUnit,
@@ -24,7 +24,7 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>com.acme.platform</groupId>
+        <groupId>ae.gov.dubaicustoms.platform</groupId>
         <artifactId>platform-dependencies</artifactId>
         <version>${revision}</version>
         <type>pom</type>
@@ -32,7 +32,7 @@
       </dependency>
       <!-- Managed so every module can declare its ArchConstitutionTest dependency version-less. -->
       <dependency>
-        <groupId>com.acme.platform</groupId>
+        <groupId>ae.gov.dubaicustoms.platform</groupId>
         <artifactId>platform-build-tools</artifactId>
         <version>${revision}</version>
       </dependency>
@@ -173,7 +173,7 @@
         <dependencies>
           <!-- Brings the custom platformLayerRule into the enforcer's runtime. -->
           <dependency>
-            <groupId>com.acme.platform</groupId>
+            <groupId>ae.gov.dubaicustoms.platform</groupId>
             <artifactId>platform-build-tools</artifactId>
             <version>${revision}</version>
           </dependency>
@@ -204,7 +204,7 @@
         <version>3.6.0</version>
         <dependencies>
           <dependency>
-            <groupId>com.acme.platform</groupId>
+            <groupId>ae.gov.dubaicustoms.platform</groupId>
             <artifactId>platform-build-tools</artifactId>
             <version>${revision}</version>
           </dependency>

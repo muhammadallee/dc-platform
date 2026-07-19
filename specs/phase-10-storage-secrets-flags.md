@@ -11,11 +11,11 @@ public interface ObjectStore {
     Stream<ObjectSummary> list(String bucket, String prefix); // caller closes stream
 }
 public record ObjectMetadata(String contentType, long contentLength, Map<String,String> userTags) { … }
-public class ObjectStoreException extends PlatformException { … }  // ACME-STO-00xx codes
+public class ObjectStoreException extends PlatformException { … }  // DC-STO-00xx codes
 ```
 - spi: `ObjectStoreProvider { String name(); ObjectStore create(StorageProperties p); }` — actually simpler:
   providers just contribute an `ObjectStore` bean; SPI holds shared `KeyValidator` + provider base helpers. Keep SPI minimal; comment the choice.
-- storage-fs: rooted at `acme.platform.storage.fs.root` (default `${java.io.tmpdir}/acme-storage`),
+- storage-fs: rooted at `dc.platform.storage.fs.root` (default `${java.io.tmpdir}/dc-storage`),
   path traversal protection (KeyValidator, tested hard), metadata sidecar json. Fully local; reference impl.
 - storage-s3: AWS SDK v2 (bom pin now), maps metadata/tags; unit tests with SdkHttpClient stub,
   `@Tag("docker")` LocalStack round-trip.
@@ -24,7 +24,7 @@ public class ObjectStoreException extends PlatformException { … }  // ACME-STO
 
 ## B. Secrets (`secrets/`): secrets-api, secrets-spi, secrets-env (default), secrets-vault, autoconfigure, starter-secrets-vault
 - api: `SecretRef("path#key")` record + `Secrets { Optional<String> get(SecretRef ref); }`.
-- Primary integration is a `PropertySource`: `acme-secrets:` prefix values resolved at bind time via
+- Primary integration is a `PropertySource`: `dc-secrets:` prefix values resolved at bind time via
   provider (EnvironmentPostProcessor + lazy resolution; comment startup-ordering carefully).
 - env provider: maps `path#key` → env var `PATH_KEY`; local default, zero infra.
 - vault provider: KV v2 read via spring-vault-core (pin) or plain WebClient?? Use plain JDK HttpClient
@@ -36,7 +36,7 @@ public class ObjectStoreException extends PlatformException { … }  // ACME-STO
   + `@FeatureGate("flag")` method annotation (aspect: skip + return default/Optional.empty/false — rules documented in javadoc).
 - spi: `FlagProvider { Optional<FlagValue> evaluate(String flag, EvaluationContext ctx); }`;
   context carries user/tenant from CurrentUserAccessor when present (guarded edge).
-- inmemory provider: from properties `acme.platform.flags.static.<flag>=true|false|value`; supports
+- inmemory provider: from properties `dc.platform.flags.static.<flag>=true|false|value`; supports
   runtime mutation via actuator endpoint `platformflags` (write op, secured) — great for local demos.
 - openfeature provider: adapter to OpenFeature SDK (pin) so enterprise providers (LaunchDarkly etc.) plug in downstream.
 - Tests: matrix; aspect behavior table; endpoint test.

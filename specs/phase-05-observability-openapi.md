@@ -1,7 +1,7 @@
 # Phase 5 — Observability & OpenAPI (P1, size M, no Docker)
 
 ## A. Observability (`observability/`): `platform-observability-autoconfigure`, `platform-starter-observability`
-- `ObservabilityProperties` (`acme.platform.observability`): `common-tags.enabled=true`,
+- `ObservabilityProperties` (`dc.platform.observability`): `common-tags.enabled=true`,
   `otlp.enabled=false` (local default OFF — comment: no collector on laptops; export config documented),
   `health.groups.enabled=true`, `platform-endpoint.enabled=true`.
 - Autoconfigurations:
@@ -23,7 +23,7 @@
   common-tags assertion on SimpleMeterRegistry.
 
 ## B. OpenAPI (`openapi/`): `platform-openapi-autoconfigure`, `platform-starter-openapi`
-- `OpenApiProperties` (`acme.platform.openapi`): `enabled`, `title=${spring.application.name}`,
+- `OpenApiProperties` (`dc.platform.openapi`): `enabled`, `title=${spring.application.name}`,
   `version=${info.app.version:dev}`, `security-scheme=bearer-jwt|none` (default bearer-jwt).
 - Autoconfigure: springdoc `OpenAPI` bean (`@ConditionalOnMissingBean`): info, server list, bearer scheme,
   and a reusable `ProblemDetail` schema + default 4xx/5xx responses appended via `OpenApiCustomizer`

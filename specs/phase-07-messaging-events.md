@@ -10,7 +10,7 @@ In-memory first makes everything locally testable and is the reference implement
 
 ## messaging-api (contracts; full javadoc incl. delivery-semantics section)
 ```java
-package com.acme.platform.messaging;
+package ae.gov.dubaicustoms.platform.messaging;
 
 /** An integration event envelope. Immutable. Headers always include correlationId, eventType, eventVersion. */
 public record EventEnvelope<T>(String eventType, int eventVersion, String key,
@@ -23,7 +23,7 @@ public record EventEnvelope<T>(String eventType, int eventVersion, String key,
 public @interface EventType { String value(); int version() default 1; }
 
 /** Publish integration events to the configured transport. AT-LEAST-ONCE. Thread-safe.
- *  Blocking publish; returns after transport ack. Failures throw EventPublishException (code ACME-MSG-0001). */
+ *  Blocking publish; returns after transport ack. Failures throw EventPublishException (code DC-MSG-0001). */
 public interface EventPublisher {
     void publish(String destination, EventEnvelope<?> event);
     default void publish(String destination, Object payload) { … }
@@ -35,12 +35,12 @@ public interface EventPublisher {
 public @interface EventHandler { String destination(); String eventType() default ""; }
 
 public class EventPublishException extends PlatformException { … }
-public class EventSerializationException extends PlatformException { … }   // ACME-MSG-0002
+public class EventSerializationException extends PlatformException { … }   // DC-MSG-0002
 ```
 
 ## messaging-spi
 ```java
-package com.acme.platform.messaging.spi;
+package ae.gov.dubaicustoms.platform.messaging.spi;
 
 /** Provider contract. Implementations must be thread-safe and honor at-least-once. */
 public interface EventTransport extends AutoCloseable {
@@ -67,7 +67,7 @@ sync-drain mode for tests (`InMemoryEventTransport.awaitIdle(Duration)`), simple
 (configurable attempts then drop+log with error code). Heavily commented as reference implementation.
 
 ## messaging-autoconfigure
-- `MessagingProperties` (`acme.platform.messaging`): `enabled`, `default-destination-prefix="acme."`,
+- `MessagingProperties` (`dc.platform.messaging`): `enabled`, `default-destination-prefix="dc."`,
   `handler.retry.max-attempts=3`, `handler.retry.backoff=1s`, `dlq.suffix=".dlq"`,
   `correlation.propagate=true`.
 - Beans (template pattern): `EventPublisher` impl over any `EventTransport` bean (back-off) —
@@ -92,14 +92,14 @@ sync-drain mode for tests (`InMemoryEventTransport.awaitIdle(Duration)`), simple
   `@DomainEventHandler` (method annotation).
 - events-autoconfigure: bridges to Spring `ApplicationEventPublisher` + `@TransactionalEventListener(AFTER_COMMIT)`
   when transactions present (`@ConditionalOnClass`); optional relay: if messaging `EventPublisher` bean exists AND
-  `acme.platform.events.relay.enabled=true`, domain events annotated `@EventType` are re-published as
+  `dc.platform.events.relay.enabled=true`, domain events annotated `@EventType` are re-published as
   integration events after commit (this is the lightweight outbox precursor; a true outbox is a
   documented future enhancement — leave `docs/decisions/` note, not code).
 - Tests: same-tx handler ordering, after-commit semantics with H2 + `@Transactional` tests, relay test with inmemory transport.
 
 ## messaging-test (Test Support)
 `TestEventTransport` (records sent messages, manual `deliver(...)`), AssertJ assertions
-(`assertThatEvents().sentTo("acme.orders").withType("OrderPlaced")`), `@AutoConfigureTestTransport`.
+(`assertThatEvents().sentTo("dc.orders").withType("OrderPlaced")`), `@AutoConfigureTestTransport`.
 
 ## Acceptance
 ```bash

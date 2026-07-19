@@ -1,4 +1,4 @@
-# CLAUDE.md — acme-platform (place at repo root)
+# CLAUDE.md — dc-platform (place at repo root)
 
 You are implementing an internal Spring Boot platform ("chassis"). The architecture is fixed
 (see specs/00-MASTER-PLAN.md and the phase specs). Your job is faithful, incremental execution.
@@ -20,11 +20,11 @@ You are implementing an internal Spring Boot platform ("chassis"). The architect
    - Forbidden: api→anything downward, impl→impl, starter→starter, anything→`*.internal` of
      another module, cycles, 3rd-party types in api/spi signatures.
 6. **Every platform bean**: `@ConditionalOnMissingBean`, kill switch
-   `acme.platform.<cap>.enabled` (`matchIfMissing = true`), constructor injection, no field injection,
+   `dc.platform.<cap>.enabled` (`matchIfMissing = true`), constructor injection, no field injection,
    no `@Autowired` on constructors (implicit), no `@ComponentScan` of platform packages.
-7. **Packages:** `com.acme.platform.<cap>` (API), `.spi`, `.config`, `.autoconfigure`,
+7. **Packages:** `ae.gov.dubaicustoms.platform.<cap>` (API), `.spi`, `.config`, `.autoconfigure`,
    `.internal`, provider packages `.<provider>` with their own `.internal`.
-8. **Properties:** immutable records, prefix `acme.platform.<cap>`, defaults in code + metadata.
+8. **Properties:** immutable records, prefix `dc.platform.<cap>`, defaults in code + metadata.
    Renames require deprecation metadata. See specs/reference/property-conventions.md.
 9. **Javadoc/comments:** follow specs/reference/coding-standards.md §2 exactly. Public API and SPI
    types: full javadoc with purpose, usage snippet, thread-safety, nullability, `@since 0.1.0`.

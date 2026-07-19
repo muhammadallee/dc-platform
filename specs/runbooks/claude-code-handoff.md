@@ -6,12 +6,12 @@ wraps those two mechanisms.
 
 ## One-time setup
 
-1. Replace placeholders: `acme` / `com.acme.platform` across the tree; set the real Spring Boot 3.x
+1. Replace placeholders: `dc` / `ae.gov.dubaicustoms.platform` across the tree; set the real Spring Boot 3.x
    version in BOTH places (aggregator `<spring-boot.version>` and `platform-service-parent`'s `<parent>`).
 2. `git init && git add -A && git commit -m "chore: phase 1 foundation"`.
 3. Run `mvn -T1C verify` YOURSELF once — never let an agent start from an unverified baseline
    (you don't want to debug "was it broken before, or did the agent break it").
-4. Open the repo in Claude Code (`cd acme-platform && claude`). Grant `mvn`, `git`, and file-edit
+4. Open the repo in Claude Code (`cd dc-platform && claude`). Grant `mvn`, `git`, and file-edit
    permissions when prompted.
 
 ## Per-phase handoff

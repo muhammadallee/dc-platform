@@ -12,7 +12,7 @@ flowchart TB
   subgraph dataa["Data Architecture"]
     da1["Integration event schemas: EventType name plus version"]
     da2["Platform-owned tables: audit, lock, idempotency via Flyway"]
-    da3["Configuration data: acme.platform.* keys, secret references"]
+    da3["Configuration data: dc.platform.* keys, secret references"]
   end
   subgraph tech["Technology Architecture"]
     t1["Java 21 LTS, Spring Boot 3.x, Maven multi-module"]

@@ -6,7 +6,7 @@
   `Auditor { void record(AuditEvent e); }` for programmatic use.
 - spi: `AuditSink { void write(AuditEvent e); }`.
 - sinks: log (structured logger `AUDIT`, default), jdbc (`platform_audit` table + flyway, H2-tested),
-  messaging (publishes via EventPublisher to `acme.audit` when messaging active — guarded edge).
+  messaging (publishes via EventPublisher to `dc.audit` when messaging active — guarded edge).
 - autoconfigure: aspect for @Audited (actor from CurrentUserAccessor, outcome from return/exception),
   async-by-default with bounded queue + drop policy WARN (comment the tradeoff), graceful degradation
   chain messaging→jdbc→log with startup WARN naming active sink (this exact behavior is in the arch doc §7).
@@ -31,6 +31,6 @@
   then JWT claim `tenant`.
 - jpa: Hibernate discriminator strategy (`@TenantId` Hibernate 6 support) wiring; schema-per-tenant is
   documented-only v1 (decision note).
-- Everything `acme.platform.tenancy.enabled=false` by default.
+- Everything `dc.platform.tenancy.enabled=false` by default.
 
 Acceptance: root verify docker-free; docs ×4; BOM; CHANGELOG. **Full catalog complete.**

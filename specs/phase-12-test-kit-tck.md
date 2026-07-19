@@ -12,7 +12,7 @@
   vault(), localstack()) with `@ServiceConnection` helpers — used ONLY by `@Tag("docker")` tests;
   `DockerAvailable.check()` utility (assumption guard) lives here.
 - JWT test helpers: `TestTokens.user("alice").roles("ADMIN").jwt()` post-processor sugar.
-- AssertJ extensions: ProblemDetail assertions (`assertThatProblem(response).hasCode("ACME-ORD-0001")`).
+- AssertJ extensions: ProblemDetail assertions (`assertThatProblem(response).hasCode("DC-ORD-0001")`).
 
 ## platform-starter-test — POM: test-api + spring-boot-starter-test + messaging-test + json-path etc. (test scope guidance comment).
 

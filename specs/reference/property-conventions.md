@@ -1,9 +1,9 @@
 # Reference — Configuration Property Conventions
 
-1. **Prefix:** `acme.platform.<cap>`; nested groups mirror concepts (`…messaging.handler.retry.max-attempts`).
-2. **Kill switch:** every capability: `acme.platform.<cap>.enabled` (Boolean, default true,
+1. **Prefix:** `dc.platform.<cap>`; nested groups mirror concepts (`…messaging.handler.retry.max-attempts`).
+2. **Kill switch:** every capability: `dc.platform.<cap>.enabled` (Boolean, default true,
    `matchIfMissing=true` on the condition). Sub-features get their own `enabled` when independently toggleable.
-3. **Shape:** one immutable record per capability, `@ConfigurationProperties(prefix="acme.platform.<cap>")`,
+3. **Shape:** one immutable record per capability, `@ConfigurationProperties(prefix="dc.platform.<cap>")`,
    `@Validated` with constraints, defaults via `@DefaultValue` / compact constructor.
    Registered with `@EnableConfigurationProperties` on the autoconfiguration (never scanning).
 4. **Metadata:** `spring-boot-configuration-processor` on every autoconfigure module (annotationProcessor);

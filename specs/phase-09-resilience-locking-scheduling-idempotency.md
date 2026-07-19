@@ -4,7 +4,7 @@
 - Use Resilience4j spring-boot3 (pin now). resilience-api: NO wrapper annotations (use r4j's own —
   things-to-avoid #25); api ships `ResilienceDefaults` constants + `RetryableOperation` functional helper
   `T call(String name, Supplier<T>)` interface for programmatic use.
-- autoconfigure (`acme.platform.resilience`): default instance configs (retry 3/exp, cb 50% window 10,
+- autoconfigure (`dc.platform.resilience`): default instance configs (retry 3/exp, cb 50% window 10,
   timelimiter 5s) injected as r4j configuration properties defaults via EnvironmentPostProcessor
   (user yaml wins — same pattern as health groups, comment it); Micrometer binding on;
   `RetryableOperation` bean over r4j registries.
@@ -36,7 +36,7 @@ public interface LockManager {
   `IdempotencyStore { boolean putIfAbsent(String key, Duration ttl); }` (SPI-lite in api, jdbc default impl
   reusing the locking table pattern with its own `platform_idempotency` table; cache/redis-backed store
   auto-chosen if present — commented order).
-- HTTP filter mode (`acme.platform.idempotency.http.enabled=false` default): honors `Idempotency-Key` header
+- HTTP filter mode (`dc.platform.idempotency.http.enabled=false` default): honors `Idempotency-Key` header
   on POST, replays 409 on duplicates (response replay is OUT of scope v1 — reject-duplicate only; comment).
 - Tests: SpEL key eval, duplicate rejection, ttl expiry (H2 + clock abstraction).
 

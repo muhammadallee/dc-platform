@@ -4,7 +4,7 @@ flowchart TB
 
   subgraph svc["A Service - Software System built on the platform"]
     app["Spring Boot App<br>[Container: JVM]<br>Controller, Service, application.yml"]
-    subgraph plat["ACME Platform - library containers inside the app"]
+    subgraph plat["DC Platform - library containers inside the app"]
       st["Capability Starters<br>[POM-only composition]"]
       ac["Auto-Configurations<br>[conditional beans, kill switches, back-off]"]
       apispi["APIs and SPIs<br>[stable contracts, SemVer + japicmp]"]

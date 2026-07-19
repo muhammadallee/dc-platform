@@ -19,7 +19,7 @@ class @Cap@AutoConfigurationTest {
 
     @Test
     void killSwitchDisables() {
-        runner.withPropertyValues("acme.platform.@capability@.enabled=false")
+        runner.withPropertyValues("dc.platform.@capability@.enabled=false")
                 .run(ctx -> assertThat(ctx).doesNotHaveBean(@Cap@AutoConfiguration.class));
     }
 

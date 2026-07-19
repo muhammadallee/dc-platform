@@ -10,7 +10,7 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D2 — check-bom binding.** Not bound to aggregator `verify`: a Maven plugin cannot be resolved
   from the reactor that is building it for the ROOT project on a clean machine, which would break
   ground rule 1 (first `mvn verify` after checkout must pass). It runs as an explicit invocation
-  (`mvn com.acme.platform:platform-build-maven-plugin:check-bom` after an install of the plugin)
+  (`mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:check-bom` after an install of the plugin)
   and as a dedicated CI step. Revisit in phase 13 tooling scripts.
 - **D3 — new-module verification.** The "generate into a temp reactor and verify it" integration
   test is realized as: unit tests over the generation internals + a plugin-descriptor wiring test;
@@ -41,3 +41,11 @@ One line of context per decision; details live in the commit bodies referenced.
   (`spring-boot-starter-web`, `spring-boot-autoconfigure`, `spring-boot-starter-test`) are still
   published at 4.1.0, so spec references remain valid; prefer the new names in new code where the
   spec does not pin one.
+- **D7 — platform identity.** Placeholder replacement per the handoff runbook's one-time setup:
+  base identity renamed from the spec pack's placeholder (short name and Maven groupId/Java root
+  package) to `dc` / `ae.gov.dubaicustoms.platform`. Follows through everywhere the identity is
+  load-bearing: Maven coordinates (aggregator artifactId now `dc-platform`), Java packages incl.
+  build-tools test fixtures, `PlatformLayerRule`/`PlatformArchRules` constants and regexes, the
+  scaffolder templates, property prefix (`dc.platform.<cap>`), error-code namespace
+  (`DC-<CAP>-<NNNN>`), specs, runbooks, docs, and CI. The specs are the implementation authority
+  for later phases, so they were swept too rather than left historical.

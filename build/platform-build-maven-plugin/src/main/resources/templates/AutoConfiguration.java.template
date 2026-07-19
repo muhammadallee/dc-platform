@@ -5,14 +5,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /*
- * Activates when: acme.platform.@capability@.enabled != false
+ * Activates when: dc.platform.@capability@.enabled != false
  *                 TODO: add @ConditionalOnClass for the capability's api entry-point type
  * Backs off when: TODO list the user-defined bean types this backs off for
  * Beans: TODO <mainBean> - <one-line responsibility>
  * Order: TODO before/after which auto-configurations, and why
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "acme.platform.@capability@", name = "enabled",
+@ConditionalOnProperty(prefix = "dc.platform.@capability@", name = "enabled",
         havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(@Cap@Properties.class)
 public class @Cap@AutoConfiguration {

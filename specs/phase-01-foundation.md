@@ -8,7 +8,7 @@
 
 ## Repo skeleton to create
 ```
-acme-platform/
+dc-platform/
 ├── pom.xml                       (aggregator)
 ├── CLAUDE.md  CHANGELOG.md  README.md  .gitignore  .editorconfig
 ├── docker-compose.local.yml
@@ -27,11 +27,11 @@ acme-platform/
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.acme.platform</groupId>
-  <artifactId>acme-platform</artifactId>
+  <groupId>ae.gov.dubaicustoms.platform</groupId>
+  <artifactId>dc-platform</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
-  <name>ACME Platform (aggregator)</name>
+  <name>DC Platform (aggregator)</name>
 
   <properties>
     <revision>0.1.0-SNAPSHOT</revision>
@@ -80,7 +80,7 @@ Parent = root aggregator. `packaging=pom`. Contains ONLY `<dependencyManagement>
 
 ## 4. `build/platform-bom/pom.xml` — platform artifact BOM
 `packaging=pom`, parent = root aggregator, flatten as bom. `<dependencyManagement>` first imports
-`platform-dependencies:${revision}`, then lists every `com.acme.platform:*:${revision}` artifact.
+`platform-dependencies:${revision}`, then lists every `ae.gov.dubaicustoms.platform:*:${revision}` artifact.
 Seed now with the four build POMs' coordinates commented as placeholder; **every later phase appends
 its new artifacts here in the same PR** (checklist item in reference/module-checklist.md).
 
@@ -91,9 +91,9 @@ give it the literal platform version via property `platform.version` defaulting 
 **Simplification (use this):** `platform-service-parent` has its own `<version>${revision}</version>`
 via the aggregator parent chain is NOT possible outside the reactor, so:
 - parent = `spring-boot-starter-parent`
-- explicit `<groupId>com.acme.platform</groupId><artifactId>platform-service-parent</artifactId><version>${revision}</version>`
+- explicit `<groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-service-parent</artifactId><version>${revision}</version>`
   with flatten-maven-plugin resolving `${revision}` at deploy (standard CI-friendly pattern; it IS part of the reactor via `<modules>`, Maven allows a module whose parent is external).
-- `<dependencyManagement>`: import `com.acme.platform:platform-bom:${revision}`.
+- `<dependencyManagement>`: import `ae.gov.dubaicustoms.platform:platform-bom:${revision}`.
 - `<properties>`: `java.version=21`, `maven.compiler.parameters=true`.
 - `<build>`: spring-boot-maven-plugin (build-info + layered jar), surefire excludedGroups `docker`,
   git-commit-id plugin, jacoco. Nothing else — keep this POM under ~120 lines; comment each block

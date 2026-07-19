@@ -2,9 +2,9 @@
 
 ## 1. Naming
 - Modules: `platform-<cap>[-<provider>|-api|-spi|-autoconfigure|-test]`, starters `platform-starter-<cap>[-provider]`.
-- Packages: `com.acme.platform.<cap>` (+ `.annotation .spi .config .autoconfigure .internal .<provider>[.internal] .migration .testing`).
-- Properties: `acme.platform.<cap>.*`, kebab-case keys.
-- Error codes: `ACME-<CAP 2–8 chars>-<NNNN>`; ranges: 0001–0399 business, 0400–0499 client, 0500–0599 infra.
+- Packages: `ae.gov.dubaicustoms.platform.<cap>` (+ `.annotation .spi .config .autoconfigure .internal .<provider>[.internal] .migration .testing`).
+- Properties: `dc.platform.<cap>.*`, kebab-case keys.
+- Error codes: `DC-<CAP 2–8 chars>-<NNNN>`; ranges: 0001–0399 business, 0400–0499 client, 0500–0599 infra.
 - Beans: type-based; names only when needed for back-off targeting (`platformExceptionHandler`).
 - Tests: `<Class>Test` unit, `<Cap>AutoConfigurationTest` matrix, `<X>IT` failsafe, `@Tag("docker")` for infra.
 
@@ -22,7 +22,7 @@
 **Auto-configuration classes:** leading comment block (above annotations), exact shape:
 ```java
 /*
- * Activates when: <conditions in order>            (e.g. web app + acme.platform.core.enabled!=false)
+ * Activates when: <conditions in order>            (e.g. web app + dc.platform.core.enabled!=false)
  * Backs off when: <user bean types that disable it>
  * Beans: <bean → one-line responsibility>
  * Order: <before/after and WHY>

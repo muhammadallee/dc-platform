@@ -5,8 +5,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
-    <artifactId>acme-platform</artifactId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
     <version>${revision}</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
@@ -14,7 +14,7 @@
   <artifactId>platform-dependencies</artifactId>
   <packaging>pom</packaging>
 
-  <name>ACME Platform :: Dependencies (third-party BOM)</name>
+  <name>DC Platform :: Dependencies (third-party BOM)</name>
   <description>
     The ONLY place third-party versions are declared (constitution: no version tags outside build/).
     Imports spring-boot-dependencies, then pins only what Boot does not manage.

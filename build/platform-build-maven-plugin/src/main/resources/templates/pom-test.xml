@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.acme.platform</groupId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
     <artifactId>platform-parent</artifactId>
     <version>${revision}</version>
     <relativePath>../../build/platform-parent</relativePath>
@@ -14,19 +14,19 @@
   <artifactId>@artifactId@</artifactId>
   <packaging>jar</packaging>
 
-  <name>ACME Platform :: @Cap@ :: Test Support</name>
+  <name>DC Platform :: @Cap@ :: Test Support</name>
   <description>TODO: test fixtures/harnesses this module offers to @capability@ consumers.</description>
 
   <dependencies>
     <!-- test-support -> api/spi/impl, never starters (CLAUDE.md rule 5). -->
     <dependency>
-      <groupId>com.acme.platform</groupId>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-@capability@-api</artifactId>
       <version>${revision}</version>
     </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>
-      <groupId>com.acme.platform</groupId>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
       <scope>test</scope>
     </dependency>

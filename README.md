@@ -1,4 +1,4 @@
-# ACME Platform
+# DC Platform
 
 Internal Spring Boot chassis: build services with one parent POM, one `application.yml`,
 one `@SpringBootApplication`, a controller and a service — conventions handle the rest.
@@ -11,21 +11,21 @@ mvn -Pdocker verify        # additionally runs @Tag("docker") infra tests (needs
 mvn -T1C install           # install locally to build apps against ${revision}
 
 # after an install: scaffold a module / check BOM completeness (see docs/decisions D2)
-mvn com.acme.platform:platform-build-maven-plugin:new-module -Dcapability=<cap> -Dkind=api
-mvn com.acme.platform:platform-build-maven-plugin:check-bom
+mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:new-module -Dcapability=<cap> -Dkind=api
+mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:check-bom
 ```
 
 ## Use (application teams)
 
 ```xml
 <parent>
-  <groupId>com.acme.platform</groupId>
+  <groupId>ae.gov.dubaicustoms.platform</groupId>
   <artifactId>platform-service-parent</artifactId>
   <version><!-- current train --></version>
 </parent>
 <dependencies>
   <dependency>
-    <groupId>com.acme.platform</groupId>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
     <artifactId>platform-starter-core</artifactId> <!-- available from phase 3 -->
   </dependency>
   <!-- add capability starters a la carte -->

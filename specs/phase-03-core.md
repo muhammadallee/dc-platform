@@ -7,7 +7,7 @@
 ## 1. `platform-core-api` — public contracts (full signatures; implement exactly; full javadoc per coding-standards §2)
 
 ```java
-package com.acme.platform.core;
+package ae.gov.dubaicustoms.platform.core;
 
 /** Marker: type is stable public API covered by SemVer guarantees. @since 0.1.0 */
 public @interface PlatformApi {}
@@ -26,14 +26,14 @@ public abstract class PlatformException extends RuntimeException {
 }
 
 /**
- * Stable error identifier: UPPER_SNAKE, namespaced "ACME-<CAP>-<NNNN>", e.g. ACME-MSG-0001.
+ * Stable error identifier: UPPER_SNAKE, namespaced "DC-<CAP>-<NNNN>", e.g. DC-MSG-0001.
  * Uniqueness across the platform is checked at build time (phase 4 registry test). @since 0.1.0
  */
 public record ErrorCode(String value) {
-    public ErrorCode { /* validate ^ACME-[A-Z]{2,8}-\d{4}$ */ }
+    public ErrorCode { /* validate ^DC-[A-Z]{2,8}-\d{4}$ */ }
 }
 
-package com.acme.platform.core.context;
+package ae.gov.dubaicustoms.platform.core.context;
 
 /**
  * Correlation identifier propagated across threads, HTTP, and messaging.
@@ -59,7 +59,7 @@ Also: `package-info.java` for each package with an overview javadoc; NO Spring i
 except `org.springframework.lang.Nullable` if desired — prefer JSpecify `@Nullable` (add pin).
 
 ## 2. `platform-core-autoconfigure`
-Properties record `CoreProperties` (`acme.platform.core`): `banner-enabled=true`,
+Properties record `CoreProperties` (`dc.platform.core`): `banner-enabled=true`,
 `correlation.header-name="X-Correlation-Id"`, `correlation.generate-if-missing=true`.
 Autoconfiguration classes (each from the canonical template, fully commented):
 - `CoreContextAutoConfiguration` — registers `CorrelationIdFilter` (servlet, `@ConditionalOnWebApplication`):
@@ -69,7 +69,7 @@ Autoconfiguration classes (each from the canonical template, fully commented):
   each capability later contributes a `CapabilityDescriptor` bean
   (`record CapabilityDescriptor(String name, String status, String detail)` — lives in core-api? NO:
   keep core-api Spring-free → put descriptor in `core-autoconfigure` public package
-  `com.acme.platform.core.report`, it is API-for-autoconfigure-modules only, mark `@PlatformApi`).
+  `ae.gov.dubaicustoms.platform.core.report`, it is API-for-autoconfigure-modules only, mark `@PlatformApi`).
   Collect via `ObjectProvider<CapabilityDescriptor>`, log sorted: `platform: core[ACTIVE], …`.
 - `AutoConfiguration.imports` lists both.
 Tests: 5-case ContextRunner matrix ×2 configs; `MockMvc` test for filter (header echo, MDC populated

@@ -45,6 +45,7 @@
     <!-- Phase 3 appends: core/platform-core-api, core/platform-core-autoconfigure, core/platform-starter-core -->
     <module>core/platform-core-api</module>
     <module>core/platform-core-autoconfigure</module>
+    <module>core/platform-starter-core</module>
   </modules>
 
   <build>

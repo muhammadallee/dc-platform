@@ -12,6 +12,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 3: `platform-starter-core` — the smallest useful chassis (POM-only starter: core-api +
+  core-autoconfigure + `spring-boot-starter`); `docs/modules/core.md`; service-parent README
+  usage snippet (capabilities stay explicit, ADR-007).
 - Phase 3: `platform-core-autoconfigure` — `CoreContextAutoConfiguration` (correlation-id servlet
   filter at highest precedence, kill switch `dc.platform.core.enabled`) and
   `PlatformBannerAutoConfiguration` (`platform: core[ACTIVE], …` startup line collected from

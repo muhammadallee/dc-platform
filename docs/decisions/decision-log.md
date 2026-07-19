@@ -39,6 +39,11 @@ One line of context per decision; details live in the commit bodies referenced.
   subject (the spec defines no core customizer); it is covered by the ordering-behavior tests
   instead (filter registered at `Ordered.HIGHEST_PRECEDENCE`, banner output sorted by name).
   A customizer interface would have invented public API the spec does not define.
+- **D10 — starter does not depend on core-api directly.** Phase-03 wording lists
+  "core-autoconfigure + core-api" in the starter, but the constitution (CLAUDE.md rule 5,
+  enforced by `platformLayerRule`) allows only `starter -> autoconfigure + named impl(s)`.
+  The constitution wins; applications still get core-api transitively via the autoconfigure
+  module's compile dependency.
 
 ## Pre-phase-3 baseline amendments
 

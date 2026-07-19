@@ -12,6 +12,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-errors-autoconfigure` — `PlatformErrorHandlingAutoConfiguration` registering
+  the RFC-9457 advice pair (`platformExceptionHandler` + `platformValidationExceptionHandler`,
+  kill switch `dc.platform.errors.enabled`): status from `HttpStatusHint`, `type` = base URI +
+  code, `code`/`correlationId`/`timestamp` extensions, validation `errors[]` with
+  password/secret/token redaction, generic 500 fallback `DC-CORE-0500`; plus the build-time
+  error-code registry gate writing `target/error-codes.csv`.
 - Phase 4: `platform-errors-api` — `BusinessException`/`NotFoundException`/`ConflictException`
   with `HttpStatusHint`, and the `ProblemDetailCustomizer` SPI-lite; sanctioned `spring-web`
   dependency because `ProblemDetail` is the RFC-9457 model (decision D11).

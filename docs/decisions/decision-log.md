@@ -59,6 +59,27 @@ One line of context per decision; details live in the commit bodies referenced.
   Phase-3 placement made the type unreachable for every future capability; moved (same package
   `…core.report`) before `0.1.0` exists, while the move is still free of compatibility cost.
 
+## Phase 5 — observability, openapi
+
+- **D13 — one EnvironmentPostProcessor for the management defaults.** The spec's
+  `HealthGroupsAutoConfiguration` defines no beans (it only contributes environment defaults),
+  so health groups, actuator exposure, baggage and the OTLP-off posture all ship in
+  `PlatformObservabilityEnvironmentPostProcessor` (`platform-observability-defaults` source),
+  matching the spec's own "same EnvPostProcessor" wording. Details: commit 6a30f71.
+- **D14 — no ObservationConvention beans; correlation via baggage only.** The spec reverses
+  itself on tagging observations with the correlation id ("low-cardinality? NO"); correlationId
+  is high-cardinality, so it propagates exclusively through tracing baggage
+  (`management.tracing.baggage.remote-fields=X-Correlation-Id`); the mandatory cardinality
+  comment lives on the EnvironmentPostProcessor. Details: commit 6a30f71.
+- **D15 — readiness "when present" via membership validation off.** Readiness includes optional
+  `db,rabbit,redis` members with `management.endpoint.health.validate-group-membership=false`
+  (the group shows the intersection with EXISTING contributors) instead of classpath sniffing;
+  `probes.enabled=true` makes the state contributors exist off Kubernetes. Details: commit 6a30f71.
+- **D16 — Boot 4.1 EnvironmentPostProcessor API.** New platform EPPs implement
+  `org.springframework.boot.EnvironmentPostProcessor` under the new spring.factories key; the
+  `org.springframework.boot.env` variant is deprecated for removal (logging's phase-4 EPP still
+  uses it — migrate when phase 4 is next touched). Details: commit 6a30f71.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

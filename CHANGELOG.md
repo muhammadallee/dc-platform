@@ -6,6 +6,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 6: `platform-restclient-api` — `PlatformRestClientFactory` (inject instead of
+  `RestClient.Builder`), `RemoteCallException` (status/1KB-truncated body/remote correlation id),
+  `PlatformRestClientCustomizer` SPI-lite; sanctioned `spring-web` dependency because
+  `RestClient.Builder` is the model the factory hands back (decision D19).
 - Phase 5: `platform-starter-openapi` — POM-only starter: autoconfigure +
   `springdoc-openapi-starter-webmvc-ui` (`/v3/api-docs`, `/swagger-ui.html`).
 - Phase 5: `platform-openapi-autoconfigure` — `PlatformOpenApiAutoConfiguration`: `OpenAPI` bean

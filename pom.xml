@@ -61,6 +61,8 @@
     <module>observability/platform-starter-observability</module>
     <module>openapi/platform-openapi-autoconfigure</module>
     <module>openapi/platform-starter-openapi</module>
+    <!-- Phase 6: restclient, security, authz slices. -->
+    <module>restclient/platform-restclient-api</module>
   </modules>
 
   <build>

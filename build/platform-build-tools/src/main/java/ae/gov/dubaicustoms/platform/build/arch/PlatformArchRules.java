@@ -67,11 +67,17 @@ public final class PlatformArchRules {
      * capability. Each entry is a standard model the capability's contract is defined in terms of:
      * errors — {@code org.springframework.http} because ProblemDetail IS the RFC-9457 model
      * (phase-04 ADR, errors-api README); validation — {@code jakarta.validation} because Bean
-     * Validation constraints must be meta-annotated with it. Additions require an ADR.
+     * Validation constraints must be meta-annotated with it; restclient —
+     * {@code org.springframework.web.client} because {@code RestClient.Builder} IS the model
+     * {@code PlatformRestClientFactory} hands back (phase-06 ADR, decision D19); security —
+     * {@code org.springframework.security} because {@code HttpSecurity} IS the model
+     * {@code SecurityCustomizer} configures (phase-06 ADR, decision D19). Additions require an ADR.
      */
     private static final Map<String, Set<String>> API_STANDARD_MODEL_PACKAGES = Map.of(
             "errors", Set.of("org.springframework.http"),
-            "validation", Set.of("jakarta.validation"));
+            "validation", Set.of("jakarta.validation"),
+            "restclient", Set.of("org.springframework.web.client"),
+            "security", Set.of("org.springframework.security"));
 
     /** API root packages (ae.gov.dubaicustoms.platform.&lt;cap&gt; and .annotation) stay dependency-poor. */
     static ArchRule apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore() {

@@ -12,6 +12,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-starter-validation` — POM-only starter (autoconfigure +
+  `spring-boot-starter-validation`); `docs/modules/validation.md`.
 - Phase 4: `platform-validation-autoconfigure` — `PlatformValidationAutoConfiguration`
   (kill switch `dc.platform.validation.enabled`): `platformValidator` interpolating messages
   through `platform-validation-messages.properties`, filtered method validation on (records

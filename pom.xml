@@ -55,6 +55,7 @@
     <module>logging/platform-starter-logging</module>
     <module>validation/platform-validation-api</module>
     <module>validation/platform-validation-autoconfigure</module>
+    <module>validation/platform-starter-validation</module>
   </modules>
 
   <build>

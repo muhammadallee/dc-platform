@@ -59,6 +59,7 @@
     <!-- Phase 5: observability, openapi slices. -->
     <module>observability/platform-observability-autoconfigure</module>
     <module>observability/platform-starter-observability</module>
+    <module>openapi/platform-openapi-autoconfigure</module>
   </modules>
 
   <build>

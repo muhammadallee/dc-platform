@@ -70,8 +70,20 @@
         <version>8.1</version>
       </dependency>
 
+      <!-- Phase 5: springdoc 3.x is the Boot-4-compatible line (springdoc's own compatibility
+           matrix: 3.x.x <-> spring-boot 4.x.x); Boot does not manage it. -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+        <version>3.0.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>3.0.3</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 5: springdoc-openapi-starter-webmvc-ui
            Phase 6: mockwebserver (test)
            Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)
            Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->

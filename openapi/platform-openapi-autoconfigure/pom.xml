@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-openapi-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: OpenAPI :: Auto Configuration</name>
+  <description>
+    Auto-configuration for the OpenAPI capability: a springdoc OpenAPI bean (info, servers,
+    bearer-jwt security scheme) plus an OpenApiCustomizer that appends the platform's
+    ProblemDetail error schema and default 4xx/5xx responses to every documented operation.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> core-api for the CapabilityDescriptor contract. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- The 3rd-party lib the OpenAPI bean/customizer are built against; optional + guarded by
+         @ConditionalOnClass so the UI choice stays with the starter (spec: pin in
+         platform-dependencies NOW, UI dependency added by the starter). -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Generates config metadata from the properties record at compile time. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Full web stack + the springdoc UI starter so the /v3/api-docs boot test runs end to end. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

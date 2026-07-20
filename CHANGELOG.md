@@ -6,6 +6,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 5: `platform-openapi-autoconfigure` — `PlatformOpenApiAutoConfiguration`: `OpenAPI` bean
+  (title/version default to `spring.application.name`/`info.app.version`, resolved at bean-build
+  time so a blank key falls back too; bearer-jwt security scheme by default) and
+  `platformProblemDetailOpenApiCustomizer` appending the platform `ProblemDetail` schema plus
+  default 400/401/403/404/409/422/500 responses to every operation without overwriting an
+  operation-defined status; kill switch `dc.platform.openapi.enabled`; springdoc 3.0.3 pinned in
+  `platform-dependencies` (the Boot-4-compatible line); `docs/modules/openapi.md`.
 - Phase 5: `platform-starter-observability` — POM-only starter: autoconfigure +
   `spring-boot-starter-actuator` + OTel tracing bridge (with Boot 4's companion
   `spring-boot-micrometer-tracing-opentelemetry`) + prometheus AND otlp registries (prometheus

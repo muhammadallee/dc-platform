@@ -12,6 +12,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Java root package, property prefix `dc.platform.*`, error-code namespace `DC-*`, specs and docs.
 
 ### Added
+- Phase 4: `platform-validation-autoconfigure` — `PlatformValidationAutoConfiguration`
+  (kill switch `dc.platform.validation.enabled`): `platformValidator` interpolating messages
+  through `platform-validation-messages.properties`, filtered method validation on (records
+  excluded from proxying, as Boot does), banner line; backs off to any user `Validator` bean.
 - Phase 4: `platform-validation-api` — common constraints with validators: `@NotBlankTrimmed`,
   `@Ulid` (Crockford base32, case-insensitive), `@SafeText` (rejects ISO control characters),
   `@FutureInstant` (clock-provider based); message keys resolve via the shipped

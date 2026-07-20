@@ -6,6 +6,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-kafka` — `KafkaEventTransport`: `EventTransport` over spring-kafka's
+  `KafkaTemplate`/`ConsumerFactory`, built entirely from Boot's own `spring.kafka.*` (no broker
+  config duplicated); destination = topic; each subscription's `KafkaMessageListenerContainer` gets
+  a `DefaultErrorHandler` backed by `DeadLetterPublishingRecoverer` (broker-native DLQ, `<topic>.DLT`)
+  honoring the platform retry properties; headers mapped verbatim. Unit tests are docker-free
+  (real `ConsumerFactory`/deserializer wiring against an unreachable broker plus direct header/key
+  conversion tests); `@Tag("docker")` Testcontainers round-trip test excluded from the default build.
 - Phase 7: `platform-messaging-autoconfigure` — `PlatformMessagingAutoConfiguration`: wraps the sole
   `EventTransport` bean with a Jackson-JSON `EventSerializer` default, `DefaultEventPublisher`
   (correlationId/eventType/eventVersion headers, Micrometer `Observation`,

@@ -53,6 +53,7 @@
     <module>logging/platform-logging-api</module>
     <module>logging/platform-logging-autoconfigure</module>
     <module>logging/platform-starter-logging</module>
+    <module>validation/platform-validation-api</module>
   </modules>
 
   <build>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-observability-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Observability :: Auto Configuration</name>
+  <description>
+    Auto-configuration for the observability capability: common meter tags (service/env/
+    platform.version), health-group and actuator-exposure defaults via EnvironmentPostProcessor,
+    correlation propagation through tracing baggage, and the platform actuator endpoint listing
+    active capabilities.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> core-api for the CapabilityDescriptor contract served by /actuator/platform. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- Actuator/micrometer pieces are optional: every class guards with @ConditionalOnClass and
+         the starter ships the runtime choice (Boot 4 split actuator per technology). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-actuator</artifactId>
+      <optional>true</optional> <!-- @Endpoint/@ReadOperation for the platform endpoint -->
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-actuator-autoconfigure</artifactId>
+      <optional>true</optional> <!-- @ConditionalOnAvailableEndpoint honors exposure config -->
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-metrics</artifactId>
+      <optional>true</optional> <!-- MeterRegistryCustomizer callback contract -->
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <optional>true</optional> <!-- MeterRegistry/Tag types used by the common-tags customizer -->
+    </dependency>
+    <!-- Generates config metadata from the properties record at compile time. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Full actuator + web stack so the endpoint test can hit /actuator/platform end to end
+         (EnvironmentPostProcessor exposure defaults included). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

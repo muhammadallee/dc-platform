@@ -1,0 +1,5 @@
+# Environment defaults must land before the context exists (property-conventions §7) —
+# EnvironmentPostProcessor has no AutoConfiguration.imports equivalent. Registered under the
+# Boot 4.1 key (org.springframework.boot.env.* variant is deprecated for removal).
+org.springframework.boot.EnvironmentPostProcessor=\
+ae.gov.dubaicustoms.platform.observability.autoconfigure.PlatformObservabilityEnvironmentPostProcessor

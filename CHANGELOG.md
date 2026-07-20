@@ -5,6 +5,20 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Added
+- Phase 5: `platform-observability-autoconfigure` — common meter tags
+  `service`/`env`/`platform.version` (`CommonTagsAutoConfiguration`, back-off bean name
+  `platformCommonTagsCustomizer`); `PlatformObservabilityEnvironmentPostProcessor`
+  (lowest-precedence `platform-observability-defaults` source) contributing actuator exposure
+  (`health,info,platform,metrics,prometheus`), liveness/readiness health groups on every
+  platform (readiness lists optional `db,rabbit,redis` members), correlation propagation via
+  tracing baggage only (`X-Correlation-Id`; never a metric tag — cardinality), and OTLP export
+  OFF by default; `/actuator/platform` endpoint serving the `CapabilityDescriptor` report; kill
+  switch `dc.platform.observability.enabled`; `docs/modules/observability.md`.
+- Phase 5: platform jar manifests now carry `Implementation-Version` (maven-jar-plugin
+  `addDefaultImplementationEntries` in `platform-parent`) so the `platform.version` common tag
+  reports the real train version at runtime.
+
 ### Fixed
 - `platform-service-parent`'s self-contained `<revision>` (its parent is
   `spring-boot-starter-parent`, so it cannot inherit the aggregator's) was left at

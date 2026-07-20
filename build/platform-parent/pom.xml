@@ -51,6 +51,19 @@
   <build>
     <pluginManagement>
       <plugins>
+        <!-- Implementation-Version in every platform jar manifest: the observability common tag
+             platform.version reads it at runtime (phase-05 spec: version from the jar manifest). -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <configuration>
+            <archive>
+              <manifest>
+                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              </manifest>
+            </archive>
+          </configuration>
+        </plugin>
         <!-- Binary compatibility gate. Fully configured, but platform.japicmp.skip=true keeps it
              inert until the first release exists to compare against (phase 4 flips the property
              after tag 0.1.0). api/spi modules opt into build-breaking via platform.japicmp.breakBuild. -->

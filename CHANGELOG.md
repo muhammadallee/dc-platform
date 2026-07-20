@@ -6,6 +6,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 6: `platform-starter-security` — POM-only starter: autoconfigure only (security-api
+  arrives transitively); `docs/modules/security.md`.
 - Phase 6: `platform-security-autoconfigure` — `PlatformSecurityAutoConfiguration`: stateless JWT
   resource-server `SecurityFilterChain` (permit-paths, security headers, RFC-9457-shaped 401/403
   bodies via internal entry-point/denied-handler since the errors advice cannot reach filter-chain

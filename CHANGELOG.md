@@ -6,6 +6,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-starter-events` — POM-only starter: autoconfigure only (events-api arrives
+  transitively); `docs/modules/events.md` (with a publish/dispatch sequence diagram). Completes the
+  phase 7 events slice.
 - Phase 7: `platform-events-autoconfigure` — `PlatformEventsAutoConfiguration`: bridges
   `DomainEventPublisher`/`@DomainEventHandler` to Spring's `ApplicationEventPublisher`;
   `AfterCommitDispatcher` strategy — `TransactionalDispatcher` (after-commit when a transaction is

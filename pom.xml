@@ -85,6 +85,7 @@
     <module>messaging/platform-messaging-test</module>
     <module>events/platform-events-api</module>
     <module>events/platform-events-autoconfigure</module>
+    <module>events/platform-starter-events</module>
   </modules>
 
   <build>

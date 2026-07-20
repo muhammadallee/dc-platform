@@ -12,6 +12,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   permission enforcement); artifacts prefixed `platform-security-authz-*` so the dependency
   constitution's capability inference groups authz with security, letting the SPI legitimately
   depend on `CurrentUser` (decision D25).
+- Phase 6: `platform-security-authz-spi` — `PermissionEvaluatorProvider` (pluggable permission
+  evaluation behind `@RequiresPermission`); depends on `platform-security-api` for `CurrentUser`
+  as a same-capability edge (decision D25).
 - Phase 6: `platform-restclient-autoconfigure` — `PlatformRestClientAutoConfiguration`:
   `DefaultPlatformRestClientFactory` on the JDK HttpClient request factory
   (`ClientHttpRequestFactoryBuilder.jdk()`, Boot 4.1's replacement for the Boot-3-era settings

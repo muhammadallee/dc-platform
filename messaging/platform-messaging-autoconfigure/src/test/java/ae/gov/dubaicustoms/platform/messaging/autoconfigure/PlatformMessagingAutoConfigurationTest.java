@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.EventHandlerRegistrar;
+import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -57,13 +58,14 @@ class PlatformMessagingAutoConfigurationTest {
 
     @Test
     void capabilityIsInactiveWhenNoTransportBeanPresent() {
-        // Filters kafka/rabbit templates too: this module's own optional compile dependencies put
-        // both on ITS classpath (needed to compile the nested transport configs), which a real
-        // consumer never has together — each provider arrives via its own starter. Filtering both
-        // reproduces the only combination a real app can be in with zero transports configured.
+        // Filters every provider type: this module's own optional compile dependencies put all
+        // three on ITS classpath (needed to compile the nested transport configs), which a real
+        // consumer never has together — each provider arrives via its own starter. Filtering all
+        // three reproduces the only combination a real app can be in with zero transports configured.
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(KafkaTemplate.class, RabbitTemplate.class))
+                .withClassLoader(new FilteredClassLoader(
+                        InMemoryEventTransport.class, KafkaTemplate.class, RabbitTemplate.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(EventPublisher.class);
                     assertThat(context).doesNotHaveBean(EventHandlerRegistrar.class);

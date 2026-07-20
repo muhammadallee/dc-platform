@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.messaging.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.rabbit.RabbitEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
@@ -23,6 +24,14 @@ import org.springframework.kafka.core.KafkaTemplate;
 class ProviderTransportWiringTest {
 
     @Test
+    void inMemoryTransportConfigurationSuppliesInMemoryEventTransport() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
+                .withClassLoader(new FilteredClassLoader(KafkaTemplate.class, RabbitTemplate.class))
+                .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(InMemoryEventTransport.class));
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void kafkaTransportConfigurationSuppliesKafkaEventTransport() {
         KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
@@ -30,7 +39,7 @@ class ProviderTransportWiringTest {
 
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(RabbitTemplate.class))
+                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, RabbitTemplate.class))
                 .withBean(KafkaTemplate.class, () -> kafkaTemplate)
                 .withBean(ConsumerFactory.class, () -> consumerFactory)
                 .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(KafkaEventTransport.class));
@@ -43,7 +52,7 @@ class ProviderTransportWiringTest {
 
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(KafkaTemplate.class))
+                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, KafkaTemplate.class))
                 .withBean(RabbitTemplate.class, () -> rabbitTemplate)
                 .withBean(ConnectionFactory.class, () -> connectionFactory)
                 .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(RabbitEventTransport.class));

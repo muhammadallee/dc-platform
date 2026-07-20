@@ -5,6 +5,7 @@ import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.DefaultEventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.EventHandlerRegistrar;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.JacksonEventSerializer;
+import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.rabbit.RabbitEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
@@ -42,10 +43,12 @@ import org.springframework.kafka.core.KafkaTemplate;
  *   platform.messaging.handled metrics; messagingCapabilityDescriptor — ACTIVE with the transport's
  *   name() when exactly one EventTransport bean exists, else INACTIVE with no publisher/registrar
  *   at all (fail-at-injection is clearer than fail-at-boot when messaging is optional).
- *   Nested KafkaTransportConfiguration/RabbitTransportConfiguration additionally provide an
- *   EventTransport bean each (@ConditionalOnClass on the respective 3rd-party template type,
- *   @ConditionalOnMissingBean(EventTransport.class) so an inmemory transport or a user bean always
- *   wins) — a same-capability autoconfigure -> impl edge, allowed by CLAUDE.md rule 5.
+ *   Nested InMemoryTransportConfiguration/KafkaTransportConfiguration/RabbitTransportConfiguration
+ *   additionally provide an EventTransport bean each (@ConditionalOnClass on the respective
+ *   implementation/3rd-party template type, @ConditionalOnMissingBean(EventTransport.class) so a
+ *   user bean always wins) — a same-capability autoconfigure -> impl edge, allowed by CLAUDE.md
+ *   rule 5. Real applications bring exactly one of the three onto the classpath via their chosen
+ *   starter, so at most one of these three ever activates.
  * Order: none required.
  */
 @AutoConfiguration
@@ -85,6 +88,18 @@ public class PlatformMessagingAutoConfiguration {
         return transport != null
                 ? new CapabilityDescriptor("messaging", "ACTIVE", transport.name())
                 : new CapabilityDescriptor("messaging", "INACTIVE", "no single EventTransport bean present");
+    }
+
+    /** Provides the in-memory {@link EventTransport} when it is on the classpath and nothing else supplies one. */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(InMemoryEventTransport.class)
+    static class InMemoryTransportConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(EventTransport.class)
+        EventTransport inMemoryEventTransport() {
+            return new InMemoryEventTransport();
+        }
     }
 
     /** Provides the Kafka {@link EventTransport} when spring-kafka is present and nothing else supplies one. */

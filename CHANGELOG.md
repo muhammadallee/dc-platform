@@ -6,6 +6,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 6: `platform-security-autoconfigure` — `PlatformSecurityAutoConfiguration`: stateless JWT
+  resource-server `SecurityFilterChain` (permit-paths, security headers, RFC-9457-shaped 401/403
+  bodies via internal entry-point/denied-handler since the errors advice cannot reach filter-chain
+  exceptions, ordered `SecurityCustomizer`s applied before the platform's own catch-all so a
+  customizer can open extra paths but not override authenticated-by-default), `JwtCurrentUserAccessor`;
+  kill switch `dc.platform.security.enabled` plus explicit-only `dc.platform.security.mode=disabled`
+  escape hatch (never profile-implied — secure by default).
 - Phase 6: `platform-security-api` — `SecurityCustomizer` (ordered `HttpSecurity` extension
   point), `CurrentUser` (token-format-neutral principal: subject/tenant/roles/claims) +
   `CurrentUserAccessor`; sanctioned `spring-security-config` dependency because `HttpSecurity` is

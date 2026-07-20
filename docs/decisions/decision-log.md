@@ -103,6 +103,31 @@ One line of context per decision; details live in the commit bodies referenced.
   capability is defined in terms of, not implementation details. Added
   `restclient -> org.springframework.web.client` and `security -> org.springframework.security`
   to `PlatformArchRules.API_STANDARD_MODEL_PACKAGES`.
+- **D20 — Boot 4 modularized security/MVC test packages.** The spec-era package names
+  (`org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration`,
+  `org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc`) no longer exist
+  at 4.1.0: security autoconfiguration moved to the new `spring-boot-security`/
+  `spring-boot-security-oauth2-resource-server` artifacts under
+  `org.springframework.boot.security.autoconfigure.*` (servlet chain:
+  `ServletWebSecurityAutoConfiguration`; resource server: `OAuth2ResourceServerAutoConfiguration`
+  under `org.springframework.boot.security.oauth2.server.resource.autoconfigure`), and MockMvc test
+  support moved to the new `spring-boot-webmvc-test` artifact under
+  `org.springframework.boot.webmvc.test.autoconfigure`. Used the new names throughout (per D6's
+  "prefer new canonical names in new code").
+- **D21 — SecurityCustomizers run before the platform's own `anyRequest()`.** Spring Security
+  forbids adding more `authorizeHttpRequests()` matchers after `anyRequest()` is registered
+  (`IllegalStateException`), so `PlatformSecurityAutoConfiguration` applies customizers first and
+  seals the chain with permit-paths + `anyRequest().authenticated()` last — a customizer that wants
+  to open an additional path still can; one that wants to override the catch-all cannot (by
+  design: the platform's authenticated-by-default posture is not customizer-overridable).
+- **D22 — 401/403 bodies bypass the errors capability's advice.** `AuthenticationException`/
+  `AccessDeniedException` thrown inside the security filter chain are handled by
+  `ExceptionTranslationFilter` before the `DispatcherServlet` (and its `@RestControllerAdvice`)
+  ever runs, so `platform-errors-autoconfigure`'s advice cannot shape them. A minimal internal
+  `ProblemDetailAuthenticationEntryPoint`/`ProblemDetailAccessDeniedHandler` pair writes the
+  RFC-9457 body directly (manual JSON, no new dependency) to satisfy the phase-06 acceptance
+  criterion without coupling security to errors (which the dependency constitution forbids anyway:
+  autoconfigure -> autoconfigure of another capability is not on the allowed matrix).
 
 ## Pre-phase-3 baseline amendments
 

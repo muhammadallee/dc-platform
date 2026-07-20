@@ -76,6 +76,7 @@
     <module>messaging/platform-messaging-api</module>
     <module>messaging/platform-messaging-spi</module>
     <module>messaging/platform-messaging-inmemory</module>
+    <module>messaging/platform-messaging-autoconfigure</module>
   </modules>
 
   <build>

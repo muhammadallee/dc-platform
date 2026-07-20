@@ -6,6 +6,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-autoconfigure` — `PlatformMessagingAutoConfiguration`: wraps the sole
+  `EventTransport` bean with a Jackson-JSON `EventSerializer` default, `DefaultEventPublisher`
+  (correlationId/eventType/eventVersion headers, Micrometer `Observation`,
+  `platform.messaging.published` counter), and `EventHandlerRegistrar` (a `BeanPostProcessor`
+  scanning `@EventHandler` methods, dispatching with bounded retry then republishing to
+  `destination + dc.platform.messaging.dlq.suffix` — transport-agnostic, works over any provider —
+  plus `platform.messaging.handled` counters); `CapabilityDescriptor` reports INACTIVE with no
+  publisher/registrar beans when zero or more than one `EventTransport` bean is present
+  (fail-at-injection, not fail-at-boot); kill switch `dc.platform.messaging.enabled`.
 - Phase 7: `platform-messaging-inmemory` — `InMemoryEventTransport`: bounded in-JVM queues per
   (destination, group), one dispatcher virtual thread per subscription (competing consumers within
   a group, fan-out across groups), bounded redelivery with backoff then drop+log (`DC-MSG-0500`),

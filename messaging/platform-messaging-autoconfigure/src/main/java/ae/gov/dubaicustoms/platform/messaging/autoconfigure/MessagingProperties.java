@@ -17,6 +17,8 @@ import org.springframework.validation.annotation.Validated;
  * @param handler handler-side retry policy applied by {@code EventHandlerRegistrar}
  * @param dlq dead-letter destination naming
  * @param correlation correlation-header propagation on publish
+ * @param rabbit rabbit-provider-specific settings, read only by the kafka/rabbit nested transport
+ *     configurations in {@code PlatformMessagingAutoConfiguration}
  * @since 0.2.0
  */
 @Validated
@@ -31,7 +33,9 @@ public record MessagingProperties(
         /** Dead-letter destination naming. */
         Dlq dlq,
         /** Correlation-header propagation on publish. */
-        Correlation correlation) {
+        Correlation correlation,
+        /** Rabbit-provider-specific settings. */
+        Rabbit rabbit) {
 
     /**
      * Normalizes nested groups: Spring's constructor binding leaves unset object components
@@ -41,6 +45,7 @@ public record MessagingProperties(
         handler = handler != null ? handler : new Handler(null);
         dlq = dlq != null ? dlq : new Dlq(null);
         correlation = correlation != null ? correlation : new Correlation(true);
+        rabbit = rabbit != null ? rabbit : new Rabbit(false);
     }
 
     /**
@@ -105,5 +110,17 @@ public record MessagingProperties(
     public record Correlation(
             /** Publish the current RequestContext correlation id as the correlationId header. */
             @DefaultValue("true") boolean propagate) {
+    }
+
+    /**
+     * Rabbit-provider-specific settings.
+     *
+     * @param quorumQueues declare quorum queues instead of classic queues; opt-in for production
+     *     clusters
+     * @since 0.2.0
+     */
+    public record Rabbit(
+            /** Declare quorum queues instead of classic queues; opt-in for production clusters. */
+            @DefaultValue("false") boolean quorumQueues) {
     }
 }

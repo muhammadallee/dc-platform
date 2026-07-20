@@ -32,7 +32,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `destination + dc.platform.messaging.dlq.suffix` — transport-agnostic, works over any provider —
   plus `platform.messaging.handled` counters); `CapabilityDescriptor` reports INACTIVE with no
   publisher/registrar beans when zero or more than one `EventTransport` bean is present
-  (fail-at-injection, not fail-at-boot); kill switch `dc.platform.messaging.enabled`.
+  (fail-at-injection, not fail-at-boot); kill switch `dc.platform.messaging.enabled`. Nested
+  `KafkaTransportConfiguration`/`RabbitTransportConfiguration` (decision D30) supply the kafka/rabbit
+  `EventTransport` beans via optional same-capability impl dependencies, each guarded by
+  `@ConditionalOnClass` on the provider's template type plus
+  `@ConditionalOnMissingBean(EventTransport.class)`; `dc.platform.messaging.rabbit.quorum-queues`
+  (default `false`) added to `MessagingProperties`.
 - Phase 7: `platform-messaging-inmemory` — `InMemoryEventTransport`: bounded in-JVM queues per
   (destination, group), one dispatcher virtual thread per subscription (competing consumers within
   a group, fan-out across groups), bounded redelivery with backoff then drop+log (`DC-MSG-0500`),

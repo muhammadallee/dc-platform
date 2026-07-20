@@ -38,7 +38,7 @@ class DefaultEventPublisherTest {
     };
 
     private final MessagingProperties properties =
-            new MessagingProperties(true, "dc.", null, null, new MessagingProperties.Correlation(true));
+            new MessagingProperties(true, "dc.", null, null, new MessagingProperties.Correlation(true), null);
 
     @Test
     void addsEventTypeAndVersionHeaders() {
@@ -68,7 +68,7 @@ class DefaultEventPublisherTest {
     @Test
     void doesNotPropagateCorrelationIdWhenDisabled() {
         var propagationDisabled =
-                new MessagingProperties(true, "dc.", null, null, new MessagingProperties.Correlation(false));
+                new MessagingProperties(true, "dc.", null, null, new MessagingProperties.Correlation(false), null);
         AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
         EventTransport transport = fakeTransport((destination, key, value, headers) -> capturedHeaders.set(headers));
         var publisher =

@@ -6,6 +6,17 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-events-autoconfigure` — `PlatformEventsAutoConfiguration`: bridges
+  `DomainEventPublisher`/`@DomainEventHandler` to Spring's `ApplicationEventPublisher`;
+  `AfterCommitDispatcher` strategy — `TransactionalDispatcher` (after-commit when a transaction is
+  active, immediate otherwise) when spring-tx is present, `ImmediateDispatcher` fallback otherwise
+  (mutually exclusive via `@ConditionalOnMissingClass`, decision D33); optional `DomainEventRelay`
+  re-publishes `@EventType`-annotated domain events as integration events via the messaging
+  capability's `EventPublisher`, gated by `dc.platform.events.relay.enabled` (default `false`) AND
+  an actual `EventPublisher` bean (`@ConditionalOnBean`) — a lightweight outbox precursor, not a
+  true transactional outbox (decision D32). Tests: same-tx handler ordering, real after-commit/
+  rollback semantics against an H2-backed `DataSourceTransactionManager`, relay round-trip over the
+  real in-memory transport.
 - Phase 7: `platform-events-api` — `DomainEvent` marker interface, `DomainEventPublisher`,
   `@DomainEventHandler` method marker; zero platform dependencies (no core-api needed).
 - Phase 7: `platform-messaging-test` — `TestEventTransport` (records `sent()`, `deliver(...)`

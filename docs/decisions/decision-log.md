@@ -201,6 +201,18 @@ One line of context per decision; details live in the commit bodies referenced.
   the broker-native DLQ each of kafka (`DeadLetterPublishingRecoverer`) and rabbit (DLX) wire up at
   the transport level for messages that fail before ever reaching a handler.
 
+- **D32 — events outbox precursor, not a true outbox.** The relay publishes the integration event
+  on the same after-commit callback as `@DomainEventHandler` dispatch, so a process crash between
+  the local commit and the publish call still loses the integration event. A true outbox (durable
+  staging row written in the same transaction, published by a separate poller/CDC process) is
+  scoped as a documented future enhancement, not implemented in phase 7 — see
+  `EventsProperties.Relay`'s javadoc.
+- **D33 — mutually exclusive `AfterCommitDispatcher` nested configs.** `ImmediateDispatcherConfiguration`
+  is guarded `@ConditionalOnMissingClass("...TransactionSynchronizationManager")`, not left
+  unconditional, so it can never race `TransactionalDispatcherConfiguration` for which bean wins —
+  nested `@Configuration` classes have no guaranteed processing order, so two unconditional
+  `@ConditionalOnMissingBean` candidates for the same type is a latent bug, not just an unlikely one.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

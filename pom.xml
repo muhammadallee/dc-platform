@@ -84,6 +84,7 @@
     <module>messaging/platform-starter-messaging-rabbit</module>
     <module>messaging/platform-messaging-test</module>
     <module>events/platform-events-api</module>
+    <module>events/platform-events-autoconfigure</module>
   </modules>
 
   <build>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-events-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Events :: Auto Configuration</name>
+  <description>
+    Auto-configuration for the events capability: bridges DomainEventPublisher/@DomainEventHandler
+    to Spring's ApplicationEventPublisher, dispatching handlers after the enclosing transaction
+    commits when one is active (immediately otherwise); an optional relay re-publishes
+    @EventType-annotated domain events as integration events via the messaging capability's
+    EventPublisher, guarded by dc.platform.events.relay.enabled and EventPublisher's presence.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-events-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Guarded optional edge to the messaging capability's api (CLAUDE.md rule 5): the relay
+         activates only when an EventPublisher bean actually exists (@ConditionalOnBean) AND
+         dc.platform.events.relay.enabled=true, so an events-only consumer never pulls in messaging. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-api</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- After-commit dispatch when a transaction is active; optional + guarded so a consumer with
+         no transaction manager at all still gets immediate (non-transactional) dispatch. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Generates config metadata from the properties record at compile time. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Real transaction-manager/H2 test for after-commit semantics (test scope: exempt from the
+         dependency constitution). spring-jdbc's DataSourceTransactionManager, not JPA — lighter
+         and sufficient to prove after-commit/rollback dispatch semantics. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Relay integration test against the real inmemory transport (test scope only). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-inmemory</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

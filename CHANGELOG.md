@@ -6,6 +6,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-inmemory` — `InMemoryEventTransport`: bounded in-JVM queues per
+  (destination, group), one dispatcher virtual thread per subscription (competing consumers within
+  a group, fan-out across groups), bounded redelivery with backoff then drop+log (`DC-MSG-0500`),
+  `awaitIdle(Duration)` for sleep-free tests. The local/dev/test default and the messaging TCK
+  (phase 12) reference implementation.
 - Phase 7: `platform-messaging-spi` — `EventTransport` (provider contract: `send`/`subscribe`,
   at-least-once delivery obligation on implementations), `EventSerializer` (pluggable payload
   codec); depends only on `platform-messaging-api`.

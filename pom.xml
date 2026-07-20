@@ -75,6 +75,7 @@
     <!-- Phase 7: messaging (api/spi/inmemory/kafka/rabbit/autoconfigure/starters/test) + events slice. -->
     <module>messaging/platform-messaging-api</module>
     <module>messaging/platform-messaging-spi</module>
+    <module>messaging/platform-messaging-inmemory</module>
   </modules>
 
   <build>

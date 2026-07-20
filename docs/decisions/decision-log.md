@@ -145,6 +145,27 @@ One line of context per decision; details live in the commit bodies referenced.
   grouping authz under one `security/` section and one directory to begin with. Java packages stay
   `ae.gov.dubaicustoms.platform.authz[.spi]` (the conceptual capability name); only the Maven
   artifactId carries the `security-` prefix.
+- **D26 — plain InfrastructureAdvisorAutoProxyCreator, not @EnableAspectJAutoProxy.**
+  `@EnableAspectJAutoProxy` registers `AnnotationAwareAspectJAutoProxyCreator`, whose advisor
+  factory (`ReflectiveAspectJAdvisorFactory`) touches `org.aspectj.lang.annotation.Pointcut` at
+  class-load time even though the authz bridge uses plain `Advisor`/`MethodInterceptor` beans, not
+  `@Aspect` classes — failing with `ClassNotFoundException` unless `aspectjweaver` is added.
+  `PlatformAuthzAutoConfiguration` instead `@Import`s a `ImportBeanDefinitionRegistrar` that calls
+  `AopConfigUtils.registerAutoProxyCreatorIfNecessary` directly (the same cooperative-escalation
+  protocol `@EnableMethodSecurity`/`@EnableTransactionManagement` use), avoiding the new dependency.
+  The `requiresPermissionAdvisor` bean is also marked `@Role(ROLE_INFRASTRUCTURE)`: when the
+  resulting creator is an `InfrastructureAdvisorAutoProxyCreator` (the plain, non-AspectJ variant),
+  it only considers Advisor beans carrying that role — a default-role bean is silently skipped.
+- **D27 — `afterName`, not `@AutoConfiguration(after = PlatformSecurityAutoConfiguration.class)`.**
+  `requiresPermissionAdvisor`'s `@ConditionalOnBean(CurrentUserAccessor.class)` only sees bean
+  DEFINITIONS from auto-configurations already processed — Boot's own documented ordering caveat
+  for `@ConditionalOnBean` across auto-configuration classes. A class-literal `after =` would
+  require a compile dependency on `platform-security-autoconfigure`, which the constitution
+  forbids (autoconfigure -> autoconfigure of another capability is not on the allowed matrix, even
+  same-capability). `@AutoConfiguration(afterName = "...PlatformSecurityAutoConfiguration")` orders
+  by string, avoiding the dependency while still fixing the real bug (found by inspecting
+  `context.getBeansOfType(Advisor.class)` in a failing test: the advisor bean was silently never
+  created, not merely unproxied).
 - **D22 — 401/403 bodies bypass the errors capability's advice.** `AuthenticationException`/
   `AccessDeniedException` thrown inside the security filter chain are handled by
   `ExceptionTranslationFilter` before the `DispatcherServlet` (and its `@RestControllerAdvice`)

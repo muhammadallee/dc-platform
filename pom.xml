@@ -70,6 +70,7 @@
     <module>security/platform-starter-security</module>
     <module>security/platform-security-authz-api</module>
     <module>security/platform-security-authz-spi</module>
+    <module>security/platform-security-authz-autoconfigure</module>
   </modules>
 
   <build>

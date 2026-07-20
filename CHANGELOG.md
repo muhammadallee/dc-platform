@@ -15,6 +15,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 6: `platform-security-authz-spi` — `PermissionEvaluatorProvider` (pluggable permission
   evaluation behind `@RequiresPermission`); depends on `platform-security-api` for `CurrentUser`
   as a same-capability edge (decision D25).
+- Phase 6: `platform-security-authz-autoconfigure` — `PlatformAuthzAutoConfiguration`: a plain
+  (non-AspectJ) `InfrastructureAdvisorAutoProxyCreator` bridging `@RequiresPermission` to the
+  ordered `PermissionEvaluatorProvider` beans (unauthenticated → 401 via
+  `InsufficientAuthenticationException`, unauthorized → 403 via `AccessDeniedException`, both
+  translated by the security capability's baseline chain); default
+  `RolesClaimPermissionProvider` (configurable `dc.platform.authz.roles-claim`, default `roles`);
+  kill switch `dc.platform.authz.enabled`.
 - Phase 6: `platform-restclient-autoconfigure` — `PlatformRestClientAutoConfiguration`:
   `DefaultPlatformRestClientFactory` on the JDK HttpClient request factory
   (`ClientHttpRequestFactoryBuilder.jdk()`, Boot 4.1's replacement for the Boot-3-era settings

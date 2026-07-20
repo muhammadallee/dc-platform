@@ -5,6 +5,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-20
+
+Milestone M1: a service built on the platform gets correlation IDs, structured JSON logs,
+RFC-9457 error responses, and common validation constraints out of three starters.
+
 ### Changed
 - Platform baseline moved to Java 25 and Spring Boot 4.1.0 (decision D6); toolchain plugins bumped
   for Java 25 class files (jacoco, sisu, maven-plugin-tools, enforcer, japicmp, archunit, flatten).

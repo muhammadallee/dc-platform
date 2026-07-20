@@ -83,6 +83,7 @@
     <module>messaging/platform-starter-messaging-kafka</module>
     <module>messaging/platform-starter-messaging-rabbit</module>
     <module>messaging/platform-messaging-test</module>
+    <module>events/platform-events-api</module>
   </modules>
 
   <build>

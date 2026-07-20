@@ -6,6 +6,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-events-api` — `DomainEvent` marker interface, `DomainEventPublisher`,
+  `@DomainEventHandler` method marker; zero platform dependencies (no core-api needed).
 - Phase 7: `platform-messaging-test` — `TestEventTransport` (records `sent()`, `deliver(...)`
   simulates inbound messages independently of `send`), `EventsAssert`
   (`assertThatEvents(transport).sentTo("dc.orders").withType("OrderPlaced")`), and

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-events-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Events :: API</name>
+  <description>
+    DomainEvent/DomainEventPublisher/@DomainEventHandler: in-process domain event contracts.
+    platform-events-autoconfigure bridges these to Spring's ApplicationEventPublisher with
+    after-commit dispatch; no 3rd-party (incl. Spring) types in this module's signatures.
+  </description>
+
+  <!-- Contract artifact: binary-incompatible changes must break the build once a release
+       baseline exists (platform-parent wires japicmp; the skip flag flips after 0.1.0). -->
+  <properties>
+    <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
+  </properties>
+
+  <dependencies>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

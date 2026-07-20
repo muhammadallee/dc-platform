@@ -6,6 +6,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 5: `platform-starter-openapi` — POM-only starter: autoconfigure +
+  `springdoc-openapi-starter-webmvc-ui` (`/v3/api-docs`, `/swagger-ui.html`).
 - Phase 5: `platform-openapi-autoconfigure` — `PlatformOpenApiAutoConfiguration`: `OpenAPI` bean
   (title/version default to `spring.application.name`/`info.app.version`, resolved at bean-build
   time so a blank key falls back too; bearer-jwt security scheme by default) and

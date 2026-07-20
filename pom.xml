@@ -60,6 +60,7 @@
     <module>observability/platform-observability-autoconfigure</module>
     <module>observability/platform-starter-observability</module>
     <module>openapi/platform-openapi-autoconfigure</module>
+    <module>openapi/platform-starter-openapi</module>
   </modules>
 
   <build>

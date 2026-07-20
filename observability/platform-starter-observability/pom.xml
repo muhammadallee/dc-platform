@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-observability</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Observability :: Starter</name>
+  <description>
+    Observability for every DC platform service: actuator with platform exposure and health-group
+    defaults, commonly-tagged metrics with a local Prometheus scrape and an opt-in OTLP export,
+    and OTel-bridged tracing with correlation baggage.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-observability-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Endpoint infrastructure + health + micrometer metrics autoconfiguration (Boot 4 bundles
+         spring-boot-starter-micrometer-metrics here; OTLP/Prometheus export autoconfigs included). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Tracing: the OTel bridge plus its Boot 4 companion autoconfigure module (the bridge is
+         inert without it since the Boot 4 actuator split). Span export stays no-op until
+         dc.platform.observability.otlp.enabled + an exporter are configured. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+    </dependency>
+    <!-- Both metric registries (phase-05 spec: keep both): prometheus scrapes locally with zero
+         infra; OTLP pushes to a collector once dc.platform.observability.otlp.enabled=true. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-otlp</artifactId>
+    </dependency>
+  </dependencies>
+</project>

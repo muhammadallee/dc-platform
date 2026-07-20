@@ -6,6 +6,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 5: `platform-starter-observability` — POM-only starter: autoconfigure +
+  `spring-boot-starter-actuator` + OTel tracing bridge (with Boot 4's companion
+  `spring-boot-micrometer-tracing-opentelemetry`) + prometheus AND otlp registries (prometheus
+  scrapes locally; OTLP export opt-in). `prometheus-metrics-bom` aligned to 1.7.0 in
+  `platform-dependencies` (Boot 4.1.0 pins 1.5.1 against micrometer 1.17's declared 1.7.0,
+  failing the upper-bound gate; decision D17).
 - Phase 5: `platform-observability-autoconfigure` — common meter tags
   `service`/`env`/`platform.version` (`CommonTagsAutoConfiguration`, back-off bean name
   `platformCommonTagsCustomizer`); `PlatformObservabilityEnvironmentPostProcessor`

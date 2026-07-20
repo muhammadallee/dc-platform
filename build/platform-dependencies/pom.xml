@@ -22,7 +22,19 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Boot's curated universe first; everything below only ADDS, never overrides. -->
+      <!-- Phase 5, THE one sanctioned override (first import wins; decision D17): Boot 4.1.0
+           manages io.prometheus at 1.5.1 while its own micrometer 1.17 declares 1.7.0, which
+           fails the requireUpperBoundDeps gate. Aligned to micrometer's declared version.
+           Re-check on every Boot bump and DELETE once Boot catches up. -->
+      <dependency>
+        <groupId>io.prometheus</groupId>
+        <artifactId>prometheus-metrics-bom</artifactId>
+        <version>1.7.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Boot's curated universe next; everything below only ADDS, never overrides. -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>

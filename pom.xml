@@ -58,6 +58,7 @@
     <module>validation/platform-starter-validation</module>
     <!-- Phase 5: observability, openapi slices. -->
     <module>observability/platform-observability-autoconfigure</module>
+    <module>observability/platform-starter-observability</module>
   </modules>
 
   <build>

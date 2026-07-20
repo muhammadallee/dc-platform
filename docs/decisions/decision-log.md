@@ -80,6 +80,13 @@ One line of context per decision; details live in the commit bodies referenced.
   `org.springframework.boot.env` variant is deprecated for removal (logging's phase-4 EPP still
   uses it — migrate when phase 4 is next touched). Details: commit 6a30f71.
 
+- **D17 — prometheus-metrics-bom 1.7.0 override.** Boot 4.1.0 manages `io.prometheus` at 1.5.1
+  while its own micrometer 1.17 declares 1.7.0 — an upper-bound violation our
+  `requireUpperBoundDeps` gate rejects. `platform-dependencies` imports
+  `prometheus-metrics-bom:1.7.0` BEFORE `spring-boot-dependencies` (first import wins) — the one
+  sanctioned exception to "only adds, never overrides"; re-check on every Boot bump and delete
+  once Boot catches up.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

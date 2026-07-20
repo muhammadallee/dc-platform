@@ -6,6 +6,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-api` — `EventEnvelope<T>` (immutable envelope, `Builder` deriving
+  `eventType`/`eventVersion` from `@EventType` or falling back to simple class name/version 1),
+  `EventPublisher` (AT-LEAST-ONCE, blocking publish), `@EventHandler` method marker,
+  `EventPublishException` (`DC-MSG-0001`), `EventSerializationException` (`DC-MSG-0002`).
 - Phase 6: `platform-starter-restclient` — POM-only starter: autoconfigure only (restclient-api
   arrives transitively); `docs/modules/restclient.md`.
 - Phase 6: `platform-security-authz-api` — `@RequiresPermission` (declarative method/type-level

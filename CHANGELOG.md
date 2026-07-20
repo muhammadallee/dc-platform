@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 6: `platform-security-authz-spi` — `PermissionEvaluatorProvider` (pluggable permission
   evaluation behind `@RequiresPermission`); depends on `platform-security-api` for `CurrentUser`
   as a same-capability edge (decision D25).
+- Phase 6: `platform-starter-security-authz` — POM-only starter: autoconfigure only (authz-api/spi
+  arrive transitively); `docs/modules/authz.md`. Completes the phase 6 restclient/security/authz
+  slices.
 - Phase 6: `platform-security-authz-autoconfigure` — `PlatformAuthzAutoConfiguration`: a plain
   (non-AspectJ) `InfrastructureAdvisorAutoProxyCreator` bridging `@RequiresPermission` to the
   ordered `PermissionEvaluatorProvider` beans (unauthenticated → 401 via

@@ -52,10 +52,13 @@
     <pluginManagement>
       <plugins>
         <!-- Implementation-Version in every platform jar manifest: the observability common tag
-             platform.version reads it at runtime (phase-05 spec: version from the jar manifest). -->
+             platform.version reads it at runtime (phase-05 spec: version from the jar manifest).
+             Version pinned so the explicit <plugins> binding below resolves to the SAME plugin
+             instance as this managed configuration (an unversioned pair does not reliably merge). -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
+          <version>3.5.0</version>
           <configuration>
             <archive>
               <manifest>
@@ -101,6 +104,14 @@
     </pluginManagement>
 
     <plugins>
+      <!-- Explicit binding (not just pluginManagement): the default-jar lifecycle binding does
+           not reliably pick up unversioned pluginManagement configuration across all Maven/module
+           combinations in this reactor; declaring it here guarantees the manifest entry lands. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>

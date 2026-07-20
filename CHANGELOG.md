@@ -35,6 +35,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   reports the real train version at runtime.
 
 ### Fixed
+- `platform-parent`'s `maven-jar-plugin` manifest configuration (Implementation-Version for the
+  `platform.version` common tag) lived only in `pluginManagement` and was silently ignored by
+  the implicit default-jar binding; also, plexus-archiver's "is uptodate" check meant an
+  already-built jar kept its stale manifest even after the config was corrected, until a clean
+  build. Fixed by declaring the plugin explicitly (pinned to 3.5.0) in `platform-parent`'s
+  `<build><plugins>` alongside the `pluginManagement` entry; verified end-to-end against a
+  packaged scratch app (`/actuator/prometheus` now reports `platform_version="0.2.0-SNAPSHOT"`
+  instead of `"unknown"`).
 - `platform-service-parent`'s self-contained `<revision>` (its parent is
   `spring-boot-starter-parent`, so it cannot inherit the aggregator's) was left at
   `0.1.0-SNAPSHOT` by the 0.2.0-SNAPSHOT train bump, making it build at the wrong version and

@@ -80,6 +80,14 @@ One line of context per decision; details live in the commit bodies referenced.
   `org.springframework.boot.env` variant is deprecated for removal (logging's phase-4 EPP still
   uses it — migrate when phase 4 is next touched). Details: commit 6a30f71.
 
+- **D18 — maven-jar-plugin needs an explicit, versioned binding.** An unversioned
+  `pluginManagement` entry for `maven-jar-plugin` did not merge into the implicit default-jar
+  lifecycle execution; fixed by also declaring the plugin (version 3.5.0, matching
+  pluginManagement) in `platform-parent`'s `<build><plugins>`. Caught only by running the actual
+  packaged jar (unit tests build against `target/classes`, never a packaged jar, so
+  `Package.getImplementationVersion()` is untestable at that layer) — a reminder that the phase
+  Acceptance block's scratch-app step is not optional busywork.
+
 - **D17 — prometheus-metrics-bom 1.7.0 override.** Boot 4.1.0 manages `io.prometheus` at 1.5.1
   while its own micrometer 1.17 declares 1.7.0 — an upper-bound violation our
   `requireUpperBoundDeps` gate rejects. `platform-dependencies` imports

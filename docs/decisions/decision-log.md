@@ -175,6 +175,32 @@ One line of context per decision; details live in the commit bodies referenced.
   criterion without coupling security to errors (which the dependency constitution forbids anyway:
   autoconfigure -> autoconfigure of another capability is not on the allowed matrix).
 
+## Phase 7 — messaging & events
+
+- **D28 — `com.rabbitmq:amqp-client:5.31.0` pin.** Boot 4.1.0 manages `spring-amqp`'s
+  `com.rabbitmq:amqp-client` at 5.30.0, but `org.testcontainers:testcontainers-rabbitmq`
+  (testcontainers-bom 2.0.5, itself imported by `spring-boot-dependencies`) pulls 5.31.0
+  transitively, failing `requireUpperBoundDeps`. Pinned to the higher version in
+  `platform-dependencies` (same "first import wins" pattern as D17's prometheus override);
+  re-check on every Boot/testcontainers bump and delete once they converge.
+- **D29 — testcontainers 2.x artifact renames.** testcontainers-bom 2.0.5 renamed its per-module
+  artifacts with a `testcontainers-` prefix (`testcontainers-kafka`, `testcontainers-rabbitmq`,
+  `testcontainers-junit-jupiter`) versus the pre-2.x short names (`kafka`, `rabbitmq`,
+  `junit-jupiter`) the phase-07 spec's era would have used; used the current artifactIds.
+- **D30 — kafka/rabbit `EventTransport` beans live in `platform-messaging-autoconfigure`, not a
+  per-provider autoconfigure module.** The phase-07 spec lists `messaging-kafka`/`messaging-rabbit`
+  as plain implementation modules (no autoconfigure suffix), so their `EventTransport` beans are
+  wired via nested `@Configuration` classes inside `PlatformMessagingAutoConfiguration`, guarded by
+  `@ConditionalOnClass(KafkaTemplate.class)` / `@ConditionalOnClass(RabbitTemplate.class)` and each
+  provider's own enable property. This is CLAUDE.md rule 5's explicit allowance: autoconfigure may
+  depend on same-capability impls (optional dependency, guarded).
+- **D31 — DLQ republish in `EventHandlerRegistrar` is transport-agnostic, not provider-specific.**
+  Once `@EventHandler` retries are exhausted, the registrar republishes the raw message to
+  `destination + dc.platform.messaging.dlq.suffix` via the same `EventTransport.send` — this works
+  identically over inmemory/kafka/rabbit with no per-provider code, in addition to (not instead of)
+  the broker-native DLQ each of kafka (`DeadLetterPublishingRecoverer`) and rabbit (DLX) wire up at
+  the transport level for messages that fail before ever reaching a handler.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

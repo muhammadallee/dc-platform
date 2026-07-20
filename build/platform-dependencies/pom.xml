@@ -91,6 +91,16 @@
         <version>4.12.0</version>
       </dependency>
 
+      <!-- Phase 7, another sanctioned override (decision D28): Boot 4.1.0 manages spring-amqp's
+           com.rabbitmq:amqp-client at 5.30.0, but testcontainers-rabbitmq (testcontainers-bom
+           2.0.5) pulls 5.31.0 transitively, failing requireUpperBoundDeps. Aligned to the higher
+           version. Re-check on every Boot/testcontainers bump and DELETE once they converge. -->
+      <dependency>
+        <groupId>com.rabbitmq</groupId>
+        <artifactId>amqp-client</artifactId>
+        <version>5.31.0</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
            Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)
            Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->

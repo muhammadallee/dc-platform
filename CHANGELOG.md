@@ -6,6 +6,17 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-rabbit` — `RabbitEventTransport`: `EventTransport` over spring-amqp's
+  `RabbitTemplate`/`ConnectionFactory`, built from Boot's own `spring.rabbitmq.*`; destination syntax
+  `"exchange"` or `"exchange:routingKey"`; each subscription declares (via `RabbitAdmin`) a durable
+  topic exchange, a bound queue, and a dead-letter exchange + queue; quorum queues are opt-in
+  (`x-queue-type=quorum`); redelivery is a stateless retry interceptor
+  (`RejectAndDontRequeueRecoverer`) — exhausted messages route to the DLX automatically via the
+  queue's `x-dead-letter-exchange` argument. Docker-free unit tests mock `RabbitAdmin`/
+  `ConnectionFactory`; `@Tag("docker")` Testcontainers round-trip test excluded from the default
+  build. Decision D28 (`docs/decisions/decision-log.md`): pinned `com.rabbitmq:amqp-client:5.31.0`
+  in `platform-dependencies` — testcontainers-rabbitmq (testcontainers-bom 2.0.5) pulls a newer
+  client than Boot 4.1.0 manages, failing `requireUpperBoundDeps`.
 - Phase 7: `platform-messaging-kafka` — `KafkaEventTransport`: `EventTransport` over spring-kafka's
   `KafkaTemplate`/`ConsumerFactory`, built entirely from Boot's own `spring.kafka.*` (no broker
   config duplicated); destination = topic; each subscription's `KafkaMessageListenerContainer` gets

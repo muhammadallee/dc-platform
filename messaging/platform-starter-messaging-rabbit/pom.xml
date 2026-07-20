@@ -33,5 +33,12 @@
       <artifactId>platform-messaging-rabbit</artifactId>
       <version>${revision}</version>
     </dependency>
+    <!-- The autoconfigure module's default JSON EventSerializer needs Jackson; it's optional
+         there (a consumer supplying their own EventSerializer shouldn't be forced to add it), but
+         the starter's whole point is a working zero-config default, so it's required here. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
   </dependencies>
 </project>

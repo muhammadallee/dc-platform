@@ -5,6 +5,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Fixed
+- Phase 7: `platform-starter-messaging-{inmemory,kafka,rabbit}` — added `jackson-databind` as a
+  required (non-optional) dependency of each starter. It's optional on
+  `platform-messaging-autoconfigure` itself (a consumer supplying their own `EventSerializer`
+  shouldn't be forced to add it), but a bare service with only a messaging starter and no web
+  starter had no transitive path to Jackson at all, breaking the default JSON `EventSerializer` at
+  startup (`No qualifying bean of type EventSerializer`). Found by the phase-07 acceptance script's
+  scratch-app round trip.
+
 ### Added
 - Phase 7: `platform-starter-events` — POM-only starter: autoconfigure only (events-api arrives
   transitively); `docs/modules/events.md` (with a publish/dispatch sequence diagram). Completes the

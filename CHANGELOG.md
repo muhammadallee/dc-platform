@@ -6,6 +6,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-starter-messaging-inmemory`/`-kafka`/`-rabbit` — POM-only starters, each
+  bringing the autoconfigure module plus its one named `EventTransport` implementation;
+  `docs/modules/messaging.md`. Completes the phase 7 messaging slice through the provider starters.
 - Phase 7: `platform-messaging-rabbit` — `RabbitEventTransport`: `EventTransport` over spring-amqp's
   `RabbitTemplate`/`ConnectionFactory`, built from Boot's own `spring.rabbitmq.*`; destination syntax
   `"exchange"` or `"exchange:routingKey"`; each subscription declares (via `RabbitAdmin`) a durable

@@ -79,6 +79,9 @@
     <module>messaging/platform-messaging-autoconfigure</module>
     <module>messaging/platform-messaging-kafka</module>
     <module>messaging/platform-messaging-rabbit</module>
+    <module>messaging/platform-starter-messaging-inmemory</module>
+    <module>messaging/platform-starter-messaging-kafka</module>
+    <module>messaging/platform-starter-messaging-rabbit</module>
   </modules>
 
   <build>

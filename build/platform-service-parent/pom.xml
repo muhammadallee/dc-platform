@@ -27,7 +27,9 @@
   </description>
 
   <properties>
-    <revision>0.1.0-SNAPSHOT</revision> <!-- resolved by flatten at deploy; reactor overrides via -Drevision -->
+    <revision>0.2.0-SNAPSHOT</revision> <!-- keep in lockstep with the aggregator's revision (release checklist item);
+         resolved by flatten at deploy; reactor overrides via -Drevision -->
+
     <java.version>25</java.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
     <platform.test.excludedGroups>docker</platform.test.excludedGroups>

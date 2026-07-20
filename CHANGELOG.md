@@ -5,6 +5,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Fixed
+- `platform-service-parent`'s self-contained `<revision>` (its parent is
+  `spring-boot-starter-parent`, so it cannot inherit the aggregator's) was left at
+  `0.1.0-SNAPSHOT` by the 0.2.0-SNAPSHOT train bump, making it build at the wrong version and
+  import a stale `platform-bom:0.1.0-SNAPSHOT` in reactor builds; bumped to `0.2.0-SNAPSHOT`
+  (phase-04 audit finding).
+
 ## [0.1.0] - 2026-07-20
 
 Milestone M1: a service built on the platform gets correlation IDs, structured JSON logs,

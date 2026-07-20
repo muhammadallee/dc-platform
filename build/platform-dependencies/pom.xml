@@ -83,8 +83,15 @@
         <version>3.0.3</version>
       </dependency>
 
+      <!-- Phase 6: MockWebServer backs platform-restclient-autoconfigure's header/timeout/error
+           mapping tests (Boot does not manage it). -->
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>mockwebserver</artifactId>
+        <version>4.12.0</version>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 6: mockwebserver (test)
            Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)
            Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->
     </dependencies>

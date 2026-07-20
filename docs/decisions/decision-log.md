@@ -120,6 +120,18 @@ One line of context per decision; details live in the commit bodies referenced.
   seals the chain with permit-paths + `anyRequest().authenticated()` last — a customizer that wants
   to open an additional path still can; one that wants to override the catch-all cannot (by
   design: the platform's authenticated-by-default posture is not customizer-overridable).
+- **D23 — restclient module order revised: security-api built first.** The plan's original
+  dependency order (restclient before security) could not survive contact with the guarded
+  token-relay edge: `PlatformRestClientAutoConfiguration`'s nested `TokenRelayConfiguration`
+  needs `CurrentUserAccessor` (security-api) on its own compile classpath even though the
+  dependency is `<optional>true</optional>` and the bean only activates via
+  `@ConditionalOnBean`. Implemented security (api, autoconfigure, starter) first, then returned
+  to `platform-restclient-autoconfigure`.
+- **D24 — Boot 4's `ClientHttpRequestFactoryBuilder` replaces `ClientHttpRequestFactorySettings`.**
+  The spec's "JDK HttpClient request factory" is realized via
+  `org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder.jdk().build(HttpClientSettings)`
+  (module `spring-boot-http-client`), Boot 4.1's modularized replacement for the Boot-3-era
+  `ClientHttpRequestFactorySettings`/`ClientHttpRequestFactories` API the spec would have assumed.
 - **D22 — 401/403 bodies bypass the errors capability's advice.** `AuthenticationException`/
   `AccessDeniedException` thrown inside the security filter chain are handled by
   `ExceptionTranslationFilter` before the `DispatcherServlet` (and its `@RestControllerAdvice`)

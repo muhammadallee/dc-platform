@@ -6,6 +6,16 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 6: `platform-restclient-autoconfigure` — `PlatformRestClientAutoConfiguration`:
+  `DefaultPlatformRestClientFactory` on the JDK HttpClient request factory
+  (`ClientHttpRequestFactoryBuilder.jdk()`, Boot 4.1's replacement for the Boot-3-era settings
+  API), per-client connect/read timeout overrides, correlation-header propagation, non-2xx
+  responses mapped to `RemoteCallException`, ordered `PlatformRestClientCustomizer`s; a guarded
+  `platformTokenRelayCustomizer` relays the current bearer token to outbound calls only when a
+  JWT-shaped resource server is on the classpath AND the security capability's
+  `CurrentUserAccessor` bean is actually registered (`@ConditionalOnClass` + `@ConditionalOnBean`,
+  an optional edge to `platform-security-api`); kill switch `dc.platform.restclient.enabled`;
+  `com.squareup.okhttp3:mockwebserver:4.12.0` pinned in `platform-dependencies`.
 - Phase 6: `platform-starter-security` — POM-only starter: autoconfigure only (security-api
   arrives transitively); `docs/modules/security.md`.
 - Phase 6: `platform-security-autoconfigure` — `PlatformSecurityAutoConfiguration`: stateless JWT

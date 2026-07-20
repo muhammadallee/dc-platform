@@ -82,6 +82,7 @@
     <module>messaging/platform-starter-messaging-inmemory</module>
     <module>messaging/platform-starter-messaging-kafka</module>
     <module>messaging/platform-starter-messaging-rabbit</module>
+    <module>messaging/platform-messaging-test</module>
   </modules>
 
   <build>

@@ -6,6 +6,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-test` — `TestEventTransport` (records `sent()`, `deliver(...)`
+  simulates inbound messages independently of `send`), `EventsAssert`
+  (`assertThatEvents(transport).sentTo("dc.orders").withType("OrderPlaced")`), and
+  `@AutoConfigureTestTransport` (registers it as the `@Primary` `EventTransport` bean).
 - Phase 7: `platform-starter-messaging-inmemory`/`-kafka`/`-rabbit` — POM-only starters, each
   bringing the autoconfigure module plus its one named `EventTransport` implementation;
   `docs/modules/messaging.md`. Completes the phase 7 messaging slice through the provider starters.

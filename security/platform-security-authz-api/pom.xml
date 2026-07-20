@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-security-authz-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Security :: Authz :: API</name>
+  <description>
+    RequiresPermission: declarative method/type-level permission enforcement, bridged to a
+    PermissionEvaluatorProvider (platform-security-authz-spi) by the authz autoconfiguration.
+
+    Artifact naming: prefixed platform-security-authz-* (not platform-authz-*) so the dependency
+    constitution's per-capability grouping (enforced by PlatformLayerRule, which infers capability
+    from the artifactId's first segment) treats authz as part of the security capability family,
+    matching the phase-06 spec's single "security/" section covering both. This lets
+    platform-security-authz-spi legitimately depend on platform-security-api's CurrentUser as a
+    same-capability api dependency (decision D25, docs/decisions/decision-log.md) rather than
+    fighting the enforcer with a cross-capability edge the SPI layer has no allowance for.
+  </description>
+
+  <!-- Contract artifact: binary-incompatible changes must break the build once a release
+       baseline exists (platform-parent wires japicmp; the skip flag flips after 0.1.0). -->
+  <properties>
+    <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
+  </properties>
+
+  <dependencies>
+    <!-- api -> core-api only (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

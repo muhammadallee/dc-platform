@@ -63,6 +63,7 @@
     <module>openapi/platform-starter-openapi</module>
     <!-- Phase 6: restclient, security, authz slices. -->
     <module>restclient/platform-restclient-api</module>
+    <module>security/platform-security-api</module>
   </modules>
 
   <build>

@@ -6,6 +6,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 6: `platform-security-api` — `SecurityCustomizer` (ordered `HttpSecurity` extension
+  point), `CurrentUser` (token-format-neutral principal: subject/tenant/roles/claims) +
+  `CurrentUserAccessor`; sanctioned `spring-security-config` dependency because `HttpSecurity` is
+  the model `SecurityCustomizer` configures (decision D19).
 - Phase 6: `platform-restclient-api` — `PlatformRestClientFactory` (inject instead of
   `RestClient.Builder`), `RemoteCallException` (status/1KB-truncated body/remote correlation id),
   `PlatformRestClientCustomizer` SPI-lite; sanctioned `spring-web` dependency because

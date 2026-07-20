@@ -95,6 +95,15 @@ One line of context per decision; details live in the commit bodies referenced.
   sanctioned exception to "only adds, never overrides"; re-check on every Boot bump and delete
   once Boot catches up.
 
+## Phase 6 — restclient, security, authz
+
+- **D19 — api standard-model whitelist extended for restclient and security.** Same rationale as
+  D11: `PlatformRestClientFactory.builder()` hands back `RestClient.Builder` and
+  `SecurityCustomizer.customize()` configures `HttpSecurity` — both ARE the standard model the
+  capability is defined in terms of, not implementation details. Added
+  `restclient -> org.springframework.web.client` and `security -> org.springframework.security`
+  to `PlatformArchRules.API_STANDARD_MODEL_PACKAGES`.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

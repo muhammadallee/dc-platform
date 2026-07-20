@@ -238,9 +238,9 @@
 
   <properties>
     <platform.test.excludedGroups>docker</platform.test.excludedGroups>
-    <!-- japicmp stays off until the first release exists (phase 4 flips this after tag 0.1.0);
-         api/spi modules set breakBuild=true so ONLY contract artifacts break the build. -->
-    <platform.japicmp.skip>true</platform.japicmp.skip>
+    <!-- Active since 0.1.0 exists (phase-4 milestone M1): compares against the latest release in
+         the repository; api/spi modules set breakBuild=true so ONLY contract artifacts break. -->
+    <platform.japicmp.skip>false</platform.japicmp.skip>
     <platform.japicmp.breakBuild>false</platform.japicmp.breakBuild>
   </properties>
 

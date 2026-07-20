@@ -15,7 +15,7 @@
   <properties>
     <!-- Single train version for ALL platform artifacts (ADR-005). Override at release time:
          mvn -Drevision=1.0.0 ... The flatten plugin resolves it in published POMs. -->
-    <revision>0.1.0-SNAPSHOT</revision>
+    <revision>0.2.0-SNAPSHOT</revision>
 
     <!-- The one place the Spring Boot line is chosen. Bump here to move the whole platform.
          Boot 4.x baseline per decision D6 (docs/decisions/decision-log.md). -->

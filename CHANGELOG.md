@@ -6,6 +6,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 7: `platform-messaging-spi` — `EventTransport` (provider contract: `send`/`subscribe`,
+  at-least-once delivery obligation on implementations), `EventSerializer` (pluggable payload
+  codec); depends only on `platform-messaging-api`.
 - Phase 7: `platform-messaging-api` — `EventEnvelope<T>` (immutable envelope, `Builder` deriving
   `eventType`/`eventVersion` from `@EventType` or falling back to simple class name/version 1),
   `EventPublisher` (AT-LEAST-ONCE, blocking publish), `@EventHandler` method marker,

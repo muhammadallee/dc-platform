@@ -74,6 +74,7 @@
     <module>security/platform-starter-security-authz</module>
     <!-- Phase 7: messaging (api/spi/inmemory/kafka/rabbit/autoconfigure/starters/test) + events slice. -->
     <module>messaging/platform-messaging-api</module>
+    <module>messaging/platform-messaging-spi</module>
   </modules>
 
   <build>

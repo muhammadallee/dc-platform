@@ -91,6 +91,8 @@
     <module>data/platform-starter-data-jpa</module>
     <module>cache/platform-cache-api</module>
     <module>cache/platform-cache-autoconfigure</module>
+    <module>cache/platform-starter-cache-caffeine</module>
+    <module>cache/platform-starter-cache-redis</module>
   </modules>
 
   <build>

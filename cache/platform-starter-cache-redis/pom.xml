@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-cache-redis</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Cache :: Redis Starter</name>
+  <description>
+    Platform caching backed by Redis: the cache autoconfigure plus Spring's cache support and Spring
+    Data Redis. String keys, JSON values, per-cache TTL. Add this and use @Cacheable.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named provider (CLAUDE.md rule 5);
+         cache-api arrives transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-cache-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Boot's cache support: @EnableCaching plumbing + spring-context-support. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+    <!-- Spring Data Redis + Lettuce: selects the RedisCacheManager path and provides the
+         RedisConnectionFactory. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+    <!-- Required by GenericJackson2JsonRedisSerializer (JSON cache values); a bare cache service has
+         no other transitive path to Jackson, mirroring the phase-07 messaging-starter fix. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+  </dependencies>
+</project>

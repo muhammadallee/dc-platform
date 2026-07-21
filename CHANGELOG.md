@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-starter-cache-caffeine` / `platform-starter-cache-redis` — POM-only starters
+  selecting the provider: cache autoconfigure + `spring-boot-starter-cache` + (Caffeine) or
+  (`spring-boot-starter-data-redis` + `jackson-databind` for JSON cache values). Add one and use
+  `@Cacheable`. Completes the phase 8 cache slice.
 - Phase 8: `platform-cache-autoconfigure` — `PlatformCacheAutoConfiguration`: a default
   `CacheKeyConvention` (app-name-prefixed), per-cache TTL/size from `dc.platform.cache.caches.*`, a
   `CaffeineCacheManager` when Caffeine is on the classpath, and a `RedisCacheManager` (String keys,

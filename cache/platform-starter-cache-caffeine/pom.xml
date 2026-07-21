@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-cache-caffeine</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Cache :: Caffeine Starter</name>
+  <description>
+    Platform caching backed by Caffeine (in-memory): the cache autoconfigure plus Spring's cache
+    support and the Caffeine provider. Add this and use @Cacheable.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named provider (CLAUDE.md rule 5);
+         cache-api arrives transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-cache-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Boot's cache support: @EnableCaching plumbing + spring-context-support. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-cache</artifactId>
+    </dependency>
+    <!-- The Caffeine provider that selects the CaffeineCacheManager path. -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+  </dependencies>
+</project>

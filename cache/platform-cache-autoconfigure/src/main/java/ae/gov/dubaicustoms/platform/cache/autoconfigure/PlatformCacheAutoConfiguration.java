@@ -38,10 +38,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  *        cacheCapabilityDescriptor — one line in the startup capability banner naming the provider.
  * Cache metrics: contributed by Boot's own cache metrics binder over the CacheManager bean below;
  *                nothing extra is needed here.
- * Order: before CacheAutoConfiguration so the platform per-cache policy wins; both back off to any
- *        user-defined CacheManager via @ConditionalOnMissingBean.
+ * Order: after DataRedisAutoConfiguration (so the RedisConnectionFactory the Redis manager needs is
+ *        already registered when @ConditionalOnBean evaluates — afterName keeps it a soft, no-redis-
+ *        safe reference) and before CacheAutoConfiguration (so the platform per-cache policy wins);
+ *        both back off to any user-defined CacheManager via @ConditionalOnMissingBean.
  */
-@AutoConfiguration(before = CacheAutoConfiguration.class)
+@AutoConfiguration(
+        afterName = "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        before = CacheAutoConfiguration.class)
 @ConditionalOnClass(CacheManager.class)
 @ConditionalOnProperty(prefix = "dc.platform.cache", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(CacheProperties.class)

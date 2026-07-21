@@ -15,6 +15,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-starter-redis` — POM-only starter: the redis autoconfigure plus
+  `spring-boot-starter-data-redis` (Lettuce). Completes the phase 8 redis slice.
 - Phase 8: `platform-redis-autoconfigure` — `PlatformRedisAutoConfiguration`: direct-Redis client
   conventions (distinct from the cache capability). A `BeanPostProcessor` installs a prefixing key
   serializer on every `StringRedisTemplate`, namespacing keys with `dc.platform.redis.key-prefix`

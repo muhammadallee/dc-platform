@@ -93,6 +93,7 @@
     <module>cache/platform-cache-autoconfigure</module>
     <module>cache/platform-starter-cache-caffeine</module>
     <module>cache/platform-starter-cache-redis</module>
+    <module>redis/platform-redis-autoconfigure</module>
   </modules>
 
   <build>

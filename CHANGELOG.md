@@ -15,6 +15,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-redis-autoconfigure` — `PlatformRedisAutoConfiguration`: direct-Redis client
+  conventions (distinct from the cache capability). A `BeanPostProcessor` installs a prefixing key
+  serializer on every `StringRedisTemplate`, namespacing keys with `dc.platform.redis.key-prefix`
+  (default `<spring.application.name>:`) so services sharing a Redis don't collide; connection tuning
+  stays on Boot's `spring.data.redis.*`. `CapabilityDescriptor` reports the prefix. Tests: serializer
+  and post-processor units, ContextRunner matrix (prefix resolution), and a `@Tag("docker")`
+  wire-level prefix round-trip IT. `docs/modules/redis.md`.
 - Phase 8: `platform-starter-cache-caffeine` / `platform-starter-cache-redis` — POM-only starters
   selecting the provider: cache autoconfigure + `spring-boot-starter-cache` + (Caffeine) or
   (`spring-boot-starter-data-redis` + `jackson-databind` for JSON cache values). Add one and use

@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-cache-api` — the cache capability contract: `CacheKeyConvention`
+  (`key(cacheName, parts...)`, default composes `<appName>:<cacheName>[:<part>]*` so services don't
+  collide in a shared backend) and `CacheNames` (dot-separated cache-name conventions with a
+  validating `of(...)`). No custom cache annotation — the model stays Spring's `@Cacheable`.
 - Phase 8: `platform-starter-data-jpa` — POM-only starter: the JPA autoconfigure (data-api arrives
   transitively) plus `spring-boot-starter-data-jpa` and `flyway-core`, so a service gets
   platform-conventional persistence and migrations by adding one dependency. Completes the phase 8

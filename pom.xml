@@ -95,6 +95,8 @@
     <module>cache/platform-starter-cache-redis</module>
     <module>redis/platform-redis-autoconfigure</module>
     <module>redis/platform-starter-redis</module>
+    <!-- Phase 9: resilience, locking (jdbc/redis), scheduling, idempotency. -->
+    <module>resilience/platform-resilience-api</module>
   </modules>
 
   <build>

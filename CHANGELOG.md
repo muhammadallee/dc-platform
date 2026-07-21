@@ -15,6 +15,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 9: `platform-resilience-api` — the resilience capability contract: `ResilienceDefaults`
+  (the platform's default retry/circuit-breaker/time-limiter tuning as constants — 3 attempts with
+  exponential backoff, breaker at 50% over a 10-call window, 5s time limit) and `RetryableOperation`,
+  a programmatic retry helper (`<T> T call(String name, Supplier<T>)`) for call sites that cannot use
+  Resilience4j's declarative annotations. No wrapper annotations over Resilience4j (things-to-avoid
+  #25). Pins `io.github.resilience4j:resilience4j-bom` 2.4.0 (first line with a Spring-Boot-4 module).
 - Phase 8: `platform-starter-redis` — POM-only starter: the redis autoconfigure plus
   `spring-boot-starter-data-redis` (Lettuce). Completes the phase 8 redis slice.
 - Phase 8: `platform-redis-autoconfigure` — `PlatformRedisAutoConfiguration`: direct-Redis client

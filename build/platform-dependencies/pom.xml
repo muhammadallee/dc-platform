@@ -101,8 +101,20 @@
         <version>5.31.0</version>
       </dependency>
 
+      <!-- Phase 9: Resilience4j for the resilience capability. The 2.4.0 line is the first to ship
+           the spring-boot4 integration module (resilience4j-spring-boot4); its BOM aligns retry,
+           circuitbreaker, timelimiter and micrometer. Boot does not manage Resilience4j. -->
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-bom</artifactId>
+        <version>2.4.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
-           Phase 9: resilience4j-spring-boot3, awaitility (test, if Boot doesn't manage your version)
+           awaitility is managed by Boot's BOM, so no pin is needed for the async scheduling/idempotency
+           tests.
            Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->
     </dependencies>
   </dependencyManagement>

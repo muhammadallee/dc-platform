@@ -82,6 +82,10 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-cache-redis</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-redis-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-redis</artifactId><version>${revision}</version></dependency>
+      <!-- Phase 9: resilience, locking, scheduling, idempotency. -->
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-resilience</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

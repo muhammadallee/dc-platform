@@ -1,0 +1,4 @@
+# EnvironmentPostProcessor registration must be via spring.factories — Boot offers no .imports
+# variant for it. Contributes lowest-precedence spring.jpa.* platform defaults before the context.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaEnvironmentPostProcessor

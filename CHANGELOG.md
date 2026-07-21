@@ -15,6 +15,19 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-data-jpa-autoconfigure` — `PlatformDataJpaAutoConfiguration`: Spring Data JPA
+  auditing with `AuditorAware<String>` = the current user's subject when the security capability is
+  present and the request is authenticated, else `"system"` (two mutually exclusive definitions keyed
+  on `CurrentUserAccessor` class presence, so a data-only consumer never loads a security type);
+  auditing enabled only once a real `EntityManagerFactory` exists (`@ConditionalOnBean`, ordered after
+  `HibernateJpaAutoConfiguration`) so a no-JPA context still starts; `MoneyConverter`/
+  `CorrelationIdConverter` (`jakarta.persistence` `AttributeConverter`s, opt-in via `@Convert`, D34);
+  a `FlywayPresenceCheck` that fails startup when `require-migrations` is on but Flyway is absent, with
+  an actionable message; and `PlatformDataJpaEnvironmentPostProcessor` contributing lowest-precedence
+  `spring.jpa.*` defaults (open-in-view off, batch size 50, ordered inserts/updates, UTC jdbc time
+  zone; snake_case naming left as Boot's default, D35). Tests: ContextRunner matrix, an H2
+  `@DataJpaTest` slice (auditing + converter round-trip + snake_case naming), converter/EPP/Flyway
+  units, and a `@Tag("docker")` Postgres parity IT.
 - Phase 8: `platform-data-api` — tech-neutral persistence value objects with no JPA on the
   classpath: `Money` (immutable amount + ISO-4217 `Currency`, same-currency `add`/`subtract`, and
   the `toStorageString()`/`parse(String)` attribute-converter storage contract), `EntityId<T>`

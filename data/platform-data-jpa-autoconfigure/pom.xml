@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-data-jpa-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Data :: JPA Auto Configuration</name>
+  <description>
+    Opinionated Spring Data JPA wiring: JPA auditing (auditor = current user when the security
+    capability is present, else "system"), snake_case physical naming (Boot's default), sensible
+    Hibernate defaults (batch size 50, UTC jdbc time zone, open-in-view off) contributed as
+    lowest-precedence environment defaults, the Money/CorrelationId attribute converters, and a
+    startup Flyway-presence guard. All on by default, all overridable.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api (+ core-api for CorrelationId/CapabilityDescriptor). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-data-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Guarded optional edge to the security capability's api (CLAUDE.md rule 5): the auditor reads
+         CurrentUserAccessor ONLY inside a @ConditionalOnClass(CurrentUserAccessor) config, so this
+         never forces security onto a data-only consumer (who then audits as "system"). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-security-api</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <!-- Spring Data JPA: EntityManagerFactory, AuditorAware, @EnableJpaAuditing, Hibernate. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- Generates config metadata from the properties record at compile time. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boot test slice (@DataJpaTest) + ContextRunner + assertions. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-data-jpa-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- H2: the default local database for the @DataJpaTest auditing/naming/converter slice. -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Flyway on the test classpath so the presence guard's happy path is exercised; the absent
+         branch is tested with a FilteredClassLoader. -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- @Tag("docker") Postgres parity test only: a real Postgres via Testcontainers. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

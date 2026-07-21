@@ -213,6 +213,26 @@ One line of context per decision; details live in the commit bodies referenced.
   nested `@Configuration` classes have no guaranteed processing order, so two unconditional
   `@ConditionalOnMissingBean` candidates for the same type is a latent bug, not just an unlikely one.
 
+## Phase 8 — data/JPA, cache, redis
+
+- **D34 — Money/CorrelationId converters use explicit `@Convert`, not global auto-apply.** A library
+  `@Converter(autoApply=true)` only fires for converters inside the application's scanned persistence
+  unit; a converter shipped in a platform jar is never scanned, so auto-apply would silently do
+  nothing. Registering it globally would need a Boot-version-specific `EntityManagerFactoryBuilder`
+  hook. The portable, unambiguous choice is `@Convert(converter = MoneyConverter.class)` per field,
+  documented on the converter and in `docs/modules/data.md`.
+- **D35 — snake_case physical naming left as Boot's default.** Boot already maps camelCase to
+  snake_case via its default physical naming strategy; `PlatformDataJpaEnvironmentPostProcessor` sets
+  only the non-default Hibernate tunings (open-in-view off, batch size 50, ordered inserts/updates,
+  UTC jdbc time zone) and deliberately does not pin a naming-strategy class, which would couple the
+  platform to a Boot-version-specific type. Verified by the H2 slice's native snake_case queries.
+- **D36 — JPA auditing enablement gated on a real `EntityManagerFactory`.**
+  `@EnableJpaAuditing` lives on a nested config guarded by `@ConditionalOnBean(EntityManagerFactory.class)`
+  with the auto-configuration ordered `after HibernateJpaAutoConfiguration`, so a context without JPA
+  infrastructure still starts cleanly (the auditing metamodel needs an EMF) and the mandatory
+  ContextRunner matrix runs without spinning up a datasource. End-to-end auditing is proven by the
+  H2 `@DataJpaTest` slice and the `@Tag("docker")` Postgres parity IT.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

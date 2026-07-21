@@ -233,6 +233,27 @@ One line of context per decision; details live in the commit bodies referenced.
   ContextRunner matrix runs without spinning up a datasource. End-to-end auditing is proven by the
   H2 `@DataJpaTest` slice and the `@Tag("docker")` Postgres parity IT.
 
+## Phase 9 — resilience, locking, scheduling, idempotency
+
+- **D37 — `resilience4j-spring-boot4` 2.4.0, not the spec's `resilience4j-spring-boot3`.** The spec
+  (written against Boot 3) says "Resilience4j spring-boot3"; under the D6 Boot-4 baseline that module
+  does not target Boot 4's auto-configuration. Resilience4j 2.4.0 is the first line shipping a
+  dedicated `resilience4j-spring-boot4` integration; its `resilience4j-bom` is imported in
+  `platform-dependencies`, and `platform-starter-resilience` depends on `resilience4j-spring-boot4`.
+- **D38 — `RetryableOperation` wires over a runtime `RetryRegistry`; no fallback registry; Micrometer
+  binding delegated.** `PlatformResilienceAutoConfiguration` contributes `RetryableOperation` only
+  `@ConditionalOnBean(RetryRegistry)` (that registry comes from `resilience4j-spring-boot4`, brought
+  by the starter), ordered `afterName` Resilience4j's `RetryAutoConfiguration`. The auto-configure
+  module deliberately does NOT define its own `RetryRegistry` (that would duplicate the starter's) and
+  does NOT add a `TaggedRetryMetrics` binder — `resilience4j-spring-boot4` binds metrics by default, so
+  a second binder would double-register meters. The capability's declarative annotations remain usable
+  even where the helper is not (no registry); the matrix supplies a `RetryRegistry` directly.
+- **D39 — no hand-written metadata for the `resilience4j.*` env defaults.** Property-conventions §7
+  asks for `additional-spring-configuration-metadata.json` for EnvironmentPostProcessor-set keys that
+  are invisible to the processor — but `resilience4j-spring-boot4` ships its own
+  `spring-configuration-metadata.json` for every `resilience4j.*` key, so they are already documented.
+  Same reasoning as the `spring.jpa.*` defaults in phase 8; no metadata added.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

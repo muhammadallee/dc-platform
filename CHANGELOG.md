@@ -15,6 +15,19 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 9: `platform-starter-resilience` — POM-only starter: the resilience autoconfigure plus
+  `resilience4j-spring-boot4` (retry/circuit-breaker/time-limiter registries, annotation aspects, AOP,
+  Micrometer binding). Add it and use `@Retry`/`@CircuitBreaker`/`@TimeLimiter` or `RetryableOperation`.
+- Phase 9: `platform-resilience-autoconfigure` — `PlatformResilienceAutoConfiguration` +
+  `PlatformResilienceEnvironmentPostProcessor`: contributes the platform's default Resilience4j
+  instance tuning (retry 3/exp, breaker 50% over a 10-call window, time limiter 5s) as
+  lowest-precedence `resilience4j.*` environment defaults so `application.yml` always wins, and a
+  `RetryableOperation` bean over the retry registry (`@ConditionalOnBean(RetryRegistry)`, ordered
+  `afterName` Resilience4j's `RetryAutoConfiguration`). Micrometer binding is left to
+  `resilience4j-spring-boot4` to avoid double meter registration. `CapabilityDescriptor` reports the
+  capability active. Tests: ContextRunner matrix, EnvironmentPostProcessor defaults/override,
+  fail-then-succeed retry behavior, and a default-config circuit-breaker-opens behavior test.
+  `docs/modules/resilience.md`. Decisions D37–D39.
 - Phase 9: `platform-resilience-api` — the resilience capability contract: `ResilienceDefaults`
   (the platform's default retry/circuit-breaker/time-limiter tuning as constants — 3 attempts with
   exponential backoff, breaker at 50% over a 10-call window, 5s time limit) and `RetryableOperation`,

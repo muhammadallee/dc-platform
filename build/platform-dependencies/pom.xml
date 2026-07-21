@@ -111,6 +111,14 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- The 2.4.0 BOM manages every Resilience4j module EXCEPT the new spring-boot4 integration
+           (it still lists only spring-boot3), so the Boot-4 starter's version is pinned here. Keep
+           in lockstep with the BOM version above; drop once the BOM lists spring-boot4. -->
+      <dependency>
+        <groupId>io.github.resilience4j</groupId>
+        <artifactId>resilience4j-spring-boot4</artifactId>
+        <version>2.4.0</version>
+      </dependency>
 
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
            awaitility is managed by Boot's BOM, so no pin is needed for the async scheduling/idempotency

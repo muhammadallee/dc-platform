@@ -254,6 +254,22 @@ One line of context per decision; details live in the commit bodies referenced.
   `spring-configuration-metadata.json` for every `resilience4j.*` key, so they are already documented.
   Same reasoning as the `spring.jpa.*` defaults in phase 8; no metadata added.
 
+- **D40 — locking provider precedence via separate auto-configs ordered with `@AutoConfigureAfter`,
+  not nested `@ConditionalOnMissingClass`.** The spec's back-off order is user bean > redis (if
+  present) > jdbc (if a DataSource). Class-exclusion (as the cache module uses) would wrongly disable
+  JDBC whenever Spring Data Redis is merely on the classpath without a configured Redis. Instead each
+  provider is its own `@AutoConfiguration` guarded by `@ConditionalOnClass` + `@ConditionalOnBean` +
+  `@ConditionalOnMissingBean(LockProvider)`, with `JdbcLockProviderAutoConfiguration`
+  `@AutoConfigureAfter` the Redis one, so Redis wins the missing-bean race when both a template and a
+  DataSource exist, and JDBC still works when Redis is absent. `PlatformLockingAutoConfiguration`
+  (`after` both) wires the `LockManager`.
+- **D41 — Flyway location appended via `FlywayConfigurationCustomizer`, not `spring.flyway.locations`.**
+  Setting the property would REPLACE the application's locations; the customizer reads the existing
+  `Location`s and appends `classpath:db/migration-platform-locking`, preserving the app's own. Guarded
+  by `@ConditionalOnClass(Flyway, FlywayConfigurationCustomizer)` (Boot 4 packages the contract in
+  `spring-boot-flyway`), so a JDBC-without-Flyway consumer still starts. The `starter-locking-jdbc`
+  bundles `flyway-core` + `spring-boot-flyway` to make the happy path the default.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-starter-data-jpa` — POM-only starter: the JPA autoconfigure (data-api arrives
+  transitively) plus `spring-boot-starter-data-jpa` and `flyway-core`, so a service gets
+  platform-conventional persistence and migrations by adding one dependency. Completes the phase 8
+  data slice.
 - Phase 8: `platform-data-jpa-autoconfigure` — `PlatformDataJpaAutoConfiguration`: Spring Data JPA
   auditing with `AuditorAware<String>` = the current user's subject when the security capability is
   present and the request is authenticated, else `"system"` (two mutually exclusive definitions keyed

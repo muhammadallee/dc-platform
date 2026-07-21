@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-data-jpa</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Data :: JPA Starter</name>
+  <description>
+    Platform-conventional JPA persistence for every DC platform service: Spring Data JPA auditing,
+    snake_case naming, sane Hibernate defaults, the Money/CorrelationId converters, and Flyway
+    schema migrations wired and on by default.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5); data-api arrives transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-data-jpa-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Spring Data JPA itself (the autoconfigure declares it too, but a starter states its stack). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <!-- Flyway: the migration engine the platform expects; its absence with require-migrations on
+         fails startup (FlywayPresenceCheck). Bundling it here is what makes the guard's happy path
+         the default. -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+  </dependencies>
+</project>

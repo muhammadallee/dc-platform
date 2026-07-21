@@ -88,6 +88,7 @@
     <module>events/platform-starter-events</module>
     <module>data/platform-data-api</module>
     <module>data/platform-data-jpa-autoconfigure</module>
+    <module>data/platform-starter-data-jpa</module>
   </modules>
 
   <build>

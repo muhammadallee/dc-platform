@@ -99,6 +99,13 @@
     <module>resilience/platform-resilience-api</module>
     <module>resilience/platform-resilience-autoconfigure</module>
     <module>resilience/platform-starter-resilience</module>
+    <module>locking/platform-locking-api</module>
+    <module>locking/platform-locking-spi</module>
+    <module>locking/platform-locking-jdbc</module>
+    <module>locking/platform-locking-redis</module>
+    <module>locking/platform-locking-autoconfigure</module>
+    <module>locking/platform-starter-locking-jdbc</module>
+    <module>locking/platform-starter-locking-redis</module>
   </modules>
 
   <build>

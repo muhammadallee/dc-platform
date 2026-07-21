@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-locking-redis</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Locking :: Redis Starter</name>
+  <description>
+    Distributed locking backed by Redis: the locking autoconfigure plus the Redis provider (SET NX PX
+    + token-fenced release) and Spring Data Redis. Selected over JDBC when both are present. Inject
+    LockManager and call withLock.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named provider (CLAUDE.md rule 5);
+         locking-api/spi arrive transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-locking-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-locking-redis</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Spring Data Redis + Lettuce: supplies the StringRedisTemplate the Redis provider wires over. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+  </dependencies>
+</project>

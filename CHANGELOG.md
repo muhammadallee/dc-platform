@@ -15,6 +15,30 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 9: `platform-starter-locking-jdbc` / `platform-starter-locking-redis` — POM-only starters
+  selecting the provider: locking autoconfigure + the JDBC provider + Flyway (creates `platform_lock`),
+  or + the Redis provider + `spring-boot-starter-data-redis`. Inject `LockManager` and call `withLock`.
+- Phase 9: `platform-locking-autoconfigure` — `PlatformLockingAutoConfiguration` (+ per-provider
+  `RedisLockProviderAutoConfiguration` / `JdbcLockProviderAutoConfiguration`): wires a `LockManager`
+  over a `LockProvider` chosen by classpath — Redis when a `StringRedisTemplate` bean is present,
+  otherwise JDBC when a `DataSource` is present (Redis wins via `@AutoConfigureAfter` ordering; both
+  back off to a user `LockManager`/`LockProvider`). A `FlywayConfigurationCustomizer` appends the JDBC
+  provider's `db/migration-platform-locking` location (append, not replace). `CapabilityDescriptor`
+  names the provider. Tests: ContextRunner matrix, provider selection, `DefaultLockManager` lifecycle/
+  exception mapping, the Flyway append, and an end-to-end non-reentrant `withLock` over H2.
+  `docs/modules/locking.md`. Decisions D40–D41.
+- Phase 9: `platform-locking-redis` — `RedisLockProvider`: `SET NX PX` to acquire, a token-fenced
+  compare-and-delete Lua script to release. Command-level unit tests (Mockito) run without Docker; a
+  `@Tag("docker")` Testcontainers IT verifies real mutual exclusion and release.
+- Phase 9: `platform-locking-jdbc` — `JdbcLockProvider`: a single `platform_lock` table, expiry-column
+  auto-expiry (reclaim-if-expired then insert), token-fenced release. Ships its Flyway migration under
+  `db/migration-platform-locking`. H2-tested (acquire/skip, reclaim expired, token fencing, idempotent
+  release); no Docker.
+- Phase 9: `platform-locking-spi` — `LockProvider` (`Optional<LockHandle> tryAcquire(String, Duration)`)
+  and `LockHandle` (auto-closeable, idempotent, non-throwing release): the pluggable provider contract.
+- Phase 9: `platform-locking-api` — the locking capability contract: `LockManager`
+  (`<T> Optional<T> withLock(String, Duration, Callable<T>)`, non-reentrant, auto-expiring,
+  non-blocking) and `LockException` (`DC-LOCK-0500`, infra failures only).
 - Phase 9: `platform-starter-resilience` — POM-only starter: the resilience autoconfigure plus
   `resilience4j-spring-boot4` (retry/circuit-breaker/time-limiter registries, annotation aspects, AOP,
   Micrometer binding). Add it and use `@Retry`/`@CircuitBreaker`/`@TimeLimiter` or `RetryableOperation`.

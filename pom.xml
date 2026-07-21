@@ -86,6 +86,7 @@
     <module>events/platform-events-api</module>
     <module>events/platform-events-autoconfigure</module>
     <module>events/platform-starter-events</module>
+    <module>data/platform-data-api</module>
   </modules>
 
   <build>

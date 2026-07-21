@@ -15,6 +15,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-data-api` — tech-neutral persistence value objects with no JPA on the
+  classpath: `Money` (immutable amount + ISO-4217 `Currency`, same-currency `add`/`subtract`, and
+  the `toStorageString()`/`parse(String)` attribute-converter storage contract), `EntityId<T>`
+  (typed-id wrapper), and `PersistenceConventions` (column lengths, audit column names,
+  `snake_case` physical naming). `docs/modules/data.md`.
 - Phase 7: `platform-starter-events` — POM-only starter: autoconfigure only (events-api arrives
   transitively); `docs/modules/events.md` (with a publish/dispatch sequence diagram). Completes the
   phase 7 events slice.

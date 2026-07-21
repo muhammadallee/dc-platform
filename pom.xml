@@ -90,6 +90,7 @@
     <module>data/platform-data-jpa-autoconfigure</module>
     <module>data/platform-starter-data-jpa</module>
     <module>cache/platform-cache-api</module>
+    <module>cache/platform-cache-autoconfigure</module>
   </modules>
 
   <build>

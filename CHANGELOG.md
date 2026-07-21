@@ -15,6 +15,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 8: `platform-cache-autoconfigure` — `PlatformCacheAutoConfiguration`: a default
+  `CacheKeyConvention` (app-name-prefixed), per-cache TTL/size from `dc.platform.cache.caches.*`, a
+  `CaffeineCacheManager` when Caffeine is on the classpath, and a `RedisCacheManager` (String keys,
+  JSON values) when Spring Data Redis is present (Redis wins when both are, via mutually exclusive
+  class conditions). Ordered `before` Boot's `CacheAutoConfiguration` so the platform per-cache
+  policy wins; both back off to any user `CacheManager`/`CacheKeyConvention`. Cache metrics come from
+  Boot's own binder over the platform `CacheManager`. Tests: ContextRunner matrix (Redis filtered so
+  the Caffeine default is exercised), a Caffeine TTL/size behavior test, key-convention units, and a
+  `@Tag("docker")` Redis round-trip IT. `docs/modules/cache.md`.
 - Phase 8: `platform-cache-api` — the cache capability contract: `CacheKeyConvention`
   (`key(cacheName, parts...)`, default composes `<appName>:<cacheName>[:<part>]*` so services don't
   collide in a shared backend) and `CacheNames` (dot-separated cache-name conventions with a

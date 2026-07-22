@@ -270,6 +270,27 @@ One line of context per decision; details live in the commit bodies referenced.
   `spring-boot-flyway`), so a JDBC-without-Flyway consumer still starts. The `starter-locking-jdbc`
   bundles `flyway-core` + `spring-boot-flyway` to make the happy path the default.
 
+- **D42 — `@LockedSchedule` uses the plain-advisor + auto-proxy-registrar pattern (D26), not
+  `@Aspect`.** The spec says "aspect", but the authz capability already established that
+  `@EnableAspectJAutoProxy`/`@Aspect` drags in `aspectjweaver` at class-load time (D26). Scheduling
+  reuses the proven pattern: a `StaticMethodMatcherPointcut` + `MethodInterceptor` +
+  `DefaultPointcutAdvisor` (`@Role(ROLE_INFRASTRUCTURE)`) with an `ImportBeanDefinitionRegistrar`
+  calling `AopConfigUtils.registerAutoProxyCreatorIfNecessary`. Same behavior, no new dependency.
+- **D43 — the `@LockedSchedule` advisor is guarded by `@ConditionalOnClass(LockManager)`, and the
+  interceptor resolves the `LockManager` softly.** The constitution requires other-capability api
+  references to be `@ConditionalOnClass`-guarded, so the advisor config only loads when locking-api is
+  present; the interceptor then reads the `LockManager` through an `ObjectProvider` and runs the method
+  unlocked (warn once) when no bean exists. Consequence: a scheduling-only app without locking-api on
+  the classpath gets no warning — acceptable, since the guard is mandatory and the warning still fires
+  for the "locking present but not configured" case. `@LockedSchedule` itself lives in the api root
+  package `ae.gov.dubaicustoms.platform.scheduling` (String attributes keep it dependency-poor), since
+  the spec gives scheduling no separate -api module.
+- **D44 — `platform-starter-scheduling` drops the spec's `spring-boot-starter-aop`.** Under the Boot-4
+  baseline (D6) that aggregate starter no longer exists (the BOM manages `aspectjweaver` directly, not
+  a `spring-boot-starter-aop`). The plain-advisor proxying (D42) needs only `spring-aop`, which arrives
+  transitively through the autoconfigure's `spring-context`, so the starter depends on the autoconfigure
+  alone. No AOP capability is lost.
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

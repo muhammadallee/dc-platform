@@ -291,6 +291,24 @@ One line of context per decision; details live in the commit bodies referenced.
   transitively through the autoconfigure's `spring-context`, so the starter depends on the autoconfigure
   alone. No AOP capability is lost.
 
+- **D45 — idempotency store selection reuses the locking mechanism (D40); the "cache-backed" store is
+  the Redis store.** The spec says the store is "cache/redis-backed … auto-chosen if present". Store
+  selection uses the same separate-auto-configs-ordered-with-`@AutoConfigureAfter` pattern as locking
+  (Redis preferred, JDBC fallback). Only the Redis store is implemented as the distributed option: a
+  Spring `Cache`-backed store cannot offer an atomic put-if-absent (`Cache.get` then `put` races),
+  whereas `SET NX PX` is atomic — and the platform's own cache-redis provider is Redis anyway. The
+  default JDBC store lives in the autoconfigure module (`internal`), per the spec's module list (no
+  separate `-jdbc` module), reusing the `platform_lock` table pattern with its own
+  `platform_idempotency` table and the D41 Flyway-location-append.
+- **D46 — `@Idempotent` rejects duplicates via the errors capability's `ConflictException` (409),
+  guarded by `@ConditionalOnClass`.** Rather than defining an idempotency-specific exception in the
+  api (which would not carry an HTTP-status hint the errors capability understands), the advisor throws
+  `ConflictException` (`DC-IDEM-0409`). Its config is `@ConditionalOnClass(ConflictException)` so a
+  service without the errors capability simply gets no `@Idempotent` interception. The advisor uses the
+  plain auto-proxy creator (D26); `platform-starter-idempotency` drops the spec's `spring-boot-starter-aop`
+  (absent under Boot 4, D44). The `Idempotency-Key` filter rejects duplicates only (no response replay,
+  v1 scope) and is a plain `jakarta.servlet.http.HttpFilter` (no spring-web dependency).
+
 ## Pre-phase-3 baseline amendments
 
 - **D6 — Java 25 / Spring Boot 4.x baseline.** Deliberate deviation from the spec pack's

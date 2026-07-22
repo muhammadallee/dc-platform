@@ -15,6 +15,19 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 9: `platform-starter-scheduling` — POM-only starter: the scheduling autoconfigure.
+  `@EnableScheduling` on a virtual-thread scheduler + `@LockedSchedule`; combine with a locking starter
+  for cluster-wide single execution. (Drops the spec's `spring-boot-starter-aop`, absent under Boot 4;
+  the plain-advisor proxying needs only transitive `spring-aop` — D44.)
+- Phase 9: `platform-scheduling-autoconfigure` — `PlatformSchedulingAutoConfiguration`:
+  `@EnableScheduling` on a virtual-thread `SimpleAsyncTaskScheduler` (backs off to a user
+  `TaskScheduler`), and the `@LockedSchedule(name, atMost)` annotation. A plain (non-AspectJ) AOP
+  advisor — pointcut + `MethodInterceptor` + `@Role(ROLE_INFRASTRUCTURE)` advisor + auto-proxy
+  registrar (reusing the D26 pattern, no `aspectjweaver`) — runs the method under
+  `LockManager.withLock` when the locking capability is on the classpath, else unlocked with a
+  one-time warning. Guarded by `@ConditionalOnClass(LockManager)`. Tests: ContextRunner matrix, the
+  no-`LockManager` interceptor path, and a two-context single-execution proof over a shared H2 lock
+  table. `docs/modules/scheduling.md`. Decisions D42–D43.
 - Phase 9: `platform-starter-locking-jdbc` / `platform-starter-locking-redis` — POM-only starters
   selecting the provider: locking autoconfigure + the JDBC provider + Flyway (creates `platform_lock`),
   or + the Redis provider + `spring-boot-starter-data-redis`. Inject `LockManager` and call `withLock`.

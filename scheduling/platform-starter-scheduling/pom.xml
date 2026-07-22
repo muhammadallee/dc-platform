@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-scheduling</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Scheduling :: Starter</name>
+  <description>
+    Platform scheduling: @EnableScheduling on a virtual-thread scheduler plus the @LockedSchedule
+    annotation for single-instance scheduled jobs. Combine with a locking starter to enforce the lock
+    across the cluster. Proxying uses the plain Spring AOP auto-proxy creator — no aspectjweaver needed.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5). The @LockedSchedule advisor uses
+         the plain (non-AspectJ) auto-proxy creator, so it needs only spring-aop, which arrives
+         transitively via the autoconfigure's spring-context — no aspectjweaver dependency is required.
+         (The spec's spring-boot-starter-aop no longer exists under the Boot-4 baseline, D44.) -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-scheduling-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+  </dependencies>
+</project>

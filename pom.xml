@@ -106,6 +106,8 @@
     <module>locking/platform-locking-autoconfigure</module>
     <module>locking/platform-starter-locking-jdbc</module>
     <module>locking/platform-starter-locking-redis</module>
+    <module>scheduling/platform-scheduling-autoconfigure</module>
+    <module>scheduling/platform-starter-scheduling</module>
   </modules>
 
   <build>

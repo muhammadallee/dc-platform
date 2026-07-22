@@ -93,6 +93,8 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-locking-jdbc</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-locking-redis</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-scheduling-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-scheduling</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

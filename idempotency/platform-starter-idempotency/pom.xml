@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-idempotency</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Idempotency :: Starter</name>
+  <description>
+    At-most-once method effects via @Idempotent: the idempotency autoconfigure plus Flyway (which
+    creates the default platform_idempotency table). The default store is JDBC over your DataSource;
+    add Spring Data Redis to switch to the Redis store. Pair with the errors starter for 409 responses.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5); idempotency-api arrives
+         transitively. Proxying uses the plain auto-proxy creator, so no aspectjweaver is needed. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-idempotency-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Flyway engine + Boot's Flyway auto-configuration: run the shipped platform_idempotency
+         migration (the autoconfigure appends its location). Boot 4 packages FlywayAutoConfiguration
+         and the FlywayConfigurationCustomizer contract in spring-boot-flyway (see locking, D41). -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
+    </dependency>
+  </dependencies>
+</project>

@@ -15,6 +15,24 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 9: `platform-starter-idempotency` — POM-only starter: the idempotency autoconfigure + Flyway
+  (creates the default `platform_idempotency` table). Default store is JDBC over your `DataSource`; add
+  Spring Data Redis to switch to the Redis store. Pair with the errors starter for 409 responses.
+- Phase 9: `platform-idempotency-autoconfigure` — `PlatformIdempotencyAutoConfiguration` (+ per-store
+  `RedisIdempotencyStoreAutoConfiguration` / `JdbcIdempotencyStoreAutoConfiguration`): an
+  `IdempotencyStore` chosen by classpath (Redis `SET NX PX` when a `StringRedisTemplate` is present,
+  else a JDBC `platform_idempotency` table with expiry-column TTL and appended Flyway location — same
+  patterns as locking, D40/D41). A plain (non-AspectJ, D26) AOP advisor enforces `@Idempotent`:
+  evaluates the SpEL `keyExpression`, records the key, and rejects duplicates with the errors
+  capability's `ConflictException` (409), guarded by `@ConditionalOnClass`. An optional
+  `Idempotency-Key` HTTP filter (off by default, plain `jakarta.servlet` filter) rejects duplicate
+  POSTs with 409 (reject-only, no response replay). `CapabilityDescriptor` names the store. Tests:
+  ContextRunner matrix, store selection, JDBC store behavior (accept/reject/TTL expiry with a clock),
+  SpEL key eval + duplicate rejection, end-to-end `@Idempotent` over H2, and the HTTP filter.
+  `docs/modules/idempotency.md`. Decisions D45–D46.
+- Phase 9: `platform-idempotency-api` — the idempotency capability contract:
+  `@Idempotent(keyExpression, ttl)` and `IdempotencyStore` (`boolean putIfAbsent(String, Duration)`,
+  SPI-lite). Dependency-poor (jdk types only).
 - Phase 9: `platform-starter-scheduling` — POM-only starter: the scheduling autoconfigure.
   `@EnableScheduling` on a virtual-thread scheduler + `@LockedSchedule`; combine with a locking starter
   for cluster-wide single execution. (Drops the spec's `spring-boot-starter-aop`, absent under Boot 4;

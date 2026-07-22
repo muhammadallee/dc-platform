@@ -108,6 +108,9 @@
     <module>locking/platform-starter-locking-redis</module>
     <module>scheduling/platform-scheduling-autoconfigure</module>
     <module>scheduling/platform-starter-scheduling</module>
+    <module>idempotency/platform-idempotency-api</module>
+    <module>idempotency/platform-idempotency-autoconfigure</module>
+    <module>idempotency/platform-starter-idempotency</module>
   </modules>
 
   <build>

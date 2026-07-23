@@ -111,6 +111,21 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-openfeature</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-flags</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-spi</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-log</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-jdbc</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-audit</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-spi</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-inmemory</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-redis</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-ratelimit</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-autoconfigure</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-files</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

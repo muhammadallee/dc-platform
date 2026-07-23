@@ -120,6 +120,9 @@
     <module>storage/platform-starter-storage-fs</module>
     <module>storage/platform-starter-storage-s3</module>
 
+    <!-- Phase 11: audit (log/jdbc sinks + messaging sink in autoconfigure), ratelimit (inmemory/redis), files. -->
+    <module>audit/platform-audit-api</module>
+
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>
     <module>flags/platform-flags-inmemory</module>

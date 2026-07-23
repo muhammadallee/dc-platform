@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-api` — the audit contract: `Auditor` (programmatic `record(AuditEvent)`),
+  the `@Audited(action, resourceExpression)` method annotation, the `AuditEvent` record (action,
+  actor, resource, outcome, at, correlationId, details) and the `Outcome` enum. No sink types leak
+  here; applications depend only on this module.
 - Phase 10: `platform-starter-flags` — POM-only starter: the flags autoconfigure + in-memory provider.
   Seed via `dc.platform.flags.static.*`, flip at runtime through the `platformflags` endpoint; add an
   OpenFeature `Client` bean to switch providers.

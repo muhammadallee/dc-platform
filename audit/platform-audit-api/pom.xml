@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-audit-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Audit :: API</name>
+  <description>
+    Auditor: the audit-trail contract applications depend on, the @Audited method annotation, and the
+    AuditEvent record. No sink types leak here (see platform-audit-spi for the pluggable sink contract).
+  </description>
+
+  <!-- Contract artifact: binary-incompatible changes must break the build once a release
+       baseline exists (platform-parent wires japicmp; the skip flag flips after 0.1.0). -->
+  <properties>
+    <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
+  </properties>
+
+  <dependencies>
+    <!-- api depends on nothing downward (audit needs no core-api type in its signatures). -->
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- AssertJ for the record + annotation unit tests. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-flags-inmemory` — the default `FlagProvider`: flags in a `ConcurrentHashMap`
+  seeded from `dc.platform.flags.static.*` and mutable at runtime (`set`/`remove`/`snapshot`, driven by
+  the `platformflags` endpoint). Zero infrastructure; evaluation is global (context-independent).
 - Phase 10: `platform-flags-spi` — the flag provider contract: `FlagProvider`
   (`Optional<FlagValue> evaluate(String, EvaluationContext)`, total — empty for unknown flags) plus the
   `FlagValue` (opaque value + boolean view) and `EvaluationContext` (optional user/tenant + attributes,

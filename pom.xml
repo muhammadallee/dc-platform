@@ -122,6 +122,7 @@
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>
+    <module>flags/platform-flags-inmemory</module>
   </modules>
 
   <build>

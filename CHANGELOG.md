@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-flags-spi` — the flag provider contract: `FlagProvider`
+  (`Optional<FlagValue> evaluate(String, EvaluationContext)`, total — empty for unknown flags) plus the
+  `FlagValue` (opaque value + boolean view) and `EvaluationContext` (optional user/tenant + attributes,
+  `anonymous()`) value types.
 - Phase 10: `platform-flags-api` — the feature-flag capability contract: `FeatureFlags`
   (`boolean enabled(String)`, `<T> T value(String, T default)`) and the `@FeatureGate("flag")` method
   annotation (documented skip-value semantics: `false`/`Optional.empty()`/`null`/no-op by return type).

@@ -124,6 +124,7 @@
     <module>audit/platform-audit-api</module>
     <module>audit/platform-audit-spi</module>
     <module>audit/platform-audit-log</module>
+    <module>audit/platform-audit-jdbc</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

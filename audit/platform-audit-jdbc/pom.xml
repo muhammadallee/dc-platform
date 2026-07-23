@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-audit-jdbc</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Audit :: JDBC Sink</name>
+  <description>
+    AuditSink that appends each AuditEvent to a single platform_audit table; the event's details map is
+    serialised to JSON. Ships its Flyway migration under db/migration-platform-audit (the autoconfigure
+    appends that location). Tested against H2; no Docker required.
+  </description>
+
+  <dependencies>
+    <!-- impl -> same-capability spi/api + its 3rd-party libs (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-audit-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-audit-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- 3rd-party libs: JdbcTemplate for the append, Jackson to serialise the details map to JSON. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- H2 + assertions for the local sink behavior tests (no Docker). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

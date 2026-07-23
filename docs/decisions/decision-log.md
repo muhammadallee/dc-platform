@@ -357,3 +357,11 @@ One line of context per decision; details live in the commit bodies referenced.
   zero changes to storage/flags. Log redaction, the one real loss, is available via a user-registered
   `LogSanitizer` bean (the SPI ships in `platform-logging-api`). Consequently phase-10 delivers docs ×2
   (storage, flags), not ×3, and the `-Pdocker` vault suite is not present.
+- **D51 — audit_jdbc stores the details map as a CLOB JSON document.** The `AuditEvent.details` map
+  is schemaless by design (arbitrary structured context per action), so `JdbcAuditSink` serialises it
+  to JSON with Jackson (the sink's declared 3rd-party lib alongside spring-jdbc) and stores it in a
+  single `CLOB` column rather than modelling per-key columns. CLOB is H2-tested here; PostgreSQL
+  deployments map CLOB→TEXT (Flyway runs the DDL against the target engine). The alternative
+  (key/value child table) adds a join and write per detail entry for data that is only ever read back
+  whole. Trade-off: details are not queryable by key in SQL; that is acceptable for an append-only
+  trail whose primary consumers are the log pipeline and export.

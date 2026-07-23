@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-jdbc` — an `AuditSink` appending each `AuditEvent` to a single append-only
+  `platform_audit` table, with the details map serialised to a JSON CLOB (decision D51). Ships its
+  Flyway migration under `db/migration-platform-audit`; H2-tested, no Docker.
 - Phase 11: `platform-audit-log` — the default `AuditSink`: writes each `AuditEvent` as one structured
   `key=value` line to a dedicated `AUDIT` logger at INFO, so the audit trail rides the JSON logging
   pipeline with zero infrastructure. The always-available fallback in the degradation chain.

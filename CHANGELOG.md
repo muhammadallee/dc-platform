@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-storage-spi` — the storage provider-support layer. Deliberately has no provider
+  interface (providers contribute an `ObjectStore` bean directly); ships only `KeyValidator`, the
+  path-traversal guard (`.`/`..` segments, absolute keys, `\`/NUL) every provider must apply,
+  hardened by a traversal-vector test matrix. Decision D47.
 - Phase 10: `platform-storage-api` — the storage capability contract: `ObjectStore` (streaming-first
   `put`/`get`/`delete`/`list`, no `byte[]` convenience by design), the value types `ObjectMetadata`,
   `ObjectRef`, `StoredObject` (an `AutoCloseable` metadata+stream pair), `ObjectSummary`, and

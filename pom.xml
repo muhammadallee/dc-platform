@@ -113,6 +113,7 @@
     <module>idempotency/platform-starter-idempotency</module>
 
     <module>storage/platform-storage-api</module>
+    <module>storage/platform-storage-spi</module>
   </modules>
 
   <build>

@@ -329,3 +329,10 @@ One line of context per decision; details live in the commit bodies referenced.
   scaffolder templates, property prefix (`dc.platform.<cap>`), error-code namespace
   (`DC-<CAP>-<NNNN>`), specs, runbooks, docs, and CI. The specs are the implementation authority
   for later phases, so they were swept too rather than left historical.
+- **D47 — storage SPI is provider-interface-free.** The spec (phase-10 §A) offers an
+  `ObjectStoreProvider { name(); create(props); }` but immediately proposes the simpler shape:
+  providers just contribute an `ObjectStore` bean, so `platform-storage-spi` holds only the shared
+  `KeyValidator` (path-traversal guard) and no provider interface. Chosen the simpler option per
+  CLAUDE.md "when the spec is silent / two options": one fewer contract type to evolve, and provider
+  selection is by classpath (fs default, S3 when present) exactly like locking/idempotency, not by a
+  named-provider lookup.

@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -111,15 +113,30 @@ class InMemoryEventTransportTest {
     }
 
     @Test
-    void awaitIdleTimesOutWhenMessagesStillInFlight() {
+    void awaitIdleTimesOutWhenMessagesStillInFlight() throws InterruptedException {
+        // Hold the message in flight deterministically: the handler blocks until the test releases
+        // it, so inFlight is provably > 0 when awaitIdle runs. A throwing handler would instead race
+        // the retry/backoff window against the 1ms timeout, making the assertion flaky.
+        CountDownLatch handlerEntered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
         transport.subscribe("dc.orders", "group-a", (k, v, h) -> {
-            throw new RuntimeException("never succeeds");
+            handlerEntered.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         });
 
         transport.send("dc.orders", null, "m".getBytes(StandardCharsets.UTF_8), Map.of());
+        assertThat(handlerEntered.await(2, TimeUnit.SECONDS)).isTrue();
 
-        assertThatThrownBy(() -> transport.awaitIdle(Duration.ofMillis(1)))
-                .isInstanceOf(IllegalStateException.class);
+        try {
+            assertThatThrownBy(() -> transport.awaitIdle(Duration.ofMillis(1)))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            release.countDown();
+        }
     }
 
     @Test

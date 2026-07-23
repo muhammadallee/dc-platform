@@ -15,6 +15,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-messaging-autoconfigure` — the top link in the audit degradation chain: an
+  `AuditSink` publishing audit events to the messaging transport (`dc.audit`), guarded by
+  `@ConditionalOnBean(EventPublisher)`. A dedicated autoconfigure module (not an impl, not folded into
+  the main audit autoconfigure) to satisfy the impl→other-cap ban and the fan-out ceiling, and to keep
+  messaging-api off audit consumers who do not use messaging (decision D53).
 - Phase 11: `platform-audit-autoconfigure` — `PlatformAuditAutoConfiguration` (+ per-sink
   `JdbcAuditSinkAutoConfiguration` / `LogAuditSinkAutoConfiguration` + `AuditSecurityAutoConfiguration`):
   the async `Auditor` over the `AuditSink` chosen by a messaging → jdbc → log degradation chain (with a

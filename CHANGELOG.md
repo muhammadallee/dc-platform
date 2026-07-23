@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-flags-openfeature` — a `FlagProvider` adapter over the OpenFeature SDK (1.9.1):
+  reads flags type-agnostically via `getObjectDetails`, maps `FLAG_NOT_FOUND`/null to
+  `Optional.empty()`, and maps the platform `EvaluationContext` (user → targeting key, tenant +
+  attributes → context fields) to OpenFeature. The seam through which enterprise providers plug in.
 - Phase 10: `platform-flags-inmemory` — the default `FlagProvider`: flags in a `ConcurrentHashMap`
   seeded from `dc.platform.flags.static.*` and mutable at runtime (`set`/`remove`/`snapshot`, driven by
   the `platformflags` endpoint). Zero infrastructure; evaluation is global (context-independent).

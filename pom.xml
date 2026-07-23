@@ -123,6 +123,7 @@
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>
     <module>flags/platform-flags-inmemory</module>
+    <module>flags/platform-flags-openfeature</module>
   </modules>
 
   <build>

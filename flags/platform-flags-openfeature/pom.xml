@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-flags-openfeature</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Feature Flags :: OpenFeature Provider</name>
+  <description>
+    FlagProvider adapter over the OpenFeature SDK, so enterprise providers (LaunchDarkly, Flagsmith, …)
+    plug in downstream by being registered with the OpenFeature API. Maps the platform EvaluationContext
+    to OpenFeature and unknown flags to Optional.empty().
+  </description>
+
+  <dependencies>
+    <!-- impl -> same-capability spi/api + its 3rd-party lib (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- The 3rd-party lib: the OpenFeature SDK (version pinned in platform-dependencies). -->
+    <dependency>
+      <groupId>dev.openfeature</groupId>
+      <artifactId>sdk</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Mockito + AssertJ for the adapter unit tests. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

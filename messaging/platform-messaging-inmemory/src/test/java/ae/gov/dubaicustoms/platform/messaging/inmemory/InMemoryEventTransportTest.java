@@ -2,7 +2,6 @@ package ae.gov.dubaicustoms.platform.messaging.inmemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.awaitility.Awaitility.await;
 
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import java.nio.charset.StandardCharsets;
@@ -147,9 +146,12 @@ class InMemoryEventTransportTest {
 
         transport.send("dc.orders", null, "m".getBytes(StandardCharsets.UTF_8), Map.of());
         transport.awaitIdle(Duration.ofSeconds(2));
-        subscription.close();
+        // awaitIdle guarantees the sent message was delivered exactly once and no work remains in
+        // flight, so the delivery count is final and deterministic here — no timing wait needed.
+        assertThat(deliveries.get()).isEqualTo(1);
 
-        await().during(Duration.ofMillis(200)).atMost(Duration.ofSeconds(1))
-                .untilAsserted(() -> assertThat(deliveries.get()).isEqualTo(1));
+        // Closing the subscription must not resurrect or duplicate the already-delivered message.
+        subscription.close();
+        assertThat(deliveries.get()).isEqualTo(1);
     }
 }

@@ -376,3 +376,10 @@ One line of context per decision; details live in the commit bodies referenced.
   Ordering across modules (messaging > jdbc > log) uses name-based `@AutoConfigureAfter`, so no
   autoconfigure→autoconfigure dependency is introduced. It is not bundled in `platform-starter-audit`,
   keeping messaging-api off the classpath of audit consumers who do not use messaging.
+- **D54 — rate-limit rejection is its own exception type, not a BusinessException.** The errors
+  capability's `HttpStatusHint` is a closed 4xx enum with no 429 value, and adding one would change an
+  errors contract. So `@RateLimited` rejection throws `RateLimitExceededException` (ratelimit-api,
+  carrying the retry-after), and the ratelimit autoconfigure registers a Spring-MVC `@RestControllerAdvice`
+  mapping it to a 429 `ProblemDetail` with `Retry-After`. The HTTP-filter path writes its own 429
+  problem+json because a servlet filter runs before MVC exception handling. Both paths therefore emit
+  RFC-9457 problem+json with a Retry-After header, without touching the errors capability.

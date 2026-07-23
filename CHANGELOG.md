@@ -15,6 +15,17 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-ratelimit-autoconfigure` — `PlatformRateLimitAutoConfiguration` (+ per-provider
+  `RedisRateLimiterAutoConfiguration` / `InMemoryRateLimiterAutoConfiguration`): a `RateLimiter` over the
+  provider chosen by classpath (Redis over in-memory; WARNs in `prod` when the per-JVM provider is
+  active), a plain (D26) AOP advisor enforcing `@RateLimited` (SpEL key, throws
+  `RateLimitExceededException`), an optional all-requests servlet filter
+  (`dc.platform.ratelimit.http.enabled=true`, keyed by user|ip) emitting 429 + `Retry-After` +
+  problem+json, a Spring-MVC advice mapping `RateLimitExceededException` to 429 (D54), and Micrometer
+  decision counters when present. `CapabilityDescriptor` names the provider. Tests: ContextRunner
+  matrix, provider selection, `@RateLimited` behavior (incl. keyed), metrics, filter, and advice.
+- Phase 11: `platform-ratelimit-api` (addendum) — `RateLimitExceededException` (carries `retryAfter`),
+  thrown by `@RateLimited` and mapped to HTTP 429.
 - Phase 11: `platform-ratelimit-redis` — a cluster-wide `RateLimiterProvider`: a fixed-window counter
   via an atomic INCR + PEXPIRE Lua script (hash-tagged key, retry-after = remaining TTL). Fails open on
   Redis errors. Command-level unit tests are Docker-free; a `@Tag("docker")` IT verifies real Redis.

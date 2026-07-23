@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-ratelimit-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Rate Limiting :: Auto Configuration</name>
+  <description>
+    Wires a RateLimiter over the RateLimiterProvider on the classpath (Redis when a StringRedisTemplate
+    is present, otherwise in-memory; user bean wins). Enforces @RateLimited via a plain AOP advisor,
+    optionally rate-limits all HTTP requests through a servlet filter (429 ProblemDetail + Retry-After),
+    maps RateLimitExceededException to 429 in Spring MVC, and records decision metrics when Micrometer
+    is present.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api/spi (+ core-api for CapabilityDescriptor). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Optional same-capability providers: selected by @ConditionalOnClass on the provider types. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-inmemory</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-redis</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <!-- spring-data-redis for the @ConditionalOnClass/@ConditionalOnBean guard on the Redis path. -->
+    <dependency>
+      <groupId>org.springframework.data</groupId>
+      <artifactId>spring-data-redis</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- The servlet filter + MVC exception advice + ProblemDetail; guarded by @ConditionalOnClass. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Micrometer for decision metrics; guarded by @ConditionalOnClass. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Generates config metadata for dc.platform.ratelimit.* from the properties record. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- ContextRunner + Mockito + assertions. The providers, spring-data-redis, spring-web(mvc),
+         servlet-api and Micrometer are on the test classpath via the optional deps above. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

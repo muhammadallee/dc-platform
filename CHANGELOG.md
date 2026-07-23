@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-ratelimit-redis` — a cluster-wide `RateLimiterProvider`: a fixed-window counter
+  via an atomic INCR + PEXPIRE Lua script (hash-tagged key, retry-after = remaining TTL). Fails open on
+  Redis errors. Command-level unit tests are Docker-free; a `@Tag("docker")` IT verifies real Redis.
 - Phase 11: `platform-ratelimit-inmemory` — the default `RateLimiterProvider`: a per-JVM
   sliding-window counter backed by Caffeine (current + weighted previous window). Zero infrastructure;
   counters are not shared across instances (documented limitation — use Redis for a cluster-wide

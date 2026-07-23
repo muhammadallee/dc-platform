@@ -336,3 +336,8 @@ One line of context per decision; details live in the commit bodies referenced.
   CLAUDE.md "when the spec is silent / two options": one fewer contract type to evolve, and provider
   selection is by classpath (fs default, S3 when present) exactly like locking/idempotency, not by a
   named-provider lookup.
+- **D48 — filesystem sidecar uses Jackson.** The spec calls for a JSON metadata sidecar next to each
+  object file. Rather than hand-roll a JSON writer (which would mis-escape arbitrary user-tag values —
+  quotes, newlines, unicode), the fs provider depends on Boot-managed `jackson-databind` to serialise
+  `ObjectMetadata`. Jackson is the fs provider's declared 3rd-party lib (impl-rule compliant); the
+  version is inherited, not pinned.

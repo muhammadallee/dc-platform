@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-storage-fs</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Storage :: Filesystem Provider</name>
+  <description>
+    Default ObjectStore: objects are files under a configured root directory, each with a JSON metadata
+    sidecar. Path-traversal-guarded (KeyValidator + resolved-path containment check). Fully local, the
+    reference provider; no Docker required.
+  </description>
+
+  <dependencies>
+    <!-- impl -> same-capability spi/api + its 3rd-party lib (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- The 3rd-party lib: Jackson serialises the metadata sidecar (correct escaping of arbitrary
+         user-tag values, which a hand-rolled JSON writer would get wrong). Boot-managed version. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- JUnit + AssertJ for the tmp-dir provider behavior tests (no Docker). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

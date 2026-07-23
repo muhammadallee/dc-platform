@@ -15,6 +15,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-storage-fs` — the default, Docker-free `ObjectStore`: objects are files under a
+  configured root, each with a JSON metadata sidecar (Jackson, D48). Path-traversal-guarded by
+  `KeyValidator` plus a resolved-path containment check; `put` streams content through a SHA-256 digest
+  (the `ObjectRef` etag) and records the actual byte length. Tested against a temp dir (round-trip,
+  prefix listing, sidecar-less reads, traversal rejection, IO error paths).
 - Phase 10: `platform-storage-spi` — the storage provider-support layer. Deliberately has no provider
   interface (providers contribute an `ObjectStore` bean directly); ships only `KeyValidator`, the
   path-traversal guard (`.`/`..` segments, absolute keys, `\`/NUL) every provider must apply,

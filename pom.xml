@@ -123,6 +123,7 @@
     <!-- Phase 11: audit (log/jdbc sinks + messaging sink in autoconfigure), ratelimit (inmemory/redis), files. -->
     <module>audit/platform-audit-api</module>
     <module>audit/platform-audit-spi</module>
+    <module>audit/platform-audit-log</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-log` — the default `AuditSink`: writes each `AuditEvent` as one structured
+  `key=value` line to a dedicated `AUDIT` logger at INFO, so the audit trail rides the JSON logging
+  pipeline with zero infrastructure. The always-available fallback in the degradation chain.
 - Phase 11: `platform-audit-spi` — the audit provider contract: `AuditSink` (`write(AuditEvent)`), the
   pluggable destination behind `Auditor`. Implemented by the log/jdbc/messaging sinks; applications
   never depend on it directly.

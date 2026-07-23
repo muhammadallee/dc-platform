@@ -1,0 +1,4 @@
+ae.gov.dubaicustoms.platform.flags.autoconfigure.OpenFeatureFlagProviderAutoConfiguration
+ae.gov.dubaicustoms.platform.flags.autoconfigure.InMemoryFlagProviderAutoConfiguration
+ae.gov.dubaicustoms.platform.flags.autoconfigure.FlagsSecurityAutoConfiguration
+ae.gov.dubaicustoms.platform.flags.autoconfigure.PlatformFlagsAutoConfiguration

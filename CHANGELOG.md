@@ -15,6 +15,18 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-starter-flags` — POM-only starter: the flags autoconfigure + in-memory provider.
+  Seed via `dc.platform.flags.static.*`, flip at runtime through the `platformflags` endpoint; add an
+  OpenFeature `Client` bean to switch providers.
+- Phase 10: `platform-flags-autoconfigure` — `PlatformFlagsAutoConfiguration` (+ per-provider
+  `OpenFeatureFlagProviderAutoConfiguration` / `InMemoryFlagProviderAutoConfiguration` +
+  `FlagsSecurityAutoConfiguration`): a `FeatureFlags` over the `FlagProvider` chosen by classpath
+  (OpenFeature when a `Client` bean is present, else in-memory). A plain (non-AspectJ, D26) AOP advisor
+  enforces `@FeatureGate` — skip + neutral return value by type. The evaluation context resolves the
+  current user/tenant from the security capability's `CurrentUserAccessor` when present (guarded by
+  `@ConditionalOnClass`). The `platformflags` actuator endpoint reads/sets/removes in-memory flags at
+  runtime. `CapabilityDescriptor` names the provider. Tests: ContextRunner matrix, provider selection,
+  static-flag coercion, the `@FeatureGate` behavior table, and the endpoint. `docs/modules/flags.md`.
 - Phase 10: `platform-flags-openfeature` — a `FlagProvider` adapter over the OpenFeature SDK (1.9.1):
   reads flags type-agnostically via `getObjectDetails`, maps `FLAG_NOT_FOUND`/null to
   `Optional.empty()`, and maps the platform `EvaluationContext` (user → targeting key, tenant +

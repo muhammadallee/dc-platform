@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-flags</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Feature Flags :: Starter</name>
+  <description>
+    Feature flags backed by the in-memory provider: the flags autoconfigure plus the in-memory
+    provider. Seed flags via dc.platform.flags.static.* and flip them at runtime through the
+    platformflags actuator endpoint. Inject FeatureFlags or annotate methods with @FeatureGate. Add an
+    OpenFeature Client bean to switch to an enterprise provider.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named provider (CLAUDE.md rule 5);
+         flags-api/spi arrive transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-inmemory</artifactId>
+      <version>${revision}</version>
+    </dependency>
+  </dependencies>
+</project>

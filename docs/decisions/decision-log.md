@@ -349,3 +349,11 @@ One line of context per decision; details live in the commit bodies referenced.
   (skip the tag, expose only the provider etag) fails the "stored as user tag" requirement. Trade-off:
   one extra disk write per put when checksums are on; toggle off via
   `dc.platform.storage.checksum.enabled=false`.
+- **D50 — phase 10 ships storage + flags; secrets deferred.** The team manages secrets via Helm
+  (injected as environment variables) and, locally, plain environment variables — which Spring Boot's
+  relaxed binding already consumes natively, making the phase-10 secrets `env` provider redundant and
+  the Vault provider unneeded today. Secrets is self-contained (nothing depends inbound on it; phases
+  11–16 do not require it), so it was dropped from this phase and can be added later in its own PR with
+  zero changes to storage/flags. Log redaction, the one real loss, is available via a user-registered
+  `LogSanitizer` bean (the SPI ships in `platform-logging-api`). Consequently phase-10 delivers docs ×2
+  (storage, flags), not ×3, and the `-Pdocker` vault suite is not present.

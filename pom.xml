@@ -124,6 +124,8 @@
     <module>flags/platform-flags-spi</module>
     <module>flags/platform-flags-inmemory</module>
     <module>flags/platform-flags-openfeature</module>
+    <module>flags/platform-flags-autoconfigure</module>
+    <module>flags/platform-starter-flags</module>
   </modules>
 
   <build>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-flags-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Feature Flags :: Auto Configuration</name>
+  <description>
+    Wires FeatureFlags over the FlagProvider on the classpath (OpenFeature when an OpenFeature Client
+    bean is present, otherwise the in-memory provider; user bean wins). Enforces @FeatureGate via a
+    plain AOP advisor, resolves the current user/tenant into the evaluation context when the security
+    capability is present, and exposes the platformflags actuator endpoint.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api/spi (+ core-api for CapabilityDescriptor). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Optional same-capability impls: selected by @ConditionalOnClass on the provider types. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-inmemory</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-flags-openfeature</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <!-- OpenFeature Client for the @ConditionalOnClass/@ConditionalOnBean guard on the OpenFeature path. -->
+    <dependency>
+      <groupId>dev.openfeature</groupId>
+      <artifactId>sdk</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Other cap's api, guarded by @ConditionalOnClass: resolve current user/tenant into the context. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-security-api</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- The platformflags actuator endpoint; guarded by @ConditionalOnClass so a non-actuator app starts. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-actuator</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-actuator-autoconfigure</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Generates config metadata for dc.platform.flags.* from the properties record. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- ContextRunner + Mockito + assertions. The inmemory/openfeature providers, the OpenFeature SDK,
+         actuator and security-api are already on the test classpath via the optional deps above. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

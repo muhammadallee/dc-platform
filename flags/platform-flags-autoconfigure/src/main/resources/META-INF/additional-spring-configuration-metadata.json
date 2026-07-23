@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.flags.static",
+      "type": "java.util.Map<java.lang.String,java.lang.String>",
+      "description": "Seed flags for the in-memory provider, as dc.platform.flags.static.<flag>=<value>. Values are strings coerced to the caller's requested type (true/false, numbers).",
+      "sourceType": "ae.gov.dubaicustoms.platform.flags.autoconfigure.FlagsProperties"
+    }
+  ]
+}

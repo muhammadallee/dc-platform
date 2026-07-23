@@ -15,6 +15,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-ratelimit-api` — the rate-limiting contract: `RateLimiter`
+  (`Decision tryAcquire(String key, int permits, Duration window)`), the
+  `@RateLimited(name, permits=100, window="PT1M", keyExpression)` method annotation, and the
+  `Decision` record (`allowed`, `retryAfter`) with `allow()` / `deny(Duration)` factories.
+- Phase 11: `platform-ratelimit-spi` — the provider contract: `RateLimiterProvider` (same
+  `tryAcquire` shape), implemented by the inmemory/redis backends; fail-open on backend errors.
 - Phase 11: `platform-audit-messaging-autoconfigure` — the top link in the audit degradation chain: an
   `AuditSink` publishing audit events to the messaging transport (`dc.audit`), guarded by
   `@ConditionalOnBean(EventPublisher)`. A dedicated autoconfigure module (not an impl, not folded into

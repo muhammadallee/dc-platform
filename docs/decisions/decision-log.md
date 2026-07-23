@@ -383,3 +383,15 @@ One line of context per decision; details live in the commit bodies referenced.
   mapping it to a 429 `ProblemDetail` with `Retry-After`. The HTTP-filter path writes its own 429
   problem+json because a servlet filter runs before MVC exception handling. Both paths therefore emit
   RFC-9457 problem+json with a Retry-After header, without touching the errors capability.
+- **D55 — the default content-type validator is a magic-byte table, not Tika.** The spec offered
+  "Tika-core pin? prefer simple magic-bytes table for the v1 set". `MagicBytesContentTypeValidator`
+  recognises PDF/PNG/JPEG/ZIP by signature and CSV/plain-text by a printable-byte scan (comma before
+  the first newline ⇒ CSV). No `tika-core` dependency, no transitive footprint; a service needing
+  broader detection supplies its own `ContentTypeValidator` bean. Trade-off: the v1 set is small and
+  CSV/text detection is heuristic — acceptable for validating the platform forms' accepted uploads.
+- **D56 — StreamingDownloads lives in files-autoconfigure, not files-api.** The spec lists it under
+  api, but its signature returns `ResponseEntity<StreamingResponseBody>` over a storage `ObjectStore`
+  — a Spring-web type and another capability's type, both forbidden in an api signature (api →
+  core-api only; no third-party types in api signatures). It ships as a public helper in the files
+  autoconfigure module (guarded by the storage capability on the classpath), reachable by consumers
+  through the starter. `FileUploadPolicy` and `SafeFilename` remain in the dependency-poor api.

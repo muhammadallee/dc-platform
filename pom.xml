@@ -137,6 +137,7 @@
     <module>ratelimit/platform-starter-ratelimit</module>
 
     <module>files/platform-files-api</module>
+    <module>files/platform-files-autoconfigure</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

@@ -15,6 +15,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-files-autoconfigure` — `PlatformFilesAutoConfiguration`: the default magic-byte
+  `ContentTypeValidator` (pdf/png/jpg/zip/csv/txt; no Tika, D55), a default `FileUploadPolicy` from
+  `dc.platform.files.*`, servlet multipart size limits (ahead of Boot's), and the public
+  `StreamingDownloads` helper that streams a storage `ObjectStore` object to an HTTP response (guarded
+  by the storage capability; D56). Every bean backs off on a user equivalent. Tests: ContextRunner
+  matrix, sniffing table, policy/property binding, multipart, and streaming download (200/404).
 - Phase 11: `platform-files-api` — safe file-handling primitives: `FileUploadPolicy` (size +
   content-type allow-list), `SafeFilename.sanitize` (path-traversal / null-byte / control-char safe
   filename), and the `ContentTypeValidator` contract (magic-byte content sniffing, not extension). No

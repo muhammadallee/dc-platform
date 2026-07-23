@@ -134,6 +134,7 @@
     <module>ratelimit/platform-ratelimit-inmemory</module>
     <module>ratelimit/platform-ratelimit-redis</module>
     <module>ratelimit/platform-ratelimit-autoconfigure</module>
+    <module>ratelimit/platform-starter-ratelimit</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

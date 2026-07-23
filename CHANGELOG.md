@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-spi` — the audit provider contract: `AuditSink` (`write(AuditEvent)`), the
+  pluggable destination behind `Auditor`. Implemented by the log/jdbc/messaging sinks; applications
+  never depend on it directly.
 - Phase 11: `platform-audit-api` — the audit contract: `Auditor` (programmatic `record(AuditEvent)`),
   the `@Audited(action, resourceExpression)` method annotation, the `AuditEvent` record (action,
   actor, resource, outcome, at, correlationId, details) and the `Outcome` enum. No sink types leak

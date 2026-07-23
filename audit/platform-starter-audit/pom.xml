@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-audit</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Audit :: Starter</name>
+  <description>
+    Audit trail backed by the structured-log sink: the audit autoconfigure plus the log sink. Annotate
+    methods with @Audited or inject Auditor. Add a DataSource to persist to the platform_audit table
+    instead; add the messaging capability plus platform-audit-messaging-autoconfigure to publish audit
+    events to dc.audit (the sink is chosen messaging > jdbc > log).
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named sink (CLAUDE.md rule 5);
+         audit-api/spi arrive transitively. The messaging sink is opt-in (its own module), so a plain
+         audit consumer never gets messaging-api on the classpath. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-audit-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-audit-log</artifactId>
+      <version>${revision}</version>
+    </dependency>
+  </dependencies>
+</project>

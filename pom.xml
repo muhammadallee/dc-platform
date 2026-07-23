@@ -127,6 +127,7 @@
     <module>audit/platform-audit-jdbc</module>
     <module>audit/platform-audit-autoconfigure</module>
     <module>audit/platform-audit-messaging-autoconfigure</module>
+    <module>audit/platform-starter-audit</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

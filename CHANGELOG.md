@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-files-api` — safe file-handling primitives: `FileUploadPolicy` (size +
+  content-type allow-list), `SafeFilename.sanitize` (path-traversal / null-byte / control-char safe
+  filename), and the `ContentTypeValidator` contract (magic-byte content sniffing, not extension). No
+  servlet or storage types leak here.
 - Phase 11: `platform-ratelimit-autoconfigure` — `PlatformRateLimitAutoConfiguration` (+ per-provider
   `RedisRateLimiterAutoConfiguration` / `InMemoryRateLimiterAutoConfiguration`): a `RateLimiter` over the
   provider chosen by classpath (Redis over in-memory; WARNs in `prod` when the per-JVM provider is

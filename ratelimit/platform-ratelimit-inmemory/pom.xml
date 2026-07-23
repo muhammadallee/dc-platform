@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-ratelimit-inmemory</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Rate Limiting :: In-Memory Provider</name>
+  <description>
+    Default RateLimiterProvider: a per-JVM sliding-window counter backed by Caffeine. Zero
+    infrastructure; counters are NOT shared across instances (documented limitation — use the Redis
+    provider for a cluster-wide limit).
+  </description>
+
+  <dependencies>
+    <!-- impl -> same-capability spi/api + its 3rd-party lib (CLAUDE.md rule 5). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-ratelimit-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- The 3rd-party lib: Caffeine for the bounded, auto-evicting bucket cache. -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Assertions for the sliding-window behavior tests (deterministic via an injected clock). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

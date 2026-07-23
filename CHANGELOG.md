@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-ratelimit-inmemory` — the default `RateLimiterProvider`: a per-JVM
+  sliding-window counter backed by Caffeine (current + weighted previous window). Zero infrastructure;
+  counters are not shared across instances (documented limitation — use Redis for a cluster-wide
+  limit). Deterministically tested via an injected clock.
 - Phase 11: `platform-ratelimit-api` — the rate-limiting contract: `RateLimiter`
   (`Decision tryAcquire(String key, int permits, Duration window)`), the
   `@RateLimited(name, permits=100, window="PT1M", keyExpression)` method annotation, and the

@@ -131,6 +131,7 @@
 
     <module>ratelimit/platform-ratelimit-api</module>
     <module>ratelimit/platform-ratelimit-spi</module>
+    <module>ratelimit/platform-ratelimit-inmemory</module>
 
     <module>flags/platform-flags-api</module>
     <module>flags/platform-flags-spi</module>

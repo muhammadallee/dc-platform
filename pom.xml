@@ -116,6 +116,9 @@
     <module>storage/platform-storage-spi</module>
     <module>storage/platform-storage-fs</module>
     <module>storage/platform-storage-s3</module>
+    <module>storage/platform-storage-autoconfigure</module>
+    <module>storage/platform-starter-storage-fs</module>
+    <module>storage/platform-starter-storage-s3</module>
   </modules>
 
   <build>

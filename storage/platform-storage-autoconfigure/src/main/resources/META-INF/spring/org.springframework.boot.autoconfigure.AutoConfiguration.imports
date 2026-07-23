@@ -1,0 +1,3 @@
+ae.gov.dubaicustoms.platform.storage.autoconfigure.S3ObjectStoreAutoConfiguration
+ae.gov.dubaicustoms.platform.storage.autoconfigure.FsObjectStoreAutoConfiguration
+ae.gov.dubaicustoms.platform.storage.autoconfigure.PlatformStorageAutoConfiguration

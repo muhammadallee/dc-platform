@@ -1,0 +1,25 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.storage.fs.root",
+      "type": "java.lang.String",
+      "description": "Root directory for the filesystem storage provider. When unset, defaults to ${java.io.tmpdir}/dc-storage.",
+      "sourceType": "ae.gov.dubaicustoms.platform.storage.autoconfigure.StorageProperties$Fs"
+    }
+  ],
+  "hints": [
+    {
+      "name": "dc.platform.storage.checksum.enabled",
+      "values": [
+        {
+          "value": true,
+          "description": "Compute a SHA-256 on put and store it as the 'sha256' user tag (default)."
+        },
+        {
+          "value": false,
+          "description": "Skip checksum computation on put."
+        }
+      ]
+    }
+  ]
+}

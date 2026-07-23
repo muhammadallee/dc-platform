@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-storage-autoconfigure</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Storage :: Auto Configuration</name>
+  <description>
+    Wires an ObjectStore over the provider on the classpath: S3 when the AWS SDK and an S3Client bean
+    are present, otherwise the filesystem provider (user bean wins over both). Adds a SHA-256 checksum
+    user tag on put (when enabled) and an Observation around every operation.
+  </description>
+
+  <dependencies>
+    <!-- autoconfigure -> same-capability api/spi (+ core-api for CapabilityDescriptor). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-core-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- Optional same-capability impls: selected by @ConditionalOnClass on the provider types. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-fs</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-s3</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <!-- S3Client for the @ConditionalOnClass/@ConditionalOnBean guard on the S3 path. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <!-- Observation around store operations; ObservationRegistry is always resolvable, and the
+         decorator only wraps when a registry bean is actually present. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-observation</artifactId>
+    </dependency>
+    <!-- Generates config metadata for dc.platform.storage.* from the properties record. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- ContextRunner + Mockito + assertions. The fs/s3 providers and the AWS s3 client are already
+         on the test classpath via the optional compile dependencies above (end-to-end fs slice, the
+         mocked-S3Client provider-selection test). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

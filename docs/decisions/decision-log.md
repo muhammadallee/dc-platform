@@ -341,3 +341,11 @@ One line of context per decision; details live in the commit bodies referenced.
   quotes, newlines, unicode), the fs provider depends on Boot-managed `jackson-databind` to serialise
   `ObjectMetadata`. Jackson is the fs provider's declared 3rd-party lib (impl-rule compliant); the
   version is inherited, not pinned.
+- **D49 — storage checksum spools to a temp file.** The spec wants a SHA-256 computed on put and
+  stored as a user tag, but the API is streaming-first (no `byte[]`, objects can exceed heap) and an
+  `InputStream` can't be read twice. `ChecksumObjectStore` spools the content once through a
+  `DigestInputStream` to a temp file, then hands the spool to the provider — bounded by disk, not
+  memory. The alternative (buffer into heap) is the exact footgun the API forbids; the alternative
+  (skip the tag, expose only the provider etag) fails the "stored as user tag" requirement. Trade-off:
+  one extra disk write per put when checksums are on; toggle off via
+  `dc.platform.storage.checksum.enabled=false`.

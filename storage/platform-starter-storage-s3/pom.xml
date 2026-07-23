@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-storage-s3</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Storage :: S3 Starter</name>
+  <description>
+    Object storage backed by S3: the storage autoconfigure, the S3 provider and the AWS SDK v2 S3
+    client. The S3 provider activates once you supply an S3Client bean (region/credentials/endpoint are
+    yours to configure). Inject ObjectStore.
+  </description>
+
+  <dependencies>
+    <!-- starter -> same-capability autoconfigure + named provider (CLAUDE.md rule 5);
+         storage-api/spi arrive transitively. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-autoconfigure</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-storage-s3</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- The AWS SDK S3 client (version from the awssdk BOM): the provider needs it on the classpath,
+         and the app supplies the configured S3Client bean that activates the S3 path. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+    </dependency>
+  </dependencies>
+</project>

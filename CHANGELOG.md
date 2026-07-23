@@ -15,6 +15,18 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-starter-storage-fs` / `platform-starter-storage-s3` — POM-only starters. The fs
+  starter bundles the autoconfigure + filesystem provider (zero infra). The s3 starter bundles the
+  autoconfigure + S3 provider + AWS SDK v2 S3 client; the S3 path activates once the app supplies a
+  configured `S3Client` bean.
+- Phase 10: `platform-storage-autoconfigure` — `PlatformStorageAutoConfiguration` (+ per-provider
+  `S3ObjectStoreAutoConfiguration` / `FsObjectStoreAutoConfiguration`): an `ObjectStore` chosen by
+  classpath (S3 when the AWS SDK and an `S3Client` bean are present, else the filesystem provider —
+  same fallback pattern as locking). Decorated with a SHA-256 checksum-on-put (`sha256` user tag,
+  default on, spooled through a temp file to stay streaming-safe — D49) and a `dc.platform.storage`
+  Observation around every operation. `CapabilityDescriptor` names the provider. Tests: ContextRunner
+  matrix, provider selection (mocked `S3Client`), checksum on/off, observation wrapping, end-to-end fs
+  slice. `docs/modules/storage.md`.
 - Phase 10: `platform-storage-s3` — the S3 `ObjectStore` over AWS SDK v2 `S3Client`: content type and
   user tags map to S3 object metadata; `list` follows continuation tokens. Command-level tests run
   against a mocked `S3Client` (no Docker); a `@Tag("docker")` LocalStack round-trip verifies real wire

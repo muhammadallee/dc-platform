@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-flags-api` — the feature-flag capability contract: `FeatureFlags`
+  (`boolean enabled(String)`, `<T> T value(String, T default)`) and the `@FeatureGate("flag")` method
+  annotation (documented skip-value semantics: `false`/`Optional.empty()`/`null`/no-op by return type).
+  Dependency-free.
 - Phase 10: `platform-starter-storage-fs` / `platform-starter-storage-s3` — POM-only starters. The fs
   starter bundles the autoconfigure + filesystem provider (zero infra). The s3 starter bundles the
   autoconfigure + S3 provider + AWS SDK v2 S3 client; the S3 path activates once the app supplies a

@@ -1,0 +1,4 @@
+ae.gov.dubaicustoms.platform.audit.autoconfigure.JdbcAuditSinkAutoConfiguration
+ae.gov.dubaicustoms.platform.audit.autoconfigure.LogAuditSinkAutoConfiguration
+ae.gov.dubaicustoms.platform.audit.autoconfigure.AuditSecurityAutoConfiguration
+ae.gov.dubaicustoms.platform.audit.autoconfigure.PlatformAuditAutoConfiguration

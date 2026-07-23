@@ -365,3 +365,14 @@ One line of context per decision; details live in the commit bodies referenced.
   (key/value child table) adds a join and write per detail entry for data that is only ever read back
   whole. Trade-off: details are not queryable by key in SQL; that is acceptable for an append-only
   trail whose primary consumers are the log pipeline and export.
+- **D53 — the messaging audit sink is its own autoconfigure module, not an impl and not folded into
+  the main audit autoconfigure.** The messaging sink must reference `EventPublisher` (messaging-api).
+  An impl module may not depend on another capability's api (constitution: reach other capabilities
+  from the autoconfigure layer), so the spec's `audit-messaging` cannot be an impl. Folding it into
+  `platform-audit-autoconfigure` instead pushed that module to 7 platform dependencies (api, spi,
+  core, log-sink, jdbc-sink, security-api, messaging-api) — over the autoconfigure fan-out ceiling of
+  6. Resolution: `platform-audit-messaging-autoconfigure` is a dedicated autoconfigure module (cap
+  `audit`) contributing the messaging `AuditSink`, guarded by `@ConditionalOnClass(EventPublisher)`.
+  Ordering across modules (messaging > jdbc > log) uses name-based `@AutoConfigureAfter`, so no
+  autoconfigure→autoconfigure dependency is introduced. It is not bundled in `platform-starter-audit`,
+  keeping messaging-api off the classpath of audit consumers who do not use messaging.

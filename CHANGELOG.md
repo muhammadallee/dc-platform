@@ -15,6 +15,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-audit-autoconfigure` — `PlatformAuditAutoConfiguration` (+ per-sink
+  `JdbcAuditSinkAutoConfiguration` / `LogAuditSinkAutoConfiguration` + `AuditSecurityAutoConfiguration`):
+  the async `Auditor` over the `AuditSink` chosen by a messaging → jdbc → log degradation chain (with a
+  startup WARN naming the active sink), a plain (non-AspectJ, D26) AOP advisor enforcing `@Audited`
+  (actor from the security capability's `CurrentUserAccessor` when present, else `anonymous`; resource
+  from the annotation's SpEL; outcome from the method's return/throw), a bounded-queue worker that
+  drops-and-WARNs rather than block the request thread (D52), and the JDBC sink's Flyway location
+  wiring. `CapabilityDescriptor` names the active sink. Tests: ContextRunner matrix, sink selection,
+  actor resolution, and the `@Audited` success/failure behavior.
 - Phase 11: `platform-audit-jdbc` — an `AuditSink` appending each `AuditEvent` to a single append-only
   `platform_audit` table, with the details map serialised to a JSON CLOB (decision D51). Ships its
   Flyway migration under `db/migration-platform-audit`; H2-tested, no Docker.

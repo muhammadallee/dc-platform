@@ -115,6 +115,7 @@
     <module>storage/platform-storage-api</module>
     <module>storage/platform-storage-spi</module>
     <module>storage/platform-storage-fs</module>
+    <module>storage/platform-storage-s3</module>
   </modules>
 
   <build>

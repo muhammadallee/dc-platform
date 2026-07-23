@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-storage-s3` — the S3 `ObjectStore` over AWS SDK v2 `S3Client`: content type and
+  user tags map to S3 object metadata; `list` follows continuation tokens. Command-level tests run
+  against a mocked `S3Client` (no Docker); a `@Tag("docker")` LocalStack round-trip verifies real wire
+  behavior under `-Pdocker`. AWS SDK v2 pinned via an imported BOM (2.28.16).
 - Phase 10: `platform-storage-fs` — the default, Docker-free `ObjectStore`: objects are files under a
   configured root, each with a JSON metadata sidecar (Jackson, D48). Path-traversal-guarded by
   `KeyValidator` plus a resolved-path containment check; `put` streams content through a SHA-256 digest

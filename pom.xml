@@ -111,6 +111,8 @@
     <module>idempotency/platform-idempotency-api</module>
     <module>idempotency/platform-idempotency-autoconfigure</module>
     <module>idempotency/platform-starter-idempotency</module>
+
+    <module>storage/platform-storage-api</module>
   </modules>
 
   <build>

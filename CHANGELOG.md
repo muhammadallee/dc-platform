@@ -15,6 +15,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 10: `platform-storage-api` — the storage capability contract: `ObjectStore` (streaming-first
+  `put`/`get`/`delete`/`list`, no `byte[]` convenience by design), the value types `ObjectMetadata`,
+  `ObjectRef`, `StoredObject` (an `AutoCloseable` metadata+stream pair), `ObjectSummary`, and
+  `ObjectStoreException` (`DC-STO-0400` invalid key, `DC-STO-0500` backend I/O). core-api only.
 - Phase 9: `platform-starter-idempotency` — POM-only starter: the idempotency autoconfigure + Flyway
   (creates the default `platform_idempotency` table). Default store is JDBC over your `DataSource`; add
   Spring Data Redis to switch to the Redis store. Pair with the errors starter for 409 responses.

@@ -122,8 +122,25 @@
 
       <!-- Pins are added by the phase that introduces the dependency. Do not pre-pin speculatively.
            awaitility is managed by Boot's BOM, so no pin is needed for the async scheduling/idempotency
-           tests.
-           Phase 10: software.amazon.awssdk:bom (import), dev.openfeature:sdk -->
+           tests. -->
+
+      <!-- Phase 10: AWS SDK v2 for the S3 storage provider. Imported as a BOM so the s3 module and its
+           transitive SDK artifacts (auth, http-client, regions) stay version-aligned; the storage-s3
+           impl then declares s3 without a version. Boot does not manage the AWS SDK. -->
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>2.28.16</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Phase 10: OpenFeature SDK for the openfeature flag provider — the adapter seam through which
+           enterprise providers (LaunchDarkly, Flagsmith, …) plug in downstream. Boot does not manage it. -->
+      <dependency>
+        <groupId>dev.openfeature</groupId>
+        <artifactId>sdk</artifactId>
+        <version>1.9.1</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

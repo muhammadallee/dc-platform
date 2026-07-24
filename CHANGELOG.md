@@ -15,6 +15,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 11: `platform-starter-files` — POM-only starter: the files autoconfigure (magic-byte content
+  validation, default `FileUploadPolicy`, servlet multipart limits). Add the storage capability to
+  stream downloads via `StreamingDownloads`.
+- Phase 11: `platform-starter-ratelimit` — POM-only starter: the ratelimit autoconfigure + the
+  in-memory provider. Enable the all-requests filter with `dc.platform.ratelimit.http.enabled=true`;
+  add `platform-ratelimit-redis` + a `StringRedisTemplate` for a cluster-wide limit.
+- Phase 11: `platform-starter-audit` — POM-only starter: the audit autoconfigure + the log sink. Add a
+  `DataSource` for the JDBC sink, or the messaging capability + `platform-audit-messaging-autoconfigure`
+  to publish audit events to `dc.audit` (sink chosen messaging > jdbc > log).
 - Phase 11: `platform-files-autoconfigure` — `PlatformFilesAutoConfiguration`: the default magic-byte
   `ContentTypeValidator` (pdf/png/jpg/zip/csv/txt; no Tika, D55), a default `FileUploadPolicy` from
   `dc.platform.files.*`, servlet multipart size limits (ahead of Boot's), and the public

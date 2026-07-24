@@ -6,6 +6,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 15: reference examples. New `examples/example-minimal` (category Examples) — the platform
+  floor: `platform-starter-core` + `-errors` + `-logging` only, proving correlation IDs, JSON logs,
+  and RFC-9457 problem responses with no cross-cutting code in the service. Consumes the platform via
+  `platform-service-parent`; `maven.deploy.skip=true` and enforcer-exempt via the `example-` prefix.
+  Adds the `docs/examples.md` overview page. (Further phase-15 examples, the smoke matrix, and release
+  automation land in subsequent commits.)
 - Phase 14: documentation as a product. New `docs/platform-docs` module (category Documentation)
   with build-time generators for the config-property, error-code, and BOM references, plus two
   build-breaking gates — a completeness check (every `dc.platform.*` metadata key is documented and

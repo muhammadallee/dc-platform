@@ -1,0 +1,8 @@
+# example-minimal — the platform floor.
+#
+# There is almost nothing to configure: the platform sets sensible defaults for everything under
+# dc.platform.* (see /actuator/env, the property sources named platform-*-defaults). This example
+# has no security, data, or messaging starter, so those sections are simply absent.
+spring:
+  application:
+    name: example-minimal

@@ -66,6 +66,7 @@ nav:
       - Feature flags: modules/flags.md
       - Developer experience: modules/dx.md
   - Testing: testing.md
+  - Examples: examples.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

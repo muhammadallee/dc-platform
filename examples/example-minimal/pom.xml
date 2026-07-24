@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- The ONE platform parent: Boot defaults + platform BOM. Examples consume the platform exactly as a
+       real service does. artifactId starts with "example-" so the dependency-constitution enforcer
+       classifies this module EXAMPLES and exempts it from the layer rules (PlatformLayerRule). -->
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-service-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-service-parent</relativePath>
+  </parent>
+
+  <groupId>ae.gov.dubaicustoms.platform.examples</groupId>
+  <artifactId>example-minimal</artifactId>
+
+  <name>example-minimal</name>
+  <description>The platform floor: starter-core + errors + logging only — correlation IDs, JSON logs,
+    and RFC-9457 problem responses, and nothing more.</description>
+
+  <properties>
+    <!-- Examples are demonstrations, never published artifacts. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <!-- The floor. Adding any of the other starters is what the richer examples demonstrate. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-errors</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-logging</artifactId>
+    </dependency>
+    <!-- The app owns its web stack; the platform layers cross-cutting behavior on top of it. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boot 4 modularized MockMvc test support out of starter-test; this brings
+         @AutoConfigureMockMvc / MockMvc. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- spring-boot:run / :start / :stop and executable-jar repackaging (version from parent). -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -116,6 +116,21 @@ class PlatformLayerRuleTest {
             assertPasses(project("example-rest-service", "examples/example-rest-service",
                     platformDep("platform-starter-messaging-kafka")));
         }
+
+        @Test
+        void testApiMayComposeCrossCapabilityKits() {
+            // platform-test-api is Test Support (not API), so it may pull other capabilities'
+            // autoconfigure/test-support to build its slices and assertions.
+            assertPasses(project("platform-test-api", "test/platform-test-api",
+                    platformDep("platform-messaging-autoconfigure"), platformDep("platform-messaging-test"),
+                    platformDep("platform-errors-autoconfigure")));
+        }
+
+        @Test
+        void testStarterMayAggregateTestKits() {
+            assertPasses(project("platform-starter-test", "test/platform-starter-test",
+                    platformDep("platform-test-api"), platformDep("platform-messaging-test")));
+        }
     }
 
     // ---------- forbidden edges ----------
@@ -186,6 +201,13 @@ class PlatformLayerRuleTest {
                             platformDep("platform-starter-messaging")),
                     "test-support ->", "never on", "starters");
         }
+
+        @Test
+        void testStarterStillMustNotDependOnAnotherStarter() {
+            assertFailsWith(project("platform-starter-test", "test/platform-starter-test",
+                            platformDep("platform-starter-messaging-kafka")),
+                    "starter -> starter is forbidden", "platform-starter-messaging-kafka");
+        }
     }
 
     // ---------- fan-out ceilings ----------
@@ -246,6 +268,10 @@ class PlatformLayerRuleTest {
         assertThat(PlatformLayerRule.Category.ofArtifactId("platform-messaging-test"))
                 .isEqualTo(PlatformLayerRule.Category.TEST_SUPPORT);
         assertThat(PlatformLayerRule.Category.ofArtifactId("tck-messaging"))
+                .isEqualTo(PlatformLayerRule.Category.TEST_SUPPORT);
+        assertThat(PlatformLayerRule.Category.ofArtifactId("platform-tck-messaging"))
+                .isEqualTo(PlatformLayerRule.Category.TEST_SUPPORT);
+        assertThat(PlatformLayerRule.Category.ofArtifactId("platform-test-api"))
                 .isEqualTo(PlatformLayerRule.Category.TEST_SUPPORT);
         assertThat(PlatformLayerRule.Category.ofArtifactId("platform-build-maven-plugin"))
                 .isEqualTo(PlatformLayerRule.Category.BUILD);

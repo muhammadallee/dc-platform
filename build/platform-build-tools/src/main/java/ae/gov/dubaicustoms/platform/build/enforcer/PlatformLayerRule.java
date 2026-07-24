@@ -39,6 +39,12 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
             if (a.startsWith("platform-starter-")) {
                 return STARTER;
             }
+            // A "*-test-api" module (e.g. platform-test-api) is Test Support, not API: it composes
+            // slices and fixtures across capabilities, so the API matrix (core-api only) can't apply.
+            // Checked before "-api" so the suffix doesn't win.
+            if (a.endsWith("-test-api")) {
+                return TEST_SUPPORT;
+            }
             if (a.endsWith("-api")) {
                 return API;
             }
@@ -161,6 +167,15 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
     }
 
     private static String starterViolation(String depId, Category depCat, boolean sameCap, String cap) {
+        if ("test".equals(cap)) {
+            // platform-starter-test aggregates the platform's cross-capability test kits (test-api,
+            // messaging-test, ...), like spring-boot-starter-test — the one starter allowed to depend
+            // on Test Support modules. It still may not depend on another starter.
+            return depCat == Category.STARTER
+                    ? "starter -> starter is forbidden: move the shared dependency into the autoconfigure "
+                            + "module or the consumer's POM (offending dependency: " + depId + ")."
+                    : null;
+        }
         if (depCat == Category.STARTER) {
             // Message wording fixed by phase-02 spec.
             return "starter -> starter is forbidden: move the shared dependency into the autoconfigure module or "

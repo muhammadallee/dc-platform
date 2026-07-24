@@ -15,6 +15,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 13: `tooling/scripts/golden-path.sh` — the executable DX contract: installs the platform,
+  generates a service from the archetype (features=messaging), builds it (asserting `CLAUDE.md` and a
+  run `PlatformConformanceTest`), boots it with `spring-boot:start`, probes `/actuator/health` and
+  `/actuator/platform | grep messaging`, and stops it — failing past a 10-minute wall-clock SLA. Wire
+  it into CI as a required job. Pins `maven-archetype-plugin:3.1.2` because 3.2.0+ made
+  `archetype:generate` fork a lifecycle that fails project-less on Maven 3.9.x.
 - Phase 13: `tooling/platform-service-archetype` — a Maven archetype (`maven-archetype` packaging)
   that generates a ready-to-run platform service: POM on `platform-service-parent` wired with the
   golden-path starters (core/errors/logging/validation/observability/openapi/security + test) and

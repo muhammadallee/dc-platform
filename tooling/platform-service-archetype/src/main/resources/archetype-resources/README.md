@@ -1,6 +1,7 @@
-# @ARTIFACT_ID@
+# Service
 
-A service on the **DC Platform** chassis. The platform provides correlation IDs, JSON logging,
+A service on the **DC Platform** chassis (its name is the `artifactId` in `pom.xml`). The platform
+provides correlation IDs, JSON logging,
 RFC-9457 error handling, metrics/tracing, OpenAPI, and an authenticated-by-default security filter
 chain. You write business logic; see `CLAUDE.md` before adding cross-cutting code.
 
@@ -40,7 +41,7 @@ Add the starter and use the platform API — nothing is auto-injected (ADR: expl
 | Feature flags | `platform-starter-flags` | `FeatureFlags` |
 | Authorization | `platform-starter-security-authz` | `@RequiresPermission` |
 
-Full catalog: @DOCS_URL@/modules/
+Full catalog: https://platform.dubaicustoms.gov.ae/docs/modules/
 
 ## Upgrade the platform
 

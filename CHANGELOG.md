@@ -15,6 +15,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 13: `platform-build-maven-plugin:upgrade-check` — a goal that reports what changes when a
+  service upgrades to `-Dplatform.target=<version>`: resolves the target `platform-bom` and diffs its
+  managed versions against the project's current ones, and scans the project's `application*` config
+  for keys deprecated in the target version (read from the target platform jars'
+  `spring-configuration-metadata.json`). Writes `target/platform-upgrade-report.md` + a console
+  summary linking the train release notes. Also hardened `check-bom` to exempt `maven-archetype`
+  generators (nothing depends on them through the BOM).
 - Phase 13: `platform-test-api` — `PlatformUsageRules.all()` (package `…test.arch`), the consumer
   conformance ArchUnit rules a service runs over its own classes via the archetype's generated
   `PlatformConformanceTest`. Bans direct `KafkaTemplate`/`RabbitTemplate`/listener-container use

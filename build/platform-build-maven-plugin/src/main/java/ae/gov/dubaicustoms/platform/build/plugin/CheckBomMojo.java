@@ -15,7 +15,8 @@ import org.apache.maven.project.MavenProject;
 /**
  * Fails the build when a publishable reactor artifact is missing from platform-bom's
  * dependencyManagement. Publishable = every reactor artifact except pom-packaging modules
- * (parents/BOMs/aggregator), the maven-plugin itself, and {@code example-*} modules.
+ * (parents/BOMs/aggregator), the maven-plugin itself, {@code maven-archetype} generators, and
+ * {@code example-*} modules.
  *
  * <p>Usage: {@code mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:<version>:check-bom} from the
  * repo root (also wired as a CI step; see decision D2 for why it is not bound to aggregator verify).
@@ -47,6 +48,9 @@ public class CheckBomMojo extends AbstractMojo {
         List<String> missing = new ArrayList<>();
         for (MavenProject p : reactorProjects) {
             if (!"pom".equals(p.getPackaging()) && !"maven-plugin".equals(p.getPackaging())
+                    // maven-archetype artifacts (tooling/platform-service-archetype) are generators, not
+                    // libraries: nothing depends on them through the BOM, so they are not managed there.
+                    && !"maven-archetype".equals(p.getPackaging())
                     && !p.getArtifactId().startsWith("example-") && !managed.contains(p.getArtifactId())) {
                 missing.add(p.getArtifactId());
             }

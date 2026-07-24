@@ -49,6 +49,7 @@ class CheckBomMojoTest {
                 project("dc-platform", "pom"),
                 project("platform-build-tools", "jar"),
                 project("platform-build-maven-plugin", "maven-plugin"),
+                project("platform-service-archetype", "maven-archetype"),
                 project("example-rest-service", "jar"))::execute)
                 .doesNotThrowAnyException();
     }

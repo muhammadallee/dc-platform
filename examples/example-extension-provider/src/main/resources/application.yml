@@ -1,0 +1,8 @@
+# example-extension-provider — a service that ships its own ObjectStore.
+#
+# No configuration is required: example.storage.encryption.{key,root} both default (a demo key and a
+# temp directory) so the service boots stand-alone. In production the key would come from the platform
+# secrets source, and example.storage.encryption.enabled=false would fall back to the platform default.
+spring:
+  application:
+    name: example-extension-provider

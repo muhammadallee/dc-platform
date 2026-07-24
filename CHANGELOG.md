@@ -12,6 +12,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `platform-service-parent`; `maven.deploy.skip=true` and enforcer-exempt via the `example-` prefix.
   Adds the `docs/examples.md` overview page. (Further phase-15 examples, the smoke matrix, and release
   automation land in subsequent commits.)
+- Phase 15: `examples/example-extension-provider` — demonstrates the extension model. A custom
+  `EncryptingFsObjectStore` (AES-CTR, length-preserving, IV stashed in user-tags) implements
+  `ObjectStore` and is registered by `EncryptingStorageAutoConfiguration` ordered before the
+  platform's `FsObjectStoreAutoConfiguration`, which backs off via `@ConditionalOnMissingBean`.
+  Certified by `EncryptingFsObjectStoreTckTest extends ObjectStoreTck`; back-off proven by
+  `StorageBackOffTest`.
 - Phase 14: documentation as a product. New `docs/platform-docs` module (category Documentation)
   with build-time generators for the config-property, error-code, and BOM references, plus two
   build-breaking gates — a completeness check (every `dc.platform.*` metadata key is documented and

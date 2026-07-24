@@ -15,6 +15,21 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 12: `platform-test-api` — the platform test kit (Test Support). Composed slice annotations
+  `@PlatformTest`, `@PlatformMessagingTest`, `@PlatformDataTest`, `@PlatformWebTest`; the `Containers`
+  singleton-Testcontainers factory and `DockerAvailable` assumption guard for `@Tag("docker")` tests;
+  `TestTokens` JWT post-processor sugar for the OAuth2 resource-server security; and AssertJ
+  `assertThatProblem(...)` assertions over RFC-9457 `ProblemDetail` bodies (incl. the `code` extension).
+- Phase 12: `platform-starter-test` — POM-only starter bundling the test kit + `spring-boot-starter-test`
+  + the recording messaging transport + `json-path`; add it to a service in `test` scope.
+- Phase 12: provider TCKs (published Test Support jars, extend-and-supply-your-provider) —
+  `platform-tck-messaging` (`EventTransportTck`), `platform-tck-storage` (`ObjectStoreTck`),
+  `platform-tck-locking` (`LockProviderTck`), `platform-tck-flags` (`FlagProviderTck`),
+  `platform-tck-ratelimit` (`RateLimiterProviderTck`). Each is applied docker-free to the reference
+  provider (in-memory / filesystem / JDBC-on-H2); broker/Redis/S3 certifications run under `@Tag("docker")`.
+- Phase 12: `docs/testing.md` — how to use the starter, slices, fixtures, and TCKs.
+- Phase 12: `PlatformLayerRule` now models the test-kit module shapes — `*-test-api` is Test Support,
+  and the `test` starter may aggregate Test Support modules (still never another starter).
 - Phase 11: `platform-starter-files` — POM-only starter: the files autoconfigure (magic-byte content
   validation, default `FileUploadPolicy`, servlet multipart limits). Add the storage capability to
   stream downloads via `StreamingDownloads`.

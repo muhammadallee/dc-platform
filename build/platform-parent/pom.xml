@@ -118,6 +118,12 @@
         <configuration>
           <release>25</release>
           <parameters>true</parameters> <!-- Spring binds constructor params by name -->
+          <!-- JDK 23+ no longer runs annotation processors discovered on the classpath by default;
+               without this, each autoconfigure module's declared spring-boot-configuration-processor
+               is silently skipped and no spring-configuration-metadata.json is emitted (breaking IDE
+               autocomplete and the phase-14 property reference). 'full' re-enables classpath
+               processors, honoring the per-module optional dependency. -->
+          <proc>full</proc>
         </configuration>
       </plugin>
 

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-starter-test</artifactId>
+  <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Test :: Starter</name>
+  <description>
+    One dependency for testing a platform service. Bundles the platform test kit (platform-test-api:
+    @PlatformTest slices, Containers, TestTokens, assertThatProblem), spring-boot-starter-test (JUnit 5,
+    AssertJ, Mockito, spring-test), the recording messaging transport (platform-messaging-test), and
+    json-path. Add it to a service in TEST scope:
+      &lt;dependency&gt;
+        &lt;groupId&gt;ae.gov.dubaicustoms.platform&lt;/groupId&gt;
+        &lt;artifactId&gt;platform-starter-test&lt;/artifactId&gt;
+        &lt;scope&gt;test&lt;/scope&gt;
+      &lt;/dependency&gt;
+  </description>
+
+  <dependencies>
+    <!-- The platform test kit: slices, fixtures, assertions. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-test-api</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- JUnit 5, AssertJ, Mockito, Hamcrest, spring-test, JSONass, json-path — the standard Boot test set. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+    </dependency>
+    <!-- The recording EventTransport + @AutoConfigureTestTransport, so @PlatformMessagingTest works
+         out of the box (test-api declares it optional; the starter makes it concrete). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-test</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- JSON body path assertions (also arrives via spring-boot-starter-test, declared for intent). -->
+    <dependency>
+      <groupId>com.jayway.jsonpath</groupId>
+      <artifactId>json-path</artifactId>
+    </dependency>
+  </dependencies>
+</project>

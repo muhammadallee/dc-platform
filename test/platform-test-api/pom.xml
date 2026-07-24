@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-test-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Test :: Test API</name>
+  <description>
+    Platform test kit: the @PlatformTest composed annotation and @Platform{Messaging,Data,Web}Test
+    slices, the Containers factory (lazily-started singleton Testcontainers behind @Tag("docker")),
+    the DockerAvailable assumption guard, JWT test helpers (TestTokens), and AssertJ ProblemDetail
+    assertions (assertThatProblem(...)). Test Support category, not API: it composes fixtures across
+    capabilities, so the enforcer classifies "*-test-api" as Test Support (see PlatformLayerRule).
+  </description>
+
+  <dependencies>
+    <!-- Slice/annotation primitives: @SpringBootTest, @DataJpaTest, @AutoConfigureMockMvc. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-test</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-test-autoconfigure</artifactId>
+    </dependency>
+    <!-- Boot 4 splits slice test support per technology. @AutoConfigureMockMvc (used by
+         @PlatformWebTest) lives here; part of the core kit so it transits to consumers. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc-test</artifactId>
+    </dependency>
+    <!-- @DataJpaTest (used by @PlatformDataTest). Optional: only JPA tests need it (and Hibernate). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-data-jpa-test</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- ProblemDetail + ResponseEntity for the assertThatProblem(...) assertions. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
+    </dependency>
+    <!-- The whole point of the assertion helpers. -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+    </dependency>
+    <!-- TestTokens.jwt() returns spring-security-test's JwtRequestPostProcessor. -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+    </dependency>
+    <!-- The Jwt model TestTokens builds against — the platform security capability is an OAuth2
+         resource server, so this mirrors its token shape. Optional: only tests using TestTokens need it. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- JSON body assertions in web slices (documented in testing.md). -->
+    <dependency>
+      <groupId>com.jayway.jsonpath</groupId>
+      <artifactId>json-path</artifactId>
+    </dependency>
+
+    <!-- Capability kits referenced by the slices. Optional: only a test that uses the matching
+         slice needs them on its classpath, and platform-starter-test re-declares the ones it bundles
+         non-optionally. Keeps a service that only uses @PlatformTest from pulling JPA/Kafka. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-test</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-data-jpa-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Testcontainers types referenced by Containers. Optional: only @Tag("docker") tests use them;
+         a docker-free test suite never pulls Docker onto its classpath. Vault and LocalStack are driven
+         through the core GenericContainer, so no dedicated modules are needed for them. -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-kafka</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Self-tests: junit/mockito/spring-test arrive via the starter (third-party, not a platform starter). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- TestTokensTest drives the JWT post-processor against a MockHttpServletRequest, which needs the
+         servlet API at runtime (only provided/optional transitively). -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Containers starts real Docker containers, so its bodies cannot execute in the docker-free
+           line (same reason the parent excludes *AutoConfiguration from the coverage ratio). Everything
+           else in the module is covered by self-tests. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/container/Containers.class</exclude>
+            <exclude>**/container/Containers$*.class</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

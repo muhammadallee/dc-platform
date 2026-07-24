@@ -1,0 +1,86 @@
+# MkDocs Material config for the DC Platform docs site.
+#
+# The HTML render is OPT-IN (mvn -Pdocs-site -pl docs/platform-docs verify) because `mkdocs` is a
+# Python tool, not a Maven-Central artifact, and CLAUDE.md rule #2 forbids the default reactor from
+# needing tools beyond Maven Central. The enforced doc gates (completeness + broken-link) run in-JVM
+# during the ordinary `mvn -T1C verify`; this file only shapes the browsable site.
+site_name: DC Platform
+site_description: Internal Spring Boot chassis — capability guides, references, and decisions.
+docs_dir: docs
+site_dir: docs/site
+use_directory_urls: false
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Concepts:
+      - Architecture: concepts/architecture.md
+      - Dependency constitution: concepts/constitution.md
+      - Conventions: concepts/conventions.md
+      - Extension model: concepts/extension-model.md
+  - Capabilities:
+      - Core: modules/core.md
+      - Errors: modules/errors.md
+      - Logging: modules/logging.md
+      - Validation: modules/validation.md
+      - Observability: modules/observability.md
+      - OpenAPI: modules/openapi.md
+      - REST client: modules/restclient.md
+      - Security: modules/security.md
+      - Authorization: modules/authz.md
+      - Messaging: modules/messaging.md
+      - Events: modules/events.md
+      - Data / JPA: modules/data.md
+      - Cache: modules/cache.md
+      - Redis: modules/redis.md
+      - Resilience: modules/resilience.md
+      - Locking: modules/locking.md
+      - Scheduling: modules/scheduling.md
+      - Idempotency: modules/idempotency.md
+      - Storage: modules/storage.md
+      - Audit: modules/audit.md
+      - Rate limiting: modules/ratelimit.md
+      - Files: modules/files.md
+      - Feature flags: modules/flags.md
+      - Developer experience: modules/dx.md
+  - Testing: testing.md
+  - Reference:
+      - Configuration properties: reference/properties.md
+      - Error codes: reference/error-codes.md
+      - Platform BOM: reference/bom.md
+      - Compatibility: reference/compatibility.md
+  - Runbooks:
+      - Local development: runbooks/local-dev.md
+      - Adding a capability: runbooks/new-capability.md
+      - Cutting a release: runbooks/release.md
+      - Upgrading a service: runbooks/upgrade.md
+  - Decisions:
+      - Decision log: decisions/decision-log.md
+      - ADR-001 Parent + BOM split: decisions/adr-001.md
+      - ADR-002 Starter philosophy: decisions/adr-002.md
+      - ADR-003 API vs SPI: decisions/adr-003.md
+      - ADR-004 Auto-configuration only: decisions/adr-004.md
+      - ADR-005 Release-train versioning: decisions/adr-005.md
+      - ADR-006 Capability boundaries: decisions/adr-006.md
+      - ADR-007 Constitution as code: decisions/adr-007.md
+      - ADR-008 Extension via back-off: decisions/adr-008.md
+      - ADR-009 No God Framework: decisions/adr-009.md
+      - ADR-010 Convention over configuration: decisions/adr-010.md
+  - Upgrade notes:
+      - "0.2.0": upgrade/0.2.0.md

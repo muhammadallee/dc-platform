@@ -455,3 +455,29 @@ One line of context per decision; details live in the commit bodies referenced.
   Maven/Aether resolution glue (resolve the target BOM + jars); `BomVersionDiffer`, `PropertyKeyCollector`,
   `MetadataDeprecations`, and `UpgradeReport` are pure and unit-tested offline. Same rationale as the
   `Containers` exclusion in `platform-test-api`.
+
+## Phase 14 — documentation as a product
+
+- **D68 — `<proc>full</proc>` in `platform-parent`; config metadata is regenerated, not hand-written.**
+  Every `*-autoconfigure` module already declared `spring-boot-configuration-processor`, but JDK 23+
+  javac no longer runs classpath-discovered annotation processors by default, so no
+  `spring-configuration-metadata.json` was emitted anywhere (IDE autocomplete broken; phase-14 property
+  reference empty). Enabling `full` honors each module's existing optional dependency and re-enables all
+  classpath processors, not just the config one. ~23 modules now emit metadata.
+- **D69 — `platform-docs` parents the ROOT AGGREGATOR, not `platform-parent`.** A docs module has no
+  shippable Java surface, so `platform-parent`'s capability gates (jacoco coverage, ArchConstitutionTest,
+  japicmp) do not fit; it follows the `platform-build-tools` precedent (D4). All logic is test-scope; the
+  produced jar is intentionally empty; it is still listed in `platform-bom` for `check-bom` parity.
+- **D70 — docs generators run as JUnit tests reading the reactor tree; ordering is forced by explicit
+  test-scope deps on all `*-autoconfigure` modules.** The spec's "test-scope main() run at build" reads
+  sibling `target/` (config metadata; errors-autoconfigure's `error-codes.csv`). Under `mvn -T1C` a
+  module with no reactor edges is scheduled early/in parallel, which would silently produce an incomplete
+  reference — so `platform-docs` depends (test scope, ordering only) on every autoconfigure module to
+  build last.
+- **D71 — MkDocs render is opt-in (`-Pdocs-site`); strictness is enforced in-JVM.** CLAUDE.md rule #2
+  forbids the default reactor needing tools beyond Maven Central, and `mkdocs` is a Python tool. The
+  completeness gate and a pure-JVM broken-link gate run in the ordinary `verify`; `mkdocs build` (and
+  `-Papidocs` aggregate javadoc) only produce the browsable HTML under `docs/site/`.
+- **D72 — generated `error-codes.md` carries code + capability + declaring class only.** The phase-04
+  registry CSV contract is `code,declaredBy`; there is no description column to render, so the generator
+  presents exactly what the registry gate owns rather than inventing prose.

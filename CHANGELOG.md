@@ -5,7 +5,22 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Added
+- Phase 14: documentation as a product. New `docs/platform-docs` module (category Documentation)
+  with build-time generators for the config-property, error-code, and BOM references, plus two
+  build-breaking gates — a completeness check (every `dc.platform.*` metadata key is documented and
+  every `platform-starter-*` has a capability page) and an in-JVM broken-link check over the docs
+  tree. Adds the site `index`, the four `concepts/` pages, the ten `decisions/adr-0NN` records, the
+  four `runbooks/`, `reference/compatibility`, and `upgrade/0.2.0`. `mkdocs.yml` renders the HTML
+  site via the opt-in `-Pdocs-site` profile; `-Papidocs` publishes aggregate javadoc under
+  `docs/site/apidocs`. Decisions D68–D72.
+
 ### Fixed
+- Phase 14: config metadata was silently absent platform-wide. Each `*-autoconfigure` module already
+  declared `spring-boot-configuration-processor`, but under JDK 23+ javac no longer runs annotation
+  processors discovered on the classpath by default, so no `spring-configuration-metadata.json` was
+  ever emitted (breaking IDE autocomplete and leaving the phase-14 property reference empty). Added
+  `<proc>full</proc>` to `platform-parent`'s `maven-compiler-plugin`; ~23 modules now emit metadata.
 - Phase 7: `platform-starter-messaging-{inmemory,kafka,rabbit}` — added `jackson-databind` as a
   required (non-optional) dependency of each starter. It's optional on
   `platform-messaging-autoconfigure` itself (a consumer supplying their own `EventSerializer`

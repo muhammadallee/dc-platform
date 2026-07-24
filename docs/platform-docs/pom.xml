@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>platform-docs</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: Documentation</name>
+  <description>
+    Documentation-as-a-product: the static docs site (MkDocs Material), the build-time generators
+    for the config-property / error-code / BOM references, and the completeness + link-check gates.
+    Parent is the ROOT AGGREGATOR, not platform-parent: a docs module has no shippable Java surface,
+    so platform-parent's capability gates (jacoco coverage, ArchConstitutionTest, japicmp) do not
+    apply (decision D-docs-parent, mirrors platform-build-tools D4). All logic lives in test scope;
+    the produced jar is intentionally empty.
+  </description>
+
+  <properties>
+    <!-- The MkDocs render is opt-in (-Pdocs-site); it shells out to an external Python tool and so,
+         per CLAUDE.md rule #2 (no build step needs tools beyond Maven Central), must never gate the
+         default reactor. mkdocs.version documents the toolchain the -Pdocs-site profile expects. -->
+    <mkdocs.executable>mkdocs</mkdocs.executable>
+    <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
+    <!-- Nothing here is published as a library. -->
+    <maven.install.skip>true</maven.install.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Test-tool versions (junit/assertj/jackson) come from Boot's BOM, not hand-pinned literals. -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Parses the spring-configuration-metadata.json the configuration-processor emits per module. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- ORDERING ONLY (not used on the classpath): the generators read every autoconfigure module's
+         target/ (config metadata; errors-autoconfigure also writes error-codes.csv in its test phase).
+         Under `mvn -T1C`, a module with no reactor dependencies is scheduled early/in parallel, so
+         without these edges the docs would build BEFORE its inputs exist and silently emit an
+         incomplete reference. Depending on all *-autoconfigure modules forces the docs build last.
+         Scope test keeps them off any consumer's path (this jar is intentionally empty anyway). -->
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-validation-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-observability-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-openapi-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-restclient-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-authz-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-events-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-jpa-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-cache-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-redis-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-scheduling-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-idempotency-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-messaging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
+  </dependencies>
+
+  <profiles>
+    <!-- Opt-in HTML render, mirroring how -Pdocker gates infra tests. Requires MkDocs Material on the
+         PATH (pip install mkdocs-material). Produces docs/site/ for `python -m http.server`. -->
+    <profile>
+      <id>docs-site</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>${exec-maven-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>mkdocs-build</id>
+                <phase>verify</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${mkdocs.executable}</executable>
+                  <workingDirectory>${project.basedir}/../..</workingDirectory>
+                  <!-- Broken-link + completeness strictness is enforced in-JVM by DocsLinkCheckTest /
+                       DocsCompletenessTest in the default reactor; the render just produces HTML. -->
+                  <arguments>
+                    <argument>build</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

@@ -1,4 +1,5 @@
 target/
+docs/site/
 .idea/
 *.iml
 .vscode/

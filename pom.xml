@@ -158,6 +158,9 @@
     <!-- Phase 13: developer experience — the service archetype (upgrade-check + golden-path ship
          inside platform-build-maven-plugin and tooling/scripts respectively). -->
     <module>tooling/platform-service-archetype</module>
+    <!-- Phase 14: documentation as a product. LAST on purpose — its build-time generators read every
+         other module's target/ (config metadata, error-codes.csv), so all siblings must build first. -->
+    <module>docs/platform-docs</module>
   </modules>
 
   <build>
@@ -188,4 +191,31 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Phase 14: opt-in aggregate javadoc for the public surface, published under the docs site at
+         docs/site/apidocs. Opt-in (like -Pdocs-site) so the default reactor never depends on the
+         javadoc tool; internals carry no guarantee and are excluded. Run:
+         mvn -Papidocs -DskipTests javadoc:aggregate -->
+    <profile>
+      <id>apidocs</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.11.2</version>
+            <configuration>
+              <doclint>all,-missing</doclint>
+              <excludePackageNames>*.internal:*.internal.*</excludePackageNames>
+              <failOnError>false</failOnError>
+              <quiet>true</quiet>
+              <reportOutputDirectory>${project.basedir}/docs/site</reportOutputDirectory>
+              <destDir>apidocs</destDir>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

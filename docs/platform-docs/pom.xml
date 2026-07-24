@@ -100,7 +100,7 @@
 
   <profiles>
     <!-- Opt-in HTML render, mirroring how -Pdocker gates infra tests. Requires MkDocs Material on the
-         PATH (pip install mkdocs-material). Produces docs/site/ for `python -m http.server`. -->
+         PATH (pip install mkdocs-material). Produces repo-root site/ for `python -m http.server`. -->
     <profile>
       <id>docs-site</id>
       <build>

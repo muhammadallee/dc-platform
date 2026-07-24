@@ -210,7 +210,8 @@
               <excludePackageNames>*.internal:*.internal.*</excludePackageNames>
               <failOnError>false</failOnError>
               <quiet>true</quiet>
-              <reportOutputDirectory>${project.basedir}/docs/site</reportOutputDirectory>
+              <!-- Emitted inside docs_dir so `mkdocs build` publishes it at the site /apidocs. -->
+              <reportOutputDirectory>${project.basedir}/docs</reportOutputDirectory>
               <destDir>apidocs</destDir>
             </configuration>
           </plugin>

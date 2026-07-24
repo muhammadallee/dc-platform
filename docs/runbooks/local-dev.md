@@ -44,6 +44,7 @@ Profiles: `local` (console logs, H2/inmemory), `kafka`, `pg`, `redis` switch pro
 The Markdown sources build and are gated (completeness + link check) by the default `mvn -T1C verify`.
 The HTML site is an opt-in render (it shells out to MkDocs, which is not a Maven-Central tool):
 ```bash
-mvn -Pdocs-site -pl docs/platform-docs verify     # builds docs/site/ via mkdocs
-python -m http.server -d docs/site 8000           # browse at http://localhost:8000
+pip install mkdocs-material                        # one-time: the render tool (not a Maven dep)
+mvn -Pdocs-site -pl docs/platform-docs verify      # builds site/ via mkdocs
+python -m http.server -d site 8000                 # browse at http://localhost:8000
 ```

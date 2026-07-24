@@ -6,9 +6,15 @@
 # during the ordinary `mvn -T1C verify`; this file only shapes the browsable site.
 site_name: DC Platform
 site_description: Internal Spring Boot chassis — capability guides, references, and decisions.
+# site_dir must sit OUTSIDE docs_dir (mkdocs rejects nesting), so the render lands in repo-root site/.
+# Aggregate javadoc (-Papidocs) is emitted into docs/apidocs/ and thus published at the site /apidocs.
 docs_dir: docs
-site_dir: docs/site
+site_dir: site
 use_directory_urls: false
+
+# The docs module (pom + generators) physically lives under docs/ but is not site content.
+exclude_docs: |
+  platform-docs/
 
 theme:
   name: material

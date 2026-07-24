@@ -1,5 +1,6 @@
 target/
-docs/site/
+/site/
+docs/apidocs/
 .idea/
 *.iml
 .vscode/

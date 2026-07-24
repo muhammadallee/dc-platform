@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Parent is the BARE root aggregator, NOT platform-parent: a maven-archetype generator is neither
+       a library nor part of the dependency constitution, so it must escape the enforcer (which forbids
+       the literal maven-archetype-plugin version this packaging needs) and the coverage gate. Same
+       cycle-avoidance parenting the build/* modules use. -->
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>dc-platform</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>platform-service-archetype</artifactId>
+  <packaging>maven-archetype</packaging>
+
+  <name>DC Platform :: Tooling :: Service Archetype</name>
+  <description>
+    Maven archetype that generates a ready-to-run platform service: a POM on platform-service-parent
+    wired with the golden-path starters (core, errors, logging, validation, observability, openapi,
+    security, test) and optional feature slices (messaging, data via -Dfeatures), a Hello controller,
+    profile-aware application.yml, platform slice tests, a generated PlatformConformanceTest, and
+    CLAUDE.md/AGENTS.md so coding agents use platform APIs instead of vanilla Spring. The one-command
+    contract is tooling/scripts/golden-path.sh (generate -> build -> boot -> probe under 10 min).
+  </description>
+
+  <properties>
+    <!-- Versions are legal here (bare-aggregator parent = no enforcer, same as build/* modules). -->
+    <maven-archetype-plugin.version>3.4.0</maven-archetype-plugin.version>
+    <!-- The archetype integration test forks `mvn verify` on the generated project, which resolves
+         platform artifacts from the local repo — a plain reactor `verify` has not installed them yet.
+         So it is SKIPPED by default (never breaks the reactor) and enabled by the archetype-it profile.
+         golden-path.sh (which installs the platform first) is the real end-to-end gate. -->
+    <archetype.test.skip>true</archetype.test.skip>
+  </properties>
+
+  <build>
+    <extensions>
+      <extension>
+        <groupId>org.apache.maven.archetype</groupId>
+        <artifactId>archetype-packaging</artifactId>
+        <version>${maven-archetype-plugin.version}</version>
+      </extension>
+    </extensions>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-archetype-plugin</artifactId>
+          <version>${maven-archetype-plugin.version}</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <profiles>
+    <!-- Opt-in local verification of the archetype itself: generates the basic + full projects under
+         src/test/resources/projects and runs their goal.txt. Requires the platform to be installed
+         first (mvn -T1C install -DskipTests). CI runs golden-path.sh instead. -->
+    <profile>
+      <id>archetype-it</id>
+      <properties>
+        <archetype.test.skip>false</archetype.test.skip>
+      </properties>
+    </profile>
+  </profiles>
+</project>

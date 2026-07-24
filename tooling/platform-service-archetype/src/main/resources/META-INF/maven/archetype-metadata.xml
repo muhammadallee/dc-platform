@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archetype-descriptor xmlns="https://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:schemaLocation="https://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0 https://maven.apache.org/xsd/archetype-descriptor-1.1.0.xsd"
+                      name="platform-service">
+
+  <requiredProperties>
+    <!-- Platform version the generated service builds against (its parent + BOM version).
+         golden-path.sh passes -DplatformVersion=$REV; keep this default in lockstep with the release. -->
+    <requiredProperty key="platformVersion">
+      <defaultValue>0.2.0-SNAPSHOT</defaultValue>
+    </requiredProperty>
+    <!-- Optional feature slices: comma-separated subset of {messaging,data}, or "none". Toggles both
+         starter dependencies (pom.xml #if blocks) and sample code (post-generate script). The default
+         is the literal "none" (not empty): the archetype harness rejects a blank required property. -->
+    <requiredProperty key="features">
+      <defaultValue>none</defaultValue>
+    </requiredProperty>
+    <!-- Error-code namespace for this service's ErrorCodes (DC-<XX>-NNNN); shown in CLAUDE.md. -->
+    <requiredProperty key="errorCodeNamespace">
+      <defaultValue>XX</defaultValue>
+    </requiredProperty>
+    <!-- Documentation base URL substituted into the generated CLAUDE.md/README. -->
+    <requiredProperty key="docsUrl">
+      <defaultValue>https://platform.dubaicustoms.gov.ae/docs</defaultValue>
+    </requiredProperty>
+  </requiredProperties>
+
+  <fileSets>
+    <!-- Java sources: relocated under the chosen package and Velocity-filtered. -->
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/main/java</directory>
+      <includes>
+        <include>**/*.java</include>
+      </includes>
+    </fileSet>
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/test/java</directory>
+      <includes>
+        <include>**/*.java</include>
+      </includes>
+    </fileSet>
+    <!-- Resources: filtered, not packaged. -->
+    <fileSet filtered="true" packaged="false" encoding="UTF-8">
+      <directory>src/main/resources</directory>
+      <includes>
+        <include>**/*.yml</include>
+      </includes>
+    </fileSet>
+    <!-- Root docs, copied verbatim (NOT Velocity-filtered: markdown headings use ## which Velocity
+         would strip as line comments). Token substitution (@ARTIFACT_ID@ etc.) and the AGENTS.md copy
+         are done by META-INF/maven/archetype-post-generate.groovy. pom.xml is always filtered implicitly. -->
+    <fileSet filtered="false" packaged="false" encoding="UTF-8">
+      <directory></directory>
+      <includes>
+        <include>README.md</include>
+        <include>CLAUDE.md</include>
+        <include>.gitignore</include>
+      </includes>
+    </fileSet>
+  </fileSets>
+</archetype-descriptor>

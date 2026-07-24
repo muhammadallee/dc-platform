@@ -1,0 +1,53 @@
+# ${artifactId} — service configuration.
+#
+# The platform sets sensible defaults for everything under dc.platform.* (see /actuator/env, the
+# property sources named platform-*-defaults). Set a key here ONLY to deviate from a default —
+# do not copy platform defaults in "to be safe". Disable a capability with dc.platform.<cap>.enabled=false.
+
+spring:
+  application:
+    name: ${artifactId}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Identity provider JWKS endpoint. Placeholder so the app boots offline (decoding is lazy,
+          # so this URL is never fetched until a request presents a token). Point it at your real IdP.
+          jwk-set-uri: https://example.test/.well-known/jwks.json
+
+dc:
+  platform:
+    security:
+      # Open endpoints (no authentication). Health/info/openapi are open by platform default; the demo
+      # also opens the platform actuator endpoint so the golden-path probe can read it. LOCK THIS DOWN
+      # in production — do not expose /actuator/platform publicly.
+      permit-paths:
+        - /actuator/health
+        - /actuator/health/**
+        - /actuator/info
+        - /actuator/platform
+        - /v3/api-docs/**
+        - /swagger-ui/**
+        - /swagger-ui.html
+
+# Profiles: local (developer laptop), test (CI slices), prod (real infra). Keep prod overrides in the
+# platform's secrets source, not here.
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+# In prod, provide spring.security.oauth2.resourceserver.jwt.jwk-set-uri and any datasource/broker
+# coordinates via the platform secrets property source, never in this file.

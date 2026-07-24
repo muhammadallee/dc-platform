@@ -15,6 +15,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 13: `tooling/platform-service-archetype` — a Maven archetype (`maven-archetype` packaging)
+  that generates a ready-to-run platform service: POM on `platform-service-parent` wired with the
+  golden-path starters (core/errors/logging/validation/observability/openapi/security + test) and
+  optional `-Dfeatures=messaging,data` slices (starters + sample code), a Hello controller/service,
+  a profile-aware `application.yml`, `@PlatformWebTest`/`@PlatformTest` tests, a generated
+  `PlatformConformanceTest` (runs `PlatformUsageRules`), and `CLAUDE.md`/`AGENTS.md` so coding agents
+  use platform APIs. Parented to the bare root aggregator (escapes the enforcer/coverage gate like
+  `build/*`). An opt-in `-Parchetype-it` profile generates + verifies basic/full projects; the
+  default reactor build never runs it (it needs the platform installed first — golden-path does that).
 - Phase 13: `platform-build-maven-plugin:upgrade-check` — a goal that reports what changes when a
   service upgrades to `-Dplatform.target=<version>`: resolves the target `platform-bom` and diffs its
   managed versions against the project's current ones, and scans the project's `application*` config

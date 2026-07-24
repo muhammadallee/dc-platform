@@ -155,6 +155,9 @@
     <module>test/tck/platform-tck-locking</module>
     <module>test/tck/platform-tck-flags</module>
     <module>test/tck/platform-tck-ratelimit</module>
+    <!-- Phase 13: developer experience — the service archetype (upgrade-check + golden-path ship
+         inside platform-build-maven-plugin and tooling/scripts respectively). -->
+    <module>tooling/platform-service-archetype</module>
   </modules>
 
   <build>

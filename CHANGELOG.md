@@ -15,6 +15,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 13: `platform-test-api` — `PlatformUsageRules.all()` (package `…test.arch`), the consumer
+  conformance ArchUnit rules a service runs over its own classes via the archetype's generated
+  `PlatformConformanceTest`. Bans direct `KafkaTemplate`/`RabbitTemplate`/listener-container use
+  ("use EventPublisher/@EventHandler"), user `@RestControllerAdvice extends ResponseEntityExceptionHandler`
+  ("throw PlatformException subtypes"), and `System.getenv` ("use platform secrets"). Rules match
+  banned types by FQN, so the kit adds no Kafka/Rabbit/MVC dependency of its own.
 - Phase 12: `platform-test-api` — the platform test kit (Test Support). Composed slice annotations
   `@PlatformTest`, `@PlatformMessagingTest`, `@PlatformDataTest`, `@PlatformWebTest`; the `Containers`
   singleton-Testcontainers factory and `DockerAvailable` assumption guard for `@Tag("docker")` tests;

@@ -72,6 +72,13 @@
       <groupId>com.jayway.jsonpath</groupId>
       <artifactId>json-path</artifactId>
     </dependency>
+    <!-- PlatformUsageRules (the consumer conformance rules a service runs via the archetype's generated
+         PlatformConformanceTest) is a compile-scope API of this kit, so ArchUnit ships to consumers.
+         Version is managed in build/platform-dependencies (no literal version — enforcer rule). -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit</artifactId>
+    </dependency>
 
     <!-- Capability kits referenced by the slices. Optional: only a test that uses the matching
          slice needs them on its classpath, and platform-starter-test re-declares the ones it bundles
@@ -131,6 +138,13 @@
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- PlatformUsageRulesTest fixtures: HandRolledAdvice extends ResponseEntityExceptionHandler
+         (spring-webmvc) so the noHandRolledExceptionHandler rule has a real violator to flag. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

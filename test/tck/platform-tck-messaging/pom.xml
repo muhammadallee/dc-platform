@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-tck-messaging</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: TCK :: Messaging</name>
+  <description>
+    Technology Compatibility Kit for EventTransport providers. Extend EventTransportTck, supply the
+    transport, and inherit the full contract suite — a provider is platform-certified iff it passes.
+    Published so enterprise transports self-certify. The in-memory transport is certified here
+    docker-free; broker transports (Kafka, RabbitMQ) certify under @Tag("docker").
+  </description>
+
+  <dependencies>
+    <!-- The contract under test: EventTransport (SPI). Compile so subclasses inherit the abstract tests. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-spi</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <!-- JUnit 5 + AssertJ are part of the published TCK surface (subclasses run under them). -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+    </dependency>
+    <!-- Transports deliver asynchronously; the TCK awaits delivery without sleeps. -->
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+    </dependency>
+
+    <!-- Docker-free certification target: the in-memory reference transport (test scope). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-inmemory</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

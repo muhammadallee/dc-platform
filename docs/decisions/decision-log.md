@@ -428,3 +428,30 @@ One line of context per decision; details live in the commit bodies referenced.
   flaky. The concurrent stress still asserts safety (>=1 winner, no error), and deterministic
   sequential-exclusion + fencing prove mutual exclusion docker-free; strict concurrent exclusion is a
   relaxable invariant certified against PostgreSQL under `@Tag("docker")`.
+
+## Phase 13 — developer experience
+
+- **D63 — the archetype parents to the bare root aggregator, not platform-parent.** A `maven-archetype`
+  generator is neither a library nor part of the dependency constitution, and its packaging needs a
+  literal `maven-archetype-plugin` version. Parenting to `dc-platform` (like `build/*`) exempts it from
+  the enforcer's no-literal-version rule and the coverage gate. `check-bom` also learns to skip
+  `maven-archetype` packaging (nothing depends on a generator through the BOM).
+- **D64 — `PlatformUsageRules` lives in `platform-test-api`, package `...test.arch`.** The spec's
+  illustrative "testing.arch" is aligned to the module's existing `...test.*` layout. ArchUnit is a
+  managed (no-version) compile dependency there; rules match banned third-party types by FQN so the kit
+  adds no Kafka/Rabbit/MVC dependency.
+- **D65 — archetype integration test behind `-Parchetype-it`; golden-path is the real gate.** The
+  archetype IT forks `mvn verify` on generated projects that resolve platform artifacts from the local
+  repo, which a plain reactor `verify` has not installed. Binding it to the default build would break
+  the reactor (ground rule 1). golden-path.sh installs first, so it is the end-to-end acceptance.
+- **D66 — golden-path pins `maven-archetype-plugin:3.1.2`; the archetype uses no post-generate groovy.**
+  3.2.0+ made `archetype:generate` fork a `generate-sources` lifecycle (`<executePhase>`) that requires
+  a project and so fails project-less on Maven 3.9.x; 3.1.2 generates cleanly. 3.1.2 predates
+  `archetype-post-generate.groovy` support, so feature-sample pruning is done with Velocity `#if`
+  (empty-but-compiling files when a feature is off), `AGENTS.md` ships as a verbatim copy of `CLAUDE.md`,
+  and the docs carry the platform's default docs URL + a `DC-XX` namespace placeholder rather than
+  per-generation token substitution.
+- **D67 — `UpgradeCheckMojo` is coverage-excluded; its logic lives in tested helpers.** The mojo is
+  Maven/Aether resolution glue (resolve the target BOM + jars); `BomVersionDiffer`, `PropertyKeyCollector`,
+  `MetadataDeprecations`, and `UpgradeReport` are pure and unit-tested offline. Same rationale as the
+  `Containers` exclusion in `platform-test-api`.

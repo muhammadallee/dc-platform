@@ -15,6 +15,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   scratch-app round trip.
 
 ### Added
+- Phase 13: docs — `docs/quickstart.md` rewritten around the archetype (generate → build → run → add a
+  capability), and `docs/modules/dx.md` covering the archetype, `upgrade-check`, the consumer
+  conformance rules + escape hatch, and the golden path. Decisions D63–D67 recorded.
 - Phase 13: `tooling/scripts/golden-path.sh` — the executable DX contract: installs the platform,
   generates a service from the archetype (features=messaging), builds it (asserting `CLAUDE.md` and a
   run `PlatformConformanceTest`), boots it with `spring-boot:start`, probes `/actuator/health` and

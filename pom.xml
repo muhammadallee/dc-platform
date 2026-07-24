@@ -146,6 +146,15 @@
     <module>flags/platform-flags-openfeature</module>
     <module>flags/platform-flags-autoconfigure</module>
     <module>flags/platform-starter-flags</module>
+
+    <!-- Phase 12: test kit (test-api + starter-test) and provider TCKs. -->
+    <module>test/platform-test-api</module>
+    <module>test/platform-starter-test</module>
+    <module>test/tck/platform-tck-messaging</module>
+    <module>test/tck/platform-tck-storage</module>
+    <module>test/tck/platform-tck-locking</module>
+    <module>test/tck/platform-tck-flags</module>
+    <module>test/tck/platform-tck-ratelimit</module>
   </modules>
 
   <build>

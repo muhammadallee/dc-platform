@@ -127,6 +127,14 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-files</artifactId><version>${revision}</version></dependency>
+      <!-- Phase 12: test kit and provider TCKs (Test Support category). -->
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-test-api</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-test</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-messaging</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-storage</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-locking</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-flags</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-ratelimit</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

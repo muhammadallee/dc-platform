@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.errors;
 
+import org.apiguardian.api.API;
+
 /**
  * HTTP status hint carried by {@link BusinessException}s so exception types stay free of
  * servlet-stack enums: a small, closed set wrapping the raw status int.
@@ -13,6 +15,7 @@ package ae.gov.dubaicustoms.platform.errors;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public enum HttpStatusHint {
 
     /** 400 Bad Request — the request itself is malformed. */

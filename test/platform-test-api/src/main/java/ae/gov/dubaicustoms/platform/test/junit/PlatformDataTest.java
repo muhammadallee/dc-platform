@@ -7,6 +7,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apiguardian.api.API;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -40,5 +41,6 @@ import org.springframework.test.context.ActiveProfiles;
 @DataJpaTest
 @ImportAutoConfiguration(PlatformDataJpaAutoConfiguration.class)
 @ActiveProfiles("test")
+@API(status = API.Status.STABLE, since = "0.1.0")
 public @interface PlatformDataTest {
 }

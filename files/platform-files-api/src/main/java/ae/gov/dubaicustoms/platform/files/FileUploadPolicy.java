@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.files;
 
 import java.util.Objects;
 import java.util.Set;
+import org.apiguardian.api.API;
 
 /**
  * The rules an uploaded file must satisfy: a maximum size and an allow-list of content types. The
@@ -23,6 +24,7 @@ import java.util.Set;
  * @param allowedTypes the permitted content types (IANA media types); never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record FileUploadPolicy(long maxSizeBytes, Set<String> allowedTypes) {
 
     /**

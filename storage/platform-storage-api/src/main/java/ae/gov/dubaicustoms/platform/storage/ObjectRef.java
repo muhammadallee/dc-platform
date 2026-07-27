@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.storage;
 
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * A reference to a stored object, returned by {@link ObjectStore#put}: where it lives plus the
@@ -17,6 +18,7 @@ import java.util.Objects;
  * @param size the number of bytes stored; {@code >= 0}
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record ObjectRef(String bucket, String key, String etag, long size) {
 
     /**

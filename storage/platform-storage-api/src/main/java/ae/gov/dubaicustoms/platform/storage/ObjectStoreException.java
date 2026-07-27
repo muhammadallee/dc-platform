@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.storage;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when an {@link ObjectStore} operation fails: an invalid or unsafe key
@@ -16,6 +17,7 @@ import java.util.Objects;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class ObjectStoreException extends PlatformException {
 
     /** The bucket or key was blank, malformed, or attempted path traversal (client fault). */

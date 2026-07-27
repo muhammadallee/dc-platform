@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.errors;
 
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when the addressed resource does not exist; maps to HTTP 404.
@@ -15,6 +16,7 @@ import ae.gov.dubaicustoms.platform.core.ErrorCode;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public class NotFoundException extends BusinessException {
 
     /**

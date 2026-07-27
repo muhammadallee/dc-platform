@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.ratelimit;
 
 import java.time.Duration;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when a {@link RateLimited} method is invoked past its limit. Carries the {@code retryAfter}
@@ -14,6 +15,7 @@ import java.util.Objects;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public class RateLimitExceededException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

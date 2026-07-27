@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.security;
 
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * Reads the authenticated principal of the current request, independent of the underlying
@@ -22,6 +23,7 @@ import java.util.Optional;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface CurrentUserAccessor {
 
     /**

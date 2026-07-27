@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.audit.spi;
 
 import ae.gov.dubaicustoms.platform.audit.AuditEvent;
+import org.apiguardian.api.API;
 
 /**
  * The pluggable destination an {@link ae.gov.dubaicustoms.platform.audit.Auditor Auditor} writes to.
@@ -14,6 +15,7 @@ import ae.gov.dubaicustoms.platform.audit.AuditEvent;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface AuditSink {
 
     /**

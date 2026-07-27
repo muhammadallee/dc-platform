@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apiguardian.api.API;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
@@ -29,6 +30,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class TestTokens {
 
     private TestTokens() {

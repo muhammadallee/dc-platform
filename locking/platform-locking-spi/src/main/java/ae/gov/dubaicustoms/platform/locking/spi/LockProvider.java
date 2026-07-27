@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.locking.spi;
 
 import java.time.Duration;
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * Pluggable backend for {@link ae.gov.dubaicustoms.platform.locking.LockManager}: acquires a named,
@@ -24,6 +25,7 @@ import java.util.Optional;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface LockProvider {
 
     /**

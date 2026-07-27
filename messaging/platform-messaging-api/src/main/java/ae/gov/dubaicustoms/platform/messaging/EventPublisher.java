@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.messaging;
 
+import org.apiguardian.api.API;
+
 /**
  * Publishes integration events to the configured transport.
  *
@@ -18,6 +20,7 @@ package ae.gov.dubaicustoms.platform.messaging;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface EventPublisher {
 
     /**

@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.logging;
 
+import org.apiguardian.api.API;
+
 /**
  * SPI-lite: scrub a value before it is written to a log field. Contribute beans of this type;
  * platform log-enrichment components apply them in {@code @Order} to MDC and structured-argument
@@ -21,6 +23,7 @@ package ae.gov.dubaicustoms.platform.logging;
  * @since 0.1.0
  */
 @FunctionalInterface
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface LogSanitizer {
 
     /**

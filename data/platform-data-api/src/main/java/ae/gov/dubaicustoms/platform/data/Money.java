@@ -4,6 +4,7 @@ import ae.gov.dubaicustoms.platform.core.PlatformApi;
 import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * An immutable monetary amount in a single ISO-4217 currency.
@@ -31,6 +32,7 @@ import java.util.Objects;
  * @since 0.2.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record Money(BigDecimal amount, Currency currency) {
 
     /**

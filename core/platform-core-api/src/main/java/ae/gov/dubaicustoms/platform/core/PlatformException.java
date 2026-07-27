@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.core;
 
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Root of the platform exception hierarchy. Carries a stable, machine-readable {@link ErrorCode}.
@@ -21,6 +22,7 @@ import java.util.Objects;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public abstract class PlatformException extends RuntimeException {
 
     private final ErrorCode code;

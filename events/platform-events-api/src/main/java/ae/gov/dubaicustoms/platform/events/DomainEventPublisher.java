@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.events;
 
+import org.apiguardian.api.API;
+
 /**
  * Publishes {@link DomainEvent}s in-process. {@code platform-events-autoconfigure} bridges this to
  * Spring's {@code ApplicationEventPublisher}; handler methods marked {@link DomainEventHandler}
@@ -21,6 +23,7 @@ package ae.gov.dubaicustoms.platform.events;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface DomainEventPublisher {
 
     /**

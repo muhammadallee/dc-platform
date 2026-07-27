@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.storage;
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.apiguardian.api.API;
 
 /**
  * Object-storage facade: put, get, delete and list opaque blobs addressed by {@code (bucket, key)}.
@@ -32,6 +33,7 @@ import java.util.stream.Stream;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface ObjectStore {
 
     /**

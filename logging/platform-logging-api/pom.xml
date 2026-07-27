@@ -27,6 +27,12 @@
   </properties>
 
   <dependencies>
+    <!-- @API stability marker on public API/SPI types (phase-16 A.1). Compile scope (transitive) so
+         the CLASS-retention marker resolves in consumers too; version from platform-dependencies. -->
+    <dependency>
+      <groupId>org.apiguardian</groupId>
+      <artifactId>apiguardian-api</artifactId>
+    </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

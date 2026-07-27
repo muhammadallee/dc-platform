@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.flags.spi;
 
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * Pluggable flag backend behind {@code FeatureFlags}: resolve a flag against an
@@ -23,6 +24,7 @@ import java.util.Optional;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface FlagProvider {
 
     /**

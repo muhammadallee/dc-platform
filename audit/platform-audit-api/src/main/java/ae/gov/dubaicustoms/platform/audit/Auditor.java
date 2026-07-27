@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.audit;
 
+import org.apiguardian.api.API;
+
 /**
  * Records audit events programmatically, for the cases the {@link Audited} annotation cannot express
  * (conditional auditing, events raised deep inside a transaction, batch outcomes).
@@ -23,6 +25,7 @@ package ae.gov.dubaicustoms.platform.audit;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface Auditor {
 
     /**

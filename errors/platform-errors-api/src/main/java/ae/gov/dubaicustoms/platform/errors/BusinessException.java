@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.errors;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Thrown for business-rule violations that map to HTTP 4xx problem responses.
@@ -21,6 +22,7 @@ import java.util.Objects;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public class BusinessException extends PlatformException {
 
     private final HttpStatusHint statusHint;

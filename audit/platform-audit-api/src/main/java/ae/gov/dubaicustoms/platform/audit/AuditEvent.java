@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.audit;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * One immutable record of a security-relevant or business-relevant action, as written to the
@@ -32,6 +33,7 @@ import java.util.Objects;
  * @param details additional structured context; never {@code null}, may be empty
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record AuditEvent(
         String action,
         String actor,

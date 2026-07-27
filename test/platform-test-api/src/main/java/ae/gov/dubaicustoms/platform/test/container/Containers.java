@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.test.container;
 
+import org.apiguardian.api.API;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -33,6 +34,7 @@ import org.testcontainers.utility.DockerImageName;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class Containers {
 
     private static final int VAULT_PORT = 8200;

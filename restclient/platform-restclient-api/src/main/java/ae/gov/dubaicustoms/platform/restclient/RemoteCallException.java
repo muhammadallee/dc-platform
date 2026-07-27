@@ -4,6 +4,7 @@ import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when a platform-conventional REST call receives a non-2xx response.
@@ -25,6 +26,7 @@ import java.util.Optional;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class RemoteCallException extends PlatformException {
 
     private static final ErrorCode CODE = new ErrorCode("DC-RCLIENT-0500");

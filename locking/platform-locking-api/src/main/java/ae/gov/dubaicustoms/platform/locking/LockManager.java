@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.locking;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import org.apiguardian.api.API;
 
 /**
  * Distributed lock manager: runs an action while holding a named, cluster-wide lock so that at most
@@ -25,6 +26,7 @@ import java.util.concurrent.Callable;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface LockManager {
 
     /**

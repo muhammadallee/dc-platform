@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.storage.spi;
 
 import ae.gov.dubaicustoms.platform.storage.ObjectStoreException;
+import org.apiguardian.api.API;
 
 /**
  * Validates bucket names and object keys before a provider touches the backend, rejecting anything
@@ -22,6 +23,7 @@ import ae.gov.dubaicustoms.platform.storage.ObjectStoreException;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public final class KeyValidator {
 
     /**

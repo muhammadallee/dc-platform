@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.errors;
 
+import org.apiguardian.api.API;
 import org.springframework.http.ProblemDetail;
 
 /**
@@ -24,6 +25,7 @@ import org.springframework.http.ProblemDetail;
  * @since 0.1.0
  */
 @FunctionalInterface
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface ProblemDetailCustomizer {
 
     /**

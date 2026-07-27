@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.locking.spi;
 
+import org.apiguardian.api.API;
+
 /**
  * A held distributed lock, returned by {@link LockProvider#tryAcquire}. Closing the handle releases
  * the lock; the manager runs it inside a try-with-resources so the lock is always released, even if
@@ -9,6 +11,7 @@ package ae.gov.dubaicustoms.platform.locking.spi;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface LockHandle extends AutoCloseable {
 
     /**

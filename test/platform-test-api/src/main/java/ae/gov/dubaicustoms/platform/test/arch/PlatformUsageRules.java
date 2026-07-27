@@ -7,6 +7,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
+import org.apiguardian.api.API;
 
 /**
  * Consumer-side conformance rules: ArchUnit rules a platform <em>service</em> runs over its own
@@ -34,6 +35,7 @@ import com.tngtech.archunit.lang.syntax.ArchRuleDefinition;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class PlatformUsageRules {
 
     private static final String KAFKA_TEMPLATE = "org.springframework.kafka.core.KafkaTemplate";

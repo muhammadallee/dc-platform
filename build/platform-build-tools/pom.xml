@@ -33,6 +33,7 @@
     <!-- archunit.version comes from the root aggregator (shared with platform-dependencies). -->
     <junit.version>5.11.4</junit.version>
     <assertj.version>3.26.3</assertj.version>
+    <apiguardian.version>1.1.2</apiguardian.version> <!-- keep in lockstep with platform-dependencies -->
   </properties>
 
   <dependencyManagement>
@@ -96,6 +97,14 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
       <version>${spring-boot.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Test-only: apiguardian on the test classpath so the @API-status rule fixtures below can
+         actually carry @API(status=...) for the rule to read (main code stays annotation-free). -->
+    <dependency>
+      <groupId>org.apiguardian</groupId>
+      <artifactId>apiguardian-api</artifactId>
+      <version>${apiguardian.version}</version>
       <scope>test</scope>
     </dependency>
     <!-- Test-only: fixtures proving the per-capability api whitelist admits ProblemDetail for

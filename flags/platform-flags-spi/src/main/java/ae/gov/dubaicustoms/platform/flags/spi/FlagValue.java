@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.flags.spi;
 
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * A resolved flag value from a provider: an opaque carrier of the underlying value (a {@link Boolean},
@@ -15,6 +16,7 @@ import java.util.Objects;
  * @param value the underlying resolved value; never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public record FlagValue(Object value) {
 
     /**

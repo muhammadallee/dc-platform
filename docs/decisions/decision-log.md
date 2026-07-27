@@ -507,3 +507,14 @@ One line of context per decision; details live in the commit bodies referenced.
   japicmp (`ignoreMissingOldVersion=true`) has no baseline to diff. The deployable parents/BOM parent to
   the root aggregator while `platform-service-parent` sits off `spring-boot-starter-parent`, so the
   staging-repo profile must live in both to reach every deployable artifact.
+- **D79 — apiguardian `@API(status, since)` is added alongside the existing `@PlatformApi` marker, not
+  as a replacement (phase-16 A.1).** `@PlatformApi` stays because the enforcer/japicmp gates target it
+  for SemVer breakage control; apiguardian carries the finer-grained, machine-readable stability status
+  (STABLE / EXPERIMENTAL / DEPRECATED / INTERNAL) that consumers, agents, and the platform-index read
+  straight from the jar. The two are complementary. The `@API`-presence ArchUnit rule is scoped to the
+  published **contract surface** — api-root packages, any `.spi` package, the `core.context`/`core.report`
+  api sub-packages, and the test-api packages — rather than every public type in the reactor: provider
+  impl, autoconfigure, and internal types are wiring, not consumer contracts, so forcing a status on them
+  would be noise. API-root types default to `STABLE`, SPI types to `EXPERIMENTAL` (extension points more
+  likely to evolve). A companion rule enforces that apiguardian `DEPRECATED` and `java.lang.@Deprecated`
+  **co-occur**, so deprecation is a guarantee both the compiler and machine readers see, never docs-only.

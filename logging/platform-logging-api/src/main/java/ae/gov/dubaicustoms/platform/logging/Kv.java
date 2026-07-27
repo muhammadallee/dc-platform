@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.logging;
 
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * A key-value pair for structured log statements: renders as {@code key=value} in pattern
@@ -20,6 +21,7 @@ import java.util.Objects;
  * @param value the field value; may be {@code null}
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record Kv(String key, Object value) {
 
     /**

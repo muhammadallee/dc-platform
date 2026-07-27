@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.resilience;
 
 import java.util.function.Supplier;
+import org.apiguardian.api.API;
 
 /**
  * Programmatic entry point for retrying a block of code under a named policy, for callers who cannot
@@ -19,6 +20,7 @@ import java.util.function.Supplier;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface RetryableOperation {
 
     /**

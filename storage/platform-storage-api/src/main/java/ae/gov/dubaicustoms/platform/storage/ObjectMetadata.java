@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.storage;
 
 import java.util.Map;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Content type, byte length and user-defined tags describing an object.
@@ -18,6 +19,7 @@ import java.util.Objects;
  * @param userTags arbitrary user metadata; copied defensively, never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record ObjectMetadata(String contentType, long contentLength, Map<String, String> userTags) {
 
     /**

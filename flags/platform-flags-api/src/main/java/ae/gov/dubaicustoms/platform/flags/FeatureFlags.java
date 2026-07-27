@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.flags;
 
+import org.apiguardian.api.API;
+
 /**
  * Feature-flag facade: ask whether a flag is on, or read a typed flag value with a caller-supplied
  * default.
@@ -19,6 +21,7 @@ package ae.gov.dubaicustoms.platform.flags;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface FeatureFlags {
 
     /**

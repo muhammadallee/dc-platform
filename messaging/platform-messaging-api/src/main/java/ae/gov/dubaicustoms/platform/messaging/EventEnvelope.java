@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * An integration event envelope carrying a payload plus transport-agnostic metadata. Immutable.
@@ -31,6 +32,7 @@ import java.util.Objects;
  * @param occurredAt when the event occurred; never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record EventEnvelope<T>(String eventType, int eventVersion, String key, T payload,
                                 Map<String, String> headers, Instant occurredAt) {
 

@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.cache;
 
 import ae.gov.dubaicustoms.platform.core.PlatformApi;
+import org.apiguardian.api.API;
 
 /**
  * Composes a cache key from a cache name and a set of parts, applying the platform's key convention.
@@ -19,6 +20,7 @@ import ae.gov.dubaicustoms.platform.core.PlatformApi;
  * @since 0.2.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface CacheKeyConvention {
 
     /**

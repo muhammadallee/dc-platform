@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.locking;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when a {@link LockManager} operation fails for an infrastructural reason — the lock backend
@@ -16,6 +17,7 @@ import java.util.Objects;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class LockException extends PlatformException {
 
     private static final ErrorCode CODE = new ErrorCode("DC-LOCK-0500");

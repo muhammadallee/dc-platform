@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.storage;
 
 import java.time.Instant;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * A lightweight listing entry from {@link ObjectStore#list}: the object's key, byte size and last
@@ -14,6 +15,7 @@ import java.util.Objects;
  * @param lastModified the last modification instant reported by the backend
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record ObjectSummary(String key, long size, Instant lastModified) {
 
     /**

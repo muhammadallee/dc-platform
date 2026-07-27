@@ -5,6 +5,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Added
+- Phase 16 (A.1): apiguardian `@API(status, since)` stability markers on every public API/SPI contract
+  type — a Layer-0 discovery signal read straight from the jar. New `org.apiguardian:apiguardian-api`
+  pin in `platform-dependencies`; api-root types are `STABLE`, SPI types `EXPERIMENTAL`. Two new
+  `PlatformArchRules`: every published contract type must carry `@API`, and apiguardian `DEPRECATED`
+  must co-occur with `java.lang.@Deprecated`. `@PlatformApi` is retained alongside (decision D79).
+
 ## [1.0.0-RC1] - 2026-07-27
 
 Milestone **M3**: full catalog, docs, examples, and release pipeline. Soak candidate for `1.0.0`.

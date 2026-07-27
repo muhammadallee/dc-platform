@@ -17,7 +17,7 @@ class PlatformArchRulesTest {
 
     @Test
     void allExposesTheFullConstitution() {
-        assertThat(PlatformArchRules.all()).hasSize(6);
+        assertThat(PlatformArchRules.all()).hasSize(8);
     }
 
     @Test
@@ -114,5 +114,40 @@ class PlatformArchRulesTest {
                 .check(importOf("ae.gov.dubaicustoms.platform.eta")))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("EtaSettings");
+    }
+
+    @Test
+    void publicContractTypesMustCarryApiStatus() {
+        assertThatCode(() -> PlatformArchRules.publicApiSpiTypesCarryApiStatus()
+                .check(importOf("ae.gov.dubaicustoms.platform.iota")))
+                .doesNotThrowAnyException();
+
+        assertThatThrownBy(() -> PlatformArchRules.publicApiSpiTypesCarryApiStatus()
+                .check(importOf("ae.gov.dubaicustoms.platform.kappa")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("KappaMissingApi");
+    }
+
+    @Test
+    void deprecatedApiStatusRequiresDeprecatedAnnotation() {
+        // clean: @API(DEPRECATED) and @Deprecated co-occur
+        assertThatCode(() -> PlatformArchRules.deprecatedApiStatusAndDeprecatedAnnotationCoOccur()
+                .check(importOf("ae.gov.dubaicustoms.platform.lambda")))
+                .doesNotThrowAnyException();
+
+        // dirty: @API(DEPRECATED) without java.lang.@Deprecated
+        assertThatThrownBy(() -> PlatformArchRules.deprecatedApiStatusAndDeprecatedAnnotationCoOccur()
+                .check(importOf("ae.gov.dubaicustoms.platform.mu")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("MuMissingDeprecated");
+    }
+
+    @Test
+    void deprecatedAnnotationRequiresDeprecatedApiStatus() {
+        // dirty: @Deprecated but @API status is STABLE, not DEPRECATED
+        assertThatThrownBy(() -> PlatformArchRules.deprecatedApiStatusAndDeprecatedAnnotationCoOccur()
+                .check(importOf("ae.gov.dubaicustoms.platform.nu")))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("NuStatusMismatch");
     }
 }

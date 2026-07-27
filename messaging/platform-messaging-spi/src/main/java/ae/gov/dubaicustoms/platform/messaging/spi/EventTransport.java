@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.messaging.spi;
 
 import java.util.Map;
+import org.apiguardian.api.API;
 
 /**
  * Provider contract for a messaging transport (in-memory, Kafka, RabbitMQ, ...).
@@ -19,6 +20,7 @@ import java.util.Map;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface EventTransport extends AutoCloseable {
 
     /**

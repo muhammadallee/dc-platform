@@ -8,6 +8,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apiguardian.api.API;
 
 /**
  * The annotated string must contain at least one non-whitespace character; {@code null} is
@@ -27,6 +28,7 @@ import java.lang.annotation.Target;
         ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = NotBlankTrimmedValidator.class)
+@API(status = API.Status.STABLE, since = "0.1.0")
 public @interface NotBlankTrimmed {
 
     /** The violation message; resolves through the platform validation bundle. */

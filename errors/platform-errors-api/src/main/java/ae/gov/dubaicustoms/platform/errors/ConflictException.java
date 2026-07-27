@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.errors;
 
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when the request clashes with the current state of the resource (duplicate creation,
@@ -16,6 +17,7 @@ import ae.gov.dubaicustoms.platform.core.ErrorCode;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public class ConflictException extends BusinessException {
 
     /**

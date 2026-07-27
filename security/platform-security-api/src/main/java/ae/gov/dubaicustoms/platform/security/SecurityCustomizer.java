@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.security;
 
+import org.apiguardian.api.API;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
 /**
@@ -22,6 +23,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface SecurityCustomizer {
 
     /**

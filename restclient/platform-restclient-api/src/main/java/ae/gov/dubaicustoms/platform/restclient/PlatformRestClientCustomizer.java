@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.restclient;
 
+import org.apiguardian.api.API;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -25,6 +26,7 @@ import org.springframework.web.client.RestClient;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface PlatformRestClientCustomizer {
 
     /**

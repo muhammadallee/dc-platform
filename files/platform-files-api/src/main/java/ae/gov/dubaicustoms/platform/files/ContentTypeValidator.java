@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.files;
 
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * Detects a file's content type from its bytes (magic-number sniffing), so uploads are validated by
@@ -19,6 +20,7 @@ import java.util.Optional;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface ContentTypeValidator {
 
     /**

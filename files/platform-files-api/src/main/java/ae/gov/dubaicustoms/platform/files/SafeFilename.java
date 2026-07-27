@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.files;
 
+import org.apiguardian.api.API;
+
 /**
  * Sanitises a client-supplied filename into one safe to use as a storage key or on disk. Strips any
  * directory component (defeating path traversal such as {@code ../../etc/passwd}), removes null bytes
@@ -17,6 +19,7 @@ package ae.gov.dubaicustoms.platform.files;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class SafeFilename {
 
     private static final String FALLBACK = "unnamed";

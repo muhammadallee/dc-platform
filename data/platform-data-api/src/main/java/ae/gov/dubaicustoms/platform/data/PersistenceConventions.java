@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.data;
 
 import ae.gov.dubaicustoms.platform.core.PlatformApi;
+import org.apiguardian.api.API;
 
 /**
  * The persistence conventions every platform entity should follow: physical naming, standard column
@@ -19,6 +20,7 @@ import ae.gov.dubaicustoms.platform.core.PlatformApi;
  * @since 0.2.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class PersistenceConventions {
 
     /**

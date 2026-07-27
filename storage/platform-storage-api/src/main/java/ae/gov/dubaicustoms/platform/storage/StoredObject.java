@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.storage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * An object retrieved from an {@link ObjectStore}: its {@link ObjectMetadata} plus an open content
@@ -23,6 +24,7 @@ import java.util.Objects;
  * @param content an open stream over the object's bytes; owned and closed by the caller; never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record StoredObject(ObjectMetadata metadata, InputStream content) implements AutoCloseable {
 
     /**

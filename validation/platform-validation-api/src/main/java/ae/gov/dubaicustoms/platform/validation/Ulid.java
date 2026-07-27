@@ -8,6 +8,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apiguardian.api.API;
 
 /**
  * The annotated string must be a valid ULID: 26 Crockford base32 characters (no I, L, O, U),
@@ -27,6 +28,7 @@ import java.lang.annotation.Target;
         ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = UlidValidator.class)
+@API(status = API.Status.STABLE, since = "0.1.0")
 public @interface Ulid {
 
     /** The violation message; resolves through the platform validation bundle. */

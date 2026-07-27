@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.ratelimit;
 
 import java.time.Duration;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * The outcome of a {@link RateLimiter#tryAcquire(String, int, java.time.Duration)} call: whether the
@@ -21,6 +22,7 @@ import java.util.Objects;
  * @param retryAfter how long to wait before the next attempt may succeed; {@code ZERO} when allowed
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record Decision(boolean allowed, Duration retryAfter) {
 
     /**

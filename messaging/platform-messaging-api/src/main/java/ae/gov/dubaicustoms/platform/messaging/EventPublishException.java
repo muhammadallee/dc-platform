@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.messaging;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * Thrown when {@link EventPublisher#publish} fails: the transport rejected the send or did not
@@ -12,6 +13,7 @@ import java.util.Objects;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class EventPublishException extends PlatformException {
 
     private static final ErrorCode CODE = new ErrorCode("DC-MSG-0001");

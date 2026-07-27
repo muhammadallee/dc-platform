@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.test.assertj;
 
 import java.util.Objects;
+import org.apiguardian.api.API;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class PlatformAssertions {
 
     private PlatformAssertions() {

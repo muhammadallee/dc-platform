@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.test.container;
 
+import org.apiguardian.api.API;
 import org.testcontainers.DockerClientFactory;
 
 /**
@@ -17,6 +18,7 @@ import org.testcontainers.DockerClientFactory;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class DockerAvailable {
 
     private static volatile Boolean cached;

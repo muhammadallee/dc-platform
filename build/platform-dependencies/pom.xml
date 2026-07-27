@@ -49,6 +49,16 @@
         <artifactId>archunit</artifactId>
         <version>${archunit.version}</version>
       </dependency>
+
+      <!-- Phase 16 (A.1): apiguardian carries the machine-readable @API(status, since) stability
+           marker on every public API/SPI type — a Layer-0 discovery signal read straight from the
+           jar (by consumers, the ArchUnit @API gate, and the platform-index generator). CLASS
+           retention, so api/spi modules declare it optional; Boot does not manage it. -->
+      <dependency>
+        <groupId>org.apiguardian</groupId>
+        <artifactId>apiguardian-api</artifactId>
+        <version>1.1.2</version>
+      </dependency>
       <dependency>
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit-junit5</artifactId>

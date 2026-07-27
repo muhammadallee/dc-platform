@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.core;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.apiguardian.api.API;
 
 /**
  * Stable, machine-readable error identifier: UPPER_SNAKE, namespaced {@code DC-<CAP>-<NNNN>},
@@ -21,6 +22,7 @@ import java.util.regex.Pattern;
  * @param value the code text; must match {@code ^DC-[A-Z]{2,8}-\d{4}$}
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record ErrorCode(String value) {
 
     private static final Pattern FORMAT = Pattern.compile("^DC-[A-Z]{2,8}-\\d{4}$");

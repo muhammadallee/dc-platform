@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.ratelimit.spi;
 
 import ae.gov.dubaicustoms.platform.ratelimit.Decision;
 import java.time.Duration;
+import org.apiguardian.api.API;
 
 /**
  * The pluggable backend behind {@link ae.gov.dubaicustoms.platform.ratelimit.RateLimiter RateLimiter}.
@@ -15,6 +16,7 @@ import java.time.Duration;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface RateLimiterProvider {
 
     /**

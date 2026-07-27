@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.data;
 
 import ae.gov.dubaicustoms.platform.core.PlatformApi;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * A typed wrapper around a raw entity identifier, so an {@code OrderId} cannot be passed where a
@@ -23,6 +24,7 @@ import java.util.Objects;
  * @since 0.2.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record EntityId<T>(T value) {
 
     /**

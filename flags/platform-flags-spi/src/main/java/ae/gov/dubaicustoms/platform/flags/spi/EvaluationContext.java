@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.flags.spi;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.apiguardian.api.API;
 
 /**
  * The context a {@link FlagProvider} evaluates a flag against: the current user and tenant (when the
@@ -19,6 +20,7 @@ import java.util.Optional;
  * @param attributes additional targeting attributes; never {@code null}
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public record EvaluationContext(Optional<String> userId, Optional<String> tenantId,
                                 Map<String, Object> attributes) {
 

@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.apiguardian.api.API;
 import org.slf4j.MDC;
 
 /**
@@ -28,6 +29,7 @@ import org.slf4j.MDC;
  *
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class RequestContext {
 
     /** MDC key under which the correlation id is published. */

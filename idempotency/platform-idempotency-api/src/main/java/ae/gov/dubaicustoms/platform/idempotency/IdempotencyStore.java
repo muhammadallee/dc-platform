@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.idempotency;
 
 import java.time.Duration;
+import org.apiguardian.api.API;
 
 /**
  * Store of seen idempotency keys with per-key expiry — an SPI-lite kept in the api because it is small
@@ -14,6 +15,7 @@ import java.time.Duration;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface IdempotencyStore {
 
     /**

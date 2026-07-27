@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.platform.messaging.spi;
 
+import org.apiguardian.api.API;
+
 /**
  * Pluggable payload (de)serialization for the messaging capability. Default implementation is
  * Jackson JSON, supplied by {@code platform-messaging-autoconfigure}
@@ -11,6 +13,7 @@ package ae.gov.dubaicustoms.platform.messaging.spi;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface EventSerializer {
 
     /**

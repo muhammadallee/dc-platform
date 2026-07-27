@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.core.report;
 
 import ae.gov.dubaicustoms.platform.core.PlatformApi;
 import java.util.Objects;
+import org.apiguardian.api.API;
 
 /**
  * One active platform capability as reported in the startup banner: contributed as a bean by each
@@ -22,6 +23,7 @@ import java.util.Objects;
  * @since 0.1.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record CapabilityDescriptor(String name, String status, String detail) {
 
     /**

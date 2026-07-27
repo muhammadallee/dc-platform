@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.cache;
 
 import ae.gov.dubaicustoms.platform.core.PlatformApi;
+import org.apiguardian.api.API;
 
 /**
  * Cache-name conventions. A cache name is a dot-separated path of lowercase segments naming what is
@@ -16,6 +17,7 @@ import ae.gov.dubaicustoms.platform.core.PlatformApi;
  * @since 0.2.0
  */
 @PlatformApi
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class CacheNames {
 
     /** Separator between the segments of a cache name. */

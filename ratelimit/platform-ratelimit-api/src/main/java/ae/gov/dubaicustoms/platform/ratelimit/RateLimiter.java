@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.ratelimit;
 
 import java.time.Duration;
+import org.apiguardian.api.API;
 
 /**
  * Decides whether a keyed request is within its rate limit. Injected for programmatic checks; also
@@ -17,6 +18,7 @@ import java.time.Duration;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public interface RateLimiter {
 
     /**

@@ -2,6 +2,8 @@ package ae.gov.dubaicustoms.platform.build.arch;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaEnumConstant;
+import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
@@ -20,6 +22,8 @@ public final class PlatformArchRules {
     private static final String AUTO_CONFIGURATION = "org.springframework.boot.autoconfigure.AutoConfiguration";
     private static final String CONFIGURATION_PROPERTIES =
             "org.springframework.boot.context.properties.ConfigurationProperties";
+    private static final String API_ANNOTATION = "org.apiguardian.api.API";
+    private static final String DEPRECATED_ANNOTATION = "java.lang.Deprecated";
 
     private PlatformArchRules() {
     }
@@ -33,6 +37,8 @@ public final class PlatformArchRules {
             noCapabilityCycles(),
             autoConfigurationsAreAnnotatedAndPlaced(),
             configurationPropertiesAreRecords(),
+            publicApiSpiTypesCarryApiStatus(),
+            deprecatedApiStatusAndDeprecatedAnnotationCoOccur(),
         };
     }
 
@@ -123,6 +129,7 @@ public final class PlatformArchRules {
                 || pkg.startsWith("org.springframework.core.annotation")
                 || pkg.startsWith("org.springframework.lang")
                 || pkg.startsWith("org.jspecify")
+                || pkg.startsWith("org.apiguardian") // @API stability marker (phase-16 A.1)
                 || pkg.startsWith(PLATFORM_ROOT + ".core")
                 || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+(\\.annotation)?"); // any api root
     }
@@ -177,5 +184,102 @@ public final class PlatformArchRules {
                 })
                 .because("properties are immutable records with defaults in code (CLAUDE.md rule 8)")
                 .allowEmptyShould(true);
+    }
+
+    /**
+     * Every public API/SPI contract type carries an apiguardian {@code @API(status, since)} marker
+     * (phase-16 A.1): a Layer-0 discovery signal read straight from the jar. Scoped to the published
+     * contract surface — api root packages ({@code platform.<cap>[.…]}), any {@code ..spi..}
+     * package, the core api sub-packages, and the test-api packages — so provider-impl, autoconfigure
+     * and internal types (which are not consumer contracts) are exempt. {@code @PlatformApi} is kept
+     * alongside for enforcer targeting; the two are complementary (decision D79).
+     */
+    static ArchRule publicApiSpiTypesCarryApiStatus() {
+        return ArchRuleDefinition.classes()
+                .that(arePublishedContractTypes())
+                .should(new ArchCondition<>("be annotated with @org.apiguardian.api.API") {
+                    @Override
+                    public void check(JavaClass clazz, ConditionEvents events) {
+                        if (!clazz.isAnnotatedWith(API_ANNOTATION)) {
+                            events.add(SimpleConditionEvent.violated(clazz, clazz.getName()
+                                    + " is a public API/SPI type but carries no @API(status=…, since=…)"));
+                        }
+                    }
+                })
+                .because("published API/SPI types must declare an apiguardian @API status so consumers "
+                        + "and agents can read stability straight from the jar (phase-16 A.1)")
+                .allowEmptyShould(true);
+    }
+
+    /**
+     * {@code @API(status = DEPRECATED)} and {@code java.lang.@Deprecated} must co-occur on any
+     * {@code @API}-annotated type (phase-16 A.1, user guard): apiguardian DEPRECATED without the
+     * language {@code @Deprecated} leaves compilers and IDEs silent, and a language {@code @Deprecated}
+     * whose {@code @API} status is not DEPRECATED contradicts the machine-readable stability signal.
+     */
+    static ArchRule deprecatedApiStatusAndDeprecatedAnnotationCoOccur() {
+        return ArchRuleDefinition.classes()
+                .that().areAnnotatedWith(API_ANNOTATION)
+                .should(new ArchCondition<>(
+                        "carry @Deprecated exactly when @API(status = DEPRECATED)") {
+                    @Override
+                    public void check(JavaClass clazz, ConditionEvents events) {
+                        boolean apiDeprecated = "DEPRECATED".equals(apiStatus(clazz));
+                        boolean langDeprecated = clazz.isAnnotatedWith(DEPRECATED_ANNOTATION);
+                        if (apiDeprecated && !langDeprecated) {
+                            events.add(SimpleConditionEvent.violated(clazz, clazz.getName()
+                                    + " is @API(status = DEPRECATED) but not @java.lang.Deprecated"));
+                        }
+                        if (langDeprecated && !apiDeprecated) {
+                            events.add(SimpleConditionEvent.violated(clazz, clazz.getName()
+                                    + " is @Deprecated but its @API status is '" + apiStatus(clazz)
+                                    + "' (must be DEPRECATED)"));
+                        }
+                    }
+                })
+                .because("apiguardian DEPRECATED and java.lang.@Deprecated must co-occur so deprecation "
+                        + "is a machine-readable guarantee, not just documentation (phase-16 A.1)")
+                .allowEmptyShould(true);
+    }
+
+    /** The published contract surface the {@code @API} presence rule governs (see rule javadoc). */
+    private static DescribedPredicate<JavaClass> arePublishedContractTypes() {
+        return new DescribedPredicate<>("public API/SPI contract types") {
+            @Override
+            public boolean test(JavaClass clazz) {
+                return clazz.getModifiers().contains(JavaModifier.PUBLIC)
+                        && clazz.isTopLevelClass()
+                        && !clazz.getSimpleName().isEmpty()
+                        && !"package-info".equals(clazz.getSimpleName())
+                        && isContractPackage(clazz.getPackageName());
+            }
+        };
+    }
+
+    /**
+     * True for the published contract packages: an api root ({@code platform.<cap>}), any
+     * {@code .spi} package, the two core api sub-packages, or a test-api package — never an
+     * {@code ..internal..} package.
+     */
+    private static boolean isContractPackage(String pkg) {
+        if (pkg.contains(".internal")) {
+            return false;
+        }
+        return pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+")            // api root
+                || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\..*\\.spi(\\..*)?") // any spi
+                || pkg.equals(PLATFORM_ROOT + ".core.context")
+                || pkg.equals(PLATFORM_ROOT + ".core.report")
+                || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.test\\.[^.]+"); // test-api
+    }
+
+    /** The {@code name()} of a type's {@code @API} {@code status} enum, or {@code ""} if unset. */
+    private static String apiStatus(JavaClass clazz) {
+        return clazz.getAnnotations().stream()
+                .filter(a -> a.getRawType().getName().equals(API_ANNOTATION))
+                .findFirst()
+                .flatMap(a -> a.get("status"))
+                .filter(JavaEnumConstant.class::isInstance)
+                .map(v -> ((JavaEnumConstant) v).name())
+                .orElse("");
     }
 }

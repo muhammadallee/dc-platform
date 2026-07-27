@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.core.context;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.apiguardian.api.API;
 
 /**
  * Correlation identifier propagated across threads, HTTP, and messaging.
@@ -21,6 +22,7 @@ import java.util.regex.Pattern;
  * @param value the identifier text; must match {@code ^[0-9a-f]{32}$}
  * @since 0.1.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public record CorrelationId(String value) {
 
     private static final Pattern FORMAT = Pattern.compile("^[0-9a-f]{32}$");

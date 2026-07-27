@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.authz.spi;
 
 import ae.gov.dubaicustoms.platform.security.CurrentUser;
+import org.apiguardian.api.API;
 
 /**
  * Pluggable permission-evaluation strategy behind {@code @RequiresPermission}. The authz
@@ -20,6 +21,7 @@ import ae.gov.dubaicustoms.platform.security.CurrentUser;
  * @since 0.2.0
  */
 @FunctionalInterface
+@API(status = API.Status.EXPERIMENTAL, since = "0.1.0")
 public interface PermissionEvaluatorProvider {
 
     /**

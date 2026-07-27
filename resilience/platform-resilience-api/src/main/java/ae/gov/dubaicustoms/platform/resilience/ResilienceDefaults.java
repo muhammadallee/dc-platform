@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.resilience;
 
 import java.time.Duration;
+import org.apiguardian.api.API;
 
 /**
  * The platform's default resilience tuning, exposed as constants so both the auto-configuration
@@ -17,6 +18,7 @@ import java.time.Duration;
  *
  * @since 0.2.0
  */
+@API(status = API.Status.STABLE, since = "0.1.0")
 public final class ResilienceDefaults {
 
     /** Total attempts (the initial call plus retries) the {@code default} retry makes. */

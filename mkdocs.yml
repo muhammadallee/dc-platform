@@ -90,4 +90,5 @@ nav:
       - ADR-009 No God Framework: decisions/adr-009.md
       - ADR-010 Convention over configuration: decisions/adr-010.md
   - Upgrade notes:
+      - "1.0.0-RC1": upgrade/1.0.0-RC1.md
       - "0.2.0": upgrade/0.2.0.md

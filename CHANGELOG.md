@@ -12,6 +12,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `platform-service-parent`; `maven.deploy.skip=true` and enforcer-exempt via the `example-` prefix.
   Adds the `docs/examples.md` overview page. (Further phase-15 examples, the smoke matrix, and release
   automation land in subsequent commits.)
+- Phase 15: `examples/example-golden-path` — the canonical reference service. A small orders domain
+  (`POST /orders`, `GET /orders/{id}`) over the full golden-path stack: REST + validation + security
+  + OpenAPI + observability + JPA (H2 local, `pg` profile) + messaging (in-memory) + cache +
+  resilience + audit. `OrderService` demonstrates `EventPublisher`, `RetryableOperation`, `@Audited`,
+  `@Cacheable`, and `@Transactional`. Tested through the platform slices (`OrderFlowTest`,
+  `OrderProblemResponseTest`, `PlatformSurfaceTest`) plus a `StartupBudgetTest` startup-budget guard
+  (deliverable C) with a checked-in, comment-governed baseline. Kafka deferred (infra supports
+  RabbitMQ; see `example-event-driven`).
 - Phase 15: `examples/example-extension-provider` — demonstrates the extension model. A custom
   `EncryptingFsObjectStore` (AES-CTR, length-preserving, IV stashed in user-tags) implements
   `ObjectStore` and is registered by `EncryptingStorageAutoConfiguration` ordered before the

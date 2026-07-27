@@ -162,6 +162,7 @@
          real service does; artifactId prefix "example-" marks them EXAMPLES (enforcer-exempt) and keeps
          them out of the BOM (check-bom) and out of deploy (maven.deploy.skip). -->
     <module>examples/example-minimal</module>
+    <module>examples/example-golden-path</module>
     <module>examples/example-extension-provider</module>
     <!-- Phase 14: documentation as a product. LAST on purpose — its build-time generators read every
          other module's target/ (config metadata, error-codes.csv), so all siblings must build first. -->

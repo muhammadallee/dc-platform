@@ -24,6 +24,30 @@ thing the platform guarantees:
 `GET /ping` returns `{"status":"ok"}`; `GET /widgets/{id}` always throws, so the problem-response
 path is always exercised. See [`ProblemResponseTest`](modules/errors.md) for the assertion.
 
+## example-golden-path — the canonical reference
+
+The service to read first. A small **orders** domain (`POST /orders`, `GET /orders/{id}`) wired through
+the full golden-path stack: REST + [validation](modules/validation.md) + [security](modules/security.md)
+(authenticated by default) + [OpenAPI](modules/openapi.md) + [observability](modules/observability.md)
++ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally) +
+[cache](modules/cache.md) + [resilience](modules/resilience.md) + [audit](modules/audit.md). Every
+cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
+actually calls (`EventPublisher`, `RetryableOperation`, `@Audited`, `@Cacheable`, `@Transactional`),
+and the class deliberately contains no error, security, or serialization code.
+
+Run it with `mvn -pl examples/example-golden-path spring-boot:run`; build the prod-sim variant against
+PostgreSQL with `-Ppg` (Kafka messaging is deferred until the infrastructure supports it — the
+in-memory transport is the local default, and `example-event-driven` demonstrates a real broker over
+RabbitMQ).
+
+Tests, all through the platform slices and Docker-free:
+
+- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — authenticated `POST /orders`
+  persists, publishes `OrderPlaced` (asserted on `TestEventTransport`), and is read back;
+- `OrderProblemResponseTest` — unknown order → 404 problem with code, invalid body → 400 problem;
+- `PlatformSurfaceTest` — OpenAPI document served, `/actuator/platform` reports capabilities;
+- `StartupBudgetTest` — cold-start wall-clock stays within the checked-in baseline + 15% (deliverable C).
+
 ## example-extension-provider — the extension model
 
 A service that adds a **custom storage provider** without editing the platform. `EncryptingFsObjectStore`

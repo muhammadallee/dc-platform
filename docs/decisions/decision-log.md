@@ -481,3 +481,29 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D72 — generated `error-codes.md` carries code + capability + declaring class only.** The phase-04
   registry CSV contract is `code,declaredBy`; there is no description column to render, so the generator
   presents exactly what the registry gate owns rather than inventing prose.
+- **D73 — examples use error-code namespace `DC-XMPL-####` and package `ae.gov.dubaicustoms.example.*`.**
+  Keeps example error codes valid under the `^DC-[A-Z]{2,8}-\d{4}$` contract yet outside the platform's
+  `ae.gov.dubaicustoms.platform` package, so the phase-04 error-code registry gate (which scans the
+  platform package) never sees them and the `example-` artifactId keeps them enforcer-exempt.
+- **D74 — `example-golden-path` names its JPA table `orders` via `@Table`.** `order` is a reserved SQL
+  word; the derived DDL fails on H2/PostgreSQL. Tests use `*Test` naming (surefire) because the platform
+  wires no failsafe, so an `*IT` class would silently never run.
+- **D75 — `example-extension-provider` encrypts with AES-CTR, not GCM.** CTR is length-preserving, so the
+  ciphertext size equals the plaintext size and the storage TCK's `ObjectRef.size`/`contentLength`
+  assertions stay true through the decorator; the per-object IV is stashed in a reserved user-tag. A
+  production note points at GCM + platform-managed keys.
+- **D76 — `example-event-driven` selects its transport by Maven profile (`local`=in-memory default,
+  `rabbit`=RabbitMQ), each module owning its copy of the event record.** The platform's transport
+  auto-configs are first-wins by declaration order, so merely adding rabbit alongside in-memory would not
+  switch; an `activeByDefault` `local` profile that deactivates under `-Prabbit` guarantees exactly one
+  transport starter. Kafka is deferred until the infrastructure supports it.
+- **D77 — the smoke matrix toggles kill-switch properties over one packaged jar, not per-combo rebuilds,
+  and only toggles capabilities that degrade to no-ops (cache, audit).** Recompiling per starter combo
+  cannot fit a time budget and the assertion target (the `/actuator/platform` report) is identical;
+  messaging, data-jpa, and resilience are pinned present because the reference service injects their
+  beans and cannot boot without them.
+- **D78 — `release.sh` rehearsal degrades japicmp to a first-baseline report and `-Plocal-release` is
+  declared on the root aggregator and `platform-service-parent`.** No train has been deployed, so
+  japicmp (`ignoreMissingOldVersion=true`) has no baseline to diff. The deployable parents/BOM parent to
+  the root aggregator while `platform-service-parent` sits off `spring-boot-starter-parent`, so the
+  staging-repo profile must live in both to reach every deployable artifact.

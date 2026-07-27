@@ -2,3 +2,7 @@
 # variant for it. Contributes lowest-precedence spring.jpa.* platform defaults before the context.
 org.springframework.boot.env.EnvironmentPostProcessor=\
 ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaEnvironmentPostProcessor
+
+# FailureAnalyzer (phase-16 A.2): teaches the "JPA on, Flyway missing" startup failure.
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MissingFlywayFailureAnalyzer

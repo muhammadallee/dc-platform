@@ -21,7 +21,7 @@ class FlywayPresenceCheckTest {
     @Test
     void failsWhenRequiredButFlywayAbsent() {
         assertThatThrownBy(() -> new FlywayPresenceCheck(true, withoutFlyway).afterPropertiesSet())
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(MissingFlywayException.class)
                 .hasMessageContaining("require-migrations=false");
     }
 

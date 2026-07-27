@@ -1,0 +1,3 @@
+# FailureAnalyzer (phase-16 A.2): teaches the "security on, no JWT issuer" startup failure.
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+ae.gov.dubaicustoms.platform.security.autoconfigure.internal.SecurityNoIssuerFailureAnalyzer

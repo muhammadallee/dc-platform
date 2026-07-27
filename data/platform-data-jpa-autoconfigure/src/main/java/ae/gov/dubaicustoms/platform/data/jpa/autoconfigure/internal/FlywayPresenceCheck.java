@@ -33,7 +33,7 @@ public final class FlywayPresenceCheck implements InitializingBean {
             return;
         }
         if (!ClassUtils.isPresent(FLYWAY_CLASS, classLoader)) {
-            throw new IllegalStateException(
+            throw new MissingFlywayException(
                     "JPA is configured but Flyway is not on the classpath, so schema migrations will "
                             + "not run. Add platform-starter-data-jpa (it bundles flyway-core) and put "
                             + "your migrations under classpath:db/migration, or set "

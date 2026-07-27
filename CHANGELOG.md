@@ -11,6 +11,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   pin in `platform-dependencies`; api-root types are `STABLE`, SPI types `EXPERIMENTAL`. Two new
   `PlatformArchRules`: every published contract type must carry `@API`, and apiguardian `DEPRECATED`
   must co-occur with `java.lang.@Deprecated`. `@PlatformApi` is retained alongside (decision D79).
+- Phase 16 (A.2): `FailureAnalyzer`s that turn the top misconfigurations into Boot "Description /
+  Action" diagnostics whose Action names the exact fix (starter, property, or doc anchor) —
+  messaging-no-transport, security-no-issuer, data-jpa-missing-flyway, storage-fs-root-unwritable.
+  Registered per capability in `META-INF/spring.factories`; each is unit-tested. (secrets-unresolvable-ref
+  is deferred — no secrets capability exists in the reactor yet.)
 
 ## [1.0.0-RC1] - 2026-07-27
 

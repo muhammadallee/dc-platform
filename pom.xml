@@ -225,5 +225,28 @@
         </plugins>
       </build>
     </profile>
+    <!-- Release rehearsal (phase-15 §D): deploy to a file:// staging repo under the build tree instead
+         of a real remote, so a release rehearsal exercises the full deploy without credentials or a
+         server. Defined here on the root aggregator so every module whose parent chain reaches it
+         (the BOM, platform-dependencies, platform-parent, and all capability modules) inherits it;
+         platform-service-parent sits off spring-boot-starter-parent and declares its own copy. The
+         staging repo is configured on the deploy plugin (not as a bare property, which the plugin does
+         not read). -->
+    <profile>
+      <id>local-release</id>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-deploy-plugin</artifactId>
+              <configuration>
+                <altDeploymentRepository>local-release::file://${maven.multiModuleProjectDirectory}/target/staging-repo</altDeploymentRepository>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
   </profiles>
 </project>

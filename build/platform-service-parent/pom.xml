@@ -106,5 +106,25 @@
         <platform.test.excludedGroups/>
       </properties>
     </profile>
+    <!-- Release rehearsal (phase-15 §D): mirror of the root aggregator's local-release profile. This
+         parent sits off spring-boot-starter-parent, so it cannot inherit the root's copy; declaring it
+         here lets `-Plocal-release` stage this pom (and would stage services built on it, though the
+         examples set maven.deploy.skip). Keep in sync with the root pom's profile. -->
+    <profile>
+      <id>local-release</id>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-deploy-plugin</artifactId>
+              <configuration>
+                <altDeploymentRepository>local-release::file://${maven.multiModuleProjectDirectory}/target/staging-repo</altDeploymentRepository>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
   </profiles>
 </project>

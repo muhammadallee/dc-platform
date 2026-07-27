@@ -45,9 +45,14 @@ echo "== 2/5 Generate a service from the archetype (features=messaging) =="
     -DplatformVersion="${REV}" -Dfeatures=messaging -DinteractiveMode=false )
 DEMO="$WORKDIR/demo"
 
-# D3: the generated service must carry CLAUDE.md (agents read it) and the conformance test.
-echo "== Assert generated agent + conformance artifacts =="
-test -f "$DEMO/CLAUDE.md"      || { echo "GOLDEN PATH FAILED: generated service has no CLAUDE.md"; exit 1; }
+# D3 + phase-16 E: the generated service must carry the agent/catalog artifacts and conformance test.
+echo "== Assert generated agent + catalog + conformance artifacts =="
+for f in CLAUDE.md AGENTS.md .mcp.json catalog-info.yaml; do
+  test -f "$DEMO/$f" || { echo "GOLDEN PATH FAILED: generated service has no $f"; exit 1; }
+done
+# catalog-info.yaml must be Velocity-filtered (train annotation resolved, no raw ${...} left).
+grep -q "dc.platform/train: \"${REV}\"" "$DEMO/catalog-info.yaml" \
+    || { echo "GOLDEN PATH FAILED: catalog-info.yaml train annotation not filtered to ${REV}"; exit 1; }
 grep -rq "PlatformConformanceTest" "$DEMO/src/test" \
     || { echo "GOLDEN PATH FAILED: generated service has no PlatformConformanceTest"; exit 1; }
 check_sla

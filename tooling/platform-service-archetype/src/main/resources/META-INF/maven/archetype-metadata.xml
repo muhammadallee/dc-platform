@@ -17,6 +17,11 @@
     <requiredProperty key="features">
       <defaultValue>none</defaultValue>
     </requiredProperty>
+    <!-- Backstage catalog owner (group or user), stamped into catalog-info.yaml. Default keeps
+         non-interactive generation working; teams override with -Downer=<team> (phase-16 E). -->
+    <requiredProperty key="owner">
+      <defaultValue>platform-team</defaultValue>
+    </requiredProperty>
   </requiredProperties>
 
   <fileSets>
@@ -52,6 +57,16 @@
         <include>CLAUDE.md</include>
         <include>AGENTS.md</include>
         <include>.gitignore</include>
+        <!-- MCP client config for agents: static org endpoint + stdio-fallback note, no substitution. -->
+        <include>.mcp.json</include>
+      </includes>
+    </fileSet>
+    <!-- catalog-info.yaml IS Velocity-filtered: it interpolates ${artifactId}, ${platformVersion}
+         (the dc.platform/train annotation), and ${owner}. It has no ## lines, so filtering is safe. -->
+    <fileSet filtered="true" packaged="false" encoding="UTF-8">
+      <directory></directory>
+      <includes>
+        <include>catalog-info.yaml</include>
       </includes>
     </fileSet>
   </fileSets>

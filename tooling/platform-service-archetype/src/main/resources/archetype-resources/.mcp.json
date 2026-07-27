@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "dc-platform": {
+      "type": "http",
+      "url": "https://mcp.platform.dubaicustoms.gov.ae/mcp",
+      "_comment": "DC Platform MCP server — authoritative capability, property, and error-code facts for agents. Stdio fallback for local/offline use: replace this entry with {\"command\": \"java\", \"args\": [\"-jar\", \"platform-mcp-server.jar\", \"--stdio\"]}."
+    }
+  }
+}

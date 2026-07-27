@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${artifactId}
+  description: DC Platform service
+  annotations:
+    dc.platform/train: "${platformVersion}"
+spec:
+  type: service
+  lifecycle: production
+  owner: ${owner}

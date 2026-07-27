@@ -24,6 +24,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 16 (B.2): finalized `PlatformUsageRules` (platform-test-api `testing.arch`) — added three
   consumer conformance rules: no `ResponseEntityExceptionHandler` subclass, no `new ObjectMapper()`,
   no `Thread.sleep` in production. Each violation message names the platform alternative + doc anchor.
+- Phase 16 (E): the service archetype now also generates `.mcp.json` (platform MCP endpoint +
+  stdio-fallback note) and `catalog-info.yaml` (Backstage Component: name, `owner` param,
+  `dc.platform/train` annotation). New `owner` archetype property (default `platform-team`).
+  `golden-path.sh` asserts all four generated files (CLAUDE.md, AGENTS.md, .mcp.json,
+  catalog-info.yaml) and that the train annotation was filtered.
 - Phase 16 (F): adoption telemetry. New `CapabilityMetricsAutoConfiguration` emits
   `platform.capability.active{capability=...}` (0/1) from the `CapabilityDescriptor` beans (kill
   switch `dc.platform.observability.capability-metrics.enabled`). New `docs/operations/adoption.md`

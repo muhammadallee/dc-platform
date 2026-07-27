@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-service-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-service-parent</relativePath>
+  </parent>
+
+  <groupId>ae.gov.dubaicustoms.platform.examples</groupId>
+  <artifactId>example-event-driven</artifactId>
+  <packaging>pom</packaging>
+
+  <name>example-event-driven</name>
+  <description>Two services — a producer and a consumer — communicating over platform messaging.
+    In-memory transport in tests (including the @EventHandler retry/DLQ demonstration); a rabbit
+    profile runs them against real RabbitMQ. Kafka is deferred until the infrastructure supports it.</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <modules>
+    <module>producer</module>
+    <module>consumer</module>
+  </modules>
+</project>

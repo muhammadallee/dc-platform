@@ -64,3 +64,27 @@ Two tests are the acceptance:
   the whole storage TCK passes against it;
 - `StorageBackOffTest` — boots the app and asserts the single `ObjectStore` bean is the custom
   encrypting provider, proving the default stepped aside.
+
+## example-event-driven — producer/consumer over messaging
+
+Two services — `example-event-driven-producer` and `example-event-driven-consumer` — that communicate
+only through platform [messaging](modules/messaging.md). The producer publishes `ShipmentRequested`
+via `EventPublisher`; the consumer receives it with `@EventHandler`. Each service owns its own copy of
+the event record, as separate deployables do; the platform matches them by JSON shape and the
+`eventType` header.
+
+The **retry/DLQ** behaviour is the headline. `ShipmentHandler` throws for a shipment whose id is
+`poison`; `ShipmentRetryDlqTest` delivers one and asserts the platform made three attempts and then
+republished the message to the DLQ destination (`dc.shipments.dlq`) — all Docker-free over the
+in-memory `TestEventTransport`. `ShipmentRoundTripTest` covers the happy path.
+
+The default transport is in-memory (the `local` Maven profile). Run against real **RabbitMQ** with the
+`rabbit` profile after `docker compose up rabbitmq`:
+
+```
+mvn -Prabbit -pl examples/example-event-driven/producer spring-boot:run
+mvn -Prabbit -pl examples/example-event-driven/consumer spring-boot:run
+```
+
+Kafka is deferred until the infrastructure supports it; the messaging API is transport-agnostic, so
+adding it later is a starter swap, not a code change.

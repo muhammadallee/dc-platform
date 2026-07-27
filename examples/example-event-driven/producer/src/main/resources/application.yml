@@ -1,0 +1,17 @@
+# example-event-driven-producer.
+# Default transport is in-memory (local profile). Build/run with -Prabbit to use RabbitMQ; the rabbit
+# profile also activates the spring block below for broker coordinates.
+spring:
+  application:
+    name: example-event-driven-producer
+
+---
+spring:
+  config:
+    activate:
+      on-profile: rabbit
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest

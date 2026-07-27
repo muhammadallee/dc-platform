@@ -1,0 +1,16 @@
+# example-event-driven-consumer.
+# Default transport is in-memory (local profile). Build/run with -Prabbit to use RabbitMQ.
+spring:
+  application:
+    name: example-event-driven-consumer
+
+---
+spring:
+  config:
+    activate:
+      on-profile: rabbit
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest

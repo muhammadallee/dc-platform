@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Parent is the platform service parent (not the example-event-driven aggregator): a real service
+       parents on platform-service-parent, and the example- artifactId keeps it enforcer-exempt. -->
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-service-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../../build/platform-service-parent</relativePath>
+  </parent>
+
+  <groupId>ae.gov.dubaicustoms.platform.examples</groupId>
+  <artifactId>example-event-driven-producer</artifactId>
+
+  <name>example-event-driven-producer</name>
+  <description>Publishes ShipmentRequested events via EventPublisher over the platform transport.</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-errors</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-logging</artifactId>
+    </dependency>
+    <!-- Messaging publishes metrics through Micrometer, so its auto-configuration requires the
+         observability starter on the classpath (as every platform service has it). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-observability</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- Transport selection is a profile choice so exactly one transport starter is ever on the
+         classpath (the platform's transport auto-configs are first-wins by declaration order, so
+         merely adding rabbit alongside in-memory would not switch). The default (local) profile
+         deactivates automatically when another profile is selected with -P. -->
+    <profile>
+      <id>local</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>ae.gov.dubaicustoms.platform</groupId>
+          <artifactId>platform-starter-messaging-inmemory</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+    <!-- Run against real RabbitMQ: mvn -Prabbit spring-boot:run (after `docker compose up rabbitmq`).
+         Kafka is deferred until the infrastructure supports it. -->
+    <profile>
+      <id>rabbit</id>
+      <dependencies>
+        <dependency>
+          <groupId>ae.gov.dubaicustoms.platform</groupId>
+          <artifactId>platform-starter-messaging-rabbit</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+</project>

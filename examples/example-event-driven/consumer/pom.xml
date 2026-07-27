@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-service-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../../build/platform-service-parent</relativePath>
+  </parent>
+
+  <groupId>ae.gov.dubaicustoms.platform.examples</groupId>
+  <artifactId>example-event-driven-consumer</artifactId>
+
+  <name>example-event-driven-consumer</name>
+  <description>Consumes ShipmentRequested via @EventHandler; demonstrates the platform's retry/DLQ
+    behaviour when a handler keeps failing.</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-errors</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-logging</artifactId>
+    </dependency>
+    <!-- Messaging publishes metrics through Micrometer, so its auto-configuration requires the
+         observability starter on the classpath (as every platform service has it). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-observability</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- One transport starter on the classpath at a time; see the producer pom for the rationale. -->
+    <profile>
+      <id>local</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>ae.gov.dubaicustoms.platform</groupId>
+          <artifactId>platform-starter-messaging-inmemory</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>rabbit</id>
+      <dependencies>
+        <dependency>
+          <groupId>ae.gov.dubaicustoms.platform</groupId>
+          <artifactId>platform-starter-messaging-rabbit</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+</project>

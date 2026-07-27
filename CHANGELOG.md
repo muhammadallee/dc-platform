@@ -20,6 +20,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `OrderProblemResponseTest`, `PlatformSurfaceTest`) plus a `StartupBudgetTest` startup-budget guard
   (deliverable C) with a checked-in, comment-governed baseline. Kafka deferred (infra supports
   RabbitMQ; see `example-event-driven`).
+- Phase 15: `examples/example-event-driven` — a producer and a consumer communicating over platform
+  messaging (aggregator + two `example-`-prefixed modules). Producer publishes `ShipmentRequested`
+  via `EventPublisher`; consumer receives via `@EventHandler`. `ShipmentRetryDlqTest` demonstrates the
+  retry-then-DLQ path (3 attempts → republish to `dc.shipments.dlq`) Docker-free over the in-memory
+  `TestEventTransport`; `ShipmentRoundTripTest` covers the happy path. Default transport in-memory
+  (`local` profile); a `rabbit` profile runs against real RabbitMQ. Kafka deferred (infra supports
+  RabbitMQ).
 - Phase 15: `examples/example-extension-provider` — demonstrates the extension model. A custom
   `EncryptingFsObjectStore` (AES-CTR, length-preserving, IV stashed in user-tags) implements
   `ObjectStore` and is registered by `EncryptingStorageAutoConfiguration` ordered before the

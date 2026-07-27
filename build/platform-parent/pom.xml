@@ -282,5 +282,14 @@
         <platform.test.excludedGroups/>
       </properties>
     </profile>
+    <!-- Release rehearsal: deploy to a file:// staging repo under the build tree instead of a real
+         remote, so a release rehearsal exercises the full deploy without credentials or a server.
+         Inherited by every deployable platform module (this is their common ancestor). -->
+    <profile>
+      <id>local-release</id>
+      <properties>
+        <altDeploymentRepository>local-release::file://${maven.multiModuleProjectDirectory}/target/staging-repo</altDeploymentRepository>
+      </properties>
+    </profile>
   </profiles>
 </project>

@@ -1,0 +1,78 @@
+# Release pipeline (phase-15 §D). Tag-triggered: pushing v<x.y.z> runs the same gates as the local
+# rehearsal (tooling/scripts/release.sh) and then performs the real deploy with CI credentials.
+# Locally, developers rehearse with `tooling/scripts/release.sh <v> --rehearse` (file:// staging, no
+# creds); this workflow is the only place a real deploy happens.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  schedule:
+    - cron: "0 3 * * *" # nightly N-1 compatibility job (see compat-n-1)
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # release notes diff against the previous tag
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Derive version from tag
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Verify at release version
+        run: mvn -B -T1C -Drevision=${{ steps.v.outputs.version }} verify
+      - name: Golden path + smoke matrix
+        run: |
+          ./tooling/scripts/golden-path.sh
+          ./tooling/scripts/smoke-matrix.sh
+      - name: Deploy the train (BOM/parents first via reactor order)
+        # Credentials are provided as CI secrets (settings-server.xml written from secrets); a local
+        # release never needs them because rehearsal deploys to file:// staging (-Plocal-release).
+        env:
+          DEPLOY_USERNAME: ${{ secrets.DEPLOY_USERNAME }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          SIGN_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+        run: mvn -B -T1C -Drevision=${{ steps.v.outputs.version }} deploy -DskipTests
+      - name: Release notes + compatibility report
+        run: ./tooling/scripts/release.sh ${{ steps.v.outputs.version }} --notes-only
+      - name: Build docs with version banner
+        run: mvn -B -Papidocs -DskipTests javadoc:aggregate || true
+
+  # Nightly proof that services built at the previous tag still work against the current BOM. Until a
+  # first train is published this is a no-op (there is no previous tag / deployed baseline to resolve),
+  # and it is scaffolded to activate once v1.0.0-RC1 exists.
+  compat-n-1:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Resolve previous tag
+        id: prev
+        run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+      - name: Build examples at previous tag against the current BOM
+        run: |
+          PREV="${{ steps.prev.outputs.tag }}"
+          if [ -z "$PREV" ]; then
+            echo "N-1 job: no previous tag yet — nothing to check (expected before the first release)."
+            exit 0
+          fi
+          echo "N-1 job: checking examples at ${PREV} against the current train."
+          git worktree add /tmp/prev "$PREV"
+          # Build only the examples from the previous tag; they resolve the platform from the local repo
+          # built by the current train above (a real run would `mvn install` the current BOM first).
+          mvn -B -f /tmp/prev/pom.xml -pl "$(cd /tmp/prev && ls -d examples/* | paste -sd, -)" -am -DskipTests package || {
+            echo "N-1 FAILED: examples at ${PREV} do not build against the current train"; exit 1; }

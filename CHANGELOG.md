@@ -6,6 +6,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- Phase 15: release automation (§D). `tooling/scripts/release.sh <version> [--rehearse|--notes-only]`
+  runs verify → golden-path → smoke-matrix → release notes (from conventional commits since the last
+  tag) → aggregate japicmp compatibility report, then either stages to a file:// repo (`--rehearse`,
+  `-Plocal-release`) or tags `v<version>` (real). New `local-release` profile in `platform-parent`
+  (file:// `altDeploymentRepository`). New `.github/workflows/release.yml`: tag-triggered deploy with
+  CI secrets plus a nightly `compat-n-1` job (no-op until the first tag exists). Finalized
+  `docs/runbooks/release.md` to match the script. japicmp degrades to a first-baseline report while no
+  train has been deployed.
 - Phase 15: reference examples. New `examples/example-minimal` (category Examples) — the platform
   floor: `platform-starter-core` + `-errors` + `-logging` only, proving correlation IDs, JSON logs,
   and RFC-9457 problem responses with no cross-cutting code in the service. Consumes the platform via

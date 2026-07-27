@@ -140,6 +140,13 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- PlatformUsageRulesTest fixture ObjectMapperMaker constructs a real ObjectMapper so the
+         noDirectObjectMapperInstantiation rule has a genuine violator to flag (phase-16 B.2). -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

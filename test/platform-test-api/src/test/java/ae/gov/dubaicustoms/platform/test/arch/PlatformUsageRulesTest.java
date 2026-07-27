@@ -17,9 +17,9 @@ class PlatformUsageRulesTest {
             new ClassFileImporter().importPackages(FIXTURES + ".bad");
 
     @Test
-    void allReturnsTheThreeConformanceRules() {
+    void allReturnsTheConformanceSuite() {
         ArchRule[] rules = PlatformUsageRules.all();
-        assertThat(rules).hasSize(3).doesNotContainNull();
+        assertThat(rules).hasSize(6).doesNotContainNull();
     }
 
     @Test
@@ -43,6 +43,29 @@ class PlatformUsageRulesTest {
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("HandRolledAdvice")
                 .hasMessageContaining("PlatformException");
+    }
+
+    @Test
+    void responseEntityExceptionHandlerSubclassIsFlagged() {
+        assertThatThrownBy(() -> PlatformUsageRules.noResponseEntityExceptionHandlerSubclass().check(BAD))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("HandRolledAdvice")
+                .hasMessageContaining("ResponseEntityExceptionHandler");
+    }
+
+    @Test
+    void directObjectMapperConstructionIsFlagged() {
+        assertThatThrownBy(() -> PlatformUsageRules.noDirectObjectMapperInstantiation().check(BAD))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("ObjectMapperMaker")
+                .hasMessageContaining("ObjectMapper");
+    }
+
+    @Test
+    void threadSleepInProductionIsFlagged() {
+        assertThatThrownBy(() -> PlatformUsageRules.noThreadSleepInProduction().check(BAD))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("Sleeper");
     }
 
     @Test

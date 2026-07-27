@@ -16,6 +16,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   messaging-no-transport, security-no-issuer, data-jpa-missing-flyway, storage-fs-root-unwritable.
   Registered per capability in `META-INF/spring.factories`; each is unit-tested. (secrets-unresolvable-ref
   is deferred — no secrets capability exists in the reactor yet.)
+- Phase 16 (B.1): dependency bans in `platform-service-parent` — an enforcer `bannedDependencies`
+  (`searchTransitive=false`) fails a service that declares a wrapped library directly (spring-kafka,
+  spring-rabbit, awssdk:s3, resilience4j-*, springdoc-*), each message naming the starter to use
+  instead. Escape hatch `-Dplatform.bans.skip=true`. (spring-cloud-vault deferred with the secrets
+  capability.)
+- Phase 16 (B.2): finalized `PlatformUsageRules` (platform-test-api `testing.arch`) — added three
+  consumer conformance rules: no `ResponseEntityExceptionHandler` subclass, no `new ObjectMapper()`,
+  no `Thread.sleep` in production. Each violation message names the platform alternative + doc anchor.
 
 ## [1.0.0-RC1] - 2026-07-27
 

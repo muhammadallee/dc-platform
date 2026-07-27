@@ -33,6 +33,10 @@
     <java.version>25</java.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
     <platform.test.excludedGroups>docker</platform.test.excludedGroups>
+    <!-- Escape hatch for the platform dependency bans below (phase-16 B.1): set to true in a module
+         (visible in review) to allow a directly-declared wrapped library. Discouraged; see
+         docs/modules/dx.md. -->
+    <platform.bans.skip>false</platform.bans.skip>
   </properties>
 
   <dependencyManagement>
@@ -50,6 +54,57 @@
 
   <build>
     <plugins>
+      <!-- Dependency bans (phase-16 B.1): a service must reach wrapped libraries through the platform
+           starter, not by declaring them directly. searchTransitive=false so the starters (which pull
+           these libs transitively) are fine — only a DIRECT declaration in the service POM fails, with
+           a message naming the starter to use instead. Toggle off per module with -Dplatform.bans.skip=true. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.3</version> <!-- 3.5.0's container cannot load Java 25-compiled rules; matches platform-parent -->
+        <executions>
+          <execution>
+            <id>platform-dependency-bans</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <skip>${platform.bans.skip}</skip>
+              <rules>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>org.springframework.kafka:spring-kafka</exclude></excludes>
+                  <message>Do not depend on spring-kafka directly — add platform-starter-messaging-kafka and
+                    publish via EventPublisher / consume via @EventHandler (docs/modules/messaging.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>org.springframework.amqp:spring-rabbit</exclude></excludes>
+                  <message>Do not depend on spring-rabbit directly — add platform-starter-messaging-rabbit and
+                    publish via EventPublisher / consume via @EventHandler (docs/modules/messaging.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>software.amazon.awssdk:s3</exclude></excludes>
+                  <message>Do not depend on the AWS S3 SDK directly — add platform-starter-storage-s3 and use the
+                    ObjectStore API (docs/modules/storage.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>io.github.resilience4j:*</exclude></excludes>
+                  <message>Do not depend on Resilience4j directly — add platform-starter-resilience and use the
+                    platform resilience annotations/properties (docs/modules/resilience.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>org.springdoc:*</exclude></excludes>
+                  <message>Do not depend on springdoc directly — add platform-starter-openapi for the platform's
+                    OpenAPI defaults (docs/modules/openapi.md).</message>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- Repackaged, layered jar + build-info (feeds /actuator/info and platform diagnostics). -->
       <plugin>
         <groupId>org.springframework.boot</groupId>

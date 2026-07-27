@@ -44,6 +44,7 @@ public final class PlatformUsageRules {
             "org.springframework.web.bind.annotation.RestControllerAdvice";
     private static final String RESPONSE_ENTITY_EXCEPTION_HANDLER =
             "org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler";
+    private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
 
     private PlatformUsageRules() {
     }
@@ -57,7 +58,10 @@ public final class PlatformUsageRules {
         return new ArchRule[] {
             noDirectMessagingInfrastructure(),
             noHandRolledExceptionHandler(),
+            noResponseEntityExceptionHandlerSubclass(),
             noSystemGetenv(),
+            noDirectObjectMapperInstantiation(),
+            noThreadSleepInProduction(),
         };
     }
 
@@ -122,6 +126,30 @@ public final class PlatformUsageRules {
     }
 
     /**
+     * A service must not subclass Spring's {@code ResponseEntityExceptionHandler} at all (with or
+     * without {@code @RestControllerAdvice}) — broader than {@link #noHandRolledExceptionHandler()},
+     * which only catches the annotated form. The platform already maps every exception to RFC 9457.
+     */
+    static ArchRule noResponseEntityExceptionHandlerSubclass() {
+        return ArchRuleDefinition.noClasses()
+                .should(new ArchCondition<>("subclass Spring's ResponseEntityExceptionHandler") {
+                    @Override
+                    public void check(JavaClass origin, ConditionEvents events) {
+                        origin.getRawSuperclass().ifPresent(superclass -> {
+                            if (RESPONSE_ENTITY_EXCEPTION_HANDLER.equals(superclass.getName())) {
+                                events.add(SimpleConditionEvent.satisfied(origin,
+                                        origin.getName() + " subclasses ResponseEntityExceptionHandler"));
+                            }
+                        });
+                    }
+                })
+                .because("subclassing ResponseEntityExceptionHandler is banned here → throw PlatformException "
+                        + "subtypes with an ErrorCode; the platform maps them to RFC 9457 with correlation IDs "
+                        + "(docs/modules/errors.md)")
+                .allowEmptyShould(true);
+    }
+
+    /**
      * A service must not read configuration or secrets via {@link System#getenv} — reference them
      * through the platform secrets property source (and {@code dc.platform.*} for config).
      */
@@ -130,6 +158,43 @@ public final class PlatformUsageRules {
                 .should().callMethod(System.class, "getenv")
                 .orShould().callMethod(System.class, "getenv", String.class)
                 .because("use the platform secrets property source — never System.getenv for secrets or config")
+                .allowEmptyShould(true);
+    }
+
+    /**
+     * A service must not construct its own {@code ObjectMapper} — inject the Spring-managed instance
+     * Boot configures (consistent modules, date/time handling, and null strategy). Matched by name so
+     * this module needs no compile dependency on Jackson.
+     */
+    static ArchRule noDirectObjectMapperInstantiation() {
+        return ArchRuleDefinition.noClasses()
+                .should(new ArchCondition<>("construct a new com.fasterxml.jackson.databind.ObjectMapper") {
+                    @Override
+                    public void check(JavaClass origin, ConditionEvents events) {
+                        origin.getConstructorCallsFromSelf().forEach(call -> {
+                            if (OBJECT_MAPPER.equals(call.getTarget().getOwner().getName())) {
+                                events.add(SimpleConditionEvent.satisfied(origin,
+                                        origin.getName() + " constructs a new ObjectMapper"));
+                            }
+                        });
+                    }
+                })
+                .because("constructing a new ObjectMapper is banned here → inject the Spring-managed ObjectMapper "
+                        + "Boot configures, so JSON stays consistent platform-wide (docs/concepts/conventions.md)")
+                .allowEmptyShould(true);
+    }
+
+    /**
+     * A service must not call {@link Thread#sleep} in production code — use the platform's resilience
+     * and scheduling primitives (or Awaitility in tests). Blocking the thread hides latency from the
+     * platform's timeouts, retries, and metrics.
+     */
+    static ArchRule noThreadSleepInProduction() {
+        return ArchRuleDefinition.noClasses()
+                .should().callMethod(Thread.class, "sleep", long.class)
+                .orShould().callMethod(Thread.class, "sleep", long.class, int.class)
+                .because("Thread.sleep in production is banned here → use the platform resilience/scheduling "
+                        + "primitives (retry/backoff, @Scheduled) or Awaitility in tests (docs/modules/resilience.md)")
                 .allowEmptyShould(true);
     }
 }

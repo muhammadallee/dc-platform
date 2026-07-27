@@ -1,0 +1,23 @@
+# Smoke-matrix expectation table (phase-15 §B). Checked into the repo so a capability regression shows
+# up as a diff here. Each row boots example-golden-path once with the given kill-switch toggles and
+# asserts: /actuator/health is UP, every capability in PRESENT appears in /actuator/platform, and none
+# in ABSENT does. Columns are TAB-separated: id, jvm_args, present, absent.
+#
+# jvm_args: space-separated -D flags applied to the boot ("-" for none).
+# present/absent: comma-separated capability names as they appear in /actuator/platform (note data-jpa).
+#
+# Security is never toggled off (it stays on in every row, per the spec) and the script additionally
+# asserts an unauthenticated business call is rejected in the baseline row. Capabilities the reference
+# service STRUCTURALLY depends on — messaging (EventPublisher), data-jpa (OrderRepository), resilience
+# (RetryableOperation) — are not toggled off, because the app cannot boot without those beans; the
+# matrix instead pins their presence and toggles the capabilities that degrade to no-ops (cache, audit).
+# Capabilities the service never wires (flags, storage, locking, ratelimit) are pinned ABSENT so a
+# stray dependency that dragged one in would fail the matrix.
+#
+# id	jvm_args	present	absent
+baseline	-	core,errors,logging,validation,security,openapi,observability,messaging,data-jpa,cache,resilience,audit	flags,storage,locking,ratelimit
+cache-off	-Ddc.platform.cache.enabled=false	messaging,data-jpa,audit,resilience,security	cache
+audit-off	-Ddc.platform.audit.enabled=false	messaging,data-jpa,cache,resilience,security	audit
+cache-and-audit-off	-Ddc.platform.cache.enabled=false -Ddc.platform.audit.enabled=false	messaging,data-jpa,resilience,security	cache,audit
+security-mode-pinned	-	security,openapi,observability	flags,storage
+no-extra-capabilities	-	core,errors,logging,security	flags,storage,locking,ratelimit,idempotency,scheduling,files,redis,restclient,events,authz

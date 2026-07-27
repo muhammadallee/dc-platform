@@ -5,6 +5,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Fixed
+- Build: `platform-parent` sets `useManifestOnlyJar=false` on surefire and failsafe. On Windows,
+  when the project and the local Maven repo live on different drives, surefire could not relativize
+  its manifest-JAR classpath across roots and the forked JVM silently dropped entries, surfacing as
+  `NoClassDefFoundError` (archunit's `JavaClasses`) in `ArchConstitutionTest`. Passing the classpath
+  directly avoids the manifest JAR; no effect on same-drive/Linux/CI builds.
+
 ### Added
 - Phase 16 (A.1): apiguardian `@API(status, since)` stability markers on every public API/SPI contract
   type — a Layer-0 discovery signal read straight from the jar. New `org.apiguardian:apiguardian-api`

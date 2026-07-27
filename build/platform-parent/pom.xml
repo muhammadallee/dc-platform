@@ -134,6 +134,13 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <excludedGroups>${platform.test.excludedGroups}</excludedGroups>
+          <!-- Pass the test classpath directly instead of via a manifest-only booter JAR. On Windows,
+               when the project and the local Maven repo sit on different drives (e.g. project on D:,
+               ~/.m2 on C:), surefire cannot relativize the manifest Class-Path across roots ("'other'
+               has different root") and falls back to absolute paths the forked JVM silently drops —
+               surfacing as NoClassDefFoundError (e.g. archunit's JavaClasses) in ArchConstitutionTest.
+               Harmless on same-drive setups, Linux, and CI (classpaths there pass directly anyway). -->
+          <useManifestOnlyJar>false</useManifestOnlyJar>
         </configuration>
       </plugin>
       <plugin>
@@ -141,6 +148,8 @@
         <artifactId>maven-failsafe-plugin</artifactId>
         <configuration>
           <excludedGroups>${platform.test.excludedGroups}</excludedGroups>
+          <!-- Same cross-drive manifest-JAR hardening as surefire above. -->
+          <useManifestOnlyJar>false</useManifestOnlyJar>
         </configuration>
         <executions>
           <execution>

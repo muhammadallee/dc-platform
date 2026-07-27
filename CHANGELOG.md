@@ -24,6 +24,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 16 (B.2): finalized `PlatformUsageRules` (platform-test-api `testing.arch`) — added three
   consumer conformance rules: no `ResponseEntityExceptionHandler` subclass, no `new ObjectMapper()`,
   no `Thread.sleep` in production. Each violation message names the platform alternative + doc anchor.
+- Phase 16 (F): adoption telemetry. New `CapabilityMetricsAutoConfiguration` emits
+  `platform.capability.active{capability=...}` (0/1) from the `CapabilityDescriptor` beans (kill
+  switch `dc.platform.observability.capability-metrics.enabled`). New `docs/operations/adoption.md`
+  and importable `tooling/dashboards/platform-adoption.grafana.json`; `release.sh` release notes now
+  carry an Adoption section (Grafana deep-link TODO until an instance exists).
 
 ## [1.0.0-RC1] - 2026-07-27
 

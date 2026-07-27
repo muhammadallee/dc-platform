@@ -1,2 +1,3 @@
 ae.gov.dubaicustoms.platform.observability.autoconfigure.CommonTagsAutoConfiguration
 ae.gov.dubaicustoms.platform.observability.autoconfigure.PlatformInfoEndpointAutoConfiguration
+ae.gov.dubaicustoms.platform.observability.autoconfigure.CapabilityMetricsAutoConfiguration

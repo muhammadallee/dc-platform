@@ -72,6 +72,8 @@ nav:
       - Error codes: reference/error-codes.md
       - Platform BOM: reference/bom.md
       - Compatibility: reference/compatibility.md
+  - Operations:
+      - Adoption: operations/adoption.md
   - Runbooks:
       - Local development: runbooks/local-dev.md
       - Adding a capability: runbooks/new-capability.md

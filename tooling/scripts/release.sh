@@ -84,6 +84,12 @@ generate_release_notes() {
         echo
       fi
     done
+    # Adoption snapshot (phase-16 F.3). TODO(observability): once a Grafana instance exists, replace
+    # this line with a deep link to the platform-adoption dashboard
+    # (tooling/dashboards/platform-adoption.grafana.json) filtered to this train.
+    echo "## Adoption"
+    echo "- Snapshot: see docs/operations/adoption.md (Grafana deep link TODO — no instance yet)."
+    echo
   } > "$NOTES"
   echo "   wrote $(wc -l < "$NOTES") lines"
 }

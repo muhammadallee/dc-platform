@@ -1,0 +1,71 @@
+{
+  "uid": "platform-adoption",
+  "title": "Platform Adoption",
+  "tags": ["dc-platform", "adoption"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": { "from": "now-30d", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Trains in production",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Distinct platform.version values across running services.",
+      "targets": [
+        { "refId": "A", "expr": "count(count by (platform_version) (up{job=~\".+\"}))" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Capability adoption %",
+      "type": "bargauge",
+      "gridPos": { "h": 10, "w": 12, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Share of services with each capability active (platform.capability.active == 1).",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{capability}}",
+          "expr": "avg by (capability) (platform_capability_active)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Services per train",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 6, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Instance count grouped by platform.version — the tail on the left is who to nudge.",
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "count by (platform_version) (up{job=~\".+\"})"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Deprecated-property warnings (per service)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 18, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "TODO: wire from the log pipeline (Boot config-deprecation warnings). Placeholder query until a log-metrics source exists.",
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "{{service}}",
+          "expr": "sum by (service) (increase(platform_deprecated_property_warnings_total[1d]))"
+        }
+      ]
+    }
+  ]
+}

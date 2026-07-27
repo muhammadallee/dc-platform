@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.observability.capability-metrics.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to emit the platform.capability.active{capability=...} gauge (0 or 1) from each capability's descriptor for adoption telemetry.",
+      "defaultValue": true
+    }
+  ]
+}

@@ -2,6 +2,9 @@
 
 One line of context per decision; details live in the commit bodies referenced.
 
+> This is the tactical, chronological journal (`D1…Dn`). Foundational, architecture-defining
+> decisions live as ADRs alongside it — see [`README.md`](README.md) for how the two relate.
+
 ## Phase 2 — build gates
 
 - **D1 — Enforcer API.** `PlatformLayerRule` uses the current enforcer API
@@ -518,3 +521,20 @@ One line of context per decision; details live in the commit bodies referenced.
   would be noise. API-root types default to `STABLE`, SPI types to `EXPERIMENTAL` (extension points more
   likely to evolve). A companion rule enforces that apiguardian `DEPRECATED` and `java.lang.@Deprecated`
   **co-occur**, so deprecation is a guarantee both the compiler and machine readers see, never docs-only.
+
+## Post-1.0-RC1 — scope & hygiene (2026-07 platform review)
+
+- **D80 — `tenancy` (P3) and `secrets` (phase-10) are out of scope for the 1.0 train; Kafka ships
+  un-exercised.** The 2026-07 platform review (`docs/reviews/platform-review-2026-07.md`) recorded that
+  `tenancy` was never implemented (acceptable — P3/optional) and `secrets` was deferred while the
+  reactor still carries five special-cases *around* its absence (a deferred FailureAnalyzer, a deferred
+  Vault enforcer ban, a deferred OpenRewrite step, and the phase-10 spec). Rather than leave these as
+  silent gaps, they are declared explicitly: tenancy is a candidate for a later train; `secrets`
+  (secrets-api + secrets-env default + autoconfigure + starter, Vault behind `@Tag("docker")`) is the
+  first Track-2 item for the next train, after which its five special-cases are un-deferred. Kafka
+  messaging remains in the catalog but has no example/smoke path (transport infra uses RabbitMQ, D76);
+  it should be marked `EXPERIMENTAL` via `@API` until an end-to-end path exists. This decision only
+  records scope; no code changed with it. The same review actioned Track 1 (doc/toolchain truth-gaps):
+  architecture-doc + runbook version headers corrected to Boot 4.1 / Java 25, README docs pointer fixed,
+  `docs/decisions/README.md` added to explain the ADR-vs-log split, `.mvn/jvm.config` committed, and
+  stray JVM crash logs removed.

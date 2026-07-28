@@ -1,8 +1,12 @@
 # Enterprise Microservice Chassis — Platform Architecture Design
 
 **Codename:** `dc-platform` (substitute your organization's groupId: `ae.gov.dubaicustoms.platform`)
-**Target:** Spring Boot 3.x (latest stable), Java 21 LTS, Maven multi-module
+**Target:** Spring Boot 4.x (latest stable), Java 25, Maven multi-module
 **Status:** Implementation-ready design for incremental execution by Claude Code
+
+> **Note (2026-07):** the original design targeted Spring Boot 3.x / Java 21 LTS. The implementation
+> was amended to Spring Boot 4.x / Java 25 per decision **D6**; the reactor pins `spring-boot.version`
+> 4.1.0 and `java.version` 25 (`pom.xml`). The architectural reasoning below is unchanged by that bump.
 
 ---
 

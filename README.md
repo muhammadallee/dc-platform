@@ -41,5 +41,7 @@ mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:check-bom
 
 ## Docs
 
-Until the docs site ships (phase 14): `specs/` is the source of truth.
-Architecture & rationale: `specs/platform-architecture.md`.
+The documentation site (phase 14) is the primary reference; build/serve it with `mkdocs serve`
+(config in `mkdocs.yml`). `specs/` remains the implementation source of truth for phase execution.
+Architecture & rationale: `specs/platform-architecture.md`. Design decisions: `docs/decisions/`
+(see `docs/decisions/README.md` for how ADRs and the decision log relate).

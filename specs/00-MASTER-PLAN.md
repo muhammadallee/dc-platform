@@ -46,6 +46,11 @@
 
 Priorities: **P0** = platform unusable without it. **P1** = golden-path service (REST + errors + logs + metrics + security + messaging + JPA + tests + docs). **P2** = full catalog. **P3** = optional (tenancy). If time-boxed, stop after any phase — the reactor is always green and usable.
 
+> **Scope note (2026-07, decision D80): `tenancy` (P3) is out of scope for the 1.0 train** and is not
+> in the reactor. It remains a candidate for a later train. Also deferred from 1.0: the **`secrets`**
+> capability (phase-10) — planned for the next train (see `docs/reviews/platform-review-2026-07.md`,
+> Track 2). Kafka messaging ships but is not exercised end-to-end (examples/infra use RabbitMQ).
+
 ## Milestones
 
 - **M1 (after Phase 4):** a service can be built by hand on `platform-service-parent` with correlation IDs, JSON logs, RFC-9457 errors. Tag `0.1.0`.

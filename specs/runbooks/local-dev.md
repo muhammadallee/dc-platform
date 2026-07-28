@@ -1,13 +1,23 @@
 # Runbook — Local Development
 
 ## Prerequisites
-Java 21 (Temurin), Maven 3.9+, git. Docker Desktop OPTIONAL (only for `-Pdocker` and manual infra).
+Java 25 (Temurin/Corretto), Maven 3.9+, git. Docker Desktop OPTIONAL (only for `-Pdocker` and manual infra).
+The reactor pins Java 25 and Spring Boot 4.1 (`pom.xml`); building on an older JDK will fail the
+compiler-release check.
+
+## Toolchain baseline
+`.mvn/jvm.config` (committed) gives the Maven JVM a defined heap/stack (`-Xmx2g -Xss8m`) so large
+per-fork reactors don't crash the launcher. Use **`-T1`** (single reactor thread) for a full-root
+`verify` — `-T1C` can exceed the platform native-thread limit on some machines and abort the build;
+`-T1C` is fine for single-module (`-pl … -am`) builds. On Windows, keep the checkout and the local
+Maven repo (`~/.m2`) on the **same drive**: cross-drive builds hit a manifest-JAR classpath bug
+(worked around in `platform-parent` via `useManifestOnlyJar=false`, but same-drive avoids it entirely).
 
 ## Everyday commands
 ```bash
-mvn -T1C verify                                   # full build+tests, no Docker needed
+mvn -T1 verify                                    # full build+tests, no Docker needed (use -T1, not -T1C)
 mvn -T1C -pl <path/to/module> -am verify          # one module + its dependencies
-mvn -T1C install                                  # put platform into ~/.m2 for local apps
+mvn -T1 install                                   # put platform into ~/.m2 for local apps
 ./tooling/scripts/golden-path.sh                  # end-to-end DX check (after phase 13)
 ```
 

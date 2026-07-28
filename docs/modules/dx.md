@@ -33,7 +33,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 |---|---|---|
 | `noDirectMessagingInfrastructure` | `KafkaTemplate` / `RabbitTemplate` / listener containers | `EventPublisher` / `@EventHandler` |
 | `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
-| `noSystemGetenv` | `System.getenv(...)` | the platform secrets property source |
+| `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
 Rules match banned types by fully-qualified name, so a service that pulls neither Kafka nor Rabbit
 still compiles the test.

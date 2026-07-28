@@ -151,13 +151,15 @@ public final class PlatformUsageRules {
 
     /**
      * A service must not read configuration or secrets via {@link System#getenv} — reference them
-     * through the platform secrets property source (and {@code dc.platform.*} for config).
+     * through Spring config placeholders ({@code ${...}}, populated by Spring Cloud Vault for secrets)
+     * and {@code dc.platform.*} for platform config.
      */
     static ArchRule noSystemGetenv() {
         return ArchRuleDefinition.noClasses()
                 .should().callMethod(System.class, "getenv")
                 .orShould().callMethod(System.class, "getenv", String.class)
-                .because("use the platform secrets property source — never System.getenv for secrets or config")
+                .because("read secrets and config through Spring config placeholders "
+                        + "(populated by Spring Cloud Vault) — never System.getenv")
                 .allowEmptyShould(true);
     }
 

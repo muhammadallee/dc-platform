@@ -5,6 +5,18 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Changed
+- Secrets references reconciled to the sanctioned pattern instead of a platform module (decision D81;
+  supersedes the secrets portion of D80). Services consume secrets from HashiCorp Vault via Spring
+  Cloud Vault as ordinary `${...}` property placeholders, rotating static-KV values by rolling pod
+  restart — so no `secrets` capability is built. The `noSystemGetenv` usage rule
+  (`platform-test-api`, `testing.arch`) now names "Spring config placeholders (populated by Spring
+  Cloud Vault)" as the alternative rather than a nonexistent "platform secrets property source"
+  (rule message, javadoc, `PlatformUsageRulesTest`, the `EnvReader` fixture, and `docs/modules/dx.md`
+  updated). `spring-cloud-vault` stays off the dependency ban list by design; the
+  secrets-unresolvable-ref FailureAnalyzer and the `platform-tck-secrets` TCK (D57) remain absent by
+  design. See `specs/phase-17-secrets.md`.
+
 ### Fixed
 - Build: `platform-parent` sets `useManifestOnlyJar=false` on surefire and failsafe. On Windows,
   when the project and the local Maven repo live on different drives, surefire could not relativize
@@ -21,13 +33,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 16 (A.2): `FailureAnalyzer`s that turn the top misconfigurations into Boot "Description /
   Action" diagnostics whose Action names the exact fix (starter, property, or doc anchor) —
   messaging-no-transport, security-no-issuer, data-jpa-missing-flyway, storage-fs-root-unwritable.
-  Registered per capability in `META-INF/spring.factories`; each is unit-tested. (secrets-unresolvable-ref
-  is deferred — no secrets capability exists in the reactor yet.)
+  Registered per capability in `META-INF/spring.factories`; each is unit-tested. (No
+  secrets-unresolvable-ref analyzer: secrets are consumed via Spring Cloud Vault, not a platform
+  module — see the Changed entry below and decision D81.)
 - Phase 16 (B.1): dependency bans in `platform-service-parent` — an enforcer `bannedDependencies`
   (`searchTransitive=false`) fails a service that declares a wrapped library directly (spring-kafka,
   spring-rabbit, awssdk:s3, resilience4j-*, springdoc-*), each message naming the starter to use
-  instead. Escape hatch `-Dplatform.bans.skip=true`. (spring-cloud-vault deferred with the secrets
-  capability.)
+  instead. Escape hatch `-Dplatform.bans.skip=true`. (spring-cloud-vault is intentionally NOT banned —
+  it is the sanctioned mechanism for consuming secrets; see the Changed entry below and decision D81.)
 - Phase 16 (B.2): finalized `PlatformUsageRules` (platform-test-api `testing.arch`) — added three
   consumer conformance rules: no `ResponseEntityExceptionHandler` subclass, no `new ObjectMapper()`,
   no `Thread.sleep` in production. Each violation message names the platform alternative + doc anchor.

@@ -30,11 +30,11 @@ class PlatformUsageRulesTest {
     }
 
     @Test
-    void systemGetenvIsFlaggedWithASecretsMessage() {
+    void systemGetenvIsFlaggedWithAConfigPlaceholderMessage() {
         assertThatThrownBy(() -> PlatformUsageRules.noSystemGetenv().check(BAD))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("getenv")
-                .hasMessageContaining("platform secrets");
+                .hasMessageContaining("placeholders");
     }
 
     @Test

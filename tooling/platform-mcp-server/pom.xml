@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../build/platform-parent</relativePath>
+  </parent>
+
+  <artifactId>platform-mcp-server</artifactId>
+  <packaging>jar</packaging>
+
+  <name>DC Platform :: MCP Server</name>
+  <description>
+    Read-only MCP server (Implementation category) that answers authoritative platform questions for
+    agents — capabilities, config keys, error codes, usage snippets, starters, version — from the
+    build-time platform-index.json rather than from training-data guesses. Runs locally over stdio:
+    `java -jar platform-mcp-server.jar --stdio`.
+  </description>
+
+  <dependencies>
+    <!-- Official MCP Java SDK (aggregates mcp-core + mcp-json-jackson2); version from platform-dependencies. -->
+    <dependency>
+      <groupId>io.modelcontextprotocol.sdk</groupId>
+      <artifactId>mcp</artifactId>
+    </dependency>
+    <!-- Index model binding; Boot-managed version. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <!-- Minimal Boot runtime for the repackaged executable jar + logging (no web server: stdio only). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Bundle the generated platform-index.json (repo docs/reference) into the jar so the server is
+           one self-contained artifact. Regenerated every build by platform-docs' PlatformIndexTest. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-platform-index</id>
+            <phase>generate-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../../docs/reference</directory>
+                  <includes><include>platform-index.json</include></includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Executable jar run over stdio (see the module description and PlatformMcpApplication). -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>ae.gov.dubaicustoms.platform.mcp.PlatformMcpApplication</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <goals><goal>repackage</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- The bootstrap/transport wiring (main, stdio loop) is exercised end-to-end by the Acceptance
+           probe, not unit tests; exclude it from the line-coverage gate so the tool logic sets the bar. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/PlatformMcpApplication.class</exclude>
+            <exclude>**/PlatformMcpServer.class</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

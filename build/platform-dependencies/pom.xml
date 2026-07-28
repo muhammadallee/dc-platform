@@ -151,6 +151,14 @@
         <artifactId>sdk</artifactId>
         <version>1.9.1</version>
       </dependency>
+
+      <!-- Phase 16 (C): official MCP Java SDK for platform-mcp-server. The `mcp` artifact aggregates
+           mcp-core + mcp-json-jackson2 (which brings Reactor + Jackson). Boot does not manage it. -->
+      <dependency>
+        <groupId>io.modelcontextprotocol.sdk</groupId>
+        <artifactId>mcp</artifactId>
+        <version>0.14.1</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

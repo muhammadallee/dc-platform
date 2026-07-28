@@ -31,6 +31,14 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Phase 16 (B.2): finalized `PlatformUsageRules` (platform-test-api `testing.arch`) — added three
   consumer conformance rules: no `ResponseEntityExceptionHandler` subclass, no `new ObjectMapper()`,
   no `Thread.sleep` in production. Each violation message names the platform alternative + doc anchor.
+- Phase 16 (C): a platform MCP server so agents query authoritative facts instead of guessing.
+  `platform-docs` generates `platform-index.json` (capabilities + starter coords, config keys, error
+  codes, API/SPI inventory with `@API` status, usage snippets) with a completeness gate against the
+  reactor's starters. New `tooling/platform-mcp-server` (MCP Java SDK) bundles that index and serves
+  six read-only tools over stdio — `find_capability`, `property_lookup`, `error_code_lookup`,
+  `usage_example`, `list_starters`, `platform_version` — via `java -jar platform-mcp-server.jar --stdio`.
+  Tool contract tests run against a fixture index. Added to the reactor and BOM; MCP SDK pinned in
+  platform-dependencies.
 - Phase 16 (E): the service archetype now also generates `.mcp.json` (platform MCP endpoint +
   stdio-fallback note) and `catalog-info.yaml` (Backstage Component: name, `owner` param,
   `dc.platform/train` annotation). New `owner` archetype property (default `platform-team`).

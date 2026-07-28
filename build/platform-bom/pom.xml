@@ -136,6 +136,7 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-flags</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-ratelimit</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-docs</artifactId><version>${revision}</version></dependency>
+      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-mcp-server</artifactId><version>${revision}</version></dependency>
     </dependencies>
   </dependencyManagement>
 

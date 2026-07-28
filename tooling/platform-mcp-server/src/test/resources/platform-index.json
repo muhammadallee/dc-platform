@@ -1,0 +1,34 @@
+{
+  "version": "9.9.9-TEST",
+  "capabilities": [
+    {
+      "name": "messaging",
+      "doc": "modules/messaging.md",
+      "oneLiner": "Publish and consume integration events via EventPublisher and @EventHandler.",
+      "starters": [
+        "ae.gov.dubaicustoms.platform:platform-starter-messaging-inmemory",
+        "ae.gov.dubaicustoms.platform:platform-starter-messaging-kafka"
+      ]
+    },
+    {
+      "name": "cache",
+      "doc": "modules/cache.md",
+      "oneLiner": "Caching abstraction with caffeine and redis providers.",
+      "starters": ["ae.gov.dubaicustoms.platform:platform-starter-cache-caffeine"]
+    }
+  ],
+  "properties": [
+    {"name": "dc.platform.messaging.enabled", "type": "Boolean", "default": "true", "description": "Master switch.", "deprecation": "", "capability": "messaging"},
+    {"name": "dc.platform.messaging.publish-timeout", "type": "Duration", "default": "10s", "description": "Publish timeout.", "deprecation": "", "capability": "messaging"},
+    {"name": "dc.platform.cache.enabled", "type": "Boolean", "default": "true", "description": "Master switch.", "deprecation": "", "capability": "cache"}
+  ],
+  "errorCodes": [
+    {"code": "DC-CORE-0500", "capability": "core", "declaredBy": "PlatformException"}
+  ],
+  "apiTypes": [
+    {"type": "ae.gov.dubaicustoms.platform.messaging.EventPublisher", "kind": "interface", "status": "STABLE", "since": "0.1.0"}
+  ],
+  "snippets": [
+    {"capability": "messaging", "id": "messaging-publish", "code": "publisher.publish(\"dc.orders\", event);"}
+  ]
+}

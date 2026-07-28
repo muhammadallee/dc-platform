@@ -165,9 +165,12 @@
     <module>examples/example-golden-path</module>
     <module>examples/example-extension-provider</module>
     <module>examples/example-event-driven</module>
-    <!-- Phase 14: documentation as a product. LAST on purpose — its build-time generators read every
-         other module's target/ (config metadata, error-codes.csv), so all siblings must build first. -->
+    <!-- Phase 14: documentation as a product. Its build-time generators read every other module's
+         target/ (config metadata, error-codes.csv, platform-index.json), so all siblings build first. -->
     <module>docs/platform-docs</module>
+    <!-- Phase 16 (C): the MCP server bundles the platform-index.json that platform-docs generates, so
+         it is declared AFTER docs to build once the index is fresh. -->
+    <module>tooling/platform-mcp-server</module>
   </modules>
 
   <build>

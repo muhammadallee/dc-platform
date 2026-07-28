@@ -114,6 +114,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
+| `dc.platform.observability.capability-metrics.enabled` | Boolean | `true` | Whether to emit the platform.capability.active{capability=...} gauge (0 or 1) from each capability's descriptor for adoption telemetry. |  |
 | `dc.platform.observability.common-tags.enabled` | Boolean | `true` | switch for the common-tags customizer |  |
 | `dc.platform.observability.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.observability.health.groups.enabled` | Boolean | `true` | contribute default liveness/readiness health groups |  |

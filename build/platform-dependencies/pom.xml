@@ -159,6 +159,26 @@
         <artifactId>mcp</artifactId>
         <version>0.14.1</version>
       </dependency>
+
+      <!-- Phase 16 (D): OpenRewrite for platform-migrations (adopt/upgrade recipes). The rewrite-bom
+           aligns rewrite-core/java/maven/test. Boot does not manage it. -->
+      <dependency>
+        <groupId>org.openrewrite</groupId>
+        <artifactId>rewrite-bom</artifactId>
+        <version>8.66.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Convergence alignments for OpenRewrite's transitive tree (dependencyConvergence gate): its
+           modules pull ASM 9.3/9.9 and jetbrains-annotations 24.0.0/26.0.2 along different paths.
+           Aligned to the higher version each; re-check on every rewrite bump. Used only by
+           platform-migrations. -->
+      <dependency><groupId>org.ow2.asm</groupId><artifactId>asm</artifactId><version>9.9</version></dependency>
+      <dependency><groupId>org.ow2.asm</groupId><artifactId>asm-tree</artifactId><version>9.9</version></dependency>
+      <dependency><groupId>org.ow2.asm</groupId><artifactId>asm-analysis</artifactId><version>9.9</version></dependency>
+      <dependency><groupId>org.ow2.asm</groupId><artifactId>asm-util</artifactId><version>9.9</version></dependency>
+      <dependency><groupId>org.ow2.asm</groupId><artifactId>asm-commons</artifactId><version>9.9</version></dependency>
+      <dependency><groupId>org.jetbrains</groupId><artifactId>annotations</artifactId><version>26.0.2-1</version></dependency>
     </dependencies>
   </dependencyManagement>
 

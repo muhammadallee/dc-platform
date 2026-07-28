@@ -39,6 +39,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `usage_example`, `list_starters`, `platform_version` — via `java -jar platform-mcp-server.jar --stdio`.
   Tool contract tests run against a fixture index. Added to the reactor and BOM; MCP SDK pinned in
   platform-dependencies.
+- Phase 16 (D): agent enablement beyond the MCP server. New `tooling/platform-skill` generates a
+  Claude Skill (`SKILL.md` + condensed resources) from the platform index and packages
+  `platform-skill.zip`, with a staleness gate that its version equals the train version. New
+  `tooling/platform-migrations` (OpenRewrite): `AdoptPlatform` swaps directly-declared wrapped
+  libraries for the platform starters and flags hand-rolled `@ControllerAdvice` for review (with the
+  rationale, not deleted); a `UpgradeTo_1_0` skeleton bumps the service parent. `platform-docs`
+  generates `llms.txt` + `llms-full.txt` from the nav with Diátaxis labels. New
+  `docs/concepts/discovery.md` explains the five discovery layers. Both modules added to the reactor
+  and BOM; OpenRewrite pinned (with ASM/annotations convergence alignments) in platform-dependencies.
 - Phase 16 (E): the service archetype now also generates `.mcp.json` (platform MCP endpoint +
   stdio-fallback note) and `catalog-info.yaml` (Backstage Component: name, `owner` param,
   `dc.platform/train` annotation). New `owner` archetype property (default `platform-team`).

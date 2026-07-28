@@ -1,0 +1,39 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: ae.gov.dubaicustoms.platform.AdoptPlatform
+displayName: Adopt the DC Platform
+description: >-
+  Swap directly-declared wrapped libraries for the platform starters and flag hand-rolled exception
+  handlers for review. Run against a service with the rewrite-maven-plugin. Adding the platform BOM,
+  CLAUDE.md/AGENTS.md/.mcp.json, and the conformance test are separate manual/archetype steps.
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: org.springframework.kafka
+      oldArtifactId: spring-kafka
+      newGroupId: ae.gov.dubaicustoms.platform
+      newArtifactId: platform-starter-messaging-kafka
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: org.springframework.amqp
+      oldArtifactId: spring-rabbit
+      newGroupId: ae.gov.dubaicustoms.platform
+      newArtifactId: platform-starter-messaging-rabbit
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: org.springdoc
+      oldArtifactId: springdoc-openapi-starter-webmvc-ui
+      newGroupId: ae.gov.dubaicustoms.platform
+      newArtifactId: platform-starter-openapi
+  - ae.gov.dubaicustoms.platform.migrations.FlagHandRolledExceptionHandler
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: ae.gov.dubaicustoms.platform.UpgradeTo_1_0
+displayName: Upgrade a service to DC Platform 1.0
+description: >-
+  Per-train upgrade skeleton. Bumps the platform-service-parent to 1.0.0; deprecation-driven property
+  rewrites for the train are generated into this list from the platform's deprecation metadata.
+recipeList:
+  - org.openrewrite.maven.ChangeParentPom:
+      oldGroupId: ae.gov.dubaicustoms.platform
+      oldArtifactId: platform-service-parent
+      newGroupId: ae.gov.dubaicustoms.platform
+      newArtifactId: platform-service-parent
+      newVersion: 1.0.0

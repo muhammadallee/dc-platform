@@ -130,10 +130,14 @@ Four themes, sequenced so each is independently shippable and the reactor stays 
 2. **Give Kafka a real path:** an `example-event-driven` `-Pkafka` profile + a `@Tag("docker")` Kafka TCK
    run, or explicitly mark the Kafka starter *experimental* in `@API` status and docs until infra supports
    it. Don't ship an untested starter as STABLE.
-3. Add TCKs for cache, audit, idempotency.
+3. Add TCKs for cache, audit, idempotency — DONE for **audit** (`platform-tck-audit` / `AuditSinkTck`)
+   and **idempotency** (`platform-tck-idempotency` / `IdempotencyStoreTck`), each certifying the shipped
+   docker-free impl (JdbcAuditSink, JdbcIdempotencyStore) on H2. **Cache excluded by design** (D82): it
+   exposes no platform SPI (delegates to Spring's `CacheManager`), so a provider-TCK has no subject.
 
 *Outcome: the "deferred secrets" debt is retired by making the references correct (not by building an
-unneeded module); no starter ships without an example and a test.*
+unneeded module); audit + idempotency now have certified contracts; no starter ships without an example
+and a test.*
 
 ### Track 3 — Harden release & CI (Weeks 3–5, medium)
 1. Cut **1.0.0** to establish the japicmp baseline, then flip `ignoreMissingOldVersion=false` so the

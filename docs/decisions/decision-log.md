@@ -554,3 +554,18 @@ One line of context per decision; details live in the commit bodies referenced.
   standardizes Vault wiring is noted for later, to be built **only if** per-service config drift becomes
   a measured cost — at which point the `spring-cloud-vault` *direct-dependency* ban would be reinstated
   to steer teams to the starter. This entry records the decision; the reconciliation edits are pending.
+
+- **D82 — TCKs added for audit and idempotency; none for cache (it has no SPI).** The 2026-07 review
+  (Track 2.3) called for TCKs on cache, audit, and idempotency. Audit (`AuditSink` SPI, multiple sinks:
+  log/jdbc/messaging) and idempotency (`IdempotencyStore` contract, JDBC default + Redis) each have a
+  genuine provider contract, so `platform-tck-audit` (`AuditSinkTck`) and `platform-tck-idempotency`
+  (`IdempotencyStoreTck`) ship as abstract contract suites and certify the shipped docker-free impls on
+  H2 (`JdbcAuditSink`; `JdbcIdempotencyStore`). Audit's sinks are public modules, so the audit TCK
+  certifies `JdbcAuditSink` in its own test; idempotency's store is internal to its autoconfigure module,
+  so that module's tests (test-scope dep on the TCK, no cycle) certify `JdbcIdempotencyStore` while the
+  TCK module itself certifies a reference in-memory store. **Cache gets no TCK:** `platform-cache-api`
+  exposes only `CacheKeyConvention` + `CacheNames` and delegates caching to Spring's
+  `CacheManager`/`Cache` — there is no platform cache SPI with multiple providers to certify, so a
+  provider-TCK has no subject (certifying Spring's own `Cache` is not the platform's job); the key
+  convention is a pure function already unit-tested. New `@since 1.0.0` types are `...tck.*` (Test
+  Support), outside the apiguardian `@API`-required contract surface (D79), matching the existing TCKs.

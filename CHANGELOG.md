@@ -30,6 +30,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   directly avoids the manifest JAR; no effect on same-drive/Linux/CI builds.
 
 ### Added
+- TCKs for the **audit** and **idempotency** capabilities. `platform-tck-audit` (`AuditSinkTck`) and
+  `platform-tck-idempotency` (`IdempotencyStoreTck`) are abstract contract suites a provider extends to
+  be platform-certified. `AuditSinkTck` verifies an event persists, core fields survive the round trip,
+  the trail is append-only, null resource/correlationId are tolerated, and concurrent writes are safe;
+  `IdempotencyStoreTck` verifies first-wins, duplicate rejection, TTL self-expiry, and atomicity under
+  concurrent callers. Both certify the shipped docker-free implementations — `JdbcAuditSink` on H2, and
+  `JdbcIdempotencyStore` on H2 (wired in `platform-idempotency-autoconfigure`); the idempotency TCK also
+  ships a reference in-memory store. Added to the reactor and BOM. No cache TCK: cache exposes no
+  platform SPI (it delegates to Spring's `CacheManager`), so a provider-TCK has no subject — see D82.
 - Usage-snippet rot gate: `UsageSnippetCompileTest` (platform-docs) compiles every `snippet:<id>`-tagged
   Java block in `docs/modules/*.md` in-memory against the platform types on the test classpath, so the
   examples the platform index / MCP server hand to agents can never silently drift from the current API

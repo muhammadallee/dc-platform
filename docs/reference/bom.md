@@ -123,6 +123,8 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-tck-locking` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-flags` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-ratelimit` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-tck-idempotency` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-tck-audit` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-docs` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-mcp-server` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-skill` | `${revision}` |

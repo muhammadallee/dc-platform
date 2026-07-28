@@ -55,7 +55,7 @@ Pick exactly one (each brings its own `EventTransport`):
 
 ## Zero-config behavior
 
-```java
+```java snippet:messaging-usage
 @EventType("OrderPlaced")
 record OrderPlaced(String orderId) {}
 

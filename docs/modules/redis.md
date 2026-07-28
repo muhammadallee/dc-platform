@@ -25,7 +25,7 @@ Connection tuning (host, port, timeout, pool) stays on Boot's own `spring.data.r
 
 ## Usage
 
-```java
+```java snippet:redis-usage
 @Service
 class Sessions {
     private final StringRedisTemplate redis;

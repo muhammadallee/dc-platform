@@ -31,7 +31,7 @@ modules stay provider-free.
 
 ## Zero-config behavior
 
-```java
+```java snippet:validation-usage
 record CreateOrder(@NotBlankTrimmed String customerName,
                    @NotNull @Ulid String declarationId,
                    @SafeText String remark,

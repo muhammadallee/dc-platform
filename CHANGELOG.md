@@ -30,6 +30,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   directly avoids the manifest JAR; no effect on same-drive/Linux/CI builds.
 
 ### Added
+- Usage-snippet rot gate: `UsageSnippetCompileTest` (platform-docs) compiles every `snippet:<id>`-tagged
+  Java block in `docs/modules/*.md` in-memory against the platform types on the test classpath, so the
+  examples the platform index / MCP server hand to agents can never silently drift from the current API
+  (a renamed method or type fails the build, naming the page and snippet). The classpath is resolved from
+  the Surefire isolated classloader so the gate works forked and in-process; authored snippets need no
+  imports (a platform + Spring/Jakarta import preamble is prepended). Seeded on four capabilities
+  (messaging, events, validation, redis); tagging a page's usage example also makes it the capability's
+  published index snippet (`PlatformIndexGenerator` prefers tagged blocks). Untagged Java blocks stay
+  illustrative fragments and are not compiled — coverage grows as pages adopt the tag.
 - Phase 16 (A.1): apiguardian `@API(status, since)` stability markers on every public API/SPI contract
   type — a Layer-0 discovery signal read straight from the jar. New `org.apiguardian:apiguardian-api`
   pin in `platform-dependencies`; api-root types are `STABLE`, SPI types `EXPERIMENTAL`. Two new

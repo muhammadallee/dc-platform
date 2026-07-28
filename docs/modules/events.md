@@ -54,7 +54,7 @@ sequenceDiagram
 
 ## Zero-config behavior
 
-```java
+```java snippet:events-usage
 record OrderPlaced(String orderId) implements DomainEvent {}
 
 @Service

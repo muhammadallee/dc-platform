@@ -143,8 +143,11 @@ unneeded module); no starter ships without an example and a test.*
 3. Implement CI **path-filtered incremental builds** (the phase-02 stretch TODO).
 
 ### Track 4 — Mature the discovery/adoption moat (Weeks 4–8, strategic)
-1. **Compile-check usage snippets** in the index against the live API (a generator test) so agent-served
-   examples can't rot.
+1. **Compile-check usage snippets** — DONE (initial). `UsageSnippetCompileTest` (platform-docs) compiles
+   every `snippet:<id>`-tagged Java block in `docs/modules/*.md` against the live platform API on the
+   test classpath; a renamed API fails the build. Seeded on 4 capabilities (messaging, events, validation,
+   redis); the remaining pages' examples are illustrative fragments and adopt the tag incrementally. *Next:
+   convert more capability examples into compilable, tagged snippets to raise coverage.*
 2. Ship a **hosted MCP transport** and wire the archetype's `.mcp.json` endpoint end-to-end.
 3. Close the **adoption loop**: a scheduled report/alert on un-adopted capabilities and services lagging
    on N-2 trains, feeding the Grafana dashboard (and fill the release-notes deep-link).

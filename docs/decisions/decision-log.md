@@ -527,14 +527,30 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D80 — `tenancy` (P3) and `secrets` (phase-10) are out of scope for the 1.0 train; Kafka ships
   un-exercised.** The 2026-07 platform review (`docs/reviews/platform-review-2026-07.md`) recorded that
   `tenancy` was never implemented (acceptable — P3/optional) and `secrets` was deferred while the
-  reactor still carries five special-cases *around* its absence (a deferred FailureAnalyzer, a deferred
-  Vault enforcer ban, a deferred OpenRewrite step, and the phase-10 spec). Rather than leave these as
-  silent gaps, they are declared explicitly: tenancy is a candidate for a later train; `secrets`
-  (secrets-api + secrets-env default + autoconfigure + starter, Vault behind `@Tag("docker")`) is the
-  first Track-2 item for the next train, after which its five special-cases are un-deferred. Kafka
+  reactor still carries references *around* its absence (a deferred FailureAnalyzer, a deferred Vault
+  enforcer ban, the `noSystemGetenv` usage rule pointing at a "platform secrets property source", and
+  the phase-10 spec). Rather than leave these as silent gaps, they are declared explicitly: tenancy is
+  a candidate for a later train. **Secrets scope is superseded by D81** (below): after clarifying the
+  consuming architecture, the decision is to *reconcile the references*, not build a capability — the
+  original "secrets-api + secrets-env + autoconfigure + starter" plan in this entry is withdrawn. Kafka
   messaging remains in the catalog but has no example/smoke path (transport infra uses RabbitMQ, D76);
   it should be marked `EXPERIMENTAL` via `@API` until an end-to-end path exists. This decision only
   records scope; no code changed with it. The same review actioned Track 1 (doc/toolchain truth-gaps):
   architecture-doc + runbook version headers corrected to Boot 4.1 / Java 25, README docs pointer fixed,
   `docs/decisions/README.md` added to explain the ADR-vs-log split, `.mvn/jvm.config` committed, and
   stray JVM crash logs removed.
+- **D81 — no secrets capability is built; the dangling references are reconciled to Spring Cloud Vault
+  (supersedes the secrets portion of D80).** Clarifying the consuming architecture settled it: services
+  read secrets from HashiCorp Vault via **Spring Cloud Vault** (`spring-cloud-vault-config`) as ordinary
+  `${...}` property placeholders, and rotate **static-KV values by rolling pod restart** (Level-1
+  consumption, no in-process `@RefreshScope`). Property injection is therefore native Spring and rotation
+  is a Kubernetes-rollout concern, so a `secrets-api/spi/impl/autoconfigure` capability would wrap what
+  Spring and K8s already do — confirming D50. The action (Track 2, `specs/phase-17-secrets.md`) is to
+  re-point the four references at that sanctioned pattern: reword the `noSystemGetenv` rule (+ its
+  javadoc/test/fixture/docs) to name Spring config placeholders instead of a platform source; drop the
+  deferred `secrets-unresolvable-ref` FailureAnalyzer; drop the deferred `spring-cloud-vault` ban
+  (Spring Cloud Vault is the *allowed* mechanism, not a banned one); and confirm the `platform-tck-secrets`
+  omission (D57) stands. A POM-only convention starter (`platform-starter-secrets-vault`) that only
+  standardizes Vault wiring is noted for later, to be built **only if** per-service config drift becomes
+  a measured cost — at which point the `spring-cloud-vault` *direct-dependency* ban would be reinstated
+  to steer teams to the starter. This entry records the decision; the reconciliation edits are pending.

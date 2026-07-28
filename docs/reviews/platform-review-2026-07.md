@@ -39,13 +39,15 @@ The improvements below are **not rescue work** — they are the difference betwe
 
 | Capability | Spec | Status | Impact |
 |---|---|---|---|
-| **secrets** (env default, Vault) | Phase 10, P2 | **Absent from reactor** | A core golden-path concern (secret resolution) has no platform answer. Its FailureAnalyzer, Vault ban, and OpenRewrite step are all stubbed/deferred *around* the hole. |
+| **secrets** | Phase 10, P2 | **Intentionally absent** (D50/D80) | Services use Spring Cloud Vault + `${...}` placeholders with restart-based rotation, so no platform module is warranted (see revised finding below and `specs/phase-17-secrets.md`). The real debt is *inconsistency*: four references (`noSystemGetenv` rule, a deferred FailureAnalyzer, a deferred Vault ban, the omitted TCK) point at a platform secrets source that doesn't exist — they must be re-pointed, not backfilled with a module. |
 | **tenancy** | Phase 11, P3 | **Absent** | Acceptable (P3/optional), but should be explicitly declared out-of-scope for 1.0, not silently missing. |
 | **Kafka messaging** | Phase 7 | Module exists; examples/infra deferred to Rabbit | Untested end-to-end. Ships a starter with no example and no smoke coverage → adopter risk. |
 
-The secrets gap is the notable one: it's referenced in five places (FailureAnalyzer, ban, migration
-recipe, phase-10 spec) as "deferred," so the platform carries the *cost* of the feature (special-cased
-exclusions) without the *value*.
+The secrets item is the notable one — but the resolution is *reconciliation, not construction*. After
+clarifying the consuming architecture (Spring Cloud Vault + `${...}` placeholders, static-KV values
+rotated by rolling restart), building a `secrets-api/spi/impl` capability would wrap what Spring and
+Kubernetes already do. The debt is that the reactor references a platform secrets source that was never
+built; the fix is to re-point those references at the sanctioned pattern (Track 2, `specs/phase-17-secrets.md`).
 
 ### B. Documentation drift & fragmentation — **High (low effort)**
 
@@ -115,15 +117,23 @@ Four themes, sequenced so each is independently shippable and the reactor stays 
 *Outcome: docs match reality; new joiners and agents stop tripping.*
 
 ### Track 2 — Finish the golden path (Weeks 2–4, medium)
-1. **Implement the `secrets` capability** (`secrets-api`, `secrets-env` default, `secrets-autoconfigure`,
-   starter; Vault provider behind `@Tag("docker")`). Then *un-defer* its FailureAnalyzer, enforcer ban,
-   and OpenRewrite step — removing five special-cases.
+1. **Reconcile the `secrets` references — do NOT build a capability** (revised 2026-07 after clarifying
+   the consuming architecture; see `specs/phase-17-secrets.md`, decision D80). Services consume secrets
+   from HashiCorp Vault via **Spring Cloud Vault** as ordinary `${...}` property placeholders, and rotate
+   static-KV values by **rolling pod restart** — so property injection is native Spring and there is
+   nothing for a platform module to wrap. Instead, re-point the four dangling references at that
+   sanctioned pattern: reword the `noSystemGetenv` usage rule (+ its test/fixture/docs), drop the
+   deferred `secrets-unresolvable-ref` FailureAnalyzer and the deferred `spring-cloud-vault` ban (Spring
+   Cloud Vault is *allowed*, not banned), and confirm the `platform-tck-secrets` omission (D57) stands.
+   A POM-only convention starter (`platform-starter-secrets-vault`) is noted for *later, only if*
+   per-service Vault config drift becomes a real cost.
 2. **Give Kafka a real path:** an `example-event-driven` `-Pkafka` profile + a `@Tag("docker")` Kafka TCK
    run, or explicitly mark the Kafka starter *experimental* in `@API` status and docs until infra supports
    it. Don't ship an untested starter as STABLE.
 3. Add TCKs for cache, audit, idempotency.
 
-*Outcome: no starter ships without an example and a test; the "deferred" debt is retired.*
+*Outcome: the "deferred secrets" debt is retired by making the references correct (not by building an
+unneeded module); no starter ships without an example and a test.*
 
 ### Track 3 — Harden release & CI (Weeks 3–5, medium)
 1. Cut **1.0.0** to establish the japicmp baseline, then flip `ignoreMissingOldVersion=false` so the
@@ -142,5 +152,6 @@ Four themes, sequenced so each is independently shippable and the reactor stays 
 ## 5. Recommended immediate next steps
 
 Highest ratio of trust-per-hour: **Track 1** (a day of doc/toolchain fixes, done here) and the **secrets
-capability** (the one functional hole actively costing special-cases). Cut 1.0.0 only *after* secrets
-lands, so the baseline japicmp locks in includes the full intended surface.
+reconciliation** (a small `build:`/`docs:` change re-pointing the four dangling references — *not* a new
+module; see `specs/phase-17-secrets.md`). With secrets settled as intentionally-out (D50/D80), 1.0.0 can
+be cut once the reconciliation lands, so the japicmp baseline locks in the true intended surface.

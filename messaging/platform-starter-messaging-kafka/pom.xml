@@ -19,6 +19,10 @@
   <description>
     Kafka-backed messaging transport, built from spring.kafka.* configuration. Publish with
     EventPublisher, handle with @EventHandler; /actuator/platform reports messaging[ACTIVE kafka].
+    EXPERIMENTAL: covered by Testcontainers round-trip tests, but not part of the supported golden
+    path — no example uses it, it is absent from the smoke matrix, and platform infrastructure does
+    not yet provide Kafka (RabbitMQ is the supported broker). Pin deliberately; expect it to firm up
+    in a later train.
   </description>
 
   <dependencies>

@@ -4,6 +4,11 @@ Publish and handle integration events without coupling application code to a bro
 `EventPublisher`, mark handler methods `@EventHandler`, and pick the transport (in-memory, Kafka,
 or RabbitMQ) via a starter.
 
+> **Kafka is experimental.** The Kafka transport has Testcontainers round-trip tests, but it is not
+> yet part of the supported platform: no example uses it, it is absent from the smoke matrix, and
+> platform infrastructure does not yet provide Kafka. **RabbitMQ is the supported broker** today;
+> adopt `platform-starter-messaging-kafka` deliberately and expect it to firm up in a later train.
+
 ## What you get
 
 - **`EventPublisher`** — `publish(destination, event)` / `publish(destination, payload)`.

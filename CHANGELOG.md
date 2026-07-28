@@ -16,6 +16,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   updated). `spring-cloud-vault` stays off the dependency ban list by design; the
   secrets-unresolvable-ref FailureAnalyzer and the `platform-tck-secrets` TCK (D57) remain absent by
   design. See `specs/phase-17-secrets.md`.
+- Kafka messaging transport labelled **experimental**. It has Testcontainers round-trip tests but is
+  not part of the supported golden path (no example, absent from the smoke matrix, platform infra does
+  not yet provide Kafka — RabbitMQ is the supported broker). Noted in
+  `platform-starter-messaging-kafka` (POM description) and `docs/modules/messaging.md` so adopters pin
+  it deliberately.
 
 ### Fixed
 - Build: `platform-parent` sets `useManifestOnlyJar=false` on surefire and failsafe. On Windows,

@@ -73,6 +73,9 @@ nav:
   # DocsLinkCheckTest gate resolves the table of contents in book/index.md.
   - Book:
       - "The DC Platform Book": book/index.md
+      - "Primer 1 — Spring Boot foundations": book/primer/01-spring-boot.md
+      - "Primer 2 — Microservices foundations": book/primer/02-microservices.md
+      - "Chassis overview": book/overview.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

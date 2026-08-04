@@ -82,6 +82,9 @@ nav:
       - "Ch. 4 — OpenAPI": book/chapters/04-openapi.md
       - "Ch. 5 — Security and authorization": book/chapters/05-security-authz.md
       - "Ch. 6 — REST client and resilience": book/chapters/06-restclient-resilience.md
+      - "Ch. 7 — Messaging and events": book/chapters/07-messaging-events.md
+      - "Ch. 8 — Data and persistence": book/chapters/08-data.md
+      - "Ch. 9 — Caching and Redis": book/chapters/09-cache-redis.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

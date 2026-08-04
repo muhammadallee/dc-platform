@@ -55,6 +55,7 @@ class UsageSnippetCompileTest {
             "org.springframework.beans.factory.annotation",
             "org.springframework.web.bind.annotation",
             "org.springframework.transaction.annotation",
+            "org.springframework.cache.annotation",
             "org.springframework.validation.annotation",
             "org.springframework.core.annotation",
             "org.springframework.data.redis.core",
@@ -63,6 +64,8 @@ class UsageSnippetCompileTest {
             "jakarta.validation",
             "jakarta.validation.constraints",
             "jakarta.persistence",
+            "org.springframework.data.annotation",
+            "org.springframework.data.domain",
             "org.slf4j",
             "io.micrometer.core.instrument",
             "org.springdoc.core.customizers",
@@ -84,7 +87,14 @@ class UsageSnippetCompileTest {
             // jakarta.validation.Configuration vs org.springframework.context.annotation.Configuration
             "org.springframework.context.annotation.Configuration",
             // io.micrometer.core.instrument.Clock vs java.time.Clock — docs mean the injectable one
-            "java.time.Clock");
+            "java.time.Clock",
+            // org.springframework.data.annotation.{Id,Version} vs jakarta.persistence.{Id,Version} —
+            // entity snippets mean the JPA ones; Spring Data's are for non-JPA stores.
+            "jakarta.persistence.Id",
+            "jakarta.persistence.Version",
+            // jakarta.persistence.Cacheable (a boolean JPA hint) vs Spring's caching annotation —
+            // docs mean Spring's. Without this the JPA one silently wins and @Cacheable("x") fails.
+            "org.springframework.cache.annotation.Cacheable");
 
     private record Snippet(String page, String id, String code) {}
 

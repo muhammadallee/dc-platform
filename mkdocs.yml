@@ -76,6 +76,9 @@ nav:
       - "Primer 1 — Spring Boot foundations": book/primer/01-spring-boot.md
       - "Primer 2 — Microservices foundations": book/primer/02-microservices.md
       - "Chassis overview": book/overview.md
+      - "Ch. 1 — Core": book/chapters/01-core.md
+      - "Ch. 2 — Errors and validation": book/chapters/02-errors-validation.md
+      - "Ch. 3 — Logging and observability": book/chapters/03-logging-observability.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

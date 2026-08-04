@@ -65,6 +65,15 @@
       <artifactId>jackson-databind</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- SNIPPET COMPILATION ONLY. The observability chapter teaches Counter/Timer/MeterRegistry, and
+         UsageSnippetCompileTest compiles those examples against the real types. Micrometer reaches the
+         autoconfigure modules as an optional dependency, so it does not arrive here transitively.
+         Version managed by spring-boot-dependencies; this jar is intentionally empty. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
 
     <!-- ORDERING ONLY (not used on the classpath): the generators read every autoconfigure module's
          target/ (config metadata; errors-autoconfigure also writes error-codes.csv in its test phase).

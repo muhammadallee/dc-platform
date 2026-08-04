@@ -63,6 +63,8 @@ class UsageSnippetCompileTest {
             "jakarta.validation",
             "jakarta.validation.constraints",
             "jakarta.persistence",
+            "org.slf4j",
+            "io.micrometer.core.instrument",
             "java.time",
             "java.util",
             "java.util.stream",
@@ -76,7 +78,9 @@ class UsageSnippetCompileTest {
      */
     private static final List<String> DISAMBIGUATING_IMPORTS = List.of(
             // jakarta.validation.Configuration vs org.springframework.context.annotation.Configuration
-            "org.springframework.context.annotation.Configuration");
+            "org.springframework.context.annotation.Configuration",
+            // io.micrometer.core.instrument.Clock vs java.time.Clock — docs mean the injectable one
+            "java.time.Clock");
 
     private record Snippet(String page, String id, String code) {}
 

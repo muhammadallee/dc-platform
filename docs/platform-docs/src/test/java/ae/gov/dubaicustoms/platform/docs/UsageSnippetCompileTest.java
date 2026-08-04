@@ -28,16 +28,18 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /**
- * Holds the platform's agent-facing usage snippets honest against the live API: every fenced Java
- * block in {@code docs/modules/*.md} tagged {@code snippet:<id>} is compiled in-memory against the
- * platform types on the test classpath. If an API a snippet demonstrates is renamed or its signature
- * changes, the snippet stops compiling and this gate fails — so the examples the MCP server / index
- * hand to agents can never silently rot.
+ * Holds the platform's authored usage snippets honest against the live API: every fenced Java block
+ * in {@code docs/modules/*.md} or anywhere under {@code docs/book/} tagged {@code snippet:<id>} is
+ * compiled in-memory against the platform types on the test classpath. If an API a snippet
+ * demonstrates is renamed or its signature changes, the snippet stops compiling and this gate fails —
+ * so neither the examples the MCP server / index hand to agents nor the book's teaching examples can
+ * silently rot.
  *
  * <p>Only {@code snippet:}-tagged blocks are compiled. Untagged Java blocks in the pages are
  * intentionally illustrative (partial fragments, {@code ...} elisions, undeclared domain types) and
- * are not compilation units; tagging a block opts it into this gate (and, via
- * {@link PlatformIndexGenerator}, makes it the capability's published snippet). Authored snippets need
+ * are not compilation units; tagging a block opts it into this gate (and, on a capability page, via
+ * {@link PlatformIndexGenerator}, makes it the capability's published snippet — book snippets are
+ * compiled but never published, since the index only reads capability pages). Authored snippets need
  * no {@code import} lines — a preamble of the platform packages found on the classpath (plus the
  * common Spring/Jakarta packages a usage example draws on) is prepended before compilation, so the
  * docs stay readable.
@@ -114,28 +116,44 @@ class UsageSnippetCompileTest {
 
     // --- snippet discovery --------------------------------------------------------------------
 
+    /** The doc trees whose tagged snippets are gated: the capability pages and the whole book. */
+    private static final List<String> SNIPPET_ROOTS = List.of("modules", "book");
+
     private static List<Snippet> collectTaggedJavaSnippets() throws IOException {
         List<Snippet> out = new ArrayList<>();
-        Path modules = PlatformDocs.docsRoot().resolve("modules");
-        try (Stream<Path> pages = Files.list(modules)) {
-            pages.filter(p -> p.getFileName().toString().endsWith(".md")).sorted().forEach(page -> {
-                try {
-                    String content = Files.readString(page);
-                    Matcher m = FENCE.matcher(content);
-                    while (m.find()) {
-                        String info = m.group(1).trim();
-                        int tag = info.indexOf("snippet:");
-                        if (info.startsWith("java") && tag >= 0) {
-                            String id = info.substring(tag + "snippet:".length()).trim();
-                            out.add(new Snippet(page.getFileName().toString(), id, m.group(2).strip()));
-                        }
-                    }
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
+        Path docs = PlatformDocs.docsRoot();
+        for (String root : SNIPPET_ROOTS) {
+            Path dir = docs.resolve(root);
+            if (!Files.isDirectory(dir)) {
+                continue; // a tree that does not exist yet contributes no snippets
+            }
+            try (Stream<Path> pages = Files.walk(dir)) {
+                pages.filter(p -> p.getFileName().toString().endsWith(".md"))
+                        .sorted()
+                        .forEach(page -> collectFrom(docs, page, out));
+            }
         }
         return out;
+    }
+
+    private static void collectFrom(Path docs, Path page, List<Snippet> out) {
+        String content;
+        try {
+            content = Files.readString(page);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        // The docs-relative path, not the bare filename: the book has repeating leaf names.
+        String label = docs.relativize(page).toString().replace('\\', '/');
+        Matcher m = FENCE.matcher(content);
+        while (m.find()) {
+            String info = m.group(1).trim();
+            int tag = info.indexOf("snippet:");
+            if (info.startsWith("java") && tag >= 0) {
+                String id = info.substring(tag + "snippet:".length()).trim();
+                out.add(new Snippet(label, id, m.group(2).strip()));
+            }
+        }
     }
 
     // --- import preamble ----------------------------------------------------------------------

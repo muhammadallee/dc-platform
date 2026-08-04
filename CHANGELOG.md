@@ -5,7 +5,23 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Added
+- **The DC Platform Book** — long-form teaching documentation under `docs/book/`, layered over (not
+  replacing) the terse capability reference in `docs/modules/`. Fourteen themed chapters cover all 24
+  capabilities in a fixed eight-section shape (business value, core concepts, feature reference,
+  how-to, operations, deep dive, labs, checklist), preceded by a Spring Boot / microservices primer
+  and a chassis overview, and followed by cross-cutting chapters and appendices. Serves application
+  developers and platform operators as distinct audiences, with three learning paths. Wired into
+  `mkdocs.yml` under a new `Book` nav section as chapters land.
+
 ### Changed
+- `UsageSnippetCompileTest` now compiles `snippet:`-tagged Java blocks from `docs/book/**` as well as
+  `docs/modules/*.md`, so the book's teaching examples are held against the live API by the same gate
+  that protects the agent-facing capability snippets. Book snippets are compiled but not published:
+  `PlatformIndexGenerator` still reads only capability pages, so `platform-index.json` is unchanged.
+  `LlmsTxtGenerator` lists book pages in `llms.txt` but no longer inlines them into `llms-full.txt` —
+  long-form prose that restates the reference would multiply the full-text file and bury what an
+  agent actually needs.
 - Secrets references reconciled to the sanctioned pattern instead of a platform module (decision D81;
   supersedes the secrets portion of D80). Services consume secrets from HashiCorp Vault via Spring
   Cloud Vault as ordinary `${...}` property placeholders, rotating static-KV values by rolling pod

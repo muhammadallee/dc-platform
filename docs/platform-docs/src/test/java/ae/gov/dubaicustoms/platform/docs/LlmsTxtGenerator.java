@@ -17,6 +17,9 @@ import java.util.regex.Pattern;
  * full-text file. The nav is the single source, so the files cannot drift from the site; all pages
  * stay clean Markdown. Sections carry a Diátaxis label (Quickstart=tutorial, Capabilities=how-to +
  * reference, Concepts=explanation) so agents can pick the right kind of page (phase-16 D.3).
+ *
+ * <p>One exception to "the nav is the single source": pages under {@link #NOT_INLINED_PREFIX} are
+ * listed in {@code llms.txt} but not concatenated into {@code llms-full.txt}. See that constant.
  */
 final class LlmsTxtGenerator {
 
@@ -31,10 +34,19 @@ final class LlmsTxtGenerator {
             "Quickstart", "tutorial",
             "Concepts", "explanation",
             "Capabilities", "how-to + reference",
+            "Book", "explanation + tutorial",
             "Reference", "reference",
             "Runbooks", "how-to",
             "Operations", "how-to",
             "Decisions", "explanation");
+
+    /**
+     * Nav paths under this prefix are indexed in {@code llms.txt} but not inlined into
+     * {@code llms-full.txt}. The book is long-form teaching material that restates, at length, what
+     * the capability pages state once; concatenating it would multiply the full-text file several-fold
+     * and bury the reference an agent actually needs. The link-first index still points agents at it.
+     */
+    private static final String NOT_INLINED_PREFIX = "book/";
 
     private LlmsTxtGenerator() {
     }
@@ -81,6 +93,9 @@ final class LlmsTxtGenerator {
         full.append("> ").append(SUMMARY).append("\n");
         Path docs = PlatformDocs.docsRoot();
         for (Entry e : nav) {
+            if (e.path().startsWith(NOT_INLINED_PREFIX)) {
+                continue;
+            }
             Path page = docs.resolve(e.path());
             if (!Files.exists(page)) {
                 continue;

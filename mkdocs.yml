@@ -68,6 +68,11 @@ nav:
       - Developer experience: modules/dx.md
   - Testing: testing.md
   - Examples: examples.md
+  # The book is long-form teaching material layered over the reference above. Entries are added here
+  # as chapters are written; the tree under docs/book/ is scaffolded ahead of them so the
+  # DocsLinkCheckTest gate resolves the table of contents in book/index.md.
+  - Book:
+      - "The DC Platform Book": book/index.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

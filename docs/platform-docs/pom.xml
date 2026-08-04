@@ -45,6 +45,15 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Third-party versions Boot does not manage (springdoc). Imported so the snippet-compilation
+           dependencies below carry no hand-pinned literal — the platform's own BOM is the one truth. -->
+      <dependency>
+        <groupId>ae.gov.dubaicustoms.platform</groupId>
+        <artifactId>platform-dependencies</artifactId>
+        <version>${revision}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -72,6 +81,22 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- SNIPPET COMPILATION ONLY. The OpenAPI chapter teaches OpenApiCustomizer. springdoc is
+         optional in platform-openapi-autoconfigure (a capability you don't add costs you nothing),
+         so it does not arrive here transitively. Version from platform-dependencies. -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- SNIPPET COMPILATION ONLY. The resilience chapter teaches Resilience4j's own @Retry and
+         @CircuitBreaker (the platform deliberately ships no wrapper annotations), so the annotation
+         artifact must be resolvable. Version from resilience4j-bom via platform-dependencies. -->
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-annotations</artifactId>
       <scope>test</scope>
     </dependency>
 

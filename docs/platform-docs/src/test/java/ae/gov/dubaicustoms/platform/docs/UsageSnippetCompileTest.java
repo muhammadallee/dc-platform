@@ -66,6 +66,16 @@ class UsageSnippetCompileTest {
             "java.util.stream",
             "java.io");
 
+    /**
+     * Simple names offered by more than one on-demand import above, which javac then rejects as
+     * ambiguous. A single-type import wins over any on-demand import, so listing the intended type here
+     * resolves the clash for every snippet without making authors write a fully-qualified annotation.
+     * Only genuine collisions belong here; each is included only if the type is on the classpath.
+     */
+    private static final List<String> DISAMBIGUATING_IMPORTS = List.of(
+            // jakarta.validation.Configuration vs org.springframework.context.annotation.Configuration
+            "org.springframework.context.annotation.Configuration");
+
     private record Snippet(String page, String id, String code) {}
 
     @TestFactory
@@ -167,6 +177,11 @@ class UsageSnippetCompileTest {
         }
         StringBuilder sb = new StringBuilder();
         packages.forEach(p -> sb.append("import ").append(p).append(".*;\n"));
+        for (String type : DISAMBIGUATING_IMPORTS) {
+            if (typeResolvable(type)) {
+                sb.append("import ").append(type).append(";\n");
+            }
+        }
         return sb.toString();
     }
 
@@ -238,6 +253,12 @@ class UsageSnippetCompileTest {
         }
         URL dir = Thread.currentThread().getContextClassLoader().getResource(pkg.replace('.', '/'));
         return dir != null;
+    }
+
+    /** True when a single-type import of {@code type} would resolve — its class file is on the classpath. */
+    private static boolean typeResolvable(String type) {
+        return Thread.currentThread().getContextClassLoader()
+                .getResource(type.replace('.', '/') + ".class") != null;
     }
 
     // --- helpers ------------------------------------------------------------------------------

@@ -72,8 +72,10 @@ class UsageSnippetCompileTest {
             "io.github.resilience4j.retry.annotation",
             "io.github.resilience4j.circuitbreaker.annotation",
             "io.github.resilience4j.timelimiter.annotation",
+            "org.springframework.scheduling.annotation",
             "java.time",
             "java.util",
+            "java.util.concurrent",
             "java.util.stream",
             "java.io");
 

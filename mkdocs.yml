@@ -85,6 +85,10 @@ nav:
       - "Ch. 7 — Messaging and events": book/chapters/07-messaging-events.md
       - "Ch. 8 — Data and persistence": book/chapters/08-data.md
       - "Ch. 9 — Caching and Redis": book/chapters/09-cache-redis.md
+      - "Ch. 10 — Coordination": book/chapters/10-coordination.md
+      - "Ch. 11 — Storage and files": book/chapters/11-storage-files.md
+      - "Ch. 12 — Audit": book/chapters/12-audit.md
+      - "Ch. 13 — Rate limiting and feature flags": book/chapters/13-ratelimit-flags.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

@@ -95,6 +95,10 @@ nav:
       - "Observability strategy": book/crosscutting/observability-strategy.md
       - "Local development vs production": book/crosscutting/local-vs-production.md
       - "Extending the chassis": book/crosscutting/extending.md
+      - "Appendix A — Configuration": book/appendix/a-configuration.md
+      - "Appendix B — Glossary": book/appendix/b-glossary.md
+      - "Appendix C — Troubleshooting": book/appendix/c-troubleshooting.md
+      - "Appendix D — Compatibility": book/appendix/d-compatibility.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

@@ -7,12 +7,23 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ### Added
 - **The DC Platform Book** — long-form teaching documentation under `docs/book/`, layered over (not
-  replacing) the terse capability reference in `docs/modules/`. Fourteen themed chapters cover all 24
-  capabilities in a fixed eight-section shape (business value, core concepts, feature reference,
-  how-to, operations, deep dive, labs, checklist), preceded by a Spring Boot / microservices primer
-  and a chassis overview, and followed by cross-cutting chapters and appendices. Serves application
-  developers and platform operators as distinct audiences, with three learning paths. Wired into
-  `mkdocs.yml` under a new `Book` nav section as chapters land.
+  replacing) the terse capability reference in `docs/modules/`. 27 pages, ~19,000 lines: front matter
+  with three learning paths, a two-part Spring Boot / microservices primer, a chassis overview,
+  fourteen themed chapters covering all 24 capabilities in a fixed eight-section shape (business
+  value, core concepts, feature reference, how-to, operations, deep dive, labs, checklist), five
+  cross-cutting chapters (patterns and anti-patterns, the security model, observability strategy,
+  local vs production, extending the chassis), and four appendices (configuration, glossary,
+  troubleshooting cookbook, compatibility). Serves application developers and platform operators as
+  distinct audiences. Every `snippet:`-tagged Java example is compiled against the live API by
+  `UsageSnippetCompileTest`, and every relative link is resolved by `DocsLinkCheckTest`, so the book
+  cannot silently rot. Wired into `mkdocs.yml` under a `Book` nav section.
+
+  Two rough edges surfaced while writing and are documented rather than worked around: the documented
+  way to persist `Money` names `MoneyConverter`, which lives in an `.internal` package carrying no
+  compatibility guarantee (chapter 8 §6.2 gives the fully-qualified form and a six-line alternative
+  over the STABLE `Money.toStorageString()`/`parse()`); and `CacheNames.of(...)` is not a
+  compile-time constant, so it cannot name a cache in `@Cacheable` at all (chapter 9 §4.2 gives the
+  working pattern). Both are candidates for an upstream fix.
 
 ### Changed
 - `UsageSnippetCompileTest` now compiles `snippet:`-tagged Java blocks from `docs/book/**` as well as

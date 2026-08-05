@@ -89,6 +89,12 @@ nav:
       - "Ch. 11 — Storage and files": book/chapters/11-storage-files.md
       - "Ch. 12 — Audit": book/chapters/12-audit.md
       - "Ch. 13 — Rate limiting and feature flags": book/chapters/13-ratelimit-flags.md
+      - "Ch. 14 — Testing and developer experience": book/chapters/14-testing-dx.md
+      - "Patterns and anti-patterns": book/crosscutting/patterns.md
+      - "The platform security model": book/crosscutting/security-model.md
+      - "Observability strategy": book/crosscutting/observability-strategy.md
+      - "Local development vs production": book/crosscutting/local-vs-production.md
+      - "Extending the chassis": book/crosscutting/extending.md
   - Reference:
       - Configuration properties: reference/properties.md
       - Error codes: reference/error-codes.md

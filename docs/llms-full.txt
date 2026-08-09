@@ -787,7 +787,7 @@ modules stay provider-free.
 
 ## Zero-config behavior
 
-```java
+```java snippet:validation-usage
 record CreateOrder(@NotBlankTrimmed String customerName,
                    @NotNull @Ulid String declarationId,
                    @SafeText String remark,
@@ -1343,6 +1343,11 @@ Publish and handle integration events without coupling application code to a bro
 `EventPublisher`, mark handler methods `@EventHandler`, and pick the transport (in-memory, Kafka,
 or RabbitMQ) via a starter.
 
+> **Kafka is experimental.** The Kafka transport has Testcontainers round-trip tests, but it is not
+> yet part of the supported platform: no example uses it, it is absent from the smoke matrix, and
+> platform infrastructure does not yet provide Kafka. **RabbitMQ is the supported broker** today;
+> adopt `platform-starter-messaging-kafka` deliberately and expect it to firm up in a later train.
+
 ## What you get
 
 - **`EventPublisher`** — `publish(destination, event)` / `publish(destination, payload)`.
@@ -1389,7 +1394,7 @@ Pick exactly one (each brings its own `EventTransport`):
 
 ## Zero-config behavior
 
-```java
+```java snippet:messaging-usage
 @EventType("OrderPlaced")
 record OrderPlaced(String orderId) {}
 
@@ -1543,7 +1548,7 @@ sequenceDiagram
 
 ## Zero-config behavior
 
-```java
+```java snippet:events-usage
 record OrderPlaced(String orderId) implements DomainEvent {}
 
 @Service
@@ -1805,7 +1810,7 @@ Connection tuning (host, port, timeout, pool) stays on Boot's own `spring.data.r
 
 ## Usage
 
-```java
+```java snippet:redis-usage
 @Service
 class Sessions {
     private final StringRedisTemplate redis;
@@ -2581,7 +2586,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 |---|---|---|
 | `noDirectMessagingInfrastructure` | `KafkaTemplate` / `RabbitTemplate` / listener containers | `EventPublisher` / `@EventHandler` |
 | `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
-| `noSystemGetenv` | `System.getenv(...)` | the platform secrets property source |
+| `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
 Rules match banned types by fully-qualified name, so a service that pulls neither Kafka nor Rabbit
 still compiles the test.
@@ -3170,7 +3175,12 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-tck-locking` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-flags` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-ratelimit` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-tck-idempotency` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-tck-audit` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-docs` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-mcp-server` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-skill` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-migrations` | `${revision}` |
 
 
 ---
@@ -3413,6 +3423,9 @@ See also: [compatibility](../reference/compatibility.md) · [release runbook](re
 # Decision Log
 
 One line of context per decision; details live in the commit bodies referenced.
+
+> This is the tactical, chronological journal (`D1…Dn`). Foundational, architecture-defining
+> decisions live as ADRs alongside it — see [`README.md`](README.md) for how the two relate.
 
 ## Phase 2 — build gates
 
@@ -3930,6 +3943,54 @@ One line of context per decision; details live in the commit bodies referenced.
   would be noise. API-root types default to `STABLE`, SPI types to `EXPERIMENTAL` (extension points more
   likely to evolve). A companion rule enforces that apiguardian `DEPRECATED` and `java.lang.@Deprecated`
   **co-occur**, so deprecation is a guarantee both the compiler and machine readers see, never docs-only.
+
+## Post-1.0-RC1 — scope & hygiene (2026-07 platform review)
+
+- **D80 — `tenancy` (P3) and `secrets` (phase-10) are out of scope for the 1.0 train; Kafka ships
+  un-exercised.** The 2026-07 platform review (`docs/reviews/platform-review-2026-07.md`) recorded that
+  `tenancy` was never implemented (acceptable — P3/optional) and `secrets` was deferred while the
+  reactor still carries references *around* its absence (a deferred FailureAnalyzer, a deferred Vault
+  enforcer ban, the `noSystemGetenv` usage rule pointing at a "platform secrets property source", and
+  the phase-10 spec). Rather than leave these as silent gaps, they are declared explicitly: tenancy is
+  a candidate for a later train. **Secrets scope is superseded by D81** (below): after clarifying the
+  consuming architecture, the decision is to *reconcile the references*, not build a capability — the
+  original "secrets-api + secrets-env + autoconfigure + starter" plan in this entry is withdrawn. Kafka
+  messaging remains in the catalog but has no example/smoke path (transport infra uses RabbitMQ, D76);
+  it should be marked `EXPERIMENTAL` via `@API` until an end-to-end path exists. This decision only
+  records scope; no code changed with it. The same review actioned Track 1 (doc/toolchain truth-gaps):
+  architecture-doc + runbook version headers corrected to Boot 4.1 / Java 25, README docs pointer fixed,
+  `docs/decisions/README.md` added to explain the ADR-vs-log split, `.mvn/jvm.config` committed, and
+  stray JVM crash logs removed.
+- **D81 — no secrets capability is built; the dangling references are reconciled to Spring Cloud Vault
+  (supersedes the secrets portion of D80).** Clarifying the consuming architecture settled it: services
+  read secrets from HashiCorp Vault via **Spring Cloud Vault** (`spring-cloud-vault-config`) as ordinary
+  `${...}` property placeholders, and rotate **static-KV values by rolling pod restart** (Level-1
+  consumption, no in-process `@RefreshScope`). Property injection is therefore native Spring and rotation
+  is a Kubernetes-rollout concern, so a `secrets-api/spi/impl/autoconfigure` capability would wrap what
+  Spring and K8s already do — confirming D50. The action (Track 2, `specs/phase-17-secrets.md`) is to
+  re-point the four references at that sanctioned pattern: reword the `noSystemGetenv` rule (+ its
+  javadoc/test/fixture/docs) to name Spring config placeholders instead of a platform source; drop the
+  deferred `secrets-unresolvable-ref` FailureAnalyzer; drop the deferred `spring-cloud-vault` ban
+  (Spring Cloud Vault is the *allowed* mechanism, not a banned one); and confirm the `platform-tck-secrets`
+  omission (D57) stands. A POM-only convention starter (`platform-starter-secrets-vault`) that only
+  standardizes Vault wiring is noted for later, to be built **only if** per-service config drift becomes
+  a measured cost — at which point the `spring-cloud-vault` *direct-dependency* ban would be reinstated
+  to steer teams to the starter. This entry records the decision; the reconciliation edits are pending.
+
+- **D82 — TCKs added for audit and idempotency; none for cache (it has no SPI).** The 2026-07 review
+  (Track 2.3) called for TCKs on cache, audit, and idempotency. Audit (`AuditSink` SPI, multiple sinks:
+  log/jdbc/messaging) and idempotency (`IdempotencyStore` contract, JDBC default + Redis) each have a
+  genuine provider contract, so `platform-tck-audit` (`AuditSinkTck`) and `platform-tck-idempotency`
+  (`IdempotencyStoreTck`) ship as abstract contract suites and certify the shipped docker-free impls on
+  H2 (`JdbcAuditSink`; `JdbcIdempotencyStore`). Audit's sinks are public modules, so the audit TCK
+  certifies `JdbcAuditSink` in its own test; idempotency's store is internal to its autoconfigure module,
+  so that module's tests (test-scope dep on the TCK, no cycle) certify `JdbcIdempotencyStore` while the
+  TCK module itself certifies a reference in-memory store. **Cache gets no TCK:** `platform-cache-api`
+  exposes only `CacheKeyConvention` + `CacheNames` and delegates caching to Spring's
+  `CacheManager`/`Cache` — there is no platform cache SPI with multiple providers to certify, so a
+  provider-TCK has no subject (certifying Spring's own `Cache` is not the platform's job); the key
+  convention is a pure function already unit-tested. New `@since 1.0.0` types are `...tck.*` (Test
+  Support), outside the apiguardian `@API`-required contract surface (D79), matching the existing TCKs.
 
 
 ---

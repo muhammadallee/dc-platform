@@ -1076,8 +1076,8 @@
     "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-logging</artifactId>\n</dependency>"
   }, {
     "capability" : "validation",
-    "id" : "validation",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-validation</artifactId>\n</dependency>"
+    "id" : "validation-usage",
+    "code" : "record CreateOrder(@NotBlankTrimmed String customerName,\n                   @NotNull @Ulid String declarationId,\n                   @SafeText String remark,\n                   @NotNull @FutureInstant Instant pickupAt) { }"
   }, {
     "capability" : "observability",
     "id" : "observability",
@@ -1100,12 +1100,12 @@
     "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-security-authz</artifactId>\n</dependency>\n<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-security</artifactId>\n</dependency>"
   }, {
     "capability" : "messaging",
-    "id" : "messaging",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-messaging-inmemory</artifactId>\n</dependency>"
+    "id" : "messaging-usage",
+    "code" : "@EventType(\"OrderPlaced\")\nrecord OrderPlaced(String orderId) {}\n\n@Service\nclass OrdersService {\n    private final EventPublisher publisher;\n\n    OrdersService(EventPublisher publisher) {\n        this.publisher = publisher;\n    }\n\n    void place(String orderId) {\n        publisher.publish(\"dc.orders\", new OrderPlaced(orderId));\n    }\n}\n\n@Component\nclass OrdersEventHandlers {\n    @EventHandler(destination = \"dc.orders\", eventType = \"OrderPlaced\")\n    void onOrderPlaced(OrderPlaced event) {\n        // ...\n    }\n}"
   }, {
     "capability" : "events",
-    "id" : "events",
-    "code" : "sequenceDiagram\n    participant Service\n    participant DomainEventPublisher\n    participant Spring as ApplicationEventPublisher\n    participant Registrar as DomainEventHandlerRegistrar\n    participant TX as Transaction\n    participant Handler as \"@DomainEventHandler method\"\n    participant Relay as DomainEventRelay (optional)\n    participant Messaging as EventPublisher (optional)\n\n    Service->>DomainEventPublisher: publish(event)\n    DomainEventPublisher->>Spring: publishEvent(event)\n    Spring->>Registrar: onApplicationEvent(event)\n    Spring->>Relay: onApplicationEvent(event)\n    alt transaction active\n        Registrar-->>TX: register afterCommit callback\n        Relay-->>TX: register afterCommit callback\n        TX->>Handler: afterCommit() -> invoke\n        TX->>Messaging: afterCommit() -> publish(destination, event)\n    else no transaction\n        Registrar->>Handler: invoke immediately\n        Relay->>Messaging: publish(destination, event) immediately\n    end"
+    "id" : "events-usage",
+    "code" : "record OrderPlaced(String orderId) implements DomainEvent {}\n\n@Service\nclass OrdersService {\n    private final DomainEventPublisher publisher;\n\n    OrdersService(DomainEventPublisher publisher) {\n        this.publisher = publisher;\n    }\n\n    @Transactional\n    void place(String orderId) {\n        // ... persist the order ...\n        publisher.publish(new OrderPlaced(orderId));\n    }\n}\n\n@Component\nclass OrderNotifications {\n    @DomainEventHandler\n    void onOrderPlaced(OrderPlaced event) {\n        // runs only after the surrounding transaction commits\n    }\n}"
   }, {
     "capability" : "data",
     "id" : "data",
@@ -1116,8 +1116,8 @@
     "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-cache-caffeine</artifactId>\n</dependency>"
   }, {
     "capability" : "redis",
-    "id" : "redis",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-redis</artifactId>\n</dependency>"
+    "id" : "redis-usage",
+    "code" : "@Service\nclass Sessions {\n    private final StringRedisTemplate redis;\n\n    Sessions(StringRedisTemplate redis) { this.redis = redis; }\n\n    void put(String id, String value) {\n        redis.opsForValue().set(id, value);   // stored at \"<app>:<id>\"\n    }\n}"
   }, {
     "capability" : "resilience",
     "id" : "resilience",

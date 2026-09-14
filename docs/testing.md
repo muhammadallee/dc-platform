@@ -20,8 +20,9 @@ Add the test starter in **test** scope — it brings the platform test kit, `spr
 
 ## Slice annotations
 
-Compose a test context with one annotation (all activate the `test` profile → console logging and
-in-memory providers, so no Docker/network/credentials are needed):
+Compose a test context with one annotation (all activate the `test` profile and in-memory providers,
+so no Docker/network/credentials are needed; logs keep the deployment JSON format — only the `local`
+profile switches to console — so tests can assert structured log events):
 
 | Annotation | Boots | Use for |
 |---|---|---|
@@ -53,6 +54,20 @@ class OrdersEventsTest {
   ```java
   mvc.perform(get("/orders/42").with(TestTokens.user("alice").roles("VIEWER").jwt()))
      .andExpect(status().isOk());
+  ```
+
+  `TestTokens` bypasses the JWT decoder, so it cannot prove token *validation*. For that, use
+  **`TestJwtIssuer`** — a loopback JWKS endpoint plus RS256 tokens (valid, expired, or signed by an
+  untrusted key), no IdP or network:
+
+  ```java
+  static final TestJwtIssuer ISSUER = TestJwtIssuer.start();
+
+  @DynamicPropertySource
+  static void issuer(DynamicPropertyRegistry registry) {
+      registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", ISSUER::jwkSetUri);
+  }
+  // real HTTP: "Authorization: Bearer " + ISSUER.token("alice")  → 200; ISSUER.expiredToken("alice") → 401
   ```
 
 - **`assertThatProblem(...)`** — AssertJ assertions over RFC-9457 `ProblemDetail` bodies, including

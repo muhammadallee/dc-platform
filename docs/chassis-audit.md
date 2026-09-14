@@ -95,7 +95,7 @@ commit; static findings say so.
 | F17 | — | SI | `platform-service-parent` surefire | Suspected cross-drive manifest-JAR issue (fixed for platform modules only). Not reproduced: service on D:, repository on C:, Windows PowerShell, 26/26 tests | — | none | — | CLOSED (not reproduced) |
 | F18 | P3 | OH | pre-existing, outside the three capabilities | `messaging` feature = in-memory transport with no prod guard; `release.sh` runs the gate without its `-Drevision`; `smoke-matrix.sh` uses a fixed port and `/tmp` log | — | not changed | — | OPEN |
 | F20 | P2 | CD | `examples/example-golden-path` | Reproduced after the F4 fix: `OrderFlowTest` 500 "Table ORDERS not found" (Flyway now owns the schema; Hibernate DDL is off) | the example had no migration; F4 had hidden it (and `-Ppg` could never have created the table) | `db/migration/V1__create_orders.sql` | `OrderFlowTest`, `OrderProblemResponseTest` (reactor) | FIXED |
-| F21 | P2 | CD | git mode of `tooling/scripts/golden-path.sh` | Static: tracked as `100644`; `release.sh` and `release.yml` call `./tooling/scripts/golden-path.sh`, which fails with "Permission denied" on Linux | executable bit never recorded (Windows checkout) | new CI job calls `bash tooling/scripts/golden-path.sh`; the mode itself is left for the committer (`git update-index --chmod=+x tooling/scripts/golden-path.sh`) | — | PARTIAL |
+| F21 | P2 | CD | git mode of `tooling/scripts/golden-path.sh` | Static: tracked as `100644`; `release.sh` and `release.yml` call `./tooling/scripts/golden-path.sh`, which fails with "Permission denied" on Linux | executable bit never recorded (Windows checkout) | tracked as `100755` (`git update-index --chmod=+x`); the new CI job also calls it through `bash` | — | FIXED |
 | F19 | — | EB | this workstation | `mvn -T1C` full reactor hits the OS native-thread limit here (prior-session record); long background JVMs get reaped | environment | full builds run at `-T1`, foreground, in chunks | — | see §8 |
 
 ## 7. The gate
@@ -205,7 +205,6 @@ task-owned repository.
 | F15 conformance rule misses Jackson 3 `ObjectMapper`/`JsonMapper` construction. | Add `tools.jackson.databind.ObjectMapper` and `…json.JsonMapper` names + a fixture. |
 | F16 deprecated `spring-boot-starter-web` in the template. | Switch to `spring-boot-starter-webmvc` in a separate change with a regenerated matrix. |
 | F18 in-memory messaging has no prod guard; `release.sh` gate ignores `-Drevision`; `smoke-matrix.sh` fixed port/log. | Separate hardening tickets. |
-| F21 `golden-path.sh` lacks the executable bit, so `release.sh`/`release.yml` would fail on Linux. | `git update-index --chmod=+x tooling/scripts/golden-path.sh` in the commit that lands this work. |
 | Offline build | Not claimed; would need a pre-provisioned repository and a `-o` run. |
 | Async / virtual-thread MDC propagation | Not a supported path in the generated service; not tested. |
 | `mvn -T1C` full reactor on this workstation | Environment limit (native threads); CI's `-T1C` run is the evidence once it runs. |

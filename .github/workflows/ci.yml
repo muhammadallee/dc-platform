@@ -52,7 +52,6 @@ jobs:
           GP_MAVEN_REPO: ${{ runner.temp }}/gp-m2
           GP_WORKDIR: ${{ runner.temp }}/gp-work
           GP_EVIDENCE: ${{ runner.temp }}/gp-evidence
-        # Invoked through bash: the script is tracked without the executable bit (mode 100644).
         run: bash tooling/scripts/golden-path.sh
       - name: Keep gate evidence (surefire reports, sanitized logs, summary)
         if: always()

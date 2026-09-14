@@ -1037,6 +1037,11 @@
     "status" : "STABLE",
     "since" : "0.1.0"
   }, {
+    "type" : "ae.gov.dubaicustoms.platform.test.security.TestJwtIssuer",
+    "kind" : "class",
+    "status" : "EXPERIMENTAL",
+    "since" : "1.0.0"
+  }, {
     "type" : "ae.gov.dubaicustoms.platform.test.security.TestTokens",
     "kind" : "class",
     "status" : "STABLE",

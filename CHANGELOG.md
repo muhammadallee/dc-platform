@@ -6,6 +6,16 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ## [Unreleased]
 
 ### Added
+- `TestJwtIssuer` (`platform-test-api`, `test.security`, EXPERIMENTAL): a loopback JWKS endpoint that
+  mints RS256 tokens (valid, expired, untrusted-key), so tests can exercise real bearer-token
+  validation over HTTP — `TestTokens` bypasses the decoder.
+- Generator gate: `tooling/scripts/golden-path.sh` now installs into an isolated Maven repository,
+  rejects invalid feature input, and generates all 8 `messaging`/`data`/`restclient` combinations
+  (including omitted defaults and a relocated package) outside the checkout; each is verified (expected
+  tests must run) and booted as a jar with readiness, auth, capability, and JSON-log probes, plus profile
+  and prod fail-fast probes for `data,restclient`. Wired into CI as the `generator-gate` job. The
+  `archetype-it` fixtures cover omitted defaults, the `data,restclient` service, and a relocated
+  all-features project.
 - **The DC Platform Book** — long-form teaching documentation under `docs/book/`, layered over (not
   replacing) the terse capability reference in `docs/modules/`. 27 pages, ~19,000 lines: front matter
   with three learning paths, a two-part Spring Boot / microservices primer, a chassis overview,
@@ -50,6 +60,30 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- Generated services (chassis audit, `docs/chassis-audit.md`). The service archetype's
+  `platformVersion` default was a stale `0.2.0-SNAPSHOT` (so omitting it produced an unbuildable
+  service); it is now the archetype's own version, stamped by resource filtering. `features` values are
+  matched as exact tokens and anything unsupported (`kafka`, `database`, spaces, `none,data`) fails
+  generation instead of silently producing a partial service. The template `.gitignore` never reached
+  the archetype jar (default excludes); it ships as `__gitignore__`. New opt-in `restclient` feature
+  (`platform-starter-restclient` + a `GreetingClient` sample). The `data` sample ships a Flyway
+  migration. The generated `application.yml` keeps its offline placeholders out of `prod`, where a
+  missing IdP, datasource, or downstream URL now fails startup instead of running on a placeholder IdP
+  and an in-memory H2, and the capability report is no longer anonymous. Generated services now carry
+  real-HTTP security, structured-logging, data, and REST-client tests.
+- Data: `platform-starter-data-jpa` brings `spring-boot-flyway`. Boot 4 moved `FlywayAutoConfiguration`
+  out of `spring-boot-autoconfigure`, so with `flyway-core` alone migrations never ran (and embedded
+  databases were silently built by Hibernate DDL). `FlywayPresenceCheck` now fails startup when the Boot
+  integration is missing, not only when the engine is. `example-golden-path` relied on that Hibernate DDL
+  for its `orders` table (and so could not have worked under `-Ppg`); it now ships
+  `db/migration/V1__create_orders.sql`.
+- REST client: `PlatformRestClientAutoConfiguration` is ordered after the security auto-configuration.
+  Its token relay is guarded by `@ConditionalOnBean(CurrentUserAccessor)`, which alphabetical
+  auto-configuration order evaluated before security registered the accessor — so the relay never
+  activated in a real application. Calls now also record `http.client.requests` observations tagged
+  with the platform client name, as the `PlatformRestClientFactory` contract states.
+- Docs: `@PlatformTest`, `docs/testing.md` and the book said the `test` profile switches logging to
+  console; only `local` does (tests see the deployment JSON format).
 - Build: `platform-parent` sets `useManifestOnlyJar=false` on surefire and failsafe. On Windows,
   when the project and the local Maven repo live on different drives, surefire could not relativize
   its manifest-JAR classpath across roots and the forked JVM silently dropped entries, surfacing as

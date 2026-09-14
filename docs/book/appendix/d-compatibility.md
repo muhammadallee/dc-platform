@@ -181,9 +181,10 @@ Public types carry apiguardian `@API(status, since)` — `STABLE`, `EXPERIMENTAL
 
 Two version constraints that will bite if you do not know them.
 
-**`maven-archetype-plugin:3.1.2`** — 3.2.0 and later make `archetype:generate` fork a lifecycle that
-fails when run outside a project on Maven 3.9.x. The [quickstart](../../quickstart.md) and the
-golden-path script both pin it. → [14](../chapters/14-testing-dx.md) §4.1
+**`maven-archetype-plugin:3.1.2`** — the version the [quickstart](../../quickstart.md) documents and the
+golden-path gate tests (3.4.0 also generates project-less on Maven 3.9.x). The archetype never relies on
+`archetype-post-generate.groovy`: 3.4.0's bundled Groovy cannot parse Java 25 class files. On PowerShell,
+quote every `-D` argument. → [14](../chapters/14-testing-dx.md) §4.1
 
 **`-T1`, not `-T1C`, on constrained machines** — one thread per core spawns many forked test JVMs and
 can hit an OS native-thread limit, which surfaces confusingly as a `NoClassDefFoundError` in an ArchUnit

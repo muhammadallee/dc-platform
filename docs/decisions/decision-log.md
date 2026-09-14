@@ -569,3 +569,33 @@ One line of context per decision; details live in the commit bodies referenced.
   provider-TCK has no subject (certifying Spring's own `Cache` is not the platform's job); the key
   convention is a pure function already unit-tested. New `@since 1.0.0` types are `...tck.*` (Test
   Support), outside the apiguardian `@API`-required contract surface (D79), matching the existing TCKs.
+- **D83 — archetype `features` is validated in the `pom.xml` template, not by `<validationRegex>`.**
+  Batch-mode `archetype:generate` (3.1.2 and 3.4.0, verified) ignores `validationRegex`, and
+  `archetype-post-generate.groovy` is not an option (3.4.0's Groovy cannot parse Java 25 class files).
+  The first-processed template derives `",<features>,"`, strips each known token, and on anything left
+  calls `String.matches` with an unclosed `[`; Velocity surfaces the exception text (which carries the
+  actionable message) as the generation error. Every template matches tokens exactly (`",data,"`), so
+  `database` can never enable `data`. A rejected generation leaves only a 0-byte `pom.xml`. This also
+  corrects D66's rationale (re-tested on Maven 3.9.9 / JDK 25): 3.1.2 does run post-generate Groovy,
+  and 3.4.0 generates project-less without error — the "requires a project" failure reproduces when
+  PowerShell splits unquoted `-Dkey=a.b` arguments. 3.1.2 stays the documented, gate-tested version.
+- **D84 — the archetype's `platformVersion` default is its own version, via filtering one file.**
+  ADR-005 puts every platform artifact on one train, so the archetype version IS the platform version.
+  Only `META-INF/maven/archetype-metadata.xml` is Maven-filtered; `archetype-resources` must stay
+  unfiltered because its `${artifactId}`/`${version}` belong to Velocity at generation time.
+- **D85 — generated `application.yml`: offline placeholders on `on-profile: "!prod"`; `prod` refuses
+  embedded databases.** The JWKS placeholder, the open capability report, and the sample downstream URL
+  apply to every profile except `prod`, so a production start without real coordinates hits the
+  platform's existing failure analyzers (`JwtDecoder` / DataSource / unresolvable placeholder) instead of
+  running on placeholders. `spring.datasource.embedded-database-connection=none` under `prod` stops Boot
+  from silently falling back to the bundled H2. Chosen over required `${ENV}` placeholders: it reuses
+  Boot's and the platform's own messages and keeps `application.yml` free of invented variable names.
+- **D86 — `restclient` feature sample has no business endpoint.** Like the messaging and data samples,
+  `GreetingClient` is a component only; its generated test drives it for real (loopback stub, and a
+  test-only controller for the inbound → outbound correlation/token-relay chain). The packaged-jar gate
+  therefore proves the client's registration and configuration, and the generated tests prove its
+  calls.
+- **D87 — `TestJwtIssuer` in the test kit, JDK-only.** Real bearer-token validation needs a JWKS the
+  resource server can fetch. A reusable `platform-test-api` fixture (JDK `HttpServer` + JDK RSA
+  signing, no third-party types in its API) serves generated services and the golden-path gate (which
+  compiles its helper against the installed jar) instead of copying ~150 lines into every service.

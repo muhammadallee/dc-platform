@@ -77,8 +77,9 @@ The platform's slices compose Boot's with the platform's own auto-configuration:
 | `@PlatformDataTest` | Boot's JPA slice on H2 **plus** platform JPA conventions | Repository and entity tests |
 | `@PlatformMessagingTest` | Messaging auto-configuration **plus** a `@Primary` `TestEventTransport` | Publish and handler assertions |
 
-All four activate the `test` profile, which selects console logging and in-memory providers — so no
-Docker, no network, no credentials.
+All four activate the `test` profile and in-memory providers — so no Docker, no network, no
+credentials. Logging stays in the deployment JSON format under `test` (only `local` switches to
+console), so a test can parse and assert the events the service really emits.
 
 !!! success "Best practice — `@PlatformWebTest` over `@WebMvcTest`, always"
     A `@WebMvcTest` asserting a 404 body proves your controller returns *something*. A
@@ -207,18 +208,19 @@ moment the lesson lands.
 `tooling/scripts/golden-path.sh` runs the entire onboarding path end to end:
 
 ```
-   install the platform
-        -> generate a service from the archetype
-        -> build it   (asserting CLAUDE.md exists and PlatformConformanceTest ran)
-        -> boot it
-        -> probe /actuator/health and /actuator/platform
-        -> stop
-   ... and FAIL past a 10-minute wall-clock SLA.
+   install the platform into an isolated Maven repository
+        -> reject invalid feature input
+        -> for all 8 feature combinations, outside the checkout:
+             generate -> mvn verify (every expected test class ran, none skipped)
+             -> java -jar -> readiness, auth (401/200 via a loopback JWKS), capability report, JSON logs
+        -> for data,restclient: spring-boot:run, the local profile, prod fail-fast and prod fixture boots
+        -> stop every process it started
+   ... and FAIL when one service takes more than 10 minutes to generate, verify and boot.
 ```
 
 That last clause is the interesting one. **The developer experience has a budget, and the budget is
-tested.** Not "we aim for a fast onboarding" in a wiki, but a script that goes red when it takes more
-than ten minutes.
+tested.** Not "we aim for a fast onboarding" in a wiki, but a script that goes red when a service takes
+more than ten minutes. It runs in CI as the `generator-gate` job.
 
 Without it, the onboarding path breaks silently between releases — an archetype property renamed, a
 starter that no longer resolves — and the next new team discovers it, at the worst possible moment for
@@ -287,8 +289,8 @@ one-starter-per-capability rule.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `platformVersion` | current release | The platform version to build against |
-| `features` | `none` | Comma-separated subset of `messaging`, `data` — adds starters **and** sample code |
+| `platformVersion` | the archetype's own version | The platform version to build against |
+| `features` | `none` | `none` or a comma-separated subset of `messaging`, `data`, `restclient` — adds starters, sample code **and** its tests; anything else fails generation |
 
 Feature samples are conditional: when a feature is off its sample source renders empty (Velocity
 `#if`) and its starter is omitted — so a `basic` project has no dead sample files.
@@ -320,13 +322,13 @@ mvn org.apache.maven.plugins:maven-archetype-plugin:3.1.2:generate -B \
   -DarchetypeArtifactId=platform-service-archetype \
   -DarchetypeVersion=<platform-version> \
   -DgroupId=com.acme.orders -DartifactId=orders-service -Dpackage=com.acme.orders \
-  -DplatformVersion=<platform-version> \
-  -Dfeatures=messaging,data
+  -Dfeatures=data,restclient
 ```
 
-!!! warning "Pin `maven-archetype-plugin:3.1.2`"
-    3.2.0 and later make `archetype:generate` fork a lifecycle that fails when run outside a project on
-    Maven 3.9.x. The golden-path script pins it for the same reason.
+!!! note "Plugin version and PowerShell"
+    `maven-archetype-plugin:3.1.2` is the documented, gate-tested version (3.4.0 also generates
+    project-less). On Windows PowerShell quote every `-D` argument: unquoted `-DgroupId=com.acme.orders`
+    is split at the first dot, which Maven reports as "The goal you specified requires a project".
 
 Then:
 
@@ -556,7 +558,10 @@ than a pass.
 which class; the message names the platform alternative. If the rule is genuinely wrong for your case,
 that is a conversation with the platform team, not a suppression.
 
-**The archetype fails project-less.** Pin `maven-archetype-plugin:3.1.2` (§4.1).
+**The archetype fails with "requires a project".** On PowerShell, quote the `-D` arguments (§4.1).
+
+**Generation fails with "unsupported features value".** Use `none` or a comma-separated subset of
+`messaging`, `data`, `restclient`, with no spaces.
 
 **`/actuator/info` is empty and OpenAPI says `dev`.** `build-info` is not being generated — the service
 is not inheriting `platform-service-parent`, or the goal was disabled.
@@ -860,7 +865,7 @@ Certified **iff** the TCK passes.
 - "Passed locally" may mean "skipped locally". Check for skips.
 - Every `@MockitoBean` combination is a new cached context.
 - Run `upgrade-check` before planning an upgrade, not before merging one.
-- Pin `maven-archetype-plugin:3.1.2`.
+- Generate with `maven-archetype-plugin:3.1.2`; quote `-D` arguments on PowerShell.
 - Replace the archetype's placeholder issuer before any shared environment.
 - If a conformance rule fails, read the message — it names the alternative.
 

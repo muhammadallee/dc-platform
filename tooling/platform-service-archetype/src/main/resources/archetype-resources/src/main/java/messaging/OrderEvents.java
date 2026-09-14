@@ -1,4 +1,5 @@
-#if($features.contains("messaging"))
+#set( $featureSet = ",${features}," )
+#if($featureSet.contains(",messaging,"))
 package ${package}.messaging;
 
 import ae.gov.dubaicustoms.platform.messaging.EventHandler;

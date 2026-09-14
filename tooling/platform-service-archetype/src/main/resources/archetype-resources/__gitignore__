@@ -1,4 +1,6 @@
 target/
+# Written by the flatten plugin inherited from platform-service-parent.
+.flattened-pom.xml
 *.class
 *.jar
 *.log

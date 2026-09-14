@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+## Feature tokens are matched exactly: ",data," inside ",<features>,". Every file that branches on a
+## feature re-derives $featureSet the same way. This template is processed first, so it also validates
+## the input: anything but "none" or a comma-separated subset of messaging,data,restclient (no spaces,
+## no duplicates) aborts generation - String.matches on an unclosed "[" throws, and Velocity surfaces the
+## exception message (the pattern text below) as the archetype:generate error.
+#set( $featureSet = ",${features}," )
+#set( $featureRest = $featureSet.replace(",messaging,", ",").replace(",data,", ",").replace(",restclient,", ",") )
+#if( $features != "none" && ( $featureRest != "," || $featureSet.contains(",none,") ) )
+#set( $rejected = $featureSet.matches("[dc-platform archetype: unsupported features value ${features} -- use none or a comma-separated subset of messaging,data,restclient without spaces") )
+#end
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -56,7 +66,7 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
-#if($features.contains("messaging"))
+#if($featureSet.contains(",messaging,"))
 
     <!-- feature: messaging — publish via EventPublisher, consume via @EventHandler (in-memory transport). -->
     <dependency>
@@ -64,9 +74,11 @@
       <artifactId>platform-starter-messaging-inmemory</artifactId>
     </dependency>
 #end
-#if($features.contains("data"))
+#if($featureSet.contains(",data,"))
 
-    <!-- feature: data — platform JPA conventions (snake_case, auditing, Flyway) on H2 in dev/test. -->
+    <!-- feature: data — platform JPA conventions (snake_case, auditing, Flyway migrations under
+         db/migration). H2 backs local runs and tests; the prod profile refuses the embedded fallback, so
+         production must supply spring.datasource.* (add its JDBC driver here). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-starter-data-jpa</artifactId>
@@ -75,6 +87,15 @@
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <scope>runtime</scope>
+    </dependency>
+#end
+#if($featureSet.contains(",restclient,"))
+
+    <!-- feature: restclient — outbound HTTP via PlatformRestClientFactory (correlation propagation,
+         bearer-token relay, per-client timeouts, RemoteCallException error mapping). -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-restclient</artifactId>
     </dependency>
 #end
 

@@ -1,4 +1,5 @@
-#if($features.contains("data"))
+#set( $featureSet = ",${features}," )
+#if($featureSet.contains(",data,"))
 package ${package}.data;
 
 import org.springframework.data.jpa.repository.JpaRepository;

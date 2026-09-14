@@ -22,10 +22,11 @@
   <description>
     Maven archetype that generates a ready-to-run platform service: a POM on platform-service-parent
     wired with the golden-path starters (core, errors, logging, validation, observability, openapi,
-    security, test) and optional feature slices (messaging, data via -Dfeatures), a Hello controller,
-    profile-aware application.yml, platform slice tests, a generated PlatformConformanceTest, and
-    CLAUDE.md/AGENTS.md so coding agents use platform APIs instead of vanilla Spring. The one-command
-    contract is tooling/scripts/golden-path.sh (generate -> build -> boot -> probe under 10 min).
+    security, test) and optional feature slices (messaging, data, restclient via -Dfeatures), a Hello
+    controller, profile-aware application.yml (prod fails fast on missing coordinates), platform slice
+    tests plus real-HTTP security/logging/data/client tests, a generated PlatformConformanceTest, and
+    CLAUDE.md/AGENTS.md so coding agents use platform APIs instead of vanilla Spring. The executable
+    contract is tooling/scripts/golden-path.sh (generate -> build -> boot -> probe, every feature combination).
   </description>
 
   <properties>
@@ -39,6 +40,25 @@
   </properties>
 
   <build>
+    <!-- Filter ONLY archetype-metadata.xml, so its platformVersion default becomes this archetype's own
+         version. The archetype-resources templates must stay unfiltered here: they carry ${groupId},
+         ${artifactId}, ${version}... for Velocity at generation time, which Maven filtering would clobber. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>META-INF/maven/archetype-metadata.xml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>META-INF/maven/archetype-metadata.xml</exclude>
+        </excludes>
+      </resource>
+    </resources>
     <extensions>
       <extension>
         <groupId>org.apache.maven.archetype</groupId>
@@ -58,9 +78,12 @@
   </build>
 
   <profiles>
-    <!-- Opt-in local verification of the archetype itself: generates the basic + full projects under
-         src/test/resources/projects and runs their goal.txt. Requires the platform to be installed
-         first (mvn -T1C install -DskipTests). CI runs golden-path.sh instead. -->
+    <!-- Opt-in, Maven-native (runs on Windows without Bash) check of the archetype itself: generates the
+         projects under src/test/resources/projects — basic (every optional property omitted, so the
+         metadata defaults are exercised), service (data,restclient) and full (all features, relocated)
+         — and runs their goal.txt (`verify`, i.e. every generated test). Requires the platform to be
+         installed first (mvn -T1C install -DskipTests). Generated under target/, i.e. inside the checkout;
+         the outside-the-reactor, all-combinations, packaged-jar gate is tooling/scripts/golden-path.sh. -->
     <profile>
       <id>archetype-it</id>
       <properties>

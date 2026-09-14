@@ -5,15 +5,21 @@
                       name="platform-service">
 
   <requiredProperties>
-    <!-- Platform version the generated service builds against (its parent + BOM version).
-         golden-path.sh passes -DplatformVersion=$REV; keep this default in lockstep with the release. -->
+    <!-- Platform version the generated service builds against (its parent + BOM version). The default
+         is the archetype's OWN version, stamped in by Maven resource filtering of this file only (see the
+         archetype pom), so it can never drift from the train the archetype was released with (ADR-005:
+         one version for every platform artifact). Pass -DplatformVersion=<version> to target another. -->
     <requiredProperty key="platformVersion">
-      <defaultValue>0.2.0-SNAPSHOT</defaultValue>
+      <defaultValue>${project.version}</defaultValue>
     </requiredProperty>
-    <!-- Optional feature slices: comma-separated subset of {messaging,data}, or "none". Toggles both
-         starter dependencies (pom.xml #if blocks) and sample code (Velocity #if in the sample files,
-         which render empty when their feature is off). The default is the literal "none" (not empty):
-         the archetype harness rejects a blank required property. -->
+    <!-- Optional feature slices: "none" or a comma-separated subset of {messaging,data,restclient}
+         without spaces. Toggles both starter dependencies (pom.xml #if blocks) and sample code/tests
+         (Velocity #if in the sample files, which render empty when their feature is off). Tokens are
+         matched exactly (",data," in ",<features>,"), never as substrings. Anything else - unknown or
+         duplicate tokens, spaces, "none" mixed with features - fails generation from the pom.xml template:
+         batch-mode archetype:generate ignores <validationRegex>, so validation cannot live here. The
+         default is the literal "none" (not empty): the archetype harness rejects a blank required
+         property. -->
     <requiredProperty key="features">
       <defaultValue>none</defaultValue>
     </requiredProperty>
@@ -21,6 +27,12 @@
          non-interactive generation working; teams override with -Downer=<team> (phase-16 E). -->
     <requiredProperty key="owner">
       <defaultValue>platform-team</defaultValue>
+    </requiredProperty>
+    <!-- Not an input: renders the template file __gitignore__ as .gitignore. A literal .gitignore in
+         archetype-resources never reaches the archetype jar (default excludes drop it), which is how
+         generated services lost theirs. Do not override. -->
+    <requiredProperty key="gitignore">
+      <defaultValue>.gitignore</defaultValue>
     </requiredProperty>
   </requiredProperties>
 
@@ -38,11 +50,13 @@
         <include>**/*.java</include>
       </includes>
     </fileSet>
-    <!-- Resources: filtered, not packaged. -->
+    <!-- Resources: filtered, not packaged. The db/migration script is the data sample's schema (Flyway);
+         like the Java samples it renders empty when the data feature is off. -->
     <fileSet filtered="true" packaged="false" encoding="UTF-8">
       <directory>src/main/resources</directory>
       <includes>
         <include>**/*.yml</include>
+        <include>**/*.sql</include>
       </includes>
     </fileSet>
     <!-- Root docs, copied verbatim (NOT Velocity-filtered: markdown headings use ## which Velocity
@@ -56,7 +70,7 @@
         <include>README.md</include>
         <include>CLAUDE.md</include>
         <include>AGENTS.md</include>
-        <include>.gitignore</include>
+        <include>__gitignore__</include>
         <!-- MCP client config for agents: static org endpoint + stdio-fallback note, no substitution. -->
         <include>.mcp.json</include>
       </includes>

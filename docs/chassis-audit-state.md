@@ -3,9 +3,9 @@
 Companion to [chassis-audit.md](chassis-audit.md). Update before any handoff; evidence from an earlier
 revision does not prove the current tree.
 
-- Base: `main` @ `efd3070ff68044600308d63b3df7414b2fedd564`; all changes are uncommitted in the working
-  tree (nothing committed or pushed). Patch identity: see the final report / recompute with the command
-  under "Identity" below.
+- Base: `main` @ `efd3070ff68044600308d63b3df7414b2fedd564`. The work is committed on branch
+  `fix/chassis-generated-service-audit` (pushed to `origin`); the verified tree is commit `d359af1` plus
+  documentation-only follow-ups. No pull request opened yet.
 - Task-owned locations (outside the checkout, safe to delete): Maven repositories `D:\dcpa\m2`
   (baseline + iteration) and `D:\dcpa\m2f` (final, cold); a C:-drive copy under the session scratchpad;
   generated projects and gate work dirs `D:\dcpa\gen`, `D:\dcpa\work*`, `D:\dcpa\final-gate-*`,
@@ -24,13 +24,15 @@ revision does not prove the current tree.
 
 ## Open
 
-- CI: push a branch and confirm `build` + `generator-gate` on Linux (not authorized in this session).
+- CI: the branch push does not trigger `ci.yml` (it runs on pushes to `main` and on pull requests).
+  Open a PR from `fix/chassis-generated-service-audit` and confirm `build` + `generator-gate` on Linux.
 - Residuals in chassis-audit.md §10 (F13 LogSanitizer, F14 relay scoping, F15 Jackson 3 rule, F16
   webmvc starter, F18, Docker/PostgreSQL, offline).
 
 ## Next command
 
-After pushing: watch the `generator-gate` job; locally, re-run
+Open the PR (https://github.com/muhammadallee/dc-platform/pull/new/fix/chassis-generated-service-audit)
+and watch the `generator-gate` job; locally, re-run
 `GP_MAVEN_REPO=<fresh repo> bash tooling/scripts/golden-path.sh` (splitting with `GP_SCENARIOS` when a
 single foreground run would exceed the tool limit).
 

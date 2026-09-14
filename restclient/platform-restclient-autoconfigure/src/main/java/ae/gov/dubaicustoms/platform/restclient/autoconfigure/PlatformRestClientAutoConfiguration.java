@@ -6,6 +6,7 @@ import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.DefaultPlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.OAuth2TokenRelayCustomizer;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import io.micrometer.observation.ObservationRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -23,7 +24,9 @@ import org.springframework.web.client.RestClient;
  * Backs off when: user defines a PlatformRestClientFactory bean
  * Beans: platformRestClientFactory — DefaultPlatformRestClientFactory: JDK HttpClient request
  *                 factory with per-client connect/read timeouts, correlation-header propagation,
- *                 non-2xx responses mapped to RemoteCallException, ordered
+ *                 non-2xx responses mapped to RemoteCallException, http.client.requests
+ *                 observations (client.name = platform client name) on the ObservationRegistry bean
+ *                 when one exists (resolved lazily per builder; NOOP otherwise), ordered
  *                 PlatformRestClientCustomizers applied;
  *        restclientCapabilityDescriptor — one line in the startup capability banner;
  *        platformTokenRelayCustomizer (nested config) — relays the current bearer token to
@@ -31,9 +34,13 @@ import org.springframework.web.client.RestClient;
  *                 classpath AND the security capability's CurrentUserAccessor bean is actually
  *                 registered — a guarded, optional edge to the security capability's api
  *                 (CLAUDE.md rule 5), never a hard dependency for a restclient-only consumer.
- * Order: none required.
+ * Order: afterName PlatformSecurityAutoConfiguration (by string, not class literal: autoconfigure ->
+ *        autoconfigure of another capability is forbidden) — @ConditionalOnBean(CurrentUserAccessor) is
+ *        evaluated when this class is processed, so the security capability must register its accessor
+ *        FIRST. Without the ordering the alphabetical default processes "restclient" before "security"
+ *        and the token relay silently never registers in a real application.
  */
-@AutoConfiguration
+@AutoConfiguration(afterName = "ae.gov.dubaicustoms.platform.security.autoconfigure.PlatformSecurityAutoConfiguration")
 @ConditionalOnClass(RestClient.class)
 @ConditionalOnProperty(prefix = "dc.platform.restclient", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(RestClientProperties.class)
@@ -42,8 +49,9 @@ public class PlatformRestClientAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     PlatformRestClientFactory platformRestClientFactory(RestClientProperties properties,
-            ObjectProvider<PlatformRestClientCustomizer> customizers) {
-        return new DefaultPlatformRestClientFactory(properties, customizers.orderedStream().toList());
+            ObjectProvider<PlatformRestClientCustomizer> customizers, ObjectProvider<ObservationRegistry> observationRegistry) {
+        return new DefaultPlatformRestClientFactory(properties, customizers.orderedStream().toList(),
+                () -> observationRegistry.getIfAvailable(() -> ObservationRegistry.NOOP));
     }
 
     @Bean

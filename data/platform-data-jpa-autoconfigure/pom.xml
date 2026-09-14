@@ -82,11 +82,17 @@
       <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Flyway on the test classpath so the presence guard's happy path is exercised; the absent
-         branch is tested with a FilteredClassLoader. -->
+    <!-- Flyway engine + Boot 4's Flyway integration on the test classpath (the same pair the starter
+         ships), so the presence guard's happy path and a real migration run are exercised; the absent
+         branches are tested with a FilteredClassLoader. -->
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- @Tag("docker") Postgres parity test only: a real Postgres via Testcontainers. -->

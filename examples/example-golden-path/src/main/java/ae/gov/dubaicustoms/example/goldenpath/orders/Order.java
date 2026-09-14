@@ -13,7 +13,8 @@ import java.math.BigDecimal;
  * An order, persisted with the platform's JPA conventions (snake_case table/column naming, JPA
  * auditing, and {@code open-in-view=false}) — none of which this class configures; the
  * {@code platform-starter-data-jpa} on the classpath does. H2 backs it in dev and test; a real
- * datasource backs it under the {@code pg} profile.
+ * datasource backs it under the {@code pg} profile. Its table comes from the Flyway migration
+ * {@code db/migration/V1__create_orders.sql}, not from Hibernate DDL.
  */
 @Entity
 @Table(name = "orders") // "order" is a reserved SQL word; name the table explicitly.

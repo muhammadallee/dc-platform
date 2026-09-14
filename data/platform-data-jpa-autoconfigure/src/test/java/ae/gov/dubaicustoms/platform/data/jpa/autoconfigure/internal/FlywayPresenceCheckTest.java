@@ -26,6 +26,18 @@ class FlywayPresenceCheckTest {
     }
 
     @Test
+    void failsWhenEngineIsPresentButBootsFlywayIntegrationIsNot() {
+        // Boot 4 moved FlywayAutoConfiguration to spring-boot-flyway: flyway-core alone never migrates.
+        ClassLoader engineOnly = new FilteredClassLoader(
+                "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration");
+
+        assertThatThrownBy(() -> new FlywayPresenceCheck(true, engineOnly).afterPropertiesSet())
+                .isInstanceOf(MissingFlywayException.class)
+                .hasMessageContaining("spring-boot-flyway")
+                .hasMessageContaining("require-migrations=false");
+    }
+
+    @Test
     void passesWhenNotRequiredEvenIfFlywayAbsent() {
         assertThatCode(() -> new FlywayPresenceCheck(false, withoutFlyway).afterPropertiesSet())
                 .doesNotThrowAnyException();

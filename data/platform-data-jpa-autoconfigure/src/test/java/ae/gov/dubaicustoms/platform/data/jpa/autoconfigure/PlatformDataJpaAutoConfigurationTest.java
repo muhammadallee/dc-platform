@@ -62,6 +62,13 @@ class PlatformDataJpaAutoConfigurationTest {
     }
 
     @Test
+    void invalidRequireMigrationsValueFailsStartup() {
+        runner.withPropertyValues("dc.platform.data.jpa.require-migrations=sometimes")
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("sometimes"));
+    }
+
+    @Test
     void auditorDefaultsToSystemWithoutAuthenticatedUser() {
         runner.run(context -> {
             @SuppressWarnings("unchecked")

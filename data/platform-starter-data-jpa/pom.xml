@@ -36,10 +36,16 @@
     </dependency>
     <!-- Flyway: the migration engine the platform expects; its absence with require-migrations on
          fails startup (FlywayPresenceCheck). Bundling it here is what makes the guard's happy path
-         the default. -->
+         the default. Boot 4 ships FlywayAutoConfiguration in spring-boot-flyway, NOT in
+         spring-boot-autoconfigure: flyway-core alone puts the engine on the classpath but never runs a
+         migration (same pairing as starter-locking-jdbc / starter-idempotency, decision D41). -->
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-flyway</artifactId>
     </dependency>
   </dependencies>
 </project>

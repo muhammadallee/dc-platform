@@ -1,5 +1,6 @@
 # CI for dc-platform (phase-02 spec, section 3).
 #  - build: full no-Docker verify + BOM completeness check; every push/PR
+#  - generator-gate: golden-path.sh — generated services built and booted from the installed archetype
 #  - docker-nightly: additionally runs the @Tag("docker") suites; nightly cron only
 # TODO(stretch, phase-02): PR path-filter incremental build (build only affected modules + dependents).
 name: ci
@@ -30,6 +31,36 @@ jobs:
         run: mvn -B -q -T1C -pl build/platform-build-maven-plugin -am install -DskipTests
       - name: BOM completeness (check-bom)
         run: mvn -B ae.gov.dubaicustoms.platform:platform-build-maven-plugin:check-bom
+
+  # Generator gate. A staged install is required: generated services resolve platform artifacts from a
+  # local repository, which `verify` alone never populates. The script installs the platform (tests
+  # skipped — the `build` job is the tested reactor gate) into a job-owned repository, then generates all
+  # 8 feature combinations OUTSIDE the checkout, runs each generated `mvn verify`, and boots each jar with
+  # real HTTP / token / JSON-log probes (plus profile and prod fail-fast probes for data,restclient).
+  generator-gate:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Golden path (all scenarios, isolated Maven repository)
+        env:
+          GP_MAVEN_REPO: ${{ runner.temp }}/gp-m2
+          GP_WORKDIR: ${{ runner.temp }}/gp-work
+          GP_EVIDENCE: ${{ runner.temp }}/gp-evidence
+        # Invoked through bash: the script is tracked without the executable bit (mode 100644).
+        run: bash tooling/scripts/golden-path.sh
+      - name: Keep gate evidence (surefire reports, sanitized logs, summary)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-path-evidence
+          path: ${{ runner.temp }}/gp-evidence
+          if-no-files-found: warn
 
   docker-nightly:
     if: github.event_name == 'schedule'

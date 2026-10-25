@@ -32,6 +32,15 @@
     <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version> <!-- 0.8.14+ required for Java 25 class files -->
     <archunit.version>1.4.2</archunit.version>
+
+    <!-- Core lifecycle plugins, pinned to the versions Spring Boot ${spring-boot.version} manages so
+         platform modules build with the same plugins as generated services (spring-boot-starter-parent).
+         Unpinned, Maven resolves the newest release on every build: failsafe 3.6.0 stopped honouring
+         -DskipTests, forked an empty test JVM, and the JaCoCo check then failed at 0% coverage. -->
+    <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.5.6</maven-failsafe-plugin.version>
+    <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
   </properties>
 
   <modules>

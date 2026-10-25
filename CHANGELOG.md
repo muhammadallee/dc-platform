@@ -60,6 +60,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- Build: `maven-compiler-plugin`, `maven-surefire-plugin`, `maven-failsafe-plugin` and
+  `maven-resources-plugin` are now pinned in `platform-parent` to the versions Spring Boot manages.
+  Unpinned, every build resolved the newest release; failsafe 3.6.0 ignores `-DskipTests`, so
+  `install -DskipTests` (the golden-path gate's platform install) forked an empty test JVM and the
+  JaCoCo check failed at 0% coverage in modules with `*IT` classes.
 - Generated services (chassis audit, `docs/chassis-audit.md`). The service archetype's
   `platformVersion` default was a stale `0.2.0-SNAPSHOT` (so omitting it produced an unbuildable
   service); it is now the archetype's own version, stamped by resource filtering. `features` values are

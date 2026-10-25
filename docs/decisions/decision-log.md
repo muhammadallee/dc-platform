@@ -599,3 +599,9 @@ One line of context per decision; details live in the commit bodies referenced.
   resource server can fetch. A reusable `platform-test-api` fixture (JDK `HttpServer` + JDK RSA
   signing, no third-party types in its API) serves generated services and the golden-path gate (which
   compiles its helper against the installed jar) instead of copying ~150 lines into every service.
+- **D88 — startup budget measured in an isolated CI step.** `StartupBudgetTest` is a wall-clock
+  guard. In the `-T1C` reactor it overlapped other modules' test contexts (docs snippet compilation,
+  the event-driven examples) and measured 19-25 s against the 15 s baseline, although the same commit
+  boots in the same time as `main` when measured alone. CI now skips it in the parallel `verify`
+  (`-Dplatform.startup-budget.skip=true`) and runs it serially in its own step. Raising the baseline
+  was rejected: it would hide the regressions the guard exists to catch.

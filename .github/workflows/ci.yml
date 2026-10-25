@@ -24,7 +24,11 @@ jobs:
           java-version: "25"
           cache: maven # caches ~/.m2/repository keyed on **/pom.xml hashes
       - name: Build and verify (no Docker, gates active)
-        run: mvn -B -T1C verify
+        run: mvn -B -T1C verify -Dplatform.startup-budget.skip=true
+      # The startup budget is wall-clock: under -T1C it shares the runner with other modules' test
+      # contexts and measured 19-25 s against a 15 s baseline. Measure it serially, on its own.
+      - name: Startup budget (isolated, serial)
+        run: mvn -B -pl examples/example-golden-path -am test -Dtest=StartupBudgetTest -Dsurefire.failIfNoSpecifiedTests=false
       # check-bom cannot bind to aggregator verify (the plugin is built by this same reactor;
       # see docs/decisions/decision-log.md D2), so install it and invoke the goal explicitly.
       - name: Install build plugin for check-bom

@@ -60,6 +60,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- CI: `StartupBudgetTest` (example-golden-path) runs in its own serial step instead of inside the
+  parallel `-T1C` reactor, where contention with other modules' test contexts made the wall-clock
+  budget fail at 19-25 s (D88). Local `mvn verify` still runs it.
 - Build: `maven-compiler-plugin`, `maven-surefire-plugin`, `maven-failsafe-plugin` and
   `maven-resources-plugin` are now pinned in `platform-parent` to the versions Spring Boot manages.
   Unpinned, every build resolved the newest release; failsafe 3.6.0 ignores `-DskipTests`, so

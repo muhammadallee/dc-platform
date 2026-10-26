@@ -1,0 +1,9 @@
+scenario	features	tests	seconds	result
+none-defaults	none	14	61	PASS
+messaging	messaging	14	57	PASS
+data	data	18	88	PASS
+restclient	restclient	22	59	PASS
+messaging-data	messaging,data	18	85	PASS
+messaging-restclient	messaging,restclient	22	72	PASS
+data-restclient	data,restclient	26	85	PASS
+all-relocated	restclient,messaging,data	26	77	PASS

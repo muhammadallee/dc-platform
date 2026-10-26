@@ -7,3 +7,6 @@ docs/apidocs/
 .DS_Store
 *.log
 .flattened-pom.xml
+
+# Hardening evidence: full raw logs stay local (referenced by path + SHA-256)
+evidence-raw/

@@ -1,5 +1,12 @@
 # Chapter 2 — Errors and Validation: The Failure Contract
 
+> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
+> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
+> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
+> validation errors omit `rejectedValue` by default. Where this chapter still describes the
+> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
+> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+
 > **Capabilities covered:** `errors`, `validation`
 >
 > One machine-readable shape for every failure a service can return, and the bean-validation wiring

@@ -16,8 +16,9 @@ platform capabilities a running service actually has.
   capabilities are ACTIVE in this running service, with provider detail.
 - **Prometheus locally, OTLP when you have a collector** — the starter ships both registries;
   OTLP export is OFF by default because laptops have no collector.
-- **Correlation via baggage, never metric tags** — the correlation id is high-cardinality (one
-  value per request); it propagates downstream through tracing baggage (`X-Correlation-Id`) and
+- **Correlation via the trace, never metric tags** — the correlation id is the W3C trace ID,
+  high-cardinality (one value per request); it propagates downstream in `traceparent` (no custom
+  baggage header any more) and
   is never added as a metric tag or observation key-value.
 
 ## Starter coordinates
@@ -41,7 +42,7 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 | `management.endpoint.health.group.liveness.include` | `livenessState` |
 | `management.endpoint.health.group.readiness.include` | `readinessState,db,rabbit,redis` |
 | `management.endpoint.health.validate-group-membership` | `false` (the readiness list names optional members) |
-| `management.tracing.baggage.remote-fields` | `X-Correlation-Id` |
+| `management.tracing.baggage.remote-fields` | not set (was `X-Correlation-Id`; removed in the hardening phase 1) |
 | `management.otlp.metrics.export.enabled` | `false` (only while `otlp.enabled=false`) |
 | `management.tracing.export.otlp.enabled` | `false` (only while `otlp.enabled=false`) |
 

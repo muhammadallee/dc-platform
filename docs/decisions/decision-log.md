@@ -605,3 +605,18 @@ One line of context per decision; details live in the commit bodies referenced.
   boots in the same time as `main` when measured alone. CI now skips it in the parallel `verify`
   (`-Dplatform.startup-budget.skip=true`) and runs it serially in its own step. Raising the baseline
   was rejected: it would hide the regressions the guard exists to catch.
+- **D89 — correlation is the W3C trace ID (hardening HD5).** The platform-minted `X-Correlation-Id`
+  is removed everywhere (core filter, REST client, tracing baggage, MDC key, ProblemDetail property).
+  `CorrelationId`/`RequestContext` keep their API and carry the trace ID; inbound `traceparent`
+  handling is left to Boot's observation filter and the OpenTelemetry W3C propagator. The platform
+  filter moves to `HIGHEST_PRECEDENCE + 10` (after the observation filter, before security).
+  Without a tracer the platform establishes no correlation context rather than inventing an id.
+- **D90 — no exception message in any 5xx body.** Including `PlatformException`s with status >= 500 and
+  Spring MVC's own 5xx bodies; 4xx business messages stay (application-authored). Simpler and safer
+  than classifying messages as safe.
+- **D91 — `rejectedValue` off by default.** Field-name redaction cannot recognise personal data
+  (national ID, email, phone); omitting the value by default is the allow-list default, opt-in via
+  `dc.platform.errors.include-rejected-values`.
+- **D92 — error-code uniqueness read from sources.** The classpath registry only sees the errors
+  module's dependencies; a source scan over every platform module's `src/main/java` covers modules no
+  single test classpath contains. Examples and the archetype are excluded (separate services).

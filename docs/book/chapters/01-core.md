@@ -1,5 +1,12 @@
 # Chapter 1 — Core: Request Context and the Capability Model
 
+> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
+> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
+> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
+> validation errors omit `rejectedValue` by default. Where this chapter still describes the
+> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
+> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+
 > **Capabilities covered:** `core`
 >
 > The request-scoped context every other capability reads from, and how the platform reports what is
@@ -446,20 +453,17 @@ across versions — but it is deliberately usable from tests, because otherwise 
 would be untestable. Always try-with-resources:
 
 ```java
-try (AutoCloseable scope = RequestContext.open(CorrelationId.random(), Map.of("tenant", "dxb"))) {
+try (AutoCloseable scope = RequestContext.open(
+        new CorrelationId("0af7651916cd43dd8448eb211c80319c"), Map.of("tenant", "dxb"))) {
     invoiceService.archive("INV-1");
     // assertions run inside the scope
 }
 ```
 
-For controller tests, prefer the real filter — `@PlatformWebTest` wires it, or for a standalone
-`MockMvc` setup:
-
-```java
-MockMvcBuilders.standaloneSetup(controller)
-        .addFilters(new CorrelationIdFilter("X-Correlation-Id", true))
-        .build();
-```
+For a real request, send a W3C `traceparent` (`00-<32 hex trace id>-<16 hex span id>-01`) and assert
+the trace ID in the ProblemDetail's `traceId` or the JSON log's `traceId`. The correlation filter reads
+the trace from the tracer, so a standalone `MockMvc` without tracing establishes no context — open one
+explicitly as above.
 
 ---
 

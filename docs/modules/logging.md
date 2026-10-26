@@ -6,11 +6,11 @@ application context exists — and readable console output when a human is watch
 ## What you get
 
 - **JSON by default** — one logstash-encoded line per event with ECS-ish fields:
-  `@timestamp`, `level`, `logger`, `message`, `service`, `correlationId` (and every other MDC
+  `@timestamp`, `level`, `logger`, `message`, `service`, `traceId`, `spanId` (and every other MDC
   entry), `stack_trace`.
 - **Console for humans** — activate the `local` profile and output falls back to Boot's
   human-readable console format (explicit `dc.platform.logging.format` always wins).
-- **Correlation built in** — the core filter publishes `correlationId` to the MDC; the encoder
+- **Correlation built in** — the core filter publishes the W3C `traceId` (and `spanId`) to the MDC; the encoder
   lifts MDC entries into JSON fields, so log lines correlate with problem responses for free.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
 - **`LogSanitizer` SPI-lite** — contribute beans to scrub sensitive values; collected by the
@@ -35,7 +35,7 @@ through a lowest-precedence property source named `platform-logging-defaults` (v
 ```json
 {"@timestamp":"2026-01-01T00:00:00.000Z","message":"order accepted orderId=42",
  "logger":"ae.gov.dc.orders.OrderService","level":"INFO","service":"orders",
- "correlationId":"0123456789abcdef0123456789abcdef"}
+ "traceId":"0123456789abcdef0123456789abcdef","spanId":"b7ad6b7169203331"}
 ```
 
 ## Properties

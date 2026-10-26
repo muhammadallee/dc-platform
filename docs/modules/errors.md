@@ -1,8 +1,8 @@
 # Errors
 
 RFC-9457 problem responses with stable, machine-readable error codes: throw a
-`BusinessException`, get a correct `application/problem+json` body with `code`, `correlationId`,
-and `timestamp` — correlated with the JSON log line.
+`BusinessException`, get a correct `application/problem+json` body with `code`, `traceId`,
+`timestamp` and `retryable` — correlated with the JSON log line by the W3C trace ID.
 
 ## What you get
 
@@ -10,16 +10,25 @@ and `timestamp` — correlated with the JSON log line.
   (404), `ConflictException` (409); each carries an `ErrorCode` (`DC-<CAP>-<NNNN>`) that becomes
   the problem `type`/`title` and the `code` extension.
 - **Platform exception mapping** — any other `PlatformException` maps to 500 with its own code;
-  anything unmapped maps to 500 with `DC-CORE-0500` and a generic detail (the message is never
-  leaked — the full exception goes to the log, correlated via MDC).
+  anything unmapped maps to 500 with `DC-CORE-0500`. **No 5xx body ever carries an exception
+  message** — every 5xx gets the generic detail `An unexpected error occurred.`; the full exception
+  goes to the log with the trace ID. 4xx business exceptions keep their application-authored message.
+- **Framework errors get the same contract** — Spring MVC's own rejections (404, 405, 406, 415, …) keep
+  their statuses and gain `code` (`DC-CORE-0499`), `traceId`, `timestamp`, `retryable`; an unreadable
+  or malformed body is `DC-CORE-0410` with a fixed detail (the JSON parser's message, which names
+  classes and offsets, never reaches the caller).
+- **`retryable`** — `true` for 429, 502, 503, 504, otherwise `false`: a hint for clients deciding
+  whether to retry the identical request after backing off.
 - **Validation mapping** — `@Valid` body failures and method-validation
   `ConstraintViolationException`s map to 400 with an `errors[]` extension
-  (`field`, `message`, `rejectedValue`); rejected values for password/secret/token-shaped fields
-  are `REDACTED`.
+  (`field`, `message`). `rejectedValue` is **omitted by default** — rejected values are raw user
+  input and may be personal data; turn it on with `dc.platform.errors.include-rejected-values=true`,
+  and even then password/secret/token-shaped fields are `REDACTED`.
 - **Customization SPI-lite** — `ProblemDetailCustomizer` beans applied in `@Order` to every
   outgoing problem body.
-- **Error-code registry** — a build-time gate asserts code format and platform-wide uniqueness
-  and exports `target/error-codes.csv` (feeds the phase-14 reference).
+- **Error-code registry** — build-time gates assert code format and platform-wide uniqueness:
+  one scans the classpath and exports `target/error-codes.csv` (feeds the reference), the other reads
+  the production sources of every platform module, so a duplicate anywhere fails the build.
 
 ## Starter coordinates
 
@@ -52,8 +61,9 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
   "detail": "order 42 not found",
   "instance": "/orders/42",
   "code": "DC-ORDER-0404",
-  "correlationId": "0123456789abcdef0123456789abcdef",
-  "timestamp": "2026-01-01T00:00:00Z"
+  "traceId": "0123456789abcdef0123456789abcdef",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "retryable": false
 }
 ```
 
@@ -65,6 +75,10 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 | `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debug only). |
 | `dc.platform.errors.type-base-uri` | `https://errors.dc.com/` | Base URI forming the problem `type`. |
 | `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 + `errors[]`. |
+| `dc.platform.errors.include-rejected-values` | `false` | Echo invalid values as `errors[].rejectedValue` (raw user input; credentials stay redacted). |
+
+The `type` base URI (`https://errors.dc.com/`) is a placeholder on a domain the platform does not own;
+set `type-base-uri` to your organisation's problem-type namespace (open issue G1-08).
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -93,7 +107,11 @@ Customizers run last, in order, on every problem body the platform emits.
 | Code | Meaning |
 |---|---|
 | `DC-CORE-0400` | Request validation failed (`errors[]` lists the violations). |
+| `DC-CORE-0410` | Request body unreadable or malformed (e.g. invalid JSON). |
+| `DC-CORE-0499` | Any other request the servlet stack rejected (404, 405, 406, 415, …); status preserved. |
 | `DC-CORE-0500` | Unhandled exception; generic body, full details in the log. |
+| `DC-SEC-0401` | Missing or unacceptable credentials (security entry point). |
+| `DC-SEC-0403` | Authenticated, but lacking the required authority (security denied handler). |
 
 Applications register their own codes by declaring `static final ErrorCode` constants — the
 registry gate picks them up automatically.
@@ -103,7 +121,7 @@ registry gate picks them up automatically.
 The advices are plain beans:
 `MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(handler)` exercises mappings
 without a full context. Open a `RequestContext` (try-with-resources) around the call to see the
-`correlationId` extension. Inject a fixed `Clock` bean to make `timestamp` deterministic.
+`traceId` extension. Inject a fixed `Clock` bean to make `timestamp` deterministic.
 
 ## Local dev notes
 

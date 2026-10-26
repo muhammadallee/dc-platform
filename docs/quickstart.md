@@ -1,7 +1,7 @@
 # Quickstart — a new platform service in under 10 minutes
 
 The DC Platform ships a Maven archetype that generates a ready-to-run service wired with the
-golden-path chassis (correlation IDs, JSON logging, RFC-9457 errors, validation, metrics/tracing,
+golden-path chassis (W3C trace correlation, JSON logging, RFC-9457 errors, validation, metrics/tracing,
 OpenAPI, and an authenticated-by-default security filter chain). You add business logic; the platform
 does the cross-cutting work.
 
@@ -49,7 +49,7 @@ orders-service/
   src/test/java/.../HelloControllerTest.java     @PlatformWebTest + TestTokens
   src/test/java/.../ApplicationSmokeTest.java    @PlatformTest (boots the full context)
   src/test/java/.../SecurityIntegrationTest.java real HTTP: 401 for missing/untrusted/expired tokens, 200 via a loopback JWKS
-  src/test/java/.../StructuredLoggingTest.java   parses the emitted JSON log events: fields, correlation, no tokens
+  src/test/java/.../StructuredLoggingTest.java   parses the emitted JSON log events: fields, traceId, no tokens
   src/test/java/.../data/NoteRepositoryTest.java Flyway-created schema, CRUD across transactions, rollback, constraint
   src/test/java/.../client/GreetingClientTest.java real calls to a loopback stub: JSON, errors, timeouts, relay
   src/test/java/.../PlatformConformanceTest.java runs PlatformUsageRules over your code

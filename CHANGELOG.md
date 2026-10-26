@@ -5,7 +5,30 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Breaking (capability hardening, phase 1 — core + errors)
+- **Correlation is the W3C trace ID.** `X-Correlation-Id` is no longer read, generated, echoed, sent by
+  the REST client, or mirrored into tracing baggage; a caller's `X-Correlation-Id` is ignored. Send
+  `traceparent` instead (OpenTelemetry/W3C clients do). `CorrelationId` / `RequestContext.correlationId()`
+  keep their API and now return the current trace ID. The core filter runs after Boot's observation
+  filter (`HIGHEST_PRECEDENCE + 10`) so a span exists, and before Spring Security.
+- MDC / JSON log field `correlationId` → `traceId` (+ `spanId`).
+- ProblemDetail extension `correlationId` → `traceId`; new `retryable` (true for 429/502/503/504).
+- No 5xx problem body carries an exception message (5xx `PlatformException`s included); full detail is
+  logged with the trace ID.
+- Validation errors omit `rejectedValue` by default (`dc.platform.errors.include-rejected-values`, new,
+  default `false`).
+- Removed properties (deprecation metadata, level `error`): `dc.platform.core.correlation.header-name`,
+  `dc.platform.core.correlation.generate-if-missing`, `dc.platform.restclient.propagate-correlation`.
+- `CorrelationIdFilter`'s constructor takes a Micrometer `Tracer`; `RemoteCallException.remoteCorrelationId()`
+  is deprecated (always empty for platform-created exceptions).
+
 ### Added
+- Core: context propagation to `@Async` and Boot-built executors (platform default
+  `spring.task.execution.propagate-context=true` + a `ThreadLocalAccessor` for `RequestContext`).
+- Errors: Spring MVC's own error bodies (404/405/415/unreadable…) get the platform extensions;
+  new codes `DC-CORE-0410` (malformed/unreadable body) and `DC-CORE-0499` (other rejected requests).
+- Security: 401/403 bodies carry `code` (`DC-SEC-0401`/`DC-SEC-0403`), `traceId`, `timestamp`, `retryable`.
+- Build-time error-code uniqueness across every platform module's sources (`ErrorCodeSourceUniquenessTest`).
 - `TestJwtIssuer` (`platform-test-api`, `test.security`, EXPERIMENTAL): a loopback JWKS endpoint that
   mints RS256 tokens (valid, expired, untrusted-key), so tests can exercise real bearer-token
   validation over HTTP — `TestTokens` bypasses the decoder.
@@ -60,6 +83,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- Golden-path gate: the platform install is `clean install`, so a stale local `jacoco.exec` no longer
+  fails the JaCoCo check of a skipped-tests install on a developer tree.
+- Core: an invalid inbound correlation/trace value is never echoed into a log line or exception message.
 - CI: `StartupBudgetTest` (example-golden-path) runs in its own serial step instead of inside the
   parallel `-T1C` reactor, where contention with other modules' test contexts made the wall-clock
   budget fail at 19-25 s (D88). Local `mvn verify` still runs it.

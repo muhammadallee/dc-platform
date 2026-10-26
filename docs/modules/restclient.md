@@ -1,20 +1,21 @@
 # REST Client
 
 Platform-conventional outbound REST calls: inject `PlatformRestClientFactory` instead of
-`RestClient.Builder` to get correlation propagation, sane timeouts, and error mapping on every
+`RestClient.Builder` to get W3C trace propagation, sane timeouts, and error mapping on every
 outbound call for free.
 
 ## What you get
 
 - **`PlatformRestClientFactory`** — `builder(String clientName)` returns a pre-configured
   `RestClient.Builder` on the JDK `HttpClient` request factory.
-- **Correlation propagation** — the current `RequestContext` correlation id (if any) is sent as
-  an `X-Correlation-Id` header on every outbound call (matches the core capability's default
-  header name).
+- **Trace propagation** — every client is instrumented with the observation registry, so the
+  current trace travels as the standard `traceparent` header (the platform's only correlation id).
+  No custom correlation header is sent or read (the former `X-Correlation-Id` behaviour is gone).
 - **Per-client timeouts** — a `connect-timeout`/`read-timeout` default, overridable per client
   name.
 - **Error mapping** — any non-2xx response throws `RemoteCallException` (status, 1KB-truncated
-  body, remote correlation id echoed by the callee).
+  body). `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
+  caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
 - **`PlatformRestClientCustomizer` extension point** — ordered beans that further customize a
   named client's builder.
 - **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
@@ -65,7 +66,7 @@ class OrdersClient {
 | Key | Default | Meaning |
 |---|---|---|
 | `dc.platform.restclient.enabled` | `true` | Kill switch for the whole capability. |
-| `dc.platform.restclient.propagate-correlation` | `true` | Send the current correlation id as an outbound header. |
+| ~~`dc.platform.restclient.propagate-correlation`~~ | — | Removed (deprecated, level `error`): `traceparent` is always propagated. |
 | `dc.platform.restclient.defaults.connect-timeout` | `2s` | Default connect timeout. |
 | `dc.platform.restclient.defaults.read-timeout` | `10s` | Default read timeout. |
 | `dc.platform.restclient.clients.<name>.connect-timeout` | (defaults) | Per-client connect timeout override. |

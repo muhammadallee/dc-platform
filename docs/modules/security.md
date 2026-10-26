@@ -53,7 +53,7 @@ spring:
 Anonymous requests to anything not in `permit-paths` get:
 
 ```json
-{"type":"https://errors.dc.com/DC-SEC-0401","title":"Unauthorized","status":401,
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,
  "detail":"Full authentication is required to access this resource","instance":"/orders",
  "code":"DC-SEC-0401","traceId":"0af7651916cd43dd8448eb211c80319c",
  "timestamp":"2026-01-01T00:00:00Z","retryable":false}

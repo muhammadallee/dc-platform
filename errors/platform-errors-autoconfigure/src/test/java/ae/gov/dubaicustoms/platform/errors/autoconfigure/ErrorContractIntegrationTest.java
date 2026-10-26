@@ -108,7 +108,7 @@ class ErrorContractIntegrationTest {
             assertThat(body).containsEntry("status", 409).containsEntry("code", "DC-CORE-0499")
                     .containsEntry("instance", "/duplicate").containsEntry("detail", "Conflict")
                     .containsEntry("retryable", false).containsKey("timestamp")
-                    .containsEntry("type", "https://errors.dc.com/DC-CORE-0499");
+                    .containsEntry("type", "urn:dc:problem:DC-CORE-0499");
         }
     }
 

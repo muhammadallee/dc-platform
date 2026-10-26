@@ -48,7 +48,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.errors.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | add a stacktrace extension to problem bodies (debugging aid; never enable in production) |  |
 | `dc.platform.errors.map-validation` | Boolean | `true` | map Bean Validation failures to 400 problem responses with errors[] |  |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` | base URI prepended to the error code to form the problem type |  |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | base URI prepended to the error code to form the problem type |  |
 
 ## dc.platform.events
 

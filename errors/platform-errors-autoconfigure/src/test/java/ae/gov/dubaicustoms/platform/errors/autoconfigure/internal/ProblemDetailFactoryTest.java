@@ -19,7 +19,7 @@ class ProblemDetailFactoryTest {
 
     private static ProblemDetailFactory factory(boolean includeRejectedValues) {
         return new ProblemDetailFactory(
-                new ErrorsProperties(true, false, "https://errors.dc.com/", true, includeRejectedValues),
+                new ErrorsProperties(true, false, "urn:dc:problem:", true, includeRejectedValues),
                 List.of(), Clock.systemUTC());
     }
 

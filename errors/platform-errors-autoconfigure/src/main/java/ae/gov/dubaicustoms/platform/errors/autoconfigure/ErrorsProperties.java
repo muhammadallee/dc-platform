@@ -28,7 +28,7 @@ public record ErrorsProperties(
         /** Add a stacktrace extension to problem bodies (debugging aid; keep off in production). */
         @DefaultValue("false") boolean includeStacktrace,
         /** Base URI prepended to the error code to form the problem type. */
-        @DefaultValue("https://errors.dc.com/") String typeBaseUri,
+        @DefaultValue("urn:dc:problem:") String typeBaseUri,
         /** Map Bean Validation failures to 400 problem responses with an errors[] extension. */
         @DefaultValue("true") boolean mapValidation,
         /** Echo invalid values as errors[].rejectedValue (raw user input; off by default). */

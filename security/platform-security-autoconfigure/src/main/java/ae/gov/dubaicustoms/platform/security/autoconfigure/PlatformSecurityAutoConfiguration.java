@@ -58,7 +58,7 @@ public class PlatformSecurityAutoConfiguration {
             ObjectProvider<SecurityCustomizer> customizers, Environment environment) throws Exception {
         // The errors capability owns the problem-type namespace; read its key (same default) so 401/403
         // types match every other platform error without depending on the errors module.
-        String typeBaseUri = environment.getProperty("dc.platform.errors.type-base-uri", "https://errors.dc.com/");
+        String typeBaseUri = environment.getProperty("dc.platform.errors.type-base-uri", "urn:dc:problem:");
         ProblemDetailAuthenticationEntryPoint entryPoint = new ProblemDetailAuthenticationEntryPoint(typeBaseUri);
         ProblemDetailAccessDeniedHandler deniedHandler = new ProblemDetailAccessDeniedHandler(typeBaseUri);
         http.csrf(csrf -> csrf.disable()) // stateless bearer-token resource server, no cookie session

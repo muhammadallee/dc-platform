@@ -17,7 +17,7 @@
 | `dc.platform.errors.enabled` | Boolean | `true` |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` |
 | `dc.platform.errors.map-validation` | Boolean | `true` |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` |
 | `dc.platform.events.enabled` | Boolean | `true` |
 | `dc.platform.events.relay.destination-prefix` | String | `dc.` |
 | `dc.platform.events.relay.enabled` | Boolean | `false` |

@@ -130,7 +130,7 @@ class PlatformErrorHandlingAutoConfigurationTest {
         // Plan §7.2: a changed default fails here until the snapshot is consciously updated and the
         // change is recorded in the phase changelog. include-rejected-values=false is new in phase 1.
         runner.run(context -> assertThat(context.getBean(ErrorsProperties.class))
-                .isEqualTo(new ErrorsProperties(true, false, "https://errors.dc.com/", true, false)));
+                .isEqualTo(new ErrorsProperties(true, false, "urn:dc:problem:", true, false)));
     }
 
     @Test

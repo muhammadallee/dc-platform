@@ -62,7 +62,7 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 
 ```json
 {
-  "type": "https://errors.dc.com/DC-ORDER-0404",
+  "type": "urn:dc:problem:DC-ORDER-0404",
   "title": "DC-ORDER-0404",
   "status": 404,
   "detail": "order 42 not found",
@@ -80,12 +80,14 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 |---|---|---|
 | `dc.platform.errors.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debug only). |
-| `dc.platform.errors.type-base-uri` | `https://errors.dc.com/` | Base URI forming the problem `type`. |
+| `dc.platform.errors.type-base-uri` | `urn:dc:problem:` | Base URI forming the problem `type`. |
 | `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 + `errors[]`. |
 | `dc.platform.errors.include-rejected-values` | `false` | Echo invalid values as `errors[].rejectedValue` (raw user input; credentials stay redacted). |
 
-The `type` base URI (`https://errors.dc.com/`) is a placeholder on a domain the platform does not own;
-set `type-base-uri` to your organisation's problem-type namespace (open issue G1-08).
+The default `type` prefix `urn:dc:problem:` is a neutral, non-dereferenceable identifier (RFC 9457
+allows a `type` that is not a locator): clients match on it, nothing tries to fetch it, and it points at
+no host the platform does not own. Once your organisation publishes error documentation, set
+`type-base-uri` to that `https://…/` base so `type` links to the page for each code (D99).
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -135,5 +137,5 @@ without a full context. Open a `RequestContext` (try-with-resources) around the 
 ## Local dev notes
 
 No Docker, no network. Quick smoke check: `curl -s localhost:8080/nonexistent | jq .type` — a
-`https://errors.dc.com/…` URI proves the advice is active; Spring's default body means the
+`urn:dc:problem:…` URI proves the advice is active; Spring's default body means the
 starter is missing or the kill switch is off.

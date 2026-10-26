@@ -542,10 +542,11 @@ CapabilityDescriptor myCapabilityDescriptor() {
 
 ## Replace / Disable
 
-- Define your own `CorrelationIdFilter` bean to replace the filter (the platform registration
-  wraps yours); define a `FilterRegistrationBean` named `platformCorrelationFilterRegistration`
-  to take over registration entirely.
-- Define an `ApplicationRunner` named `platformBannerRunner` to replace the banner.
+- Define your own `CorrelationIdFilter` bean (any name) to replace the filter; Boot registers it at
+  the platform's order and dispatch types. Define a `FilterRegistrationBean<CorrelationIdFilter>`
+  (any name) to take over registration entirely.
+- Define a `PlatformBannerRunner` bean (any name) to replace the banner; a bean named
+  `coreCapabilityDescriptor` replaces the core banner entry.
 - `dc.platform.core.enabled=false` switches the capability off wholesale.
 
 ## Error codes
@@ -619,7 +620,7 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 
 ```json
 {
-  "type": "https://errors.dc.com/DC-ORDER-0404",
+  "type": "urn:dc:problem:DC-ORDER-0404",
   "title": "DC-ORDER-0404",
   "status": 404,
   "detail": "order 42 not found",
@@ -636,7 +637,7 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 |---|---|---|
 | `dc.platform.errors.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debug only). |
-| `dc.platform.errors.type-base-uri` | `https://errors.dc.com/` | Base URI forming the problem `type`. |
+| `dc.platform.errors.type-base-uri` | `urn:dc:problem:` | Base URI forming the problem `type`. |
 | `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 + `errors[]`. |
 
 (Hand-written until the generated reference lands in phase 14.)
@@ -681,7 +682,7 @@ without a full context. Open a `RequestContext` (try-with-resources) around the 
 ## Local dev notes
 
 No Docker, no network. Quick smoke check: `curl -s localhost:8080/nonexistent | jq .type` — a
-`https://errors.dc.com/…` URI proves the advice is active; Spring's default body means the
+`urn:dc:problem:…` URI proves the advice is active; Spring's default body means the
 starter is missing or the kill switch is off.
 
 
@@ -2966,7 +2967,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.errors.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | add a stacktrace extension to problem bodies (debugging aid; never enable in production) |  |
 | `dc.platform.errors.map-validation` | Boolean | `true` | map Bean Validation failures to 400 problem responses with errors[] |  |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` | base URI prepended to the error code to form the problem type |  |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | base URI prepended to the error code to form the problem type |  |
 
 ## dc.platform.events
 

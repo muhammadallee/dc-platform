@@ -40,7 +40,7 @@ curl -s -H 'Authorization: Bearer <token>' \
 ```
 
 ```json
-{"type":"https://errors.dc.com/DC-ORDR-0404","title":"DC-ORDR-0404","status":404,
+{"type":"urn:dc:problem:DC-ORDR-0404","title":"DC-ORDR-0404","status":404,
  "detail":"order 42 not found","instance":"/orders/42","code":"DC-ORDR-0404",
  "traceId":"0af7651916cd43dd8448eb211c80319c","timestamp":"2026-10-26T04:00:00Z","retryable":false}
 ```

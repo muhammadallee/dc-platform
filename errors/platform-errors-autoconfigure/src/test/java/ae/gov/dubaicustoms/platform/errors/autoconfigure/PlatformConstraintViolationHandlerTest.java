@@ -30,7 +30,7 @@ class PlatformConstraintViolationHandlerTest {
     }
 
     private ProblemDetail handle(Object invalidBean, boolean includeRejectedValues) {
-        ErrorsProperties properties = new ErrorsProperties(true, false, "https://errors.dc.com/", true,
+        ErrorsProperties properties = new ErrorsProperties(true, false, "urn:dc:problem:", true,
                 includeRejectedValues);
         PlatformConstraintViolationHandler handler = new PlatformConstraintViolationHandler(
                 new ProblemDetailFactory(properties, List.of(), FIXED_CLOCK));

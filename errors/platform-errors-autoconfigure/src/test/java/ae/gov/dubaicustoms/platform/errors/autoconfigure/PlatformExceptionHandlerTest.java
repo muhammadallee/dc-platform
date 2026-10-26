@@ -47,11 +47,11 @@ class PlatformExceptionHandlerTest {
     }
 
     private static ErrorsProperties defaults() {
-        return new ErrorsProperties(true, false, "https://errors.dc.com/", true, false);
+        return new ErrorsProperties(true, false, "urn:dc:problem:", true, false);
     }
 
     private static ErrorsProperties withRejectedValues() {
-        return new ErrorsProperties(true, false, "https://errors.dc.com/", true, true);
+        return new ErrorsProperties(true, false, "urn:dc:problem:", true, true);
     }
 
     @Test
@@ -65,7 +65,7 @@ class PlatformExceptionHandlerTest {
             // The one strict full-shape assertion (spec: assert full JSON shape once with JSONAssert).
             JSONAssert.assertEquals("""
                     {
-                      "type": "https://errors.dc.com/DC-TEST-0404",
+                      "type": "urn:dc:problem:DC-TEST-0404",
                       "title": "DC-TEST-0404",
                       "status": 404,
                       "detail": "order 42 not found",
@@ -161,7 +161,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void mapValidationOffFallsBackToDefaultSpringBody() throws Exception {
-        ErrorsProperties off = new ErrorsProperties(true, false, "https://errors.dc.com/", false, false);
+        ErrorsProperties off = new ErrorsProperties(true, false, "urn:dc:problem:", false, false);
         mockMvc(off, List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
@@ -171,7 +171,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void includeStacktraceAddsTheExtension() throws Exception {
-        ErrorsProperties withTrace = new ErrorsProperties(true, true, "https://errors.dc.com/", true, false);
+        ErrorsProperties withTrace = new ErrorsProperties(true, true, "urn:dc:problem:", true, false);
         mockMvc(withTrace, List.of()).perform(get("/boom"))
                 .andExpect(jsonPath("$.stacktrace").exists());
     }

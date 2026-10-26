@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -18,7 +19,13 @@ import org.springframework.context.ConfigurableApplicationContext;
  * <p>Runs with {@link WebApplicationType#NONE} so the measurement is the platform/bean wiring cost,
  * not Tomcat port binding, and sets the placeholder JWKS URI so security auto-configuration boots
  * offline exactly as it does in the other tests.
+ *
+ * <p>A wall-clock budget is only meaningful on an otherwise idle JVM host. Parallel reactor builds
+ * ({@code -T1C}) boot other modules' test contexts alongside this one, so CI skips it there with
+ * {@code -Dplatform.startup-budget.skip=true} and runs it in a separate serial step.
  */
+@DisabledIfSystemProperty(named = "platform.startup-budget.skip", matches = "true",
+        disabledReason = "measured in an isolated step; parallel builds make wall-clock timing meaningless")
 class StartupBudgetTest {
 
     private static final double TOLERANCE = 1.15;

@@ -17,9 +17,18 @@ outbound call for free.
   body, remote correlation id echoed by the callee).
 - **`PlatformRestClientCustomizer` extension point** — ordered beans that further customize a
   named client's builder.
+- **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
+  the application's `ObservationRegistry`), tagged `client.name=<clientName>`.
 - **Guarded token relay** — when the security capability is present and a request is
   authenticated, the incoming bearer token is relayed to outbound calls automatically; a
-  restclient-only consumer never pulls in security.
+  restclient-only consumer never pulls in security. The auto-configuration is ordered after the
+  security capability's, so the relay registers in real applications (not only in tests that supply
+  a `CurrentUserAccessor` bean themselves). The relay applies to **every** client the factory builds —
+  use the factory for services that should see the caller's token, and a `PlatformRestClientCustomizer`
+  or a separate client for third parties. A redirect to another origin does not carry the header
+  (JDK `HttpClient` behavior, covered by a test).
+- **Failure shapes** — non-2xx: `RemoteCallException`; read timeout, refused or reset connection:
+  Spring's `ResourceAccessException`. No retries are added (compose resilience explicitly).
 
 ## Starter coordinates
 
@@ -85,8 +94,11 @@ PlatformRestClientCustomizer apiKeyCustomizer() {
 
 ## Testing
 
-Point a client at a `MockWebServer`/`WireMock` instance via `RestClientProperties`/base URL; no
-Docker or network beyond your own test double is required.
+Point a client at a `MockWebServer`/`WireMock`/JDK `HttpServer` instance via its base URL; no Docker
+or network beyond your own test double is required. The service archetype's `restclient` feature
+generates `client/GreetingClientTest`, which drives the real factory-built client against a loopback
+stub (JSON both ways, empty bodies, 404/503 mapping, a bounded read timeout, a refused connection, and
+correlation + token relay from a real authenticated inbound request).
 
 ## Local dev notes
 

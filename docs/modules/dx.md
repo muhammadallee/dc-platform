@@ -10,18 +10,26 @@ generate command. Properties:
 
 | Property | Default | Meaning |
 |---|---|---|
-| `platformVersion` | current release | platform version the service builds against (parent + BOM) |
-| `features` | `none` | comma-separated subset of `messaging`, `data` — adds starters + sample code |
+| `platformVersion` | the archetype's own version (stamped at build time by resource filtering) | platform version the service builds against (parent + BOM) |
+| `features` | `none` | `none` or a comma-separated subset of `messaging`, `data`, `restclient` (no spaces or duplicates) — adds starters, sample code, and sample tests |
+
+Feature tokens are matched exactly; any other value fails generation with `unsupported features value`
+(batch-mode `archetype:generate` ignores `<validationRegex>`, so the check lives in the `pom.xml`
+template). Structured logging is part of every service, not a feature.
 
 The generated project ships `CLAUDE.md`/`AGENTS.md` (so coding agents use platform APIs instead of
-vanilla Spring), a `PlatformConformanceTest`, platform slice tests, and a profile-aware
-`application.yml`. Feature samples are conditional: when a feature is off, its sample source renders
-empty (Velocity `#if`) and its starter is omitted.
+vanilla Spring), a `PlatformConformanceTest`, platform slice tests, real-HTTP tests
+(`SecurityIntegrationTest` with a loopback JWKS issuer, `StructuredLoggingTest` parsing the emitted JSON
+events), per-feature tests (`data/NoteRepositoryTest`, `client/GreetingClientTest`), and a
+profile-aware `application.yml`: offline placeholders apply to every profile except `prod`, and `prod`
+fails fast when the IdP, datasource, or downstream base URL is missing. Feature samples are
+conditional: when a feature is off, its sample sources render empty (Velocity `#if`) and its starter
+is omitted.
 
-The archetype is validated by `mvn -Parchetype-it -pl tooling/platform-service-archetype verify`,
-which generates a `basic` (no features) and a `full` (messaging+data) project and runs `verify` on
-each. That profile is off by default (it needs the platform installed first); the default reactor
-build never runs it.
+The archetype is also checked Maven-natively by `mvn -Parchetype-it -pl tooling/platform-service-archetype
+verify`, which generates `basic` (every optional property omitted), `service` (`data,restclient`), and
+`full` (all features, relocated package, hyphenated artifactId) and runs `verify` on each. That profile
+is off by default (it needs the platform installed first); the default reactor build never runs it.
 
 ## Consumer conformance rules (`PlatformUsageRules`)
 
@@ -57,8 +65,23 @@ diff + property deprecation scan; binary-compatibility (japicmp) checks are futu
 
 ## Golden path (`tooling/scripts/golden-path.sh`)
 
-The executable DX contract and CI health check: install the platform → generate a service from the
-archetype → build it (asserting `CLAUDE.md` and a run `PlatformConformanceTest`) → boot it with
-`spring-boot:start` → probe `/actuator/health` and `/actuator/platform | grep messaging` → stop. It
-fails past a 10-minute wall-clock SLA. It pins `maven-archetype-plugin:3.1.2` because 3.2.0+ made
-`archetype:generate` fork a lifecycle that fails project-less on Maven 3.9.x.
+The executable DX contract, run by the CI `generator-gate` job:
+
+1. install the platform (tests skipped; the `build` job is the tested gate) into an **isolated** Maven
+   repository (`GP_MAVEN_REPO`, default a fresh one) and record the installed archetype;
+2. check that invalid `features` values are rejected;
+3. for all 8 combinations of `messaging`/`data`/`restclient` — one with every optional property
+   omitted, one relocated into a directory with a space — generate **outside the checkout**, assert the
+   generated files, run the generated `mvn verify` (every expected test class must run, none skipped),
+   check the repackaged jar, boot it with `java -jar` on a free port and probe readiness, the capability
+   report (present *and* absent capabilities), 401 for missing/untrusted/expired/malformed tokens, 200
+   for a token from the loopback JWKS issuer, correlation echo, and the JSON log contract;
+4. for `data,restclient`: `mvn spring-boot:run`, the `local` profile, `prod` with each mandatory
+   setting missing (must refuse to start), and `prod` with supplied settings booted twice on one file
+   database.
+
+Each service must finish generate → verify → packaged boot within a 10-minute SLA (`GP_SLA_SECONDS`).
+Owned processes are killed on exit; the work directory and evidence (`GP_EVIDENCE`) are kept on failure.
+It uses `maven-archetype-plugin:3.1.2` (the documented version; 3.4.0 generates project-less on Maven
+3.9.x too). The archetype must not use `archetype-post-generate.groovy`: 3.4.0's Groovy cannot parse
+Java 25 class files, so feature pruning stays in Velocity.

@@ -31,8 +31,19 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   (source `platform-data-jpa-defaults`, visible in `/actuator/env`): `open-in-view=false`, batch
   size 50 with ordered inserts/updates, UTC jdbc time zone. snake_case physical naming is Boot's own
   default and is left in place (decision D35). Override any of these with the normal Boot keys.
-- **Flyway guard** — startup fails fast if JPA is configured but Flyway is missing, with a message
-  telling you to add the starter or set `dc.platform.data.jpa.require-migrations=false`.
+- **Flyway guard** — startup fails fast if JPA is configured but migrations cannot run, with a message
+  telling you to add the starter or set `dc.platform.data.jpa.require-migrations=false`. Spring Boot 4
+  ships `FlywayAutoConfiguration` in `spring-boot-flyway`, so `flyway-core` alone is an engine nobody
+  starts: the starter bundles both, and the guard checks both.
+
+## Migrations
+
+`platform-starter-data-jpa` runs Flyway at startup from `classpath:db/migration`; Hibernate DDL stays off
+once Flyway is present (never set `spring.jpa.hibernate.ddl-auto=create/update` in production). The
+service archetype's `data` feature ships `db/migration/V1__create_note.sql` for its `Note` sample and a
+`NoteRepositoryTest` that proves the migrated schema with CRUD across transactions, rollback, and a
+NOT NULL violation on H2. H2 covers local runs and tests only — the generated `prod` profile disables
+the embedded fallback, and PostgreSQL parity is the `@Tag("docker")` `PostgresParityIT`.
 
 ## Starter coordinates
 

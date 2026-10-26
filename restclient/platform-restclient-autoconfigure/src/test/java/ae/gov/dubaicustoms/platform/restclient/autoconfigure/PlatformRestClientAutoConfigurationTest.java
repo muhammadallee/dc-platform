@@ -6,11 +6,16 @@ import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.security.CurrentUser;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import ae.gov.dubaicustoms.platform.security.autoconfigure.PlatformSecurityAutoConfiguration;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.security.web.DefaultSecurityFilterChain;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.web.client.RestClient;
 
 /** The mandatory 5-case ContextRunner matrix for PlatformRestClientAutoConfiguration, plus the token-relay guard. */
@@ -64,6 +69,13 @@ class PlatformRestClientAutoConfigurationTest {
     }
 
     @Test
+    void invalidTimeoutFailsStartupInsteadOfFallingBackToADefault() {
+        runner.withPropertyValues("dc.platform.restclient.clients.orders.read-timeout=soon")
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("soon"));
+    }
+
+    @Test
     void tokenRelayCustomizerBacksOffWithoutCurrentUserAccessor() {
         runner.run(context -> assertThat(context).doesNotHaveBean("platformTokenRelayCustomizer"));
     }
@@ -73,5 +85,21 @@ class PlatformRestClientAutoConfigurationTest {
         CurrentUserAccessor accessor = () -> Optional.<CurrentUser>empty();
         runner.withBean(CurrentUserAccessor.class, () -> accessor)
                 .run(context -> assertThat(context).hasBean("platformTokenRelayCustomizer"));
+    }
+
+    @Test
+    void tokenRelayRegistersUnderTheRealAutoConfigurationOrderWithTheSecurityCapability() {
+        // Both auto-configurations sorted exactly as Boot sorts them in an application. A user-supplied
+        // accessor (above) is registered before any auto-configuration and hides ordering bugs; here the
+        // accessor comes from PlatformSecurityAutoConfiguration itself. The user chain only stands in for
+        // HttpSecurity, which this runner does not provide; the accessor does not depend on it.
+        new WebApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        PlatformRestClientAutoConfiguration.class, PlatformSecurityAutoConfiguration.class))
+                .withBean(SecurityFilterChain.class, () -> new DefaultSecurityFilterChain(AnyRequestMatcher.INSTANCE))
+                .run(context -> {
+                    assertThat(context).hasSingleBean(CurrentUserAccessor.class);
+                    assertThat(context).hasBean("platformTokenRelayCustomizer");
+                });
     }
 }

@@ -81,6 +81,21 @@
       <artifactId>platform-build-tools</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- The REAL security auto-configuration, test scope only (the layer rule exempts test scope): proves
+         the token relay registers under Boot's actual auto-configuration ordering, not just when a test
+         hands in a CurrentUserAccessor bean up front. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-security-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Servlet API for that test's WebApplicationContextRunner (security's servlet chain types). -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- MockWebServer asserting headers, timeout config, and error mapping (pinned in
          platform-dependencies; test scope). -->
     <dependency>

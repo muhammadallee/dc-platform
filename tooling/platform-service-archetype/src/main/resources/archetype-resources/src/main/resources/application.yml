@@ -1,3 +1,4 @@
+#set( $featureSet = ",${features}," )
 # ${artifactId} — service configuration.
 #
 # The platform sets sensible defaults for everything under dc.platform.* (see /actuator/env, the
@@ -7,20 +8,31 @@
 spring:
   application:
     name: ${artifactId}
+
+# Profiles: local (developer laptop, human-readable logs), test (CI slices), prod (real infrastructure).
+---
+# Every profile EXCEPT prod (including no profile at all): offline-friendly development defaults. None of
+# these reach a prod start, so a deployment that forgets its real coordinates fails fast at startup
+# instead of running on placeholders.
+spring:
+  config:
+    activate:
+      on-profile: "!prod"
   security:
     oauth2:
       resourceserver:
         jwt:
-          # Identity provider JWKS endpoint. Placeholder so the app boots offline (decoding is lazy,
-          # so this URL is never fetched until a request presents a token). Point it at your real IdP.
+          # Identity provider JWKS endpoint. Placeholder so the app boots offline (decoding is lazy, so
+          # this URL is never fetched until a request presents a token). To call authenticated endpoints
+          # locally, override it with your IdP's (or a local test issuer's) JWKS URL.
           jwk-set-uri: https://example.test/.well-known/jwks.json
 
 dc:
   platform:
     security:
-      # Open endpoints (no authentication). Health/info/openapi are open by platform default; the demo
-      # also opens the platform actuator endpoint so the golden-path probe can read it. LOCK THIS DOWN
-      # in production — do not expose /actuator/platform publicly.
+      # Open endpoints (no authentication). Health/info/openapi are open by platform default; outside
+      # prod the platform capability report is opened too, so local runs and the golden path can read
+      # it. In prod it falls back to the platform default list (authenticated).
       permit-paths:
         - /actuator/health
         - /actuator/health/**
@@ -29,9 +41,15 @@ dc:
         - /v3/api-docs/**
         - /swagger-ui/**
         - /swagger-ui.html
+#if($featureSet.contains(",restclient,"))
 
-# Profiles: local (developer laptop), test (CI slices), prod (real infra). Keep prod overrides in the
-# platform's secrets source, not here.
+app:
+  greeting:
+    # Downstream the GreetingClient sample calls. Loopback placeholder for local runs only; prod must
+    # supply app.greeting.base-url (startup fails without it).
+    base-url: http://localhost:8081
+#end
+
 ---
 spring:
   config:
@@ -49,5 +67,12 @@ spring:
   config:
     activate:
       on-profile: prod
-# In prod, provide spring.security.oauth2.resourceserver.jwt.jwk-set-uri and any datasource/broker
-# coordinates via the platform secrets property source, never in this file.
+#if($featureSet.contains(",data,"))
+  datasource:
+    # No embedded (H2) fallback in prod: startup fails unless spring.datasource.url (+ credentials) is
+    # supplied by the environment or the secrets source.
+    embedded-database-connection: none
+#end
+# In prod, supply the identity provider (spring.security.oauth2.resourceserver.jwt.jwk-set-uri or
+# issuer-uri) and every datasource/downstream/broker coordinate externally (environment or the platform
+# secrets property source), never in this file. A missing value fails startup with an actionable message.

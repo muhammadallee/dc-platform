@@ -15,9 +15,10 @@ import org.springframework.test.context.ActiveProfiles;
  *
  * <p>Composes {@link SpringBootTest} with:
  * <ul>
- *   <li><b>the {@code test} profile</b> ({@link ActiveProfiles}) — the platform's logging capability
- *       emits human-readable console logs (not JSON) under this profile, so test output stays
- *       readable;</li>
+ *   <li><b>the {@code test} profile</b> ({@link ActiveProfiles}) — a hook for test-only overrides in
+ *       {@code application.yml}. Logging keeps the deployment JSON format under this profile (only the
+ *       {@code local} profile, or an explicit {@code dc.platform.logging.format}, switches to console),
+ *       so tests can assert the structured events the service really emits;</li>
  *   <li><b>in-memory providers</b> — the platform's defaults (in-memory messaging transport, Caffeine
  *       cache, filesystem storage, JDBC/H2 locking) activate with no external infrastructure, so a
  *       {@code @PlatformTest} needs no Docker, network, or credentials;</li>

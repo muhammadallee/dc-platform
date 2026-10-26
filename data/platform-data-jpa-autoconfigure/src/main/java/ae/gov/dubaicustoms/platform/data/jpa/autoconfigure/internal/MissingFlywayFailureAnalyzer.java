@@ -9,7 +9,8 @@ public class MissingFlywayFailureAnalyzer extends AbstractFailureAnalyzer<Missin
 
     @Override
     protected FailureAnalysis analyze(Throwable rootFailure, MissingFlywayException cause) {
-        String action = "Add platform-starter-data-jpa (it bundles flyway-core) and put your migrations under "
+        String action = "Add platform-starter-data-jpa (it bundles flyway-core and spring-boot-flyway) and put "
+                + "your migrations under "
                 + "classpath:db/migration, or set dc.platform.data.jpa.require-migrations=false to opt out. "
                 + "See docs/modules/data.md#migrations.";
         return new FailureAnalysis(cause.getMessage(), action, cause);

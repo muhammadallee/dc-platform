@@ -53,6 +53,13 @@ class LoggingAutoConfigurationTest {
     }
 
     @Test
+    void unknownFormatFailsStartup() {
+        runner.withPropertyValues("dc.platform.logging.format=xml")
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("xml"));
+    }
+
+    @Test
     void propertiesBindFromKebabKeys() {
         runner.withPropertyValues(
                         "dc.platform.logging.format=console",

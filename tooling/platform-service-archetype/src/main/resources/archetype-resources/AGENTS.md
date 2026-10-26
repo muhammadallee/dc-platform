@@ -38,7 +38,8 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
 
 - Use platform slices: `@PlatformWebTest` (MockMvc + errors + security mocks),
   `@PlatformMessagingTest` (+ `TestEventTransport`), `@PlatformDataTest` (H2 + conventions),
-  `@PlatformTest` (full boot). JWTs via `TestTokens.user("alice").roles(...)`.
+  `@PlatformTest` (full boot). JWTs via `TestTokens.user("alice").roles(...)` for MockMvc; for real HTTP
+  tests, `TestJwtIssuer` (loopback JWKS) so the token is actually validated (see `HttpIntegrationTestSupport`).
 - Default tests must run WITHOUT Docker. Real-infra tests: `@Tag("docker")`, run with `mvn -Pdocker verify`.
 - Assert error responses with `assertThatProblem(...)` including the error code.
 - `PlatformConformanceTest` runs the platform's consumer conformance rules over your code — keep it.

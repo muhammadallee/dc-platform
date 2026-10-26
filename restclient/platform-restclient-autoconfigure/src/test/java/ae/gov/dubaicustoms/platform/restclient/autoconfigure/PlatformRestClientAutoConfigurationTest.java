@@ -57,12 +57,10 @@ class PlatformRestClientAutoConfigurationTest {
     @Test
     void propertiesBindFromKebabKeys() {
         runner.withPropertyValues(
-                        "dc.platform.restclient.propagate-correlation=false",
                         "dc.platform.restclient.defaults.connect-timeout=5s",
                         "dc.platform.restclient.clients.orders.read-timeout=1s")
                 .run(context -> {
                     RestClientProperties properties = context.getBean(RestClientProperties.class);
-                    assertThat(properties.propagateCorrelation()).isFalse();
                     assertThat(properties.defaults().connectTimeout()).isEqualTo(java.time.Duration.ofSeconds(5));
                     assertThat(properties.timeoutsFor("orders").readTimeout()).isEqualTo(java.time.Duration.ofSeconds(1));
                 });

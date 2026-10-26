@@ -35,7 +35,7 @@ class DefaultPlatformRestClientFactoryTest {
     private final MockWebServer server = new MockWebServer();
 
     private final RestClientProperties defaultProperties =
-            new RestClientProperties(true, true, new RestClientProperties.Defaults(null, null), Map.of());
+            new RestClientProperties(true, new RestClientProperties.Defaults(null, null), Map.of());
 
     @BeforeEach
     void startServer() throws IOException {
@@ -48,25 +48,9 @@ class DefaultPlatformRestClientFactoryTest {
     }
 
     @Test
-    void propagatesCorrelationHeaderWhenContextOpen() throws Exception {
+    void neverSendsACustomCorrelationHeader() throws Exception {
         server.enqueue(new MockResponse());
         RestClient client = new DefaultPlatformRestClientFactory(defaultProperties, List.of())
-                .builder("orders").baseUrl(server.url("/").toString()).build();
-        CorrelationId id = CorrelationId.random();
-
-        try (AutoCloseable scope = RequestContext.open(id, Map.of())) {
-            client.get().uri("/widgets").retrieve().toBodilessEntity();
-        }
-
-        assertThat(server.takeRequest().getHeader("X-Correlation-Id")).isEqualTo(id.value());
-    }
-
-    @Test
-    void doesNotSetCorrelationHeaderWhenPropagationDisabled() throws Exception {
-        server.enqueue(new MockResponse());
-        RestClientProperties disabled =
-                new RestClientProperties(true, false, new RestClientProperties.Defaults(null, null), Map.of());
-        RestClient client = new DefaultPlatformRestClientFactory(disabled, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
 
         try (AutoCloseable scope = RequestContext.open(CorrelationId.random(), Map.of())) {
@@ -80,6 +64,7 @@ class DefaultPlatformRestClientFactoryTest {
     void mapsNon2xxResponsesToRemoteCallException() {
         server.enqueue(new MockResponse().setResponseCode(503).setBody("service unavailable")
                 .addHeader("X-Correlation-Id", "remote-abc"));
+        // A callee's custom correlation header is not read either.
         RestClient client = new DefaultPlatformRestClientFactory(defaultProperties, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
 
@@ -89,7 +74,7 @@ class DefaultPlatformRestClientFactoryTest {
                     RemoteCallException remoteCallException = (RemoteCallException) e;
                     assertThat(remoteCallException.status()).isEqualTo(503);
                     assertThat(remoteCallException.bodySnippet()).isEqualTo("service unavailable");
-                    assertThat(remoteCallException.remoteCorrelationId()).contains("remote-abc");
+                    assertThat(remoteCallException.remoteCorrelationId()).isEmpty();
                 });
     }
 
@@ -109,7 +94,7 @@ class DefaultPlatformRestClientFactoryTest {
     @Test
     void readTimeoutAbortsASlowResponseWithinTheConfiguredBound() {
         server.enqueue(new MockResponse().setBody("late").setHeadersDelay(3, TimeUnit.SECONDS));
-        RestClientProperties shortRead = new RestClientProperties(true, true,
+        RestClientProperties shortRead = new RestClientProperties(true,
                 new RestClientProperties.Defaults(null, Duration.ofMillis(300)), Map.of());
         RestClient client = new DefaultPlatformRestClientFactory(shortRead, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
@@ -122,7 +107,7 @@ class DefaultPlatformRestClientFactoryTest {
     @Test
     void perClientReadTimeoutOverridesTheDefaultAtCallTime() {
         server.enqueue(new MockResponse().setBody("late").setHeadersDelay(3, TimeUnit.SECONDS));
-        RestClientProperties overridden = new RestClientProperties(true, true, new RestClientProperties.Defaults(null, null),
+        RestClientProperties overridden = new RestClientProperties(true, new RestClientProperties.Defaults(null, null),
                 Map.of("orders", new RestClientProperties.ClientOverride(null, Duration.ofMillis(300))));
         RestClient client = new DefaultPlatformRestClientFactory(overridden, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
@@ -202,7 +187,7 @@ class DefaultPlatformRestClientFactoryTest {
 
     @Test
     void appliesPerClientTimeoutOverride() {
-        RestClientProperties withOverride = new RestClientProperties(true, true, new RestClientProperties.Defaults(null, null),
+        RestClientProperties withOverride = new RestClientProperties(true, new RestClientProperties.Defaults(null, null),
                 Map.of("orders", new RestClientProperties.ClientOverride(Duration.ofMillis(1), null)));
 
         RestClientProperties.Defaults resolved = withOverride.timeoutsFor("orders");

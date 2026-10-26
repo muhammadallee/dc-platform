@@ -80,7 +80,12 @@ public final class RemoteCallException extends PlatformException {
      * Returns the correlation id echoed by the callee, if any.
      *
      * @return the remote correlation id; empty if the callee did not echo one
+     * @deprecated the platform no longer reads or echoes custom correlation headers: caller and
+     *             callee share one W3C trace (propagated in {@code traceparent}), so the caller's own
+     *             trace ID already joins both sides' logs. The platform client always passes
+     *             {@code null}, so this is empty for platform-created exceptions.
      */
+    @Deprecated(since = "1.0.0")
     public Optional<String> remoteCorrelationId() {
         return Optional.ofNullable(remoteCorrelationId);
     }

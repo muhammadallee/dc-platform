@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClient;
  * Activates when: RestClient (spring-web) on the classpath AND dc.platform.restclient.enabled != false
  * Backs off when: user defines a PlatformRestClientFactory bean
  * Beans: platformRestClientFactory — DefaultPlatformRestClientFactory: JDK HttpClient request
- *                 factory with per-client connect/read timeouts, correlation-header propagation,
+ *                 factory with per-client connect/read timeouts, traceparent propagation (observation),
  *                 non-2xx responses mapped to RemoteCallException, http.client.requests
  *                 observations (client.name = platform client name) on the ObservationRegistry bean
  *                 when one exists (resolved lazily per builder; NOOP otherwise), ordered

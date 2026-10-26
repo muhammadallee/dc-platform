@@ -13,11 +13,13 @@ import org.springframework.validation.annotation.Validated;
  * via {@code @EnableConfigurationProperties} (never scanned).
  *
  * @param enabled master kill switch for the whole capability
- * @param propagateCorrelation propagate the current {@code RequestContext} correlation id as an
- *        outbound header
  * @param defaults connect/read timeouts applied when a client has no override
  * @param clients per-client timeout overrides, keyed by the name passed to
  *        {@link ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory#builder(String)}
+ * <p>{@code dc.platform.restclient.propagate-correlation} is gone: every client is instrumented with
+ * the observation registry, so the W3C {@code traceparent} (the platform's only correlation id) is
+ * always propagated and no custom header is sent. The key remains in the metadata as deprecated.
+ *
  * @since 0.2.0
  */
 @Validated
@@ -25,8 +27,6 @@ import org.springframework.validation.annotation.Validated;
 public record RestClientProperties(
         /** Master switch for the capability. */
         @DefaultValue("true") boolean enabled,
-        /** Propagate the current RequestContext correlation id as an outbound header. */
-        @DefaultValue("true") boolean propagateCorrelation,
         /** Connect/read timeouts applied when a client has no override. */
         Defaults defaults,
         /** Per-client timeout overrides, keyed by client name. */

@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 2 — Logging + Observability |
-| Current gate | B done (redaction encoder + LogSanitizer wiring + strict MDC; pod-local readiness + `dependencies` group; exposure `health,info,prometheus` + archetype `platform` opt-in; descriptor guard; D101–D106; targeted tests logging-api 5, logging-autoconfigure 59, observability 32, 0 skipped; downstream compile 14 modules exit 0) → C round 1 |
+| Current gate | C done (round 1: 7 High findings, all FIXED; record `review-round-1.md`) → D round 2 |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 2 Gate C: Codex round-1 review from `a33168d` (isolated worktree, no Claude conclusions in the prompt). Phase-2 A1 accepted (D107); D102 extended with e-mail and phone. |
+| Next action | Phase 2 Gate D: fresh Codex review of the revised code from `a33168d`, confirm round-1 dispositions, hunt regressions; rebut, re-evaluate, fix, verification pass. |
 
 ## Phase log
 
@@ -20,7 +20,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|---|---|---|
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
-| 2 | `a33168d` | in progress (Gate B done) | — | — |
+| 2 | `a33168d` | in progress (Gate C done) | — | — |
 
 ## Environment notes for resumption
 

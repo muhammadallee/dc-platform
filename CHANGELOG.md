@@ -48,6 +48,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs, card numbers, e-mail
   addresses and phone numbers become `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
 - `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented.
+- The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`
+  previously exported metrics but never traces.
 - `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).
 
 ### Added

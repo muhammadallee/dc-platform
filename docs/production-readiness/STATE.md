@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 2 — Logging + Observability |
-| Current gate | A — scope + baseline (Phase 1 closed PASS 2026-10-26 on `76cfcc7`, tag `hardening/phase-01-closed`) |
+| Current gate | A done (scope `phase-02-logging-observability/scope.md`, baseline tests green, start `a33168d`) → B implement |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 2 Gate A: write `phase-02-logging-observability/scope.md` (plan §Phase 2), baseline the in-scope modules, list fixtures. Include the GX-04 descriptor guards for logging/observability. |
+| Next action | Phase 2 Gate B: implement R1–R10 per scope (redaction encoder, MDC strict mode, health groups, exposure + archetype opt-in, descriptor guard for observability), record D101–D106, targeted tests. |
 
 ## Phase log
 
@@ -20,6 +20,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|---|---|---|
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
+| 2 | `a33168d` | in progress (Gate A done) | — | — |
 
 ## Environment notes for resumption
 

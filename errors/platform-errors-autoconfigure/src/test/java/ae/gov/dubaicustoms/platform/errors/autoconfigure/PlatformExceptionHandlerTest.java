@@ -47,7 +47,11 @@ class PlatformExceptionHandlerTest {
     }
 
     private static ErrorsProperties defaults() {
-        return new ErrorsProperties(true, false, "https://errors.dc.com/", true);
+        return new ErrorsProperties(true, false, "https://errors.dc.com/", true, false);
+    }
+
+    private static ErrorsProperties withRejectedValues() {
+        return new ErrorsProperties(true, false, "https://errors.dc.com/", true, true);
     }
 
     @Test
@@ -67,8 +71,9 @@ class PlatformExceptionHandlerTest {
                       "detail": "order 42 not found",
                       "instance": "/missing",
                       "code": "DC-TEST-0404",
-                      "correlationId": "%s",
-                      "timestamp": "2026-01-01T00:00:00Z"
+                      "traceId": "%s",
+                      "timestamp": "2026-01-01T00:00:00Z",
+                      "retryable": false
                     }""".formatted(CORRELATION),
                     result.getResponse().getContentAsString(), JSONCompareMode.STRICT);
             assertThat(result.getResponse().getContentType())
@@ -84,11 +89,39 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void infrastructurePlatformExceptionMapsTo500WithItsCode() throws Exception {
-        mockMvc(defaults(), List.of()).perform(get("/infra"))
+    void infrastructurePlatformExceptionMapsTo500WithItsCodeButNotItsMessage() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/infra"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("DC-TEST-0500"))
-                .andExpect(jsonPath("$.detail").value("transport down"));
+                .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("transport down");
+    }
+
+    @Test
+    void malformedJsonMapsTo400WithoutParserInternals() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of())
+                .perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content("{\"name\": [oops"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0410"))
+                .andExpect(jsonPath("$.detail").value("The request body is malformed or unreadable."))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContainIgnoringCase("jackson").doesNotContain("NewOrder", "line:", "column:");
+    }
+
+    @Test
+    void frameworkRejectionsGetThePlatformExtensions() throws Exception {
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            mockMvc(defaults(), List.of()).perform(post("/missing"))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(jsonPath("$.code").value("DC-CORE-0499"))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION))
+                    .andExpect(jsonPath("$.retryable").value(false))
+                    .andExpect(jsonPath("$.timestamp").exists());
+        }
     }
 
     @Test
@@ -102,8 +135,21 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void requestBodyValidationMapsTo400WithRedactedErrors() throws Exception {
-        mockMvc(defaults(), List.of())
+    void requestBodyValidationOmitsRejectedValuesByDefault() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of())
+                .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[?(@.field=='name')].message").exists())
+                .andExpect(jsonPath("$.errors[0].rejectedValue").doesNotExist())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("hunter2!");
+    }
+
+    @Test
+    void requestBodyValidationMapsTo400WithRedactedErrorsWhenRejectedValuesAreOn() throws Exception {
+        mockMvc(withRejectedValues(), List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
                 .andExpect(status().isBadRequest())
@@ -115,7 +161,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void mapValidationOffFallsBackToDefaultSpringBody() throws Exception {
-        ErrorsProperties off = new ErrorsProperties(true, false, "https://errors.dc.com/", false);
+        ErrorsProperties off = new ErrorsProperties(true, false, "https://errors.dc.com/", false, false);
         mockMvc(off, List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
@@ -125,7 +171,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void includeStacktraceAddsTheExtension() throws Exception {
-        ErrorsProperties withTrace = new ErrorsProperties(true, true, "https://errors.dc.com/", true);
+        ErrorsProperties withTrace = new ErrorsProperties(true, true, "https://errors.dc.com/", true, false);
         mockMvc(withTrace, List.of()).perform(get("/boom"))
                 .andExpect(jsonPath("$.stacktrace").exists());
     }
@@ -140,8 +186,9 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void correlationExtensionIsOmittedOutsideAnOpenContext() throws Exception {
+    void traceIdExtensionIsOmittedOutsideAnOpenContextAndCorrelationIdIsGone() throws Exception {
         mockMvc(defaults(), List.of()).perform(get("/missing"))
+                .andExpect(jsonPath("$.traceId").doesNotExist())
                 .andExpect(jsonPath("$.correlationId").doesNotExist());
     }
 

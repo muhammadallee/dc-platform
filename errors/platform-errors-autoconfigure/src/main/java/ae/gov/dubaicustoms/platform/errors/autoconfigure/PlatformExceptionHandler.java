@@ -27,10 +27,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * Platform {@code @RestControllerAdvice}: maps {@link PlatformException}s, request-body
  * validation failures, and unexpected exceptions to RFC-9457 {@link ProblemDetail} responses
- * with {@code code}, {@code correlationId}, and {@code timestamp} extensions.
+ * with {@code code}, {@code traceId}, {@code timestamp} and {@code retryable} extensions.
  *
  * <p>Extends {@link ResponseEntityExceptionHandler} so the servlet stack's own exceptions
- * (404/405/406/415, …) keep their proper statuses instead of falling into the 500 catch-all.
+ * (404/405/406/415, …) keep their proper statuses instead of falling into the 500 catch-all; their
+ * bodies get the same platform extensions ({@code DC-CORE-0410} for an unreadable request body,
+ * {@code DC-CORE-0499} for any other rejected request). No 5xx body ever carries an exception
+ * message: the full exception is logged with the trace ID instead.
  * Ordered at {@link Ordered#LOWEST_PRECEDENCE} so application advice beans win first.
  *
  * <p>Registered by {@code PlatformErrorHandlingAutoConfiguration}; define your own bean named
@@ -47,6 +50,15 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** Code for request-body validation failures mapped to 400 with {@code errors[]}. */
     static final ErrorCode VALIDATION_FAILED = new ErrorCode("DC-CORE-0400");
+
+    /** Code for a request body that could not be read or parsed (e.g. malformed JSON). */
+    static final ErrorCode MALFORMED_REQUEST = new ErrorCode("DC-CORE-0410");
+
+    /** Code for every other request the servlet stack rejected (404, 405, 406, 415, …). */
+    static final ErrorCode REQUEST_REJECTED = new ErrorCode("DC-CORE-0499");
+
+    /** Detail for an unreadable body: the parser's own message names classes and offsets. */
+    private static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or unreadable.";
 
     private static final Logger log = LoggerFactory.getLogger(PlatformExceptionHandler.class);
 
@@ -66,8 +78,9 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * Maps platform exceptions: business exceptions take their {@code statusHint}, all other
-     * platform exceptions are infrastructure failures and map to 500. The exception message is
-     * platform/application-authored and treated as safe for the response body.
+     * platform exceptions are infrastructure failures and map to 500. For 4xx the exception message
+     * is application-authored and becomes the {@code detail}; for 5xx the body carries only the
+     * generic detail (infrastructure messages name hosts, clients and statuses).
      *
      * @param exception the platform exception; never {@code null}
      * @param request the current request; never {@code null}
@@ -116,20 +129,53 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("field", fieldError.getField());
             entry.put("message", fieldError.getDefaultMessage());
-            entry.put("rejectedValue", factory.redact(fieldError.getField(), fieldError.getRejectedValue()));
+            factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
             errors.add(entry);
         });
         exception.getBindingResult().getGlobalErrors().forEach(globalError -> {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("field", globalError.getObjectName());
             entry.put("message", globalError.getDefaultMessage());
-            entry.put("rejectedValue", null);
             errors.add(entry);
         });
         ProblemDetail problem = factory.create(
                 400, VALIDATION_FAILED, "Validation failed.", instancePathOf(request), exception);
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    /**
+     * Every body Spring MVC builds for its own exceptions passes here: it gets the platform
+     * extensions, and an unreadable body never exposes the parser's message.
+     */
+    @Override
+    protected ResponseEntity<Object> createResponseEntity(Object body, HttpHeaders headers, HttpStatusCode statusCode,
+            WebRequest request) {
+        if (body instanceof ProblemDetail problem
+                && (problem.getProperties() == null || !problem.getProperties().containsKey("code"))) {
+            ErrorCode code = REQUEST_REJECTED;
+            if (statusCode.value() >= 500) {
+                code = UNEXPECTED_ERROR;
+            } else if (problem.getDetail() != null && problem.getDetail().startsWith("Failed to read request")) {
+                code = MALFORMED_REQUEST;
+                problem.setDetail(MALFORMED_REQUEST_DETAIL);
+            }
+            if (problem.getInstance() == null && instancePathOf(request) != null) {
+                problem.setInstance(java.net.URI.create(instancePathOf(request)));
+            }
+            factory.decorate(problem, code, null);
+        }
+        return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.debug("unreadable request body [{}]", MALFORMED_REQUEST.value(), exception);
+        ProblemDetail problem = factory.create(400, MALFORMED_REQUEST, MALFORMED_REQUEST_DETAIL,
+                instancePathOf(request), exception);
+        return ResponseEntity.badRequest().headers(headers).body(problem);
     }
 
     private static String instancePathOf(WebRequest request) {

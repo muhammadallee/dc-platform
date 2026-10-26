@@ -15,6 +15,9 @@ import org.springframework.validation.annotation.Validated;
  *        never enable in production)
  * @param typeBaseUri base URI prepended to the error code to form the problem {@code type}
  * @param mapValidation map Bean Validation failures to 400 problem responses with {@code errors[]}
+ * @param includeRejectedValues echo each invalid value as {@code errors[].rejectedValue} (off by
+ *        default: rejected values are raw user input and may be personal data; credential-shaped
+ *        fields stay redacted even when on)
  * @since 0.1.0
  */
 @Validated
@@ -27,5 +30,7 @@ public record ErrorsProperties(
         /** Base URI prepended to the error code to form the problem type. */
         @DefaultValue("https://errors.dc.com/") String typeBaseUri,
         /** Map Bean Validation failures to 400 problem responses with an errors[] extension. */
-        @DefaultValue("true") boolean mapValidation) {
+        @DefaultValue("true") boolean mapValidation,
+        /** Echo invalid values as errors[].rejectedValue (raw user input; off by default). */
+        @DefaultValue("false") boolean includeRejectedValues) {
 }

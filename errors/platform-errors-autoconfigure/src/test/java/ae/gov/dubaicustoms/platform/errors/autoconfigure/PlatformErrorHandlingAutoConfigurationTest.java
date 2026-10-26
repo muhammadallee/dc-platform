@@ -69,6 +69,30 @@ class PlatformErrorHandlingAutoConfigurationTest {
     }
 
     @Test
+    void consumerSubclassReplacesThePlatformAdvice() {
+        // Plan §7.1: a real override, not annotation presence — the consumer's handler is the one
+        // in the context and the platform's is not created alongside it.
+        ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
+        PlatformExceptionHandler mine = new PlatformExceptionHandler(properties,
+                new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
+                        java.util.List.of(), java.time.Clock.systemUTC())) {
+        };
+        runner.withBean("platformExceptionHandler", PlatformExceptionHandler.class, () -> mine)
+                .run(context -> {
+                    assertThat(context).getBeans(PlatformExceptionHandler.class).hasSize(1);
+                    assertThat(context.getBean(PlatformExceptionHandler.class)).isSameAs(mine);
+                });
+    }
+
+    @Test
+    void configurationDefaultsSnapshot() {
+        // Plan §7.2: a changed default fails here until the snapshot is consciously updated and the
+        // change is recorded in the phase changelog. include-rejected-values=false is new in phase 1.
+        runner.run(context -> assertThat(context.getBean(ErrorsProperties.class))
+                .isEqualTo(new ErrorsProperties(true, false, "https://errors.dc.com/", true, false)));
+    }
+
+    @Test
     void propertiesBindFromKebabKeys() {
         runner.withPropertyValues(
                         "dc.platform.errors.include-stacktrace=true",

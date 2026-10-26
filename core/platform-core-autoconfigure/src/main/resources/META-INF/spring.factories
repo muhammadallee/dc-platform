@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+ae.gov.dubaicustoms.platform.core.autoconfigure.PlatformCoreEnvironmentPostProcessor

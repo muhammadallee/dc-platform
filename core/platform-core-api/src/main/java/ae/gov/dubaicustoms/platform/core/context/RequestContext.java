@@ -13,8 +13,11 @@ import org.slf4j.MDC;
 
 /**
  * Read-only static access to the current request context (correlation id plus platform-managed
- * extras). Backed by SLF4J's {@link MDC} so logging patterns like {@code %X{correlationId}} work
- * out of the box; Micrometer context-propagation is layered on later.
+ * extras). The correlation id is the W3C trace ID of the current span (see {@link CorrelationId}).
+ * Backed by SLF4J's {@link MDC}: the id is published under {@code traceId} (the key Spring Boot's
+ * tracing uses), so {@code %X{traceId}} and JSON logs carry it; platform auto-configuration
+ * propagates the context to {@code @Async} and Boot-built executors via Micrometer
+ * context-propagation.
  *
  * <p>Static access is READ-ONLY convenience for application code; population is done exclusively
  * by platform filters and interceptors via {@link #open(CorrelationId, Map)}.
@@ -32,8 +35,8 @@ import org.slf4j.MDC;
 @API(status = API.Status.STABLE, since = "0.1.0")
 public final class RequestContext {
 
-    /** MDC key under which the correlation id is published. */
-    private static final String CORRELATION_ID_KEY = "correlationId";
+    /** MDC key under which the correlation id (the trace ID) is published; Boot tracing's key. */
+    private static final String CORRELATION_ID_KEY = "traceId";
 
     // Stack of open scopes per thread; supports nested open() (e.g. a message handler inside a
     // web request) with innermost-wins reads and exact restoration on close.

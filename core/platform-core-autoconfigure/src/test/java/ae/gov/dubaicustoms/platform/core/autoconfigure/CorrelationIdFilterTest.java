@@ -1,110 +1,93 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.LoggerFactory;
 
-/** Behavior of the correlation filter through a real MockMvc filter chain. */
+/** Unit behaviour of the rejected-traceparent marker: sanitized, capped, never the raw value. */
 class CorrelationIdFilterTest {
 
-    private static final String HEADER = "X-Correlation-Id";
-    private static final String INCOMING = "0123456789abcdef0123456789abcdef";
-
-    private final CaptureController controller = new CaptureController();
-    private MockMvc mockMvc;
-
-    @RestController
-    static class CaptureController {
-
-        final AtomicReference<Map<String, String>> seenContext = new AtomicReference<>();
-        final AtomicReference<String> seenMdc = new AtomicReference<>();
-        final AtomicReference<Boolean> otherThreadSawContext = new AtomicReference<>();
-
-        @GetMapping("/probe")
-        String probe() throws Exception {
-            seenContext.set(RequestContext.asMap());
-            seenMdc.set(MDC.get("correlationId"));
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            try {
-                otherThreadSawContext.set(executor.submit(() -> RequestContext.correlationId().isPresent()).get());
-            } finally {
-                executor.shutdownNow();
-            }
-            return "ok";
-        }
-    }
+    private final Logger filterLogger = (Logger) LoggerFactory.getLogger(CorrelationIdFilter.class);
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
 
     @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .addFilters(new CorrelationIdFilter(HEADER, true))
-                .build();
+    void captureFilterLog() {
+        appender.start();
+        filterLogger.addAppender(appender);
+        filterLogger.setLevel(Level.DEBUG);
     }
 
     @AfterEach
-    void mdcIsAlwaysCleanAfterTheRequest() {
-        assertThat(MDC.get("correlationId")).isNull();
+    void detach() {
+        filterLogger.detachAppender(appender);
+        filterLogger.setLevel(null);
     }
 
     @Test
-    void echoesIncomingCorrelationIdAndPopulatesContextDuringRequest() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, INCOMING))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).isEqualTo(INCOMING));
-
-        assertThat(controller.seenContext.get()).containsEntry("correlationId", INCOMING);
-        assertThat(controller.seenMdc.get()).isEqualTo(INCOMING);
+    void sanitizeReplacesEveryCharacterOutsideTheTraceparentAlphabet() {
+        assertThat(CorrelationIdFilter.sanitize("00-ab\r\nInjected: yes"))
+                .hasSize("00-ab\r\nInjected: yes".length())
+                .startsWith("00-ab??")
+                .matches("[0-9a-f?-]+");
+        assertThat(CorrelationIdFilter.sanitize("<script>")).isEqualTo("??c?????");
     }
 
     @Test
-    void generatesFreshIdWhenHeaderMissing() throws Exception {
-        mockMvc.perform(get("/probe"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).matches("[0-9a-f]{32}"));
+    void sanitizeCapsTheLength() {
+        String oversized = "a".repeat(5_000);
+        assertThat(CorrelationIdFilter.sanitize(oversized)).hasSize(64 + 3).endsWith("...");
     }
 
     @Test
-    void regeneratesWhenHeaderMalformed() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, "not-a-correlation-id"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER))
-                        .matches("[0-9a-f]{32}")
-                        .isNotEqualTo("not-a-correlation-id"));
+    void sanitizeKeepsAValidTraceparentReadable() {
+        String valid = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+        assertThat(CorrelationIdFilter.sanitize(valid)).isEqualTo(valid);
     }
 
     @Test
-    void contextDoesNotLeakToOtherThreads() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, INCOMING)).andExpect(status().isOk());
+    void rejectedMarkerNeverContainsTheRawValue() throws Exception {
+        String hostile = "00-\r\nX-Injected: forged-log-line\u0007" + "f".repeat(300);
+        CorrelationIdFilter filter = new CorrelationIdFilter(io.micrometer.tracing.Tracer.NOOP);
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/x");
+        request.addHeader("traceparent", hostile);
+        filter.doFilter(request, new org.springframework.mock.web.MockHttpServletResponse(), (req, res) -> {
+        });
 
-        assertThat(controller.otherThreadSawContext.get())
-                .as("the request context must be confined to the request thread")
-                .isFalse();
+        List<String> lines = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+        assertThat(lines).singleElement().satisfies(line -> {
+            assertThat(line).startsWith("rejected inbound traceparent (length=" + hostile.length() + ",");
+            assertThat(line).doesNotContain("\r", "\n", "\u0007", "X-Injected", "forged-log-line");
+            assertThat(line.length()).isLessThan(200);
+        });
     }
 
     @Test
-    void passesThroughWithoutContextWhenGenerationDisabled() throws Exception {
-        MockMvc noGeneration = MockMvcBuilders.standaloneSetup(controller)
-                .addFilters(new CorrelationIdFilter(HEADER, false))
-                .build();
+    void validTraceparentProducesNoMarker() throws Exception {
+        CorrelationIdFilter filter = new CorrelationIdFilter(io.micrometer.tracing.Tracer.NOOP);
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/x");
+        request.addHeader("traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01");
+        filter.doFilter(request, new org.springframework.mock.web.MockHttpServletResponse(), (req, res) -> {
+        });
+        assertThat(appender.list).isEmpty();
+    }
 
-        noGeneration.perform(get("/probe"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).isNull());
-
-        assertThat(controller.seenContext.get()).isEmpty();
+    @Test
+    void noSpanMeansNoContextAndThePassThroughStillRuns() throws Exception {
+        CorrelationIdFilter filter = new CorrelationIdFilter(io.micrometer.tracing.Tracer.NOOP);
+        Map<String, Boolean> ran = new java.util.HashMap<>();
+        filter.doFilter(new org.springframework.mock.web.MockHttpServletRequest("GET", "/x"),
+                new org.springframework.mock.web.MockHttpServletResponse(),
+                (req, res) -> ran.put("chain", ae.gov.dubaicustoms.platform.core.context.RequestContext
+                        .correlationId().isEmpty()));
+        assertThat(ran).containsEntry("chain", true);
     }
 }

@@ -29,26 +29,26 @@ class RequestContextTest {
         try (AutoCloseable scope = RequestContext.open(ID, Map.of("tenant", "dxb"))) {
             assertThat(RequestContext.correlationId()).contains(ID);
             assertThat(RequestContext.asMap())
-                    .containsEntry("correlationId", ID.value())
+                    .containsEntry("traceId", ID.value())
                     .containsEntry("tenant", "dxb");
-            assertThat(MDC.get("correlationId")).isEqualTo(ID.value());
+            assertThat(MDC.get("traceId")).isEqualTo(ID.value());
             assertThat(MDC.get("tenant")).isEqualTo("dxb");
         }
         assertThat(RequestContext.correlationId()).isEmpty();
-        assertThat(MDC.get("correlationId")).isNull();
+        assertThat(MDC.get("traceId")).isNull();
         assertThat(MDC.get("tenant")).isNull();
     }
 
     @Test
     void closeRestoresShadowedMdcValues() throws Exception {
-        MDC.put("correlationId", "preexisting");
+        MDC.put("traceId", "preexisting");
         MDC.put("userKey", "kept");
 
         try (AutoCloseable scope = RequestContext.open(ID, Map.of())) {
-            assertThat(MDC.get("correlationId")).isEqualTo(ID.value());
+            assertThat(MDC.get("traceId")).isEqualTo(ID.value());
         }
 
-        assertThat(MDC.get("correlationId")).isEqualTo("preexisting");
+        assertThat(MDC.get("traceId")).isEqualTo("preexisting");
         assertThat(MDC.get("userKey")).isEqualTo("kept");
     }
 
@@ -60,13 +60,13 @@ class RequestContextTest {
             try (AutoCloseable innerScope = RequestContext.open(inner, Map.of("inner", "2"))) {
                 assertThat(RequestContext.correlationId()).contains(inner);
                 assertThat(RequestContext.asMap())
-                        .containsEntry("correlationId", inner.value())
+                        .containsEntry("traceId", inner.value())
                         .containsEntry("outer", "1")
                         .containsEntry("inner", "2");
             }
             assertThat(RequestContext.correlationId()).contains(ID);
             assertThat(RequestContext.asMap())
-                    .containsEntry("correlationId", ID.value())
+                    .containsEntry("traceId", ID.value())
                     .containsEntry("outer", "1")
                     .doesNotContainKey("inner");
         }

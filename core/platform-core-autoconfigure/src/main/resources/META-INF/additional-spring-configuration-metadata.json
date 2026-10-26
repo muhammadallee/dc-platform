@@ -1,0 +1,22 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.core.correlation.header-name",
+      "type": "java.lang.String",
+      "description": "Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written."
+      }
+    },
+    {
+      "name": "dc.platform.core.correlation.generate-if-missing",
+      "type": "java.lang.Boolean",
+      "description": "Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id.",
+      "deprecation": {
+        "level": "error",
+        "reason": "The tracing bridge always starts a new trace when traceparent is missing or invalid."
+      }
+    }
+  ]
+}

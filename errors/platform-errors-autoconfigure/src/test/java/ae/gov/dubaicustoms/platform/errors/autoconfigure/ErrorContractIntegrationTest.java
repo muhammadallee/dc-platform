@@ -80,8 +80,7 @@ class ErrorContractIntegrationTest {
 
     @BeforeAll
     static void start() {
-        context = new SpringApplication(App.class).run("--server.port=0", "--spring.main.banner-mode=off",
-                "--logging.level.root=WARN");
+        context = new SpringApplication(App.class).run("--server.port=0", "--spring.main.banner-mode=off");
         port = ((WebServerApplicationContext) context).getWebServer().getPort();
     }
 

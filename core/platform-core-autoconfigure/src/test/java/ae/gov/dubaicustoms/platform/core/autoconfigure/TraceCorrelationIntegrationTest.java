@@ -186,8 +186,7 @@ class TraceCorrelationIntegrationTest {
             context = new SpringApplication(App.class, AsyncProbe.class, ProbeController.class)
                     .run("--server.port=0", "--spring.main.banner-mode=off",
                             "--management.tracing.sampling.probability=" + samplingProbability(),
-                            "--spring.task.execution.pool.core-size=1", "--spring.task.execution.pool.max-size=1",
-                            "--logging.level.root=WARN");
+                            "--spring.task.execution.pool.core-size=1", "--spring.task.execution.pool.max-size=1");
             port = ((WebServerApplicationContext) context).getWebServer().getPort();
         }
 

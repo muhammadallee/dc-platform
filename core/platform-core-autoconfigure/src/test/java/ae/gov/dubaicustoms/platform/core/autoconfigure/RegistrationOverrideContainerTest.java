@@ -37,7 +37,7 @@ class RegistrationOverrideContainerTest {
     @Test
     void theContainerHoldsNoPlatformCorrelationFilter() {
         try (ConfigurableApplicationContext context = new SpringApplication(App.class)
-                .run("--server.port=0", "--spring.main.banner-mode=off", "--logging.level.root=WARN")) {
+                .run("--server.port=0", "--spring.main.banner-mode=off")) {
             ServletContext servletContext = ((WebApplicationContext) context).getServletContext();
             Map<String, ? extends FilterRegistration> registrations = servletContext.getFilterRegistrations();
             assertThat(registrations.values())

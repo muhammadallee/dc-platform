@@ -1,1 +1,1 @@
-{"detail":"An unexpected error occurred.","instance":"/probe/boom","status":500,"title":"DC-CORE-0500","type":"https://errors.dc.com/DC-CORE-0500","code":"DC-CORE-0500","traceId":"faa56bd569193a8d2028d123e3a50881","timestamp":"2026-10-26T06:11:15.865281276Z","retryable":false}
+{"detail":"An unexpected error occurred.","instance":"/probe/boom","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"2b994196fe8be5affae029eb6b3b23c6","timestamp":"2026-10-26T18:07:45.084497088Z","retryable":false}

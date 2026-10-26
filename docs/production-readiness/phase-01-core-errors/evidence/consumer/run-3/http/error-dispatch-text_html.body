@@ -1,1 +1,1 @@
-{"detail":"Conflict","instance":"/probe/duplicate","status":409,"title":"DC-CORE-0499","type":"https://errors.dc.com/DC-CORE-0499","code":"DC-CORE-0499","traceId":"17548cd803e76f1b5b1db5965c88ed41","timestamp":"2026-10-26T06:11:46.595599228Z","retryable":false}
+{"detail":"Conflict","instance":"/probe/duplicate","status":409,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"9d05789be2e961e35aab5c607dddc4a4","timestamp":"2026-10-26T18:08:17.058543152Z","retryable":false}

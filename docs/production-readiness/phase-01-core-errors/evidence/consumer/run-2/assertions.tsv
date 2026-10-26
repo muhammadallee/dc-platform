@@ -1,4 +1,4 @@
-PASS	app ready in 9s
+PASS	app ready in 10s
 PASS	ac1-valid status 200
 PASS	ac1-valid: context == inbound trace
 PASS	ac1-valid: spanId in MDC
@@ -81,12 +81,12 @@ PASS	AC12 'db-secret-host' detail is in the log, on the request's trace
 PASS	AC12 'pricing-7.internal' detail is in the log, on the request's trace
 PASS	AC2 the fresh trace of an error body is the trace of its log line
 PASS	no bearer token in the log
-PASS	app ready in 9s
+PASS	app ready in 10s
 PASS	ac6-unsampled status 200
 PASS	ac6-unsampled: unsampled trace kept
 PASS	ac6-unsampled-new: fresh unsampled trace
 PASS	ac6-unsampled-error status 500
 PASS	ac6-unsampled-error: traceId in an unsampled error body
-PASS	app exited on SIGTERM (code 143) in 2s
+PASS	app exited on SIGTERM (code 143) in 4s
 PASS	graceful shutdown completed (logged)
-PASS	cleanup: no containers left for dch-20261026100709-6486
+PASS	cleanup: no containers left for dch-20261026220320-26199

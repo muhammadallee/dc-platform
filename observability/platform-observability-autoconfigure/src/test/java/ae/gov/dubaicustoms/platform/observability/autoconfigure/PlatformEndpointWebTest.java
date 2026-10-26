@@ -59,7 +59,8 @@ class PlatformEndpointWebTest {
         void scrapeCarriesCommonTagsAndNoHighCardinalityValues() throws Exception {
             get(environment, "/actuator/health/readiness");
             String scrape = get(environment, "/actuator/prometheus").body();
-            assertThat(scrape).contains("service=\"observability-web-test\"").contains("platform_version=\"");
+            assertThat(scrape).contains("service=\"observability-web-test\"").contains("platform_version=\"")
+                    .contains("env=\"default\"");
             Matcher labels = LABEL_VALUE.matcher(scrape);
             while (labels.find()) {
                 assertThat(labels.group(1)).as("label value")
@@ -82,6 +83,25 @@ class PlatformEndpointWebTest {
 
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.body()).contains("\"name\":\"observability\"").contains("\"status\":\"ACTIVE\"");
+        }
+    }
+
+    @Nested
+    @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = App.class,
+            properties = "dc.platform.observability.enabled=false")
+    class KillSwitch {
+
+        @Autowired
+        private Environment environment;
+
+        @Test
+        void bootsOwnManagementDefaultsComeBack() throws Exception {
+            // Boot's own exposure (health only) and no platform health groups or common tags.
+            assertThat(get(environment, "/actuator/health").statusCode()).isEqualTo(503);
+            assertThat(get(environment, "/actuator/prometheus").statusCode()).isEqualTo(404);
+            assertThat(get(environment, "/actuator/info").statusCode()).isEqualTo(404);
+            assertThat(get(environment, "/actuator/health/dependencies").statusCode()).isEqualTo(404);
+            assertThat(environment.getProperty("management.endpoint.health.group.readiness.include")).isNull();
         }
     }
 

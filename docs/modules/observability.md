@@ -18,8 +18,8 @@ storage, and an opt-in endpoint that tells you which platform capabilities a run
   `platform` and everything else are an explicit opt-in.
 - **`/actuator/platform` (opt-in)** — the `CapabilityDescriptor` report as JSON: which platform
   capabilities are ACTIVE in this running service, with provider detail. Generated services expose it.
-- **Prometheus locally, OTLP when you have a collector** — the starter ships both registries;
-  OTLP export is OFF by default because laptops have no collector.
+- **Prometheus locally, OTLP when you have a collector** — the starter ships both metric registries
+  and the OTLP span exporter; OTLP export is OFF by default because laptops have no collector.
 - **Bounded metric tags** — the trace ID never becomes a metric tag or observation key-value, and
   Boot's `uri` tag cap (`management.metrics.web.server.max-uri-tags` /
   `management.metrics.web.client.max-uri-tags`, default 100) stops a client that builds URIs by string

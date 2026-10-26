@@ -7,10 +7,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +29,7 @@ import org.springframework.web.client.RestClient;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         classes = UriTagCardinalityWebTest.App.class)
+@ExtendWith(OutputCaptureExtension.class)
 class UriTagCardinalityWebTest {
 
     private static final int CALLS = 400;
@@ -40,15 +44,23 @@ class UriTagCardinalityWebTest {
     private MeterRegistry registry;
 
     @Test
-    void literalOutboundUrisAreCappedAndTemplatedServerUrisStayBounded() {
+    void literalOutboundUrisAreCappedAndTemplatedServerUrisStayBounded(CapturedOutput output) {
         RestClient client = builder.baseUrl("http://localhost:" + environment.getProperty("local.server.port")).build();
         for (int i = 0; i < CALLS; i++) {
             client.get().uri("/orders/" + i).retrieve().toBodilessEntity();
         }
+        for (int i = 0; i < 50; i++) {
+            // Unmatched server paths: one collapsed uri value, never the raw path.
+            client.get().uri("/missing/" + i).retrieve().onStatus(s -> true, (req, res) -> { }).toBodilessEntity();
+        }
 
         Set<String> clientUris = uris("http.client.requests");
         assertThat(clientUris).isNotEmpty().hasSizeLessThanOrEqualTo(100);
-        assertThat(uris("http.server.requests")).contains("/orders/{id}").hasSizeLessThanOrEqualTo(2);
+        Set<String> serverUris = uris("http.server.requests");
+        assertThat(serverUris).contains("/orders/{id}").hasSizeLessThanOrEqualTo(3)
+                .noneMatch(uri -> uri.startsWith("/missing/") || uri.matches("/orders/\\d+"));
+        // Boot's deny filter warns once when the cap is reached, not once per denied series.
+        assertThat(output.getOut().split("Reached the maximum number of", -1)).hasSize(2);
     }
 
     private Set<String> uris(String meter) {

@@ -91,5 +91,21 @@
       <artifactId>spring-boot-starter-restclient</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- The starter's tracing classpath, for the OTLP on/off switch and sampling-default tests. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

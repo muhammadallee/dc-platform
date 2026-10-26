@@ -235,9 +235,11 @@ else
 fi
 if grep -q "rejected inbound traceparent" "$HH_EVIDENCE/app.log"; then hh_pass "sanitized rejection marker logged"
 else hh_fail "no sanitized rejection marker in the log"; fi
-if [ "$(grep -F "framework exception [DC-CORE-0500] status 503" "$HH_EVIDENCE/app.log" | grep -cF "\"traceId\":\"$T\"")" -gt 0 ]; then
-  hh_pass "async timeout logged as a framework 5xx on the request's trace"
-else hh_fail "async timeout not logged with traceId $T"; fi
+TIMEOUT_EVENTS=$(grep -F "framework exception [DC-CORE-0500] status 503" "$HH_EVIDENCE/app.log" \
+    | grep -F "\"traceId\":\"$T\"" | grep -cF '"stack_trace":"' || true)
+if [ "$TIMEOUT_EVENTS" -eq 1 ]; then
+  hh_pass "async timeout logged exactly once, with its stack trace, on the request's trace"
+else hh_fail "async timeout: expected 1 framework-5xx event with a stack trace on $T, got $TIMEOUT_EVENTS"; fi
 for NEEDLE in db-secret-host pricing-7.internal; do
   # grep -c reads its whole input: a `| grep -q` would SIGPIPE the producer under pipefail on a big log.
   if [ "$(grep -F "$NEEDLE" "$HH_EVIDENCE/app.log" | grep -cF "\"traceId\":\"$T\"")" -gt 0 ]; then

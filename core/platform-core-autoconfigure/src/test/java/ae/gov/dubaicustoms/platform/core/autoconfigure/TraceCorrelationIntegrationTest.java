@@ -305,7 +305,14 @@ class TraceCorrelationIntegrationTest {
                     .header("traceparent", traceparent(traceId)).build();
             assertThat(HTTP.send(rejected, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(409);
 
-            // The redispatches really happened and every edge — REQUEST, ASYNC and ERROR — was clean.
+            // The client can see the response before the edge filter's finally block runs: wait (bounded)
+            // until every dispatch has recorded its exit, then check that REQUEST, ASYNC and ERROR all ran
+            // and every edge was clean.
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while ((!EDGE_DISPATCHES.containsAll(List.of("REQUEST", "ASYNC", "ERROR"))
+                    || EDGE_MDC.size() != EDGE_DISPATCHES.size() * 2) && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
             assertThat(EDGE_DISPATCHES).contains("REQUEST", "ASYNC", "ERROR");
             assertThat(EDGE_MDC).hasSize(EDGE_DISPATCHES.size() * 2).allSatisfy(mdc -> assertThat(mdc).isEmpty());
         }

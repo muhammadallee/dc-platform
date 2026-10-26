@@ -6,19 +6,20 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
-| Current phase | 0 — Baseline, tooling, decisions |
-| Current gate | closing (steps 1–8 recorded) |
+| Current phase | 1 — Core + Error Handling |
+| Current gate | A complete → B (implement) |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 1 Gate A: record phase start commit, write `phase-01-core-errors/scope.md`, run current targeted tests for core + errors and record baseline counts |
+| Next action | Phase 1 Gate B: implement R1–R4 of `phase-01-core-errors/scope.md`; targeted tests; downstream `-amd test-compile` |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
-| 0 | `7b248e9` | complete (tracking docs, tooling, harness) | — | 2026-10-26 |
+| 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
+| 1 | `f231689` | in progress | — | — |
 
 ## Environment notes for resumption
 

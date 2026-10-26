@@ -23,9 +23,9 @@ hh_generate hardening-core restclient
 hh_add_sources "$HERE/phase-01/probe" ae/gov/dubaicustoms/hardening/probe
 hh_build_app
 
-hh_step "boot (sampling 1.0, CorrelationIdFilter at DEBUG so the rejected-traceparent marker is visible)"
+hh_step "boot (sampling 1.0, core autoconfigure package at DEBUG — env relaxed binding lowercases class names — so the rejected-traceparent marker is visible)"
 hh_app_start SPRING_PROFILES_ACTIVE=default MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0 \
-    LOGGING_LEVEL_AE_GOV_DUBAICUSTOMS_PLATFORM_CORE_AUTOCONFIGURE_CORRELATIONIDFILTER=DEBUG
+    LOGGING_LEVEL_AE_GOV_DUBAICUSTOMS_PLATFORM_CORE_AUTOCONFIGURE=DEBUG
 hh_wait_ready 180
 HH_STARTUP_HEALTHY=$HH_READY_SECONDS
 

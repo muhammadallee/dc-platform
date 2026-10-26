@@ -1,0 +1,16 @@
+run_id=dch-20261026075817-43601
+phase=phase-01 scenario=core-errors
+platform_commit=2d3ce3925065c7099d3e30533bbc4db24d3e716c
+platform_tree_dirty_paths=4
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-01-gp
+jre_image=eclipse-temurin:25-jre
+started=2026-10-26T07:58:21+04:00
+ready_seconds=8
+shutdown_seconds=7 exit_code=143
+ready_seconds=9
+shutdown_seconds=4 exit_code=143
+startup_healthy_seconds=8
+finished=2026-10-26T08:00:32+04:00
+assertions_passed=50 assertions_failed=0 script_rc=0
+verdict=PASS

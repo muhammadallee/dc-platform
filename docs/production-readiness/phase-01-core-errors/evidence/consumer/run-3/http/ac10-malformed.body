@@ -1,0 +1,1 @@
+{"detail":"The request body is malformed or unreadable.","instance":"/probe/applicants","status":400,"title":"DC-CORE-0410","type":"https://errors.dc.com/DC-CORE-0410","code":"DC-CORE-0410","traceId":"3aa66abfe7aef13e2a0718cd9c4426b1","timestamp":"2026-10-26T04:01:56.316410265Z","retryable":false}

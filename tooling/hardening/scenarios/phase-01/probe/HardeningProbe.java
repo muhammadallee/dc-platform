@@ -70,14 +70,26 @@ public final class HardeningProbe {
         private static final Logger log = LoggerFactory.getLogger(ProbeController.class);
 
         private final AsyncSnapshot async;
-        private final RestClient self;
+        private final PlatformRestClientFactory factory;
+        private final WebServerApplicationContext context;
+        private volatile RestClient self;
 
+        // The port is resolved on first use: touching the web server during context refresh starts its
+        // connector early, and the regular start then fails with "port already in use".
         public ProbeController(AsyncSnapshot async, PlatformRestClientFactory factory,
                 WebServerApplicationContext context) {
             this.async = async;
-            this.self = factory.builder("probe-self")
-                    .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort())
-                    .build();
+            this.factory = factory;
+            this.context = context;
+        }
+
+        private RestClient self() {
+            if (self == null) {
+                self = factory.builder("probe-self")
+                        .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort())
+                        .build();
+            }
+            return self;
         }
 
         @GetMapping("/context")
@@ -91,7 +103,7 @@ public final class HardeningProbe {
         @GetMapping("/outbound")
         public Map<String, Object> outbound() {
             Map<String, Object> body = new HashMap<>(snapshot());
-            body.put("downstream", self.get().uri("/probe/headers").retrieve().body(Map.class));
+            body.put("downstream", self().get().uri("/probe/headers").retrieve().body(Map.class));
             return body;
         }
 

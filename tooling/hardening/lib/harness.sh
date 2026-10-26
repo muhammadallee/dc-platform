@@ -207,7 +207,7 @@ hh_app_stop_graceful() {
   ended=$(date +%s)
   code=$(docker inspect -f '{{.State.ExitCode}}' "$HH_APP_CONTAINER")
   docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" 2>&1 || true
-  cp "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" "$HH_EVIDENCE/app.log"
+  [ "${HH_APP_NAME:-app}" = app ] || cp "$HH_EVIDENCE/${HH_APP_NAME}.log" "$HH_EVIDENCE/app.log"
   echo "shutdown_seconds=$((ended - started)) exit_code=$code" >> "$HH_EVIDENCE/run-identity.txt"
   # 143 = 128+SIGTERM: the JVM honoured the signal; 137 would mean docker had to SIGKILL after the grace.
   case "$code" in

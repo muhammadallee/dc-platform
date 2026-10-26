@@ -1,0 +1,50 @@
+PASS	app ready in 8s
+PASS	ac1-valid status 200
+PASS	ac1-valid: context == inbound trace
+PASS	ac1-valid: spanId in MDC
+PASS	ac1-valid: @Async sees the trace
+PASS	ac1-valid: @Async ran on another thread
+PASS	ac1-valid: no correlationId MDC key
+PASS	ac1-valid: no x-correlation-id header
+PASS	ac2-missing status 200
+PASS	ac2-missing: new 32-hex trace
+PASS	ac3-malformed status 200
+PASS	ac3-malformed: new trace for malformed
+PASS	ac3-oversized status 200
+PASS	ac3-oversized: new trace for oversized
+PASS	ac4-stray status 200
+PASS	ac4-stray: trace unaffected by the stray header
+PASS	ac4-stray: no x-correlation-id header
+PASS	ac5-outbound status 200
+PASS	ac5-outbound: downstream traceparent has the same trace
+PASS	ac5-outbound: no correlation header downstream
+PASS	ac10-malformed status 400
+PASS	ac10-malformed: code + fixed detail + traceId
+PASS	ac10-malformed: no parser internals
+PASS	ac11-validation status 400
+PASS	ac11-validation: code + traceId + retryable=false
+PASS	ac11-validation: field paths present
+PASS	ac11-validation: no rejectedValue, PII not echoed
+PASS	ac12-boom status 500
+PASS	ac12-boom: generic 500
+PASS	ac12-boom: no internals in the body
+PASS	ac13-unauthenticated status 401
+PASS	ac13-unauthenticated: 401 contract
+PASS	framework-404 status 404
+PASS	framework-404: 404 contract
+PASS	AC8 {"check": "concurrent", "requests": 600, "rounds": 3, "bleed": 0, "examples": []}
+PASS	app exited on SIGTERM (code 143) in 7s
+PASS	graceful shutdown completed (logged)
+PASS	in-flight request completed with 200 during graceful shutdown
+PASS	logs {"check": "logs", "events": 629, "non_json_lines": 10, "problems": []}
+PASS	sanitized rejection marker logged
+PASS	AC12 full exception detail is in the log, on the request's trace
+PASS	app ready in 9s
+PASS	ac6-unsampled status 200
+PASS	ac6-unsampled: unsampled trace kept
+PASS	ac6-unsampled-new: fresh unsampled trace
+PASS	ac6-unsampled-error status 500
+PASS	ac6-unsampled-error: traceId in an unsampled error body
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	cleanup: no containers left for dch-20261026080034-44134

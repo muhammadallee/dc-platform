@@ -2,7 +2,7 @@
 
 | # | Capability | Phase | Verdict | Evidence level reached | Notes |
 |---|---|---|---|---|---|
-| 1 | Core + Error Handling | 1 | NOT STARTED | — | |
+| 1 | Core + Error Handling | 1 | PENDING OWNER (A1, A3) — all gates green | SLICE + CONSUMER | No backing dependency; ENVIRONMENT in Phase 8 |
 | 2 | Logging + Observability | 2 | NOT STARTED | — | |
 | 3 | Database / Data Access (PostgreSQL + Oracle) | 3 | NOT STARTED | — | Oracle RAC failover `BLOCKED` (HD4) |
 | 4 | Transactional Outbox | 4 | NOT STARTED | — | No implementation at baseline; approach decided at Gate A (HD11) |

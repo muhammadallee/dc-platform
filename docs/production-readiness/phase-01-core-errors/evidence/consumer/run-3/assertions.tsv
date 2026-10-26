@@ -6,14 +6,19 @@ PASS	ac1-valid: @Async sees the trace
 PASS	ac1-valid: @Async ran on another thread
 PASS	ac1-valid: no correlationId MDC key
 PASS	ac1-valid: no x-correlation-id header
+PASS	ac1-valid: exactly 0 rejection marker(s) for this request
 PASS	ac2-missing status 200
 PASS	ac2-missing: new 32-hex trace
 PASS	ac2-missing-error status 500
 PASS	ac2-missing-error: new trace reaches the error body
 PASS	ac3-malformed status 200
 PASS	ac3-malformed: new trace for malformed
+PASS	ac3-malformed: exactly 1 rejection marker(s) for this request
 PASS	ac3-oversized status 200
 PASS	ac3-oversized: new trace for oversized
+PASS	ac3-oversized: exactly 1 rejection marker(s) for this request
+PASS	ac3-zero: new trace for an all-zero trace id
+PASS	ac3-zero: exactly 1 rejection marker(s) for this request
 PASS	ac4-stray status 200
 PASS	ac4-stray: trace unaffected by the stray header
 PASS	ac4-stray: no x-correlation-id header
@@ -37,6 +42,9 @@ PASS	async-ok status 200
 PASS	async-ok: async handler sees the trace
 PASS	async-fail status 500
 PASS	async-fail: async failure body carries the trace
+PASS	async-timeout status 503
+PASS	async-timeout: 503 contract
+PASS	direct-error: direct /error contract
 PASS	error-dispatch-application_json status 409
 PASS	error-dispatch-application_json: 409 contract (application/json)
 PASS	error-dispatch-application_json is application/problem+json
@@ -66,13 +74,14 @@ PASS	log line 'slow request entered' seen
 PASS	app exited on SIGTERM (code 143) in 7s
 PASS	graceful shutdown completed (logged)
 PASS	in-flight request completed with 200 during graceful shutdown
-PASS	logs {"check": "logs", "events": 1234, "non_json_lines": 10, "problems": []}
+PASS	logs {"check": "logs", "events": 1238, "non_json_lines": 10, "problems": []}
 PASS	sanitized rejection marker logged
+PASS	async timeout logged exactly once, with its stack trace, on the request's trace
 PASS	AC12 'db-secret-host' detail is in the log, on the request's trace
 PASS	AC12 'pricing-7.internal' detail is in the log, on the request's trace
 PASS	AC2 the fresh trace of an error body is the trace of its log line
 PASS	no bearer token in the log
-PASS	app ready in 9s
+PASS	app ready in 8s
 PASS	ac6-unsampled status 200
 PASS	ac6-unsampled: unsampled trace kept
 PASS	ac6-unsampled-new: fresh unsampled trace
@@ -80,4 +89,4 @@ PASS	ac6-unsampled-error status 500
 PASS	ac6-unsampled-error: traceId in an unsampled error body
 PASS	app exited on SIGTERM (code 143) in 2s
 PASS	graceful shutdown completed (logged)
-PASS	cleanup: no containers left for dch-20261026085825-57736
+PASS	cleanup: no containers left for dch-20261026100956-7278

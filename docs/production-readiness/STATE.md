@@ -7,19 +7,19 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 1 — Core + Error Handling |
-| Current gate | C complete (`952d0a1`); D in progress (Codex round 2 on `952d0a1`, golden path re-run) |
+| Current gate | all gates green on `e2be16d`; **closure waiting for the owner** (amendments A1, A3) |
 | Last commit | see `git log -1 hardening/v1` |
-| Open blockers | none |
+| Open blockers | Phase 1 closure needs the owner's decision on scope amendments A1 (Low) and A3 (gates F12, High) |
 | Pending human decisions | Phase-1 scope amendment A1 (AC15, non-blocking); HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Gate D: record r2, rebut, reassess, fix; verification pass for material changes; re-run Gate F 3x; then Gate E (register), Gate H (samples + operations + closure) |
+| Next action | On owner answer: A1/A3 accepted → verdict PASS, tag `hardening/phase-01-closed`, Phase 2 Gate A. A3 rejected → design type-based override for shared-type beans, re-run Gates B–F. |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
-| 1 | `f231689` | in progress | — | — |
+| 1 | `f231689` | gates green on `e2be16d`; verdict pending owner (A1, A3) | — | — |
 
 ## Environment notes for resumption
 

@@ -12,6 +12,7 @@ public final class ProblemDetailAccessDeniedHandler implements AccessDeniedHandl
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException)
             throws IOException {
-        ProblemResponses.write(response, 403, "Forbidden", "The current principal lacks the required authority");
+        ProblemResponses.write(response, 403, ProblemResponses.ACCESS_DENIED, "Forbidden",
+                "The current principal lacks the required authority");
     }
 }

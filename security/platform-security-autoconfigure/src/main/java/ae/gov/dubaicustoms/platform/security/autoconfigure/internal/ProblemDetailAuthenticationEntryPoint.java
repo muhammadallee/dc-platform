@@ -12,7 +12,7 @@ public final class ProblemDetailAuthenticationEntryPoint implements Authenticati
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
             throws IOException {
-        ProblemResponses.write(response, 401, "Unauthorized",
+        ProblemResponses.write(response, 401, ProblemResponses.UNAUTHENTICATED, "Unauthorized",
                 "Full authentication is required to access this resource");
     }
 }

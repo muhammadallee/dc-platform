@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.security.autoconfigure;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
@@ -36,7 +37,24 @@ class PlatformSecurityWebTest {
     void anonymousRequestIsUnauthorizedWithProblemBody() throws Exception {
         mockMvc.perform(get("/secure"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().contentType("application/problem+json"));
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("DC-SEC-0401"))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.traceId").doesNotExist());
+    }
+
+    @Test
+    void unauthorizedBodyCarriesTheTraceIdOfTheRequestContext() throws Exception {
+        // MockMvc runs the filter chain on the calling thread, so the open context is the request's.
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+        try (AutoCloseable scope = ae.gov.dubaicustoms.platform.core.context.RequestContext.open(
+                new ae.gov.dubaicustoms.platform.core.context.CorrelationId(traceId), java.util.Map.of())) {
+            mockMvc.perform(get("/secure"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("DC-SEC-0401"))
+                    .andExpect(jsonPath("$.traceId").value(traceId));
+        }
     }
 
     @Test

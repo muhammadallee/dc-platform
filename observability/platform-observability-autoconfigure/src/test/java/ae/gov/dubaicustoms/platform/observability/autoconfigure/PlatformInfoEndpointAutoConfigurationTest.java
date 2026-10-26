@@ -72,4 +72,18 @@ class PlatformInfoEndpointAutoConfigurationTest {
                 .run(ctx -> assertThat(ctx.getBean(CapabilityDescriptor.class).detail())
                         .isEqualTo("prometheus+otlp"));
     }
+
+    @Test
+    void descriptorBacksOffWhenUserDescriptorPresentUnderItsName() {
+        CapabilityDescriptor mine = new CapabilityDescriptor("observability", "ACTIVE", "custom");
+        runner.withBean("observabilityCapabilityDescriptor", CapabilityDescriptor.class, () -> mine)
+                .run(ctx -> assertThat(ctx.getBean(CapabilityDescriptor.class)).isSameAs(mine));
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheObservabilityOne() {
+        runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("other", "ACTIVE", ""))
+                .run(ctx -> assertThat(ctx).hasBean("observabilityCapabilityDescriptor"));
+    }
 }

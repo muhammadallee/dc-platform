@@ -79,5 +79,17 @@
       <artifactId>spring-boot-starter-web</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- /actuator/prometheus content (common tags, no high-cardinality tag values) and Boot's
+         client uri-tag cap (phase-02 R5, D106) asserted end to end. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-restclient</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

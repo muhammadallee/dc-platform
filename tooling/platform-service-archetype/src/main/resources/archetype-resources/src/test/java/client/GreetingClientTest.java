@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import ${package}.HttpIntegrationTestSupport;
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import com.jayway.jsonpath.JsonPath;
@@ -46,7 +45,7 @@ import org.springframework.web.client.ResourceAccessException;
  * Drives {@link GreetingClient} — built by the platform's {@link PlatformRestClientFactory} — through
  * REAL calls to a loopback stub: URI composition, method, headers, JSON both ways, empty bodies, 4xx/5xx
  * mapping to {@link RemoteCallException}, a bounded read timeout, a refused connection, and the
- * inbound-request → application log → outbound-call chain (correlation id + bearer-token relay).
+ * inbound-request → application log → outbound-call chain (W3C trace + bearer-token relay).
  */
 @ExtendWith(OutputCaptureExtension.class)
 class GreetingClientTest extends HttpIntegrationTestSupport {
@@ -86,7 +85,7 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
         assertThat(request.method()).isEqualTo("GET");
         assertThat(request.path()).isEqualTo("/greetings/bob");
         assertThat(request.header("Accept")).contains("application/json");
-        // Called outside any inbound request: no identity and no correlation to relay.
+        // Called outside any inbound request: no identity to relay, and never a custom correlation header.
         assertThat(request.header("Authorization")).isNull();
         assertThat(request.header("X-Correlation-Id")).isNull();
     }
@@ -123,14 +122,13 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
     }
 
     @Test
-    void serverErrorMapsToRemoteCallExceptionWithRemoteCorrelation() {
-        String remoteId = CorrelationId.random().value();
-        STUB.respond(503, "unavailable", Map.of("X-Correlation-Id", remoteId));
+    void serverErrorMapsToRemoteCallExceptionWithStatusAndBody() {
+        STUB.respond(503, "unavailable");
 
         assertThatThrownBy(() -> client.fetch("bob"))
                 .isInstanceOfSatisfying(RemoteCallException.class, e -> {
                     assertThat(e.status()).isEqualTo(503);
-                    assertThat(e.remoteCorrelationId()).contains(remoteId);
+                    assertThat(e.bodySnippet()).isEqualTo("unavailable");
                 });
     }
 
@@ -156,17 +154,19 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
     }
 
     @Test
-    void inboundCorrelationAndTokenFlowThroughTheLogToTheOutboundCall(CapturedOutput output) throws Exception {
+    void inboundTraceAndTokenFlowThroughTheLogToTheOutboundCall(CapturedOutput output) throws Exception {
         STUB.respond(200, "{\"message\":\"relayed\"}");
-        String correlationId = CorrelationId.random().value();
+        String traceId = randomTraceId();
         String token = ISSUER.token("alice");
 
-        HttpResponse<String> response = get("/test-support/relay", token, correlationId);
+        HttpResponse<String> response = get("/test-support/relay", token, traceId);
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).isEqualTo("relayed");
         Recorded outbound = STUB.take();
-        assertThat(outbound.header("X-Correlation-Id")).isEqualTo(correlationId);
+        // Same trace downstream, carried only by the standard header.
+        assertThat(outbound.header("traceparent")).startsWith("00-" + traceId + "-");
+        assertThat(outbound.header("X-Correlation-Id")).isNull();
         assertThat(outbound.header("Authorization")).isEqualTo("Bearer " + token);
         List<Map<String, Object>> fetchEvents = output.getOut().lines()
                 .filter(line -> line.startsWith("{"))
@@ -174,7 +174,7 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
                 .filter(event -> "Fetching remote greeting".equals(event.get("message")))
                 .toList();
         assertThat(fetchEvents).singleElement().satisfies(event ->
-                assertThat(event).containsEntry("correlationId", correlationId));
+                assertThat(event).containsEntry("traceId", traceId));
         assertThat(output.getAll()).doesNotContain(token);
     }
 

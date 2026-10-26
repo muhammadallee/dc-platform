@@ -11,7 +11,8 @@
 #      generated `mvn verify` (every expected test class must run: no zero-test or skipped passes), check
 #      the executable jar, boot it with `java -jar` and probe it over real HTTP: readiness, capability
 #      report (present AND absent capabilities), 401 for missing/untrusted/expired/malformed tokens, 200
-#      for a token from a loopback JWKS issuer, correlation echo, structured JSON log events;
+#      for a token from a loopback JWKS issuer, W3C trace continuation (traceparent in, traceId in the
+#      log, no custom correlation header out), structured JSON log events;
 #   4. for the requested service (data,restclient) additionally: the documented `mvn spring-boot:run`
 #      launch, the `local` profile (console logs), `prod` with each mandatory setting missing (must fail
 #      at startup with an actionable message), and `prod` with externally supplied fixture settings,
@@ -291,9 +292,13 @@ probe_http() { # label features log artifact [prod]
   status_of 401 "$label untrusted token" -H "Authorization: Bearer $UNTRUSTED" "$base/hello"
   status_of 401 "$label expired token" -H "Authorization: Bearer $EXPIRED" "$base/hello"
   status_of 401 "$label malformed token" -H "Authorization: Bearer not-a-jwt" "$base/hello"
-  status_of 200 "$label authenticated /hello" -H "Authorization: Bearer $TOKEN" -H "X-Correlation-Id: $cid" "$base/hello?name=gate"
+  # The trace id is the only correlation id (HD5): sent as traceparent, it must appear as the log's traceId;
+  # a stray X-Correlation-Id is ignored and never echoed.
+  status_of 200 "$label authenticated /hello" -H "Authorization: Bearer $TOKEN" \
+      -H "traceparent: 00-$cid-0102030405060708-01" -H "X-Correlation-Id: ffffffffffffffffffffffffffffffff" \
+      "$base/hello?name=gate"
   [ "$(cat "$WORKDIR/body")" = "Hello, gate!" ] || fail "$label: unexpected /hello body: $(cat "$WORKDIR/body")"
-  grep -qi "^x-correlation-id: $cid" "$WORKDIR/headers" || fail "$label: correlation id not echoed"
+  if grep -qi "^x-correlation-id:" "$WORKDIR/headers"; then fail "$label: a custom correlation header was echoed"; fi
   if [ -n "$prod" ]; then
     status_of 401 "$label anonymous /actuator/platform in prod" "$base/actuator/platform"
     status_of 200 "$label authenticated /actuator/platform" -H "Authorization: Bearer $TOKEN" "$base/actuator/platform"

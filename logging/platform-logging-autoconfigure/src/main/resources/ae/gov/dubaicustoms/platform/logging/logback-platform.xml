@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Platform JSON logging: one logstash-encoded line per event on stdout, ECS-ish field names
-     (@timestamp, level, logger, message, service, traceId/spanId via MDC, stack_trace).
+     (@timestamp, level, logger, message, service, traceId/spanId via MDC, stack_trace), with
+     credentials and the default PII set masked (D102) and an opt-in strict MDC allow-list (D101).
      Activated by PlatformLoggingEnvironmentPostProcessor defaulting logging.config to this file;
-     Boot processes it, so <springProperty> works. Setting logging.config yourself replaces it. -->
+     Boot processes it, so <springProperty> works. Setting logging.config yourself replaces it,
+     redaction included. -->
 <configuration>
 
   <springProperty name="service" source="dc.platform.logging.service-name" defaultValue="application"/>
   <springProperty name="includeMdc" source="dc.platform.logging.include-mdc" defaultValue="true"/>
+  <springProperty name="mdcInclude" source="dc.platform.logging.internal.mdc-include" defaultValue=""/>
+  <springProperty name="redactionEnabled" source="dc.platform.logging.redaction.enabled" defaultValue="true"/>
+  <springProperty name="redactionPatterns" source="dc.platform.logging.internal.redaction-patterns" defaultValue=""/>
 
   <appender name="PLATFORM_JSON" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+    <encoder class="ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformJsonEncoder">
       <!-- traceId/spanId (and everything else the core filter publishes) ride in via MDC. -->
       <includeMdc>${includeMdc}</includeMdc>
+      <mdcInclude>${mdcInclude}</mdcInclude>
+      <redactionEnabled>${redactionEnabled}</redactionEnabled>
+      <redactionPatterns>${redactionPatterns}</redactionPatterns>
       <customFields>{"service":"${service}"}</customFields>
       <fieldNames>
         <logger>logger</logger>

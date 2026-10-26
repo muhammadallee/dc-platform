@@ -4,7 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.logging.Kv;
+import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LogSanitizerRegistry;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -71,5 +81,72 @@ class LoggingAutoConfigurationTest {
                     assertThat(properties.includeMdc()).isFalse();
                     assertThat(properties.serviceName()).isEqualTo("orders");
                 });
+    }
+
+    @Test
+    void sanitizerRegistryActiveByDefaultAndOffWithRedaction() {
+        runner.run(context -> assertThat(context).hasSingleBean(LogSanitizerRegistry.class));
+        runner.withPropertyValues("dc.platform.logging.redaction.enabled=false")
+                .run(context -> assertThat(context).doesNotHaveBean(LogSanitizerRegistry.class));
+    }
+
+    @Test
+    void sanitizerRegistryBacksOffForAUserRegistryUnderAnyName() {
+        LogSanitizerRegistry mine = new LogSanitizerRegistry(new DefaultListableBeanFactory().getBeanProvider(LogSanitizer.class));
+        runner.withBean("myRegistry", LogSanitizerRegistry.class, () -> mine)
+                .run(context -> assertThat(context.getBean(LogSanitizerRegistry.class)).isSameAs(mine));
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheLoggingOne() {
+        runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("other", "ACTIVE", ""))
+                .run(context -> assertThat(context).hasBean("loggingCapabilityDescriptor"));
+    }
+
+    @Test
+    void configurationDefaultsSnapshot() {
+        // Plan §7.2: a changed default fails here until the snapshot is consciously updated.
+        runner.run(context -> {
+            LoggingProperties p = context.getBean(LoggingProperties.class);
+            assertThat(Map.of("enabled", p.enabled(), "format", p.format(), "include-mdc", p.includeMdc(),
+                    "service-name", p.serviceName(), "mdc.include", p.mdc().include(),
+                    "redaction.enabled", p.redaction().enabled(), "redaction.patterns", p.redaction().patterns()))
+                    .isEqualTo(Map.of("enabled", true, "format", LoggingProperties.Format.JSON, "include-mdc", true,
+                            "service-name", "", "mdc.include", List.of(),
+                            "redaction.enabled", true, "redaction.patterns", List.of()));
+        });
+    }
+
+    @Test
+    void platformCodeWritesOnlyTraceAndSpanIdsToTheMdc() throws IOException {
+        // Phase-02 R2.1 (D101): the platform's own MDC emission is an allow-list. Every MDC.put in
+        // platform main code is in RequestContext (key traceId plus the caller's extras), and the only
+        // caller that opens a context is the correlation filter, whose extras are spanId.
+        Path root = Path.of("../..").toAbsolutePath().normalize();
+        List<Path> writers = mainSourcesContaining(root, "MDC.put(");
+        assertThat(writers).extracting(f -> f.getFileName().toString()).containsExactly("RequestContext.java");
+        assertThat(read(writers.get(0))).contains("CORRELATION_ID_KEY = \"traceId\"");
+        List<Path> openers = mainSourcesContaining(root, "RequestContext.open(");
+        assertThat(openers).extracting(f -> f.getFileName().toString()).containsExactly("CorrelationIdFilter.java");
+        assertThat(read(openers.get(0))).contains("Map.of(\"spanId\", trace.spanId())");
+    }
+
+    private static List<Path> mainSourcesContaining(Path root, String needle) throws IOException {
+        try (Stream<Path> files = Files.walk(root)) {
+            return files.filter(f -> f.toString().endsWith(".java"))
+                    .filter(f -> f.toString().replace('\\', '/').contains("/src/main/java/"))
+                    .filter(f -> !f.toString().replace('\\', '/').contains("/target/"))
+                    .filter(f -> read(f).contains(needle))
+                    .toList();
+        }
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

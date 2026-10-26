@@ -35,6 +35,9 @@
 | `dc.platform.logging.enabled` | Boolean | `true` |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` |
 | `dc.platform.logging.include-mdc` | Boolean | `true` |
+| `dc.platform.logging.mdc.include` | List<String> | `[]` |
+| `dc.platform.logging.redaction.enabled` | Boolean | `true` |
+| `dc.platform.logging.redaction.patterns` | List<String> | `[]` |
 | `dc.platform.logging.service-name` | String | `` |
 | `dc.platform.messaging.correlation.propagate` | Boolean | `true` |
 | `dc.platform.messaging.default-destination-prefix` | String | `dc.` |

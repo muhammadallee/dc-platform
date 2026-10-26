@@ -21,6 +21,16 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `dc.platform.core.correlation.generate-if-missing`, `dc.platform.restclient.propagate-correlation`.
 - `CorrelationIdFilter`'s constructor takes a Micrometer `Tracer`; `RemoteCallException.remoteCorrelationId()`
   is deprecated (always empty for platform-created exceptions).
+- Problem `type` default is now `urn:dc:problem:<code>` (was `https://errors.dc.com/<code>`, a host the
+  platform does not own), for 401/403 bodies too. Clients matching on `type` must update, or set
+  `dc.platform.errors.type-base-uri` (D99).
+- Core overrides are by type (D98): the platform no longer defines a `correlationIdFilter` bean (the
+  filter is created inside `platformCorrelationFilterRegistration`), and backs off for any
+  `CorrelationIdFilter` bean or `FilterRegistrationBean<CorrelationIdFilter>` under any name. A
+  consumer `CorrelationIdFilter` bean is registered by Boot (it is `Ordered` at `FILTER_ORDER` and runs on
+  every dispatch type) instead of being wrapped by the platform registration. The banner is a public
+  `PlatformBannerRunner`; an `ApplicationRunner` named `platformBannerRunner` no longer replaces it —
+  define a `PlatformBannerRunner` bean, or set `dc.platform.core.banner-enabled=false`.
 
 ### Added
 - Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the

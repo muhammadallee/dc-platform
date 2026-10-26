@@ -632,6 +632,32 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D95 — trace rejection judged by the propagator's outcome.** The core filter does not re-implement
   W3C validation: a present `traceparent` counts as rejected exactly when the current trace is not the
   one it names, and the marker carries the header length only.
-- **D96 — shared-type infrastructure beans override by name.** The banner `ApplicationRunner` and the
-  correlation filter's `FilterRegistrationBean` back off by name only: consumers routinely define other
-  beans of those Spring types, and type-based back-off would silently drop the platform's.
+- **D96 — shared-type infrastructure beans override by name.** *Superseded by D98.* The banner
+  `ApplicationRunner` and the correlation filter's `FilterRegistrationBean` backed off by name only:
+  consumers routinely define other beans of those Spring types, and type-based back-off would silently
+  drop the platform's.
+- **D97 — capability descriptors override by name, like Boot's health indicators (hardening A3).**
+  `CapabilityDescriptor` is collected one-bean-per-capability, so type-based back-off would let any
+  consumer descriptor remove every platform one. Spring Boot 4.1 makes the same choice for its collected
+  health indicators (`@ConditionalOnMissingBean(name = "diskSpaceHealthIndicator")`, likewise
+  `livenessStateHealthIndicator`, `readinessStateHealthIndicator`, `sslHealthIndicator`) while its
+  single beans (`SslInfo`) back off by type. The capability kill switch `dc.platform.<cap>.enabled`
+  removes the descriptor with the capability. Each remaining capability's descriptor gets the same
+  guard and a real-override test in its own hardening phase.
+- **D98 — single infrastructure beans override by type (supersedes D96).** The correlation filter is
+  registered the way Boot registers its own `ServerHttpObservationFilter`: one
+  `FilterRegistrationBean<CorrelationIdFilter>` with the filter created inline, guarded by
+  `@ConditionalOnMissingFilterBean(CorrelationIdFilter.class)`, so a consumer `CorrelationIdFilter` bean
+  or `FilterRegistrationBean<CorrelationIdFilter>` under any name replaces it, and unrelated filter
+  registrations do not. `CorrelationIdFilter` is `Ordered` at `FILTER_ORDER`, so a consumer filter bean
+  that Boot registers keeps the platform's position and dispatch types. The banner is a public
+  `PlatformBannerRunner` class backing off by type; unrelated `ApplicationRunner` beans no longer matter.
+- **D99 — neutral problem `type` default `urn:dc:problem:` (hardening HI-0010).** Supersedes the
+  `type-base-uri="https://errors.dc.com/"` default in `specs/phase-04-errors-logging-validation.md`: that
+  host is not owned by the platform. RFC 9457 allows a non-dereferenceable `type`; `dc` is not an
+  IANA-registered URN namespace, so the value is an opaque identifier that services replace with an
+  `https://` documentation base once one exists. 401/403 bodies read the same key and default.
+- **D100 — no `replacement` for the removed correlation properties (hardening A1).** The
+  `dc.platform.core.correlation.*` and `dc.platform.restclient.propagate-correlation` keys are
+  deprecated at level `error` with a reason only: the correlation ID is now the W3C trace ID and has no
+  successor property, so naming one would mislead.

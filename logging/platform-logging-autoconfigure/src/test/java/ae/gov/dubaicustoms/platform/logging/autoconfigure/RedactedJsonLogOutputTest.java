@@ -82,6 +82,18 @@ class RedactedJsonLogOutputTest {
     }
 
     @Test
+    void cardNumbersLoggedAsNumbersAreMasked(CapturedOutput output) throws Exception {
+        try (ConfigurableApplicationContext context = boot(Empty.class)) {
+            log.info("numeric {} {}", kv("card", 4111111111111111L), kv("orderId", 1793001600123L));
+        }
+        String line = line(output, "numeric");
+        JsonNode event = JSON.readTree(line);
+        assertThat(line).doesNotContain("4111111111111111");
+        assertThat(event.get("card").asText()).isEqualTo("****");
+        assertThat(event.get("orderId").asLong()).isEqualTo(1793001600123L);
+    }
+
+    @Test
     void ordinaryValuesAreNotMasked(CapturedOutput output) throws Exception {
         try (ConfigurableApplicationContext context = boot(Empty.class)) {
             MDC.put("traceId", "4bf92f3577b34da6a3ce929d0e0e4736");

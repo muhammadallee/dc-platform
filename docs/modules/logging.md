@@ -22,7 +22,7 @@ is watching.
     `set-cookie`) in `key=value`, `key: value` and `"key":"value"` text;
   - the whole value of an MDC entry or structured argument whose **name** is one of those keys;
   - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers (13–19
-    digits starting 2–6, single spaces or dashes allowed).
+    digits starting 2–6, single spaces or dashes allowed — in text and when logged as a number).
 
   Timestamps, epoch millis, trace/span IDs, UUIDs, phone numbers and ordinary numeric IDs are left
   alone. Residual risk: a numeric ID that happens to be a Luhn-valid 13–19 digit number starting 2–6 is
@@ -89,11 +89,11 @@ through a lowest-precedence property source named `platform-logging-defaults` (v
 
 - Set `logging.config` to your own file — any user-set value outranks the platform default. Your file
   then decides about masking: reuse
-  `ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformJsonEncoder` or accept that
+  `ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformJsonEncoder` or accept that
   nothing is masked.
 - `dc.platform.logging.format=console` keeps Boot's default logging everywhere (no masking).
 - `dc.platform.logging.redaction.enabled=false` writes values unmasked (also removes the
-  `LogSanitizerRegistry` bean). A bean of type `LogSanitizerRegistry` replaces the platform's.
+  `LogSanitizerRegistry` bean that hands your `LogSanitizer` beans to the encoder).
 - `dc.platform.logging.enabled=false` switches the capability off wholesale.
 
 ## Error codes

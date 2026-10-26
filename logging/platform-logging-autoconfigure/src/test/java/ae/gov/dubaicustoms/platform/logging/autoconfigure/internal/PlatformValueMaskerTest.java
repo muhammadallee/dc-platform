@@ -77,7 +77,16 @@ class PlatformValueMaskerTest {
     @Test
     void returnsNullWhenNothingChangesOrValueIsNotText() {
         assertThat(masker.mask(field("message"), "plain")).isNull();
-        assertThat(masker.mask(field("count"), 4111111111111111L)).isNull();
+        assertThat(masker.mask(field("count"), 42)).isNull();
+        assertThat(masker.mask(field("at"), 1793001600123L)).isNull();
+        assertThat(masker.mask(field("id"), 4111111111111112L)).isNull(); // not Luhn-valid
+    }
+
+    @Test
+    void masksCardNumbersWrittenAsNumbers() {
+        assertThat(masker.mask(field("card"), 4111111111111111L)).isEqualTo(PlatformValueMasker.MASK);
+        assertThat(masker.mask(field("card"), new java.math.BigInteger("4111111111111111")))
+                .isEqualTo(PlatformValueMasker.MASK);
         assertThat(masker.mask(field(null), "plain")).isNull();
     }
 

@@ -1,17 +1,29 @@
-package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
+package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
 import java.util.Arrays;
 import java.util.List;
 import net.logstash.logback.encoder.LogstashEncoder;
 import net.logstash.logback.mask.MaskingJsonGeneratorDecorator;
 
 /**
- * The platform's JSON encoder: Logstash's encoder plus redaction (D102) and the opt-in strict MDC
- * mode (D101). Configured from {@code logback-platform.xml}; the setters take the values the logging
- * {@code EnvironmentPostProcessor} resolved before Logback started.
+ * The platform's JSON log encoder: Logstash's {@link LogstashEncoder} plus redaction of credentials
+ * and the default PII set (D102) and an opt-in strict MDC allow-list (D101). The shipped
+ * {@code logback-platform.xml} uses it; reference it from your own Logback file to keep masking when
+ * you replace {@code logging.config}:
+ * <pre>{@code
+ * <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+ *   <encoder class="ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformJsonEncoder">
+ *     <redactionPatterns>CASE-\d{6}</redactionPatterns>
+ *   </encoder>
+ * </appender>
+ * }</pre>
  *
- * <p>Not thread-safe during configuration (Logback configures it on one thread); encoding is
- * thread-safe once started.
+ * <p>Every {@code LogstashEncoder} option (field names, custom fields, MDC switches) is available.
+ * Not thread-safe during configuration (Logback configures it on one thread); encoding is thread-safe
+ * once started. Setters accept {@code null} as "not set".
+ *
+ * @since 0.1.0
  */
 public class PlatformJsonEncoder extends LogstashEncoder {
 

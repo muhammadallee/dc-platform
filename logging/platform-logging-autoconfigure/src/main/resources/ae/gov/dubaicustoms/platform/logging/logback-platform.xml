@@ -14,7 +14,7 @@
   <springProperty name="redactionPatterns" source="dc.platform.logging.internal.redaction-patterns" defaultValue=""/>
 
   <appender name="PLATFORM_JSON" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder class="ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformJsonEncoder">
+    <encoder class="ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformJsonEncoder">
       <!-- traceId/spanId (and everything else the core filter publishes) ride in via MDC. -->
       <includeMdc>${includeMdc}</includeMdc>
       <mdcInclude>${mdcInclude}</mdcInclude>

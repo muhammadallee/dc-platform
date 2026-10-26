@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
 import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
 import com.fasterxml.jackson.core.JsonStreamContext;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -62,6 +63,10 @@ public final class PlatformValueMasker implements ValueMasker {
 
     @Override
     public Object mask(JsonStreamContext context, Object value) {
+        if (value instanceof Long || value instanceof BigInteger) {
+            // kv("card", 4111111111111111L): a card number written as a JSON number.
+            return PAN.matcher(value.toString()).matches() && luhn(value.toString()) ? MASK : null;
+        }
         if (!(value instanceof CharSequence text)) {
             return null;
         }

@@ -77,9 +77,17 @@ public final class SubscriptionDispatcher implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 return;
             }
-            if (message != null) {
-                deliver(message);
+            if (message == null) {
+                continue;
             }
+            // A poll that is signalled and interrupted at the same moment returns the element instead of
+            // throwing: re-check, and leave a message that arrived after close() for the group's other
+            // consumers instead of delivering it to an unsubscribed listener.
+            if (stopped) {
+                queue.offer(message);
+                return;
+            }
+            deliver(message);
         }
     }
 
@@ -111,5 +119,12 @@ public final class SubscriptionDispatcher implements AutoCloseable {
     public void close() {
         stopped = true;
         worker.interrupt();
+        // Return only once the worker has stopped, so nothing is delivered after unsubscribe returns
+        // (bounded: a listener stuck in user code must not hang the caller).
+        try {
+            worker.join(POLL_INTERVAL.multipliedBy(5));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

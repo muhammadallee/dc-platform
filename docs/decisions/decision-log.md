@@ -661,3 +661,27 @@ One line of context per decision; details live in the commit bodies referenced.
   `dc.platform.core.correlation.*` and `dc.platform.restclient.propagate-correlation` keys are
   deprecated at level `error` with a reason only: the correlation ID is now the W3C trace ID and has no
   successor property, so naming one would mislead.
+- **D101 — the platform's own MDC emission is an allow-list; consumer MDC passes through (hardening
+  phase 2).** Platform code writes only `traceId` and `spanId` (source-scan test). Consumer MDC keys keep
+  reaching JSON logs, masked like every other value; dropping them by default would silently break
+  services. Strict mode is opt-in: `dc.platform.logging.mdc.include` (non-empty: only `traceId`,
+  `spanId` and the listed keys).
+- **D102 — default log redaction set.** JWTs, `Bearer`/`Basic` credentials, values after credential keys
+  (`password`, `secret`, `token`, `authorization`, `cookie`, `api-key`, …), whole values of
+  credential-named MDC entries and structured arguments, Emirates ID, and Luhn-valid 13–19 digit card
+  numbers starting 2–6 (the issuer digit keeps epoch millis out) become `****`. Extendable with
+  `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
+  Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D103 — sampling posture.** Head sampling stays Boot's (`management.tracing.sampling.probability`,
+  default `0.1`). Keeping every errored request's trace is delivered by collector tail sampling
+  (documented snippet); the platform position is OPEN as a deployment responsibility, as plan §9 Phase 2
+  allows. Trace IDs in logs and problem bodies are independent of sampling.
+- **D104 — readiness is pod-local (implements D6).** `readiness` = `readinessState`, `liveness` =
+  `livenessState`; `db`, `rabbit`, `redis` move to a `dependencies` group for dashboards.
+- **D105 — minimal actuator exposure.** Chassis default `health,info,prometheus`; `metrics` and
+  `platform` are opt-ins. The archetype opts in `platform` because the generated docs, the golden path
+  and the smoke matrix read it; access stays governed by security. Prometheus scraping is authenticated
+  until the security phase decides between token, management port and permit rule.
+- **D106 — uri tag cardinality is Boot's.** Boot 4.1 caps `uri` values for server and client HTTP
+  meters (`management.metrics.web.{server,client}.max-uri-tags`, 100, deny + log once). The platform adds
+  no `uri` filter of its own and keeps a test that fails if the cap is lifted.

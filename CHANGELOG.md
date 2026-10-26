@@ -38,7 +38,22 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Boot to every dispatch type (FORWARD and INCLUDE too); `OncePerRequestFilter` skips nested dispatches
   within one dispatch, while the ASYNC and ERROR dispatches run it again, as before.
 
+### Breaking (capability hardening, phase 2 — logging + observability)
+- **Readiness is pod-local.** `/actuator/health/readiness` no longer includes `db`, `rabbit` or
+  `redis`; they move to the new `/actuator/health/dependencies` group. Point dashboards and alerts at
+  `dependencies`; keep probes on `readiness`/`liveness` (D104).
+- **Minimal actuator exposure.** The platform default is `health,info,prometheus`; `metrics` and
+  `platform` are no longer exposed unless added to `management.endpoints.web.exposure.include`.
+  Generated services opt in `platform` in their `application.yml` (D105).
+- **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs and card numbers become
+  `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
+- `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented.
+- `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).
+
 ### Added
+- Logging: `dc.platform.logging.mdc.include` (strict MDC mode), `dc.platform.logging.redaction.enabled`,
+  `dc.platform.logging.redaction.patterns`.
+- Observability: `dependencies` health group; docs for collector tail sampling of errored requests.
 - Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the
   filter chain) renders the platform problem body; replaces Boot's `BasicErrorController`.
 - Core starter brings the Micrometer Tracing OTel bridge + Boot tracing auto-configuration (no

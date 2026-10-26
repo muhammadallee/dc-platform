@@ -220,3 +220,10 @@ observability-autoconfigure 28 (build-tools 38, core-api 37), 0 failures, 0 erro
 | D102 | Default redaction set: credential patterns + key names + Emirates ID + Luhn PAN; extendable |
 | D103 | Sampling: head-based Boot default; errored-request retention via collector tail sampling (OPEN, deployment) |
 | D104 | Readiness pod-local; shared dependencies in health group `dependencies` (implements D6) |
+
+## 10. Scope amendments
+
+| ID | Amendment | Status |
+|---|---|---|
+| A1 | R1.3 console mode: no `%replace` of CR/LF and no masking in the `console` format. Console is the `local`-profile, human-only format; overriding Boot's console pattern would fork Boot's styling and colour handling. JSON (every deployed environment) is injection-safe and masked. Documented in `docs/modules/logging.md` (HI-0037). | PROPOSED — owner decision |
+| A2 | AC8 uses 400 literal outbound URIs (not 1 000): enough to exceed Boot's cap of 100 four times over; the test fails with the cap lifted (`max-uri-tags=1000`, verified at Gate B). | recorded |

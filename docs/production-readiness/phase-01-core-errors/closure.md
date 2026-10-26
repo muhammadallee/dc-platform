@@ -6,7 +6,7 @@ type-based override is designed or an exception is approved.
 
 | Item | Value |
 |---|---|
-| Phase start / final commit | `f231689` / `e2be16d` (+ this closure commit) |
+| Phase start / final commit | `f231689` / `f8d5682` (consumer + golden path evidence on `e2be16d`; later commits change only tests, an out-of-scope in-memory messaging fix, and docs) |
 | Modules changed | core-api, core-autoconfigure, starter-core, errors-autoconfigure, security-autoconfigure, restclient-api, restclient-autoconfigure, observability-autoconfigure, logging-autoconfigure, test-api, openapi-autoconfigure, archetype templates, example-minimal, golden-path gate, hardening harness |
 
 ## Gates
@@ -22,6 +22,7 @@ type-based override is designed or an exception is approved.
 | Downstream (§3.9) | `-amd test-compile` 86 modules incl. Kafka/audit, exit 0 | `evidence-raw/downstream-compile-final.log` sha256 `dc68a4de…6955` |
 | Golden path | 8/8, 815 s, `e2be16d` | [`evidence/golden-path-summary-e2be16d.tsv`](evidence/golden-path-summary-e2be16d.tsv) |
 | H samples + operations | written | [`../../samples/core-errors/`](../../samples/core-errors/) |
+| CI (PR #2) | **green on `f8d5682`**: full reactor `mvn -B -T1C verify` with all gates + generator gate (run 40280337049). Red runs before it were HI-0029 (test-order log pollution, mine) and HI-0030 (pre-existing in-memory messaging race) — both fixed | GitHub Actions |
 
 ## §7 contracts
 

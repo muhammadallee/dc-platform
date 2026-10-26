@@ -7,7 +7,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 1 — Core + Error Handling |
-| Current gate | all gates green on `e2be16d`; **closure waiting for the owner** (amendments A1, A3) |
+| Current gate | all gates green (consumer/golden path `e2be16d`, CI `f8d5682`); **closure waiting for the owner** (amendments A1, A3) |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | Phase 1 closure needs the owner's decision on scope amendments A1 (Low) and A3 (gates F12, High) |
 | Pending human decisions | Phase-1 scope amendment A1 (AC15, non-blocking); HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |

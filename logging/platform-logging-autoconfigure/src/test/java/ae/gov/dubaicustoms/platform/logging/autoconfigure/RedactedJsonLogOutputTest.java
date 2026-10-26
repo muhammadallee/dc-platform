@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ae.gov.dubaicustoms.platform.logging.Kv;
 import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
 import ch.qos.logback.classic.LoggerContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,6 +49,16 @@ class RedactedJsonLogOutputTest {
         @Bean
         LogSanitizer customerNameSanitizer() {
             return (key, value) -> "customerName".equals(key) ? "C***" : value;
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ImportAutoConfiguration(LoggingAutoConfiguration.class)
+    static class WithAppendingSanitizer {
+
+        @Bean
+        LogSanitizer appendingSanitizer() {
+            return (key, value) -> "note".equals(key) ? value + "!" : value;
         }
     }
 
@@ -114,11 +125,26 @@ class RedactedJsonLogOutputTest {
             assertThat(context.getBeanNamesForType(
                     ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LogSanitizerRegistry.class)).hasSize(1);
             MDC.put("customerName", "Fatima");
-            log.info("hello {}", kv("customerName", "Fatima"));
+            log.info("hello {} and {}", kv("customerName", "Fatima"), Kv.of("customerName", "Fatima"));
+            log.info("unrelated {}", kv("city", "Dubai"));
         }
-        JsonNode event = JSON.readTree(line(output, "hello"));
+        String line = line(output, "hello");
+        JsonNode event = JSON.readTree(line);
         assertThat(event.get("customerName").asText()).isEqualTo("C***");
-        assertThat(output.getOut()).doesNotContain("\"customerName\":\"Fatima\"");
+        // Round 1 F5: the formatted message no longer carries the raw value either.
+        assertThat(event.get("message").asText()).isEqualTo("hello customerName=C*** and customerName=C***");
+        assertThat(line).doesNotContain("Fatima");
+        assertThat(JSON.readTree(line(output, "unrelated")).get("message").asText()).isEqualTo("unrelated city=Dubai");
+    }
+
+    @Test
+    void aNonIdempotentSanitizerRunsOncePerOutput(CapturedOutput output) throws Exception {
+        try (ConfigurableApplicationContext context = boot(WithAppendingSanitizer.class)) {
+            log.info("note {}", kv("note", "x"));
+        }
+        JsonNode event = JSON.readTree(line(output, "note"));
+        assertThat(event.get("note").asText()).isEqualTo("x!");
+        assertThat(event.get("message").asText()).isEqualTo("note note=x!");
     }
 
     @Test

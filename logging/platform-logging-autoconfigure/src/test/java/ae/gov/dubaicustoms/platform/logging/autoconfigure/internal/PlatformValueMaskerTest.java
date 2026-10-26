@@ -4,18 +4,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
 import com.fasterxml.jackson.core.JsonStreamContext;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
-/** Pattern, key and sanitizer masking of {@link PlatformValueMasker} (D102), including false positives. */
+/**
+ * Pattern, key and sanitizer masking of {@link PlatformValueMasker} (D102), including the phase-02
+ * round-1 findings (quoted values, cookie headers, short credentials, numeric credentials, PAN
+ * boundaries next to hex IDs, linear e-mail scanning) and false positives.
+ */
 class PlatformValueMaskerTest {
 
     private static final String JWT = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.c2lnbmF0dXJlLXZhbHVl";
+    private static final String MASK = PlatformValueMasker.MASK;
 
     private final PlatformValueMasker masker = new PlatformValueMasker(List.of());
 
@@ -46,17 +55,61 @@ class PlatformValueMaskerTest {
             "intl +44 20 7946 0958 ok"})
     void masksCredentialsAndPii(String text) {
         String masked = masker.maskPatterns(text);
-        assertThat(masked).contains(PlatformValueMasker.MASK)
+        assertThat(masked).contains(MASK)
                 .doesNotContain(JWT).doesNotContain("abcdefgh12345678").doesNotContain("dXNlcjpwYXNzd29yZA==")
                 .doesNotContain("hunter2").doesNotContain("s3cr3t-value").doesNotContain("k-123456")
                 .doesNotContain("1234567").doesNotContain("4111").doesNotContain("0004")
                 .doesNotContain("@customs").doesNotContain("4567").doesNotContain("0958");
     }
 
+    // Round 1 F1: quoted values (with escapes) are masked whole; every pair of a cookie header goes.
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "password=\"correct horse battery staple\" ok | password=\"****\" ok",
+            "password='hunter2' ok                      | password='****' ok",
+            "secret: \"a \\\"quoted\\\" b\" end           | secret: \"****\" end",
+            "{\"password\":\"p w\",\"user\":\"ali\"}      | {\"password\":\"****\",\"user\":\"ali\"}",
+            "Cookie: foo=abc; session=deadbeef          | Cookie: ****",
+            "Set-Cookie: sid=abc123; Path=/; HttpOnly   | Set-Cookie: ****",
+            "{\"cookie\":\"a=1; b=2\",\"n\":1}            | {\"cookie\":\"****\",\"n\":1}"})
+    void masksQuotedValuesAndWholeCookieHeaders(String text, String expected) {
+        assertThat(masker.maskPatterns(text)).isEqualTo(expected);
+    }
+
+    // Round 1 F2: no length floors; Basic is masked when it decodes to user:password.
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "Basic YTpi           | Basic ****",
+            "Bearer abc           | Bearer ****",
+            "Bearer token missing | Bearer **** missing",
+            "jwt eyJhbGciOiJub25lIn0.e30. done | jwt **** done",
+            "jwt ewogICJhbGciOiAibm9uZSIKfQ.e30.sig done | jwt **** done"})
+    void masksShortCredentials(String text, String expected) {
+        assertThat(masker.maskPatterns(text)).isEqualTo(expected);
+    }
+
+    @Test
+    void basicWordInProseStaysWhenItIsNotACredential() {
+        assertThat(masker.maskPatterns("Basic auth is disabled")).isEqualTo("Basic auth is disabled");
+    }
+
     @Test
     void keepsTheKeyAndSchemeVisible() {
         assertThat(masker.maskPatterns("password=hunter2")).isEqualTo("password=****");
         assertThat(masker.maskPatterns("Bearer abcdefgh12345678")).isEqualTo("Bearer ****");
+    }
+
+    // Round 1 F4: hex identifiers with an embedded Luhn-valid run stay intact; a following number does
+    // not hide a card; a trailing hyphen is a boundary.
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "trace abcd4111111111111111abcdefabcdef | trace abcd4111111111111111abcdefabcdef",
+            "card 4111111111111111 12               | card **** 12",
+            "card 4111 1111 1111 1111 12            | card **** 12",
+            "card 4111111111111111- end             | card ****- end",
+            "amex 3782 822463 10005 ok               | amex **** ok"})
+    void cardNumberBoundaries(String text, String expected) {
+        assertThat(masker.maskPatterns(text)).isEqualTo(expected);
     }
 
     @ParameterizedTest
@@ -75,16 +128,42 @@ class PlatformValueMaskerTest {
             "version 1.2.3 build 20261026",
             "ip 10.0.12.7 port 8080",
             "landline 04 123 4567 not matched",            // documented gap
+            "eyes.of.the storm",                           // not a JWT
             "tokens: 5, passwords rotated"})
     void leavesOrdinaryValuesAlone(String text) {
         assertThat(masker.maskPatterns(text)).isEqualTo(text);
     }
 
     @Test
+    void traceAndSpanIdFieldsKeepTheirHexIdsButNotOtherContent() {
+        assertThat(masker.mask(field("traceId"), "abcd4111111111111111abcdefabcdef")).isNull();
+        assertThat(masker.mask(field("spanId"), "4111111111111111")).isNull();
+        assertThat(masker.mask(field("traceId"), "password=hunter2")).isEqualTo("password=****");
+        assertThat(masker.mask(field("level"), "password=hunter2")).isNull();
+    }
+
+    @Test
     void masksWholeValueOfCredentialNamedFields() {
-        assertThat(masker.mask(field("Authorization"), "anything at all")).isEqualTo(PlatformValueMasker.MASK);
-        assertThat(masker.mask(field("x-api-key"), "abc")).isEqualTo(PlatformValueMasker.MASK);
-        assertThat(masker.mask(field("refresh_token"), "abc")).isEqualTo(PlatformValueMasker.MASK);
+        assertThat(masker.mask(field("Authorization"), "anything at all")).isEqualTo(MASK);
+        assertThat(masker.mask(field("x-api-key"), "abc")).isEqualTo(MASK);
+        assertThat(masker.mask(field("refresh_token"), "abc")).isEqualTo(MASK);
+    }
+
+    // Round 1 F3: credential names win whatever the value type, also for nested values.
+    @Test
+    void credentialNamesWinForEveryValueTypeAndNesting() {
+        assertThat(masker.mask(field("password"), 123456)).isEqualTo(MASK);
+        assertThat(masker.mask(field("token"), true)).isEqualTo(MASK);
+        assertThat(masker.mask(nested("password", "inner"), "plain")).isEqualTo(MASK);
+        assertThat(masker.mask(nested("details", "inner"), "plain")).isNull();
+    }
+
+    @Test
+    void masksCardNumbersWrittenAsNumbers() {
+        assertThat(masker.mask(field("card"), 4111111111111111L)).isEqualTo(MASK);
+        assertThat(masker.mask(field("card"), new BigInteger("4111111111111111"))).isEqualTo(MASK);
+        assertThat(masker.mask(field("card"), new BigDecimal("4111111111111111.00"))).isEqualTo(MASK);
+        assertThat(masker.mask(field("card"), new BigDecimal("4111111111111111.5"))).isNull();
     }
 
     @Test
@@ -93,14 +172,21 @@ class PlatformValueMaskerTest {
         assertThat(masker.mask(field("count"), 42)).isNull();
         assertThat(masker.mask(field("at"), 1793001600123L)).isNull();
         assertThat(masker.mask(field("id"), 4111111111111112L)).isNull(); // not Luhn-valid
+        assertThat(masker.mask(field(null), "plain")).isNull();
+        assertThat(masker.mask(field("x"), null)).isNull();
     }
 
+    // Round 1 F6: long inputs are scanned in linear time.
     @Test
-    void masksCardNumbersWrittenAsNumbers() {
-        assertThat(masker.mask(field("card"), 4111111111111111L)).isEqualTo(PlatformValueMasker.MASK);
-        assertThat(masker.mask(field("card"), new java.math.BigInteger("4111111111111111")))
-                .isEqualTo(PlatformValueMasker.MASK);
-        assertThat(masker.mask(field(null), "plain")).isNull();
+    void longInputsWithoutMatchesAreScannedQuickly() {
+        String noAt = "a".repeat(200_000);
+        String trailingAt = "a.".repeat(100_000) + "@";
+        String digits = "1".repeat(200_000);
+        long start = System.nanoTime();
+        assertThat(masker.maskPatterns(noAt)).isEqualTo(noAt);
+        assertThat(masker.maskPatterns(trailingAt)).isEqualTo(trailingAt);
+        assertThat(masker.maskPatterns(digits)).isEqualTo(digits);
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofMillis(750));
     }
 
     @Test
@@ -122,9 +208,10 @@ class PlatformValueMaskerTest {
         PlatformValueMasker custom = new PlatformValueMasker(PlatformValueMasker.compile("CASE-\\d{6}\n\n  "));
         assertThat(custom.maskPatterns("see CASE-123456")).isEqualTo("see ****");
         assertThat(PlatformValueMasker.compile(null)).isEmpty();
+        assertThat(PlatformValueMasker.compile(" a+ \n")).extracting(Pattern::pattern).containsExactly("a+");
     }
 
-    private static void publish(LogSanitizer... sanitizers) {
+    static void publish(LogSanitizer... sanitizers) {
         DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
         for (int i = 0; i < sanitizers.length; i++) {
             beans.registerSingleton("s" + i, sanitizers[i]);
@@ -133,10 +220,18 @@ class PlatformValueMaskerTest {
     }
 
     private static JsonStreamContext field(String name) {
+        return context(name, null);
+    }
+
+    private static JsonStreamContext nested(String outer, String inner) {
+        return context(inner, context(outer, null));
+    }
+
+    private static JsonStreamContext context(String name, JsonStreamContext parent) {
         return new JsonStreamContext(JsonStreamContext.TYPE_OBJECT, 0) {
             @Override
             public JsonStreamContext getParent() {
-                return null;
+                return parent;
             }
 
             @Override
@@ -144,10 +239,5 @@ class PlatformValueMaskerTest {
                 return name;
             }
         };
-    }
-
-    @Test
-    void compiledPatternsAreTrimmed() {
-        assertThat(PlatformValueMasker.compile(" a+ \n")).extracting(Pattern::pattern).containsExactly("a+");
     }
 }

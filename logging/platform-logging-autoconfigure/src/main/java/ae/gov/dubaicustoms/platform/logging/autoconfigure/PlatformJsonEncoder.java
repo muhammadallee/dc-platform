@@ -1,6 +1,10 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.SanitizedMessageView;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 import net.logstash.logback.encoder.LogstashEncoder;
@@ -76,5 +80,16 @@ public class PlatformJsonEncoder extends LogstashEncoder {
             setJsonGeneratorDecorator(masking);
         }
         super.start();
+    }
+
+    @Override
+    public byte[] encode(ILoggingEvent event) {
+        // LogSanitizer beans also clean keyed arguments inside the formatted message (event-local view).
+        return super.encode(redactionEnabled ? SanitizedMessageView.of(event) : event);
+    }
+
+    @Override
+    public void encode(ILoggingEvent event, OutputStream outputStream) throws IOException {
+        super.encode(redactionEnabled ? SanitizedMessageView.of(event) : event, outputStream);
     }
 }

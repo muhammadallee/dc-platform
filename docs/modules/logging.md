@@ -16,27 +16,35 @@ is watching.
   are the only MDC keys platform code writes.
 - **Redaction** — in every string the JSON encoder writes (message, MDC values, structured arguments,
   exception message, stack trace) the platform replaces with `****`:
-  - JWTs, `Bearer …` and `Basic …` credentials;
+  - JWTs; whatever follows `Bearer` (so prose such as "Bearer token missing" reads
+    "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
   - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
-    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`, `cookie`,
-    `set-cookie`) in `key=value`, `key: value` and `"key":"value"` text;
-  - the whole value of an MDC entry or structured argument whose **name** is one of those keys;
-  - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers (13–19
-    digits starting 2–6, single spaces or dashes allowed — in text and when logged as a number);
+    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`) in `key=value`,
+    `key: value`, `"key":"value"` and `key='value'` text — quoted values whole, quotes kept;
+  - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs);
+  - the whole value — of any type, nested values included — of an MDC entry or structured argument
+    whose **name** is one of those keys or `cookie` / `set-cookie`;
+  - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
+    2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
+    digits) and `3782 822463 10005`, with one consistent space or dash separator — in text and when
+    logged as a number;
   - e-mail addresses;
   - phone numbers: international with a `+` or `00` prefix (`+971 50 123 4567`, `00971501234567`,
     `+44 20 7946 0958`) and UAE mobiles in local form (`050 123 4567`, `0501234567`).
 
-  Timestamps, epoch millis, trace/span IDs, UUIDs, IP addresses, version strings, `Object@1a2b3c`
-  identity strings and ordinary numeric IDs are left alone. Residual risks: a numeric ID that happens to
+  Timestamps, epoch millis, trace/span IDs (also hex IDs with digit runs inside), UUIDs, IP addresses,
+  version strings, `Object@1a2b3c` identity strings and ordinary numeric IDs are left alone. The
+  `traceId`/`spanId` fields are never masked while they hold W3C hex IDs. Masking is linear in the input
+  length. Residual risks: a numeric ID that happens to
   be a Luhn-valid 13–19 digit number starting 2–6, or a 10-digit ID starting `050`–`058`, is masked;
   UAE landlines written without a prefix (`04 123 4567`) are **not** masked — add a pattern if you log
   them.
 - **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
   user input cannot add a line or a field.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
-- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` to MDC values and structured
-  arguments (not to the platform's own fields) before the platform masks run.
+- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` to MDC values and keyed arguments
+  (`Kv.of`, Logstash `kv(...)`) — both the structured field and the argument's text in `message` — but not
+  to the platform's own fields, before the platform masks run.
 
 ## Starter coordinates
 

@@ -95,4 +95,32 @@ class PlatformLoggingEnvironmentPostProcessorTest {
         assertThat(environment.getPropertySources()
                 .contains(PlatformLoggingEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isFalse();
     }
+
+    @Test
+    void contributedDefaultsSnapshot() {
+        // Plan §7.2 for the pre-context defaults, including the flattened list properties.
+        MockEnvironment environment = new MockEnvironment().withProperty("spring.application.name", "orders");
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("logging.config")).isEqualTo(PlatformLoggingEnvironmentPostProcessor.CONFIG_LOCATION);
+        assertThat(environment.getProperty("dc.platform.logging.service-name")).isEqualTo("orders");
+        assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.MDC_INCLUDE_RESOLVED)).isEmpty();
+        assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.REDACTION_PATTERNS_RESOLVED)).isEmpty();
+    }
+
+    @Test
+    void listPropertiesAreFlattenedForLogback() {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("dc.platform.logging.mdc.include[0]", "tenant")
+                .withProperty("dc.platform.logging.mdc.include[1]", "channel")
+                .withProperty("dc.platform.logging.redaction.patterns[0]", "A,B\\d")
+                .withProperty("dc.platform.logging.redaction.patterns[1]", "CASE-\\d{6}");
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.MDC_INCLUDE_RESOLVED))
+                .isEqualTo("tenant,channel");
+        // One pattern per line: a regex may contain commas.
+        assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.REDACTION_PATTERNS_RESOLVED))
+                .isEqualTo("A,B\\d\nCASE-\\d{6}");
+    }
 }

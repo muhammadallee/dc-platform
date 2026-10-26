@@ -6,7 +6,7 @@ import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingFilterBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -18,15 +18,17 @@ import org.springframework.core.Ordered;
 /*
  * Activates when: servlet web application AND platform-core-api on the classpath
  *                 AND dc.platform.core.enabled != false
- *                 (filter beans additionally: micrometer-tracing on the classpath)
- * Backs off when: user defines a CorrelationIdFilter bean (the registration then wraps theirs),
- *                 or a bean named platformCorrelationFilterRegistration (then the platform creates
- *                 NEITHER bean: a default filter left behind would be auto-registered by Boot)
- * Beans: correlationIdFilter — opens RequestContext with the current span's W3C trace ID (MDC
- *                              traceId/spanId) for the request and always closes it; never reads,
- *                              generates or echoes a correlation header;
- *        platformCorrelationFilterRegistration — registers the filter for all URLs at
- *                              FILTER_ORDER, on REQUEST, ASYNC and ERROR dispatches
+ *                 (registration additionally: micrometer-tracing on the classpath)
+ * Backs off when: user defines a CorrelationIdFilter bean or a FilterRegistrationBean<CorrelationIdFilter>
+ *                 (by type, Boot's @ConditionalOnMissingFilterBean — the same shape as Boot's own
+ *                 webMvcObservationFilter). A consumer's CorrelationIdFilter bean is then registered
+ *                 by Boot itself: it is Ordered at FILTER_ORDER and, as a OncePerRequestFilter, runs
+ *                 on every dispatch type, so it keeps the platform's position.
+ * Beans: platformCorrelationFilterRegistration — registers a CorrelationIdFilter (created inline,
+ *                              not a separate bean) for all URLs at FILTER_ORDER, on REQUEST, ASYNC
+ *                              and ERROR dispatches. The filter opens RequestContext with the current
+ *                              span's W3C trace ID (MDC traceId/spanId) for the request and always
+ *                              closes it; never reads, generates or echoes a correlation header.
  * Order: FILTER_ORDER = HIGHEST_PRECEDENCE + 10: after Boot's ServerHttpObservationFilter
  *        (HIGHEST_PRECEDENCE + 1), which continues or starts the trace from traceparent, and well
  *        before the Spring Security chain (-100), so 401/403 bodies and security log lines already
@@ -49,15 +51,10 @@ public class CoreContextAutoConfiguration {
     static class TraceCorrelationConfiguration {
 
         @Bean
-        @ConditionalOnMissingBean(value = CorrelationIdFilter.class, name = "platformCorrelationFilterRegistration")
-        CorrelationIdFilter correlationIdFilter(ObjectProvider<Tracer> tracer) {
-            return new CorrelationIdFilter(tracer.getIfAvailable(() -> Tracer.NOOP));
-        }
-
-        @Bean
-        @ConditionalOnMissingBean(name = "platformCorrelationFilterRegistration")
-        FilterRegistrationBean<CorrelationIdFilter> platformCorrelationFilterRegistration(CorrelationIdFilter filter) {
-            FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(filter);
+        @ConditionalOnMissingFilterBean(CorrelationIdFilter.class)
+        FilterRegistrationBean<CorrelationIdFilter> platformCorrelationFilterRegistration(ObjectProvider<Tracer> tracer) {
+            FilterRegistrationBean<CorrelationIdFilter> registration =
+                    new FilterRegistrationBean<>(new CorrelationIdFilter(tracer.getIfAvailable(() -> Tracer.NOOP)));
             registration.setOrder(FILTER_ORDER);
             registration.addUrlPatterns("/*");
             registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);

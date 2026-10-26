@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.filter.ServerHttpObservationFilter;
 
@@ -37,14 +38,17 @@ import org.springframework.web.filter.ServerHttpObservationFilter;
  * observation it stored on the request.
  *
  * <p>Registered by {@code CoreContextAutoConfiguration} after the observation filter and before
- * the Spring Security filter chain; define your own {@code CorrelationIdFilter} bean to replace it.
+ * the Spring Security filter chain. To replace it, define your own {@code CorrelationIdFilter} bean
+ * (Boot registers it; it is {@link Ordered} at {@link CoreContextAutoConfiguration#FILTER_ORDER} and runs
+ * on every dispatch type) or a {@code FilterRegistrationBean<CorrelationIdFilter>} to control the
+ * registration yourself.
  *
  * <p>Thread-safe; the context it opens is confined to the dispatching thread and always closed.
  * Constructor arguments must not be {@code null}.
  *
  * @since 0.1.0
  */
-public class CorrelationIdFilter extends OncePerRequestFilter {
+public class CorrelationIdFilter extends OncePerRequestFilter implements Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
@@ -63,6 +67,17 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
      */
     public CorrelationIdFilter(Tracer tracer) {
         this.tracer = Objects.requireNonNull(tracer, "tracer must not be null");
+    }
+
+    /**
+     * Returns {@link CoreContextAutoConfiguration#FILTER_ORDER}, so a consumer's own filter bean that Boot
+     * registers keeps the platform's position in the chain.
+     *
+     * @return the servlet filter order
+     */
+    @Override
+    public int getOrder() {
+        return CoreContextAutoConfiguration.FILTER_ORDER;
     }
 
     @Override

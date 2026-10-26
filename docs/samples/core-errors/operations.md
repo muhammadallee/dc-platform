@@ -47,8 +47,10 @@ termination grace above the phase timeout (the harness uses 45 s).
 
 | Bean | Replace by |
 |---|---|
-| `CorrelationIdFilter` | your own `CorrelationIdFilter` bean (keep it after the observation filter) |
-| filter registration | bean named `platformCorrelationFilterRegistration` (the platform then creates no filter) |
+| `CorrelationIdFilter` | your own `CorrelationIdFilter` bean, any name (Boot registers it at `FILTER_ORDER`, every dispatch type) |
+| filter registration | a `FilterRegistrationBean<CorrelationIdFilter>`, any name (the platform then registers no filter) |
+| banner | a `PlatformBannerRunner` bean, any name; or `dc.platform.core.banner-enabled=false` |
+| capability descriptor | a bean named `<cap>CapabilityDescriptor` (by name: one bean per capability, D97) |
 | main advice | a `PlatformExceptionHandler` subclass bean, or any bean named `platformExceptionHandler` |
 | validation advice | a `PlatformConstraintViolationHandler` bean, or any bean named `platformValidationExceptionHandler` |
 | error page | any `ErrorController` bean |

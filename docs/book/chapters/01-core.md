@@ -277,8 +277,8 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 
 | Class | Activates when | Contributes | Backs off when |
 |---|---|---|---|
-| `CoreContextAutoConfiguration` | Servlet web app **and** `CorrelationId` on classpath **and** `core.enabled != false` | `correlationIdFilter`, `platformCorrelationFilterRegistration` | You define a `CorrelationIdFilter` bean (the platform registration then wraps *yours*), or a `FilterRegistrationBean` named `platformCorrelationFilterRegistration` |
-| `PlatformBannerAutoConfiguration` | `CorrelationId` on classpath **and** `core.enabled != false` | `coreCapabilityDescriptor`, `platformBannerRunner` | You define an `ApplicationRunner` bean named `platformBannerRunner`; the runner is additionally gated on `banner-enabled` |
+| `CoreContextAutoConfiguration` | Servlet web app **and** `CorrelationId` on classpath **and** `core.enabled != false` | `platformCorrelationFilterRegistration` | You define a `CorrelationIdFilter` bean or a `FilterRegistrationBean<CorrelationIdFilter>`, under any name (Boot then registers yours) |
+| `PlatformBannerAutoConfiguration` | `CorrelationId` on classpath **and** `core.enabled != false` | `coreCapabilityDescriptor`, `platformBannerRunner` | You define a `PlatformBannerRunner` bean (any name), or a bean named `coreCapabilityDescriptor`; the runner is additionally gated on `banner-enabled` |
 
 !!! note "The descriptor is contributed even when the banner is off"
     `coreCapabilityDescriptor` is not gated on `banner-enabled` — only the runner is. That way
@@ -295,9 +295,9 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 | Extension | How | Effect |
 |---|---|---|
 | Contribute a capability to the report | Declare a `CapabilityDescriptor` bean | Appears in the banner and `/actuator/platform` |
-| Replace the filter's behaviour | Declare a `CorrelationIdFilter` bean | The platform's registration wraps yours, at highest precedence |
-| Take over registration entirely | Declare a `FilterRegistrationBean` named `platformCorrelationFilterRegistration` | You control order and URL patterns |
-| Replace the banner | Declare an `ApplicationRunner` named `platformBannerRunner` | Your runner logs instead |
+| Replace the filter's behaviour | Declare a `CorrelationIdFilter` bean (any name) | Boot registers yours at the platform's order, on every dispatch type |
+| Take over registration entirely | Declare a `FilterRegistrationBean<CorrelationIdFilter>` (any name) | You control order and URL patterns |
+| Replace the banner | Declare a `PlatformBannerRunner` bean (any name) | Your runner logs instead |
 | Extend the exception taxonomy | Subclass `PlatformException` with your own `ErrorCode` | Rendered as a problem response by [errors](02-errors-validation.md) |
 
 ---
@@ -638,14 +638,15 @@ You *can* still end up ahead of it:
 If you must run something before correlation — an APM agent is the usual legitimate case — be aware
 that its log lines will not carry an id, and check whether it can read the header itself.
 
-To replace the filter but keep its precedence, declare a `CorrelationIdFilter` bean; the platform's
-registration wraps yours. To control precedence too, declare the `FilterRegistrationBean` by name:
+To replace the filter but keep its precedence, declare a `CorrelationIdFilter` bean; Boot registers it
+at the platform's order. To control precedence too, declare a `FilterRegistrationBean<CorrelationIdFilter>`
+under any name:
 
 ```java
 @Bean
-FilterRegistrationBean<CorrelationIdFilter> platformCorrelationFilterRegistration(CorrelationIdFilter filter) {
-    FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
+    FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
+    registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
     registration.addUrlPatterns("/api/*");
     return registration;
 }

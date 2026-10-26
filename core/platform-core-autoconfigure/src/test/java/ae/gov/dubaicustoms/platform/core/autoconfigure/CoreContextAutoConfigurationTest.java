@@ -4,6 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import io.micrometer.tracing.Tracer;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -11,11 +18,19 @@ import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.boot.web.servlet.RegistrationBean;
+import org.springframework.boot.web.servlet.ServletContextInitializerBeans;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.web.filter.GenericFilterBean;
 
 /**
  * The mandatory 5-case ContextRunner matrix for CoreContextAutoConfiguration, plus the ordering
- * contract, the real-override contract (plan §7.1) and the config-default snapshot (plan §7.2).
+ * contract, the real-override contract by type (plan §7.1, D98) and the config-default snapshot
+ * (plan §7.2).
  */
 class CoreContextAutoConfigurationTest {
 
@@ -25,8 +40,8 @@ class CoreContextAutoConfigurationTest {
     @Test
     void activeByDefault() {
         runner.run(context -> {
-            assertThat(context).hasSingleBean(CorrelationIdFilter.class);
             assertThat(context).hasBean("platformCorrelationFilterRegistration");
+            assertThat(registeredCorrelationFilters(context)).hasSize(1);
         });
     }
 
@@ -34,44 +49,43 @@ class CoreContextAutoConfigurationTest {
     void killSwitchDisables() {
         runner.withPropertyValues("dc.platform.core.enabled=false")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean(CorrelationIdFilter.class);
+                    assertThat(context).doesNotHaveBean(FilterRegistrationBean.class);
+                    assertThat(registeredCorrelationFilters(context)).isEmpty();
+                });
+    }
+
+    @Test
+    void backsOffWhenUserFilterPresentUnderAnyName() {
+        runner.withUserConfiguration(UserFilter.class)
+                .run(context -> {
                     assertThat(context).doesNotHaveBean("platformCorrelationFilterRegistration");
+                    // Boot registers the consumer's filter itself, at the platform's position.
+                    CorrelationIdFilter mine = context.getBean("myCorrelationFilter", CorrelationIdFilter.class);
+                    List<RegistrationBean> registrations = correlationRegistrations(context);
+                    assertThat(registrations).hasSize(1);
+                    assertThat(((FilterRegistrationBean<?>) registrations.get(0)).getFilter()).isSameAs(mine);
+                    assertThat(registrations.get(0).getOrder()).isEqualTo(CoreContextAutoConfiguration.FILTER_ORDER);
                 });
     }
 
     @Test
-    void backsOffWhenUserFilterPresent() {
-        CorrelationIdFilter mine = new CorrelationIdFilter(Tracer.NOOP);
-        runner.withBean("mine", CorrelationIdFilter.class, () -> mine)
+    void backsOffWhenUserRegistrationPresentUnderAnyName() {
+        runner.withUserConfiguration(UserRegistration.class)
                 .run(context -> {
-                    assertThat(context).getBean(CorrelationIdFilter.class).isSameAs(mine);
-                    // The platform registration wraps the consumer's filter instead of a second one.
-                    assertThat(context.getBean("platformCorrelationFilterRegistration", FilterRegistrationBean.class)
-                            .getFilter()).isSameAs(mine);
+                    assertThat(context).doesNotHaveBean("platformCorrelationFilterRegistration");
+                    // The consumer's (disabled) registration is the only one: no second platform filter.
+                    assertThat(registeredCorrelationFilters(context))
+                            .containsExactly(context.getBean("myRegistration", FilterRegistrationBean.class).getFilter());
                 });
     }
 
     @Test
-    void backsOffWhenUserRegistrationPresent() {
-        CorrelationIdFilter theirs = new CorrelationIdFilter(Tracer.NOOP);
-        FilterRegistrationBean<CorrelationIdFilter> mine = new FilterRegistrationBean<>(theirs);
-        mine.setEnabled(false); // a consumer may even switch the filter off
-        runner.withBean("platformCorrelationFilterRegistration", FilterRegistrationBean.class, () -> mine)
+    void unrelatedFilterRegistrationsDoNotSuppressThePlatformOne() {
+        runner.withUserConfiguration(UnrelatedRegistration.class)
                 .run(context -> {
-                    assertThat(context.getBean("platformCorrelationFilterRegistration")).isSameAs(mine);
-                    assertThat(context).doesNotHaveBean("correlationIdFilter");
-                    // What Boot would register with the servlet container: no second, auto-registered
-                    // CorrelationIdFilter next to the consumer's (disabled) registration.
-                    var initializers = new org.springframework.boot.web.servlet.ServletContextInitializerBeans(
-                            context.getBeanFactory());
-                    java.util.List<Object> correlationFilters = new java.util.ArrayList<>();
-                    initializers.forEach(initializer -> {
-                        if (initializer instanceof FilterRegistrationBean<?> registration
-                                && registration.getFilter() instanceof CorrelationIdFilter filter) {
-                            correlationFilters.add(filter);
-                        }
-                    });
-                    assertThat(correlationFilters).containsExactly(theirs);
+                    assertThat(context).hasBean("platformCorrelationFilterRegistration");
+                    assertThat(context).hasBean("unrelatedRegistration");
+                    assertThat(registeredCorrelationFilters(context)).hasSize(1);
                 });
     }
 
@@ -86,7 +100,7 @@ class CoreContextAutoConfigurationTest {
         runner.withClassLoader(new FilteredClassLoader(Tracer.class))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).doesNotHaveBean(CorrelationIdFilter.class);
+                    assertThat(context).doesNotHaveBean("platformCorrelationFilterRegistration");
                 });
     }
 
@@ -94,7 +108,7 @@ class CoreContextAutoConfigurationTest {
     void inactiveOutsideWebApplications() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(CoreContextAutoConfiguration.class))
-                .run(context -> assertThat(context).doesNotHaveBean(CorrelationIdFilter.class));
+                .run(context -> assertThat(context).doesNotHaveBean("platformCorrelationFilterRegistration"));
     }
 
     @Test
@@ -108,6 +122,7 @@ class CoreContextAutoConfigurationTest {
                     .isEqualTo(CoreContextAutoConfiguration.FILTER_ORDER)
                     .isGreaterThan(Ordered.HIGHEST_PRECEDENCE + 1)
                     .isLessThan(-100);
+            assertThat(new CorrelationIdFilter(Tracer.NOOP).getOrder()).isEqualTo(registration.getOrder());
         });
     }
 
@@ -117,7 +132,7 @@ class CoreContextAutoConfigurationTest {
                         "dc.platform.core.correlation.generate-if-missing=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).hasSingleBean(CorrelationIdFilter.class);
+                    assertThat(context).hasBean("platformCorrelationFilterRegistration");
                 });
     }
 
@@ -130,5 +145,59 @@ class CoreContextAutoConfigurationTest {
             assertThat(Map.of("enabled", properties.enabled(), "banner-enabled", properties.bannerEnabled()))
                     .isEqualTo(Map.of("enabled", true, "banner-enabled", true));
         });
+    }
+
+    /** What Boot would register with the servlet container for CorrelationIdFilter. */
+    private static List<RegistrationBean> correlationRegistrations(ApplicationContext context) {
+        List<RegistrationBean> found = new ArrayList<>();
+        new ServletContextInitializerBeans(((ConfigurableApplicationContext) context).getBeanFactory())
+                .forEach(initializer -> {
+                    if (initializer instanceof FilterRegistrationBean<?> registration
+                            && registration.getFilter() instanceof CorrelationIdFilter) {
+                        found.add(registration);
+                    }
+                });
+        return found;
+    }
+
+    private static List<Object> registeredCorrelationFilters(ApplicationContext context) {
+        return correlationRegistrations(context).stream()
+                .map(registration -> (Object) ((FilterRegistrationBean<?>) registration).getFilter())
+                .toList();
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class UserFilter {
+
+        @Bean
+        CorrelationIdFilter myCorrelationFilter() {
+            return new CorrelationIdFilter(Tracer.NOOP);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class UserRegistration {
+
+        @Bean
+        FilterRegistrationBean<CorrelationIdFilter> myRegistration() {
+            FilterRegistrationBean<CorrelationIdFilter> mine = new FilterRegistrationBean<>(new CorrelationIdFilter(Tracer.NOOP));
+            mine.setEnabled(false); // a consumer may even switch the filter off
+            return mine;
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class UnrelatedRegistration {
+
+        @Bean
+        FilterRegistrationBean<GenericFilterBean> unrelatedRegistration() {
+            return new FilterRegistrationBean<>(new GenericFilterBean() {
+                @Override
+                public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+                        throws IOException, ServletException {
+                    chain.doFilter(request, response);
+                }
+            });
+        }
     }
 }

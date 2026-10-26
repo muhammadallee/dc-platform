@@ -85,11 +85,32 @@ RequestContext.correlationId()
 
 ## Replace / Disable
 
-- Define your own `CorrelationIdFilter` bean to replace the filter (the platform registration
-  wraps yours); define a bean named `platformCorrelationFilterRegistration` to take over registration
-  entirely — the platform then creates no filter bean at all (Boot would otherwise auto-register it).
-  Keep yours after the observation filter, or there is no span yet.
-- Define an `ApplicationRunner` named `platformBannerRunner` to replace the banner.
+Overrides are by type, under any bean name (D98), the way Boot backs off its own filters:
+
+- Define your own `CorrelationIdFilter` bean (a subclass, say) to replace the filter. The platform
+  registration backs off and Boot registers yours; `CorrelationIdFilter` is `Ordered` at
+  `CoreContextAutoConfiguration.FILTER_ORDER` and runs on REQUEST, ASYNC and ERROR dispatches, so it
+  keeps the platform's position.
+- Define a `FilterRegistrationBean<CorrelationIdFilter>` to control the registration yourself (order,
+  URL patterns, or `setEnabled(false)`). Keep it after the observation filter, or there is no span yet:
+
+  ```java
+  @Bean
+  FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
+      var registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
+      registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
+      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+      return registration;
+  }
+  ```
+
+  Unrelated filters and registrations never affect the platform's.
+- Define a `PlatformBannerRunner` bean (subclass it and override `describe`) to change the banner, or
+  set `dc.platform.core.banner-enabled=false` and add your own `ApplicationRunner`. Other
+  `ApplicationRunner` beans never suppress the banner.
+- Capability descriptors are one bean per capability, so they back off **by name**, like Boot's health
+  indicators (D97): a bean named `coreCapabilityDescriptor` replaces the core entry. A descriptor under
+  any other name is simply one more entry.
 - `dc.platform.core.enabled=false` switches the capability off wholesale (no correlation context, no
   platform executor default); tracing itself keeps working.
 

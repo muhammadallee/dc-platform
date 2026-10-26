@@ -141,9 +141,10 @@ Commonly replaced, low risk:
     format. Plan it as a coordinated migration: dual-publish, migrate consumers, then switch.
 
 !!! warning "Name-based back-off is a foot-gun worth knowing about"
-    Several beans back off by **name**, not type: `platformCorrelationFilterRegistration`,
-    `platformBannerRunner`, `platformProblemDetailOpenApiCustomizer`, `platformCommonTagsCustomizer`,
-    `platformExceptionHandler`.
+    Several beans back off by **name**, not type: the per-capability `<cap>CapabilityDescriptor`
+    beans (by design, like Boot's health indicators), `platformProblemDetailOpenApiCustomizer`,
+    `platformCommonTagsCustomizer`, and — besides their type — `platformExceptionHandler` and
+    `platformValidationExceptionHandler`. The correlation filter and the banner back off by type.
 
     A bean that happens to share one of those names replaces platform behaviour silently. Conversely, a
     customizer you *meant* to run alongside the platform's must use a different name.

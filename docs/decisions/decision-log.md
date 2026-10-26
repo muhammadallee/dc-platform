@@ -620,3 +620,15 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D92 — error-code uniqueness read from sources.** The classpath registry only sees the errors
   module's dependencies; a source scan over every platform module's `src/main/java` covers modules no
   single test classpath contains. Examples and the archetype are excluded (separate services).
+- **D93 — overrides by type and by name; descriptors by name only.** Platform advice beans back off
+  for a consumer bean of their type under any name, or any bean of their documented name.
+  `CapabilityDescriptor` is one shared type with one bean per capability, so each descriptor backs off
+  by name only.
+- **D94 — the platform owns the servlet error page.** A `PlatformErrorController` replaces Boot's
+  `BasicErrorController` (ordered before `ErrorMvcAutoConfiguration`), and the security chain permits
+  the ERROR dispatch, so every error path — MVC, security, filters, the container — renders one
+  problem contract. Spring Security's own guidance for error pages; the original request was already
+  authorized or rejected on its REQUEST dispatch.
+- **D95 — trace rejection judged by the propagator's outcome.** The core filter does not re-implement
+  W3C validation: a present `traceparent` counts as rejected exactly when the current trace is not the
+  one it names, and the marker carries the header length only.

@@ -31,8 +31,10 @@ cp -r "$baseline" "$target"
     || { echo "install into $target failed (see $target/install.log)" >&2; exit 1; }
 
 pom="$target/ae/gov/dubaicustoms/platform/platform-bom/$(cd "$root" && mvn -q -N help:evaluate -Dexpression=revision -DforceStdout)"
-if grep -q '\${revision}' "$pom"/*.pom; then
-  echo "installed BOM still contains an unresolved \${revision}: $pom" >&2
+# The BOM may keep ${revision} references as long as it defines the property itself (flatten keeps it
+# that way, as the baseline does); an undefined reference would break every consumer build.
+if grep -q '\${revision}' "$pom"/*.pom && ! grep -q '<revision>' "$pom"/*.pom; then
+  echo "installed BOM references \${revision} without defining it: $pom" >&2
   exit 1
 fi
 echo "$target"

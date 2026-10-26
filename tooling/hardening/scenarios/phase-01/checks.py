@@ -1,6 +1,7 @@
 """Checks for the phase-01 consumer scenario that are awkward in shell: concurrency and log scans.
 
     python -I checks.py concurrent BASE_URL N ROUNDS     # N parallel /probe/context calls per round
+    python -I checks.py concurrent-errors BASE_URL N ROUNDS  # N parallel failing calls: own traceId per body
     python -I checks.py logs APP_LOG TRACE_ID [FORBIDDEN...]
 
 Exit code 0 = pass, 1 = fail; a one-line JSON summary goes to stdout either way.
@@ -9,6 +10,7 @@ import concurrent.futures
 import json
 import secrets
 import sys
+import urllib.error
 import urllib.request
 
 
@@ -35,6 +37,30 @@ def concurrent_check(base, n, rounds):
     print(json.dumps({'check': 'concurrent', 'requests': n * rounds, 'rounds': rounds, 'bleed': len(bleed),
                       'examples': bleed[:3]}))
     return not bleed
+
+
+def get_error(base, trace_id):
+    request = urllib.request.Request(base + '/probe/boom',
+                                     headers={'traceparent': f'00-{trace_id}-{secrets.token_hex(8)}-01'})
+    try:
+        urllib.request.urlopen(request, timeout=30)
+    except urllib.error.HTTPError as error:
+        return error.code, json.load(error)
+    return 200, {}
+
+
+def concurrent_errors_check(base, n, rounds):
+    wrong = []
+    for round_no in range(rounds):
+        ids = [secrets.token_hex(16) for _ in range(n)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n) as pool:
+            replies = list(pool.map(lambda trace_id: get_error(base, trace_id), ids))
+        for sent, (status, body) in zip(ids, replies):
+            if status != 500 or body.get('traceId') != sent or body.get('code') != 'DC-CORE-0500':
+                wrong.append({'round': round_no, 'sent': sent, 'status': status, 'traceId': body.get('traceId')})
+    print(json.dumps({'check': 'concurrent-errors', 'requests': n * rounds, 'rounds': rounds, 'wrong': len(wrong),
+                      'examples': wrong[:3]}))
+    return not wrong
 
 
 def logs_check(path, trace_id, forbidden):
@@ -65,6 +91,8 @@ def logs_check(path, trace_id, forbidden):
 if __name__ == '__main__':
     if sys.argv[1] == 'concurrent':
         ok = concurrent_check(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
+    elif sys.argv[1] == 'concurrent-errors':
+        ok = concurrent_errors_check(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     elif sys.argv[1] == 'logs':
         ok = logs_check(sys.argv[2], sys.argv[3], sys.argv[4:])
     else:

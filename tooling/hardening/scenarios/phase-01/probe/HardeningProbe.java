@@ -1,5 +1,7 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
+import ae.gov.dubaicustoms.platform.core.ErrorCode;
+import ae.gov.dubaicustoms.platform.core.PlatformException;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
@@ -16,7 +18,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -49,6 +56,20 @@ public final class HardeningProbe {
         SecurityCustomizer probePathsArePublic() {
             return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
         }
+
+        // A consumer filter rejecting a request with sendError: the response is rendered by the
+        // servlet error page (an ERROR dispatch), not by MVC.
+        @Bean
+        FilterRegistrationBean<Filter> duplicateRejectingFilter() {
+            Filter filter = (request, response, chain) -> {
+                if ("/probe/duplicate".equals(((HttpServletRequest) request).getRequestURI())) {
+                    ((HttpServletResponse) response).sendError(409);
+                    return;
+                }
+                chain.doFilter(request, response);
+            };
+            return new FilterRegistrationBean<>(filter);
+        }
     }
 
     @Service
@@ -61,6 +82,16 @@ public final class HardeningProbe {
     }
 
     public record Applicant(@NotBlank String name, @Email String email) {
+    }
+
+    /** A consumer infrastructure failure: 5xx, so its message must never reach the response body. */
+    static final class PricingUnavailable extends PlatformException {
+
+        static final ErrorCode CODE = new ErrorCode("DC-PROBE-0500");
+
+        PricingUnavailable() {
+            super(CODE, "pricing cluster node pricing-7.internal refused the connection");
+        }
     }
 
     @RestController
@@ -119,6 +150,23 @@ public final class HardeningProbe {
             return Map.of("accepted", applicant.name());
         }
 
+        @GetMapping("/platform-failure")
+        public String platformFailure() {
+            throw new PricingUnavailable();
+        }
+
+        @GetMapping("/async-ok")
+        public java.util.concurrent.Callable<Map<String, String>> asyncOk() {
+            return HardeningProbe::snapshot;
+        }
+
+        @GetMapping("/async-fail")
+        public CompletableFuture<String> asyncFail() {
+            return CompletableFuture.supplyAsync(() -> {
+                throw new IllegalStateException("async worker reached db-secret-host");
+            });
+        }
+
         @GetMapping("/boom")
         public String boom() {
             throw new IllegalStateException("cannot reach jdbc:oracle:thin:@db-secret-host:1521/PRD");
@@ -126,8 +174,19 @@ public final class HardeningProbe {
 
         @GetMapping("/slow")
         public Map<String, Object> slow(@RequestParam long ms) throws InterruptedException {
+            log.info("slow request entered");
             Thread.sleep(ms);
             return Map.of("slept", ms);
+        }
+    }
+
+    @RestController
+    public static class SecuredController {
+
+        @GetMapping("/secured/admin")
+        @PreAuthorize("hasAuthority('SCOPE_admin')")
+        public String admin() {
+            return "admin";
         }
     }
 

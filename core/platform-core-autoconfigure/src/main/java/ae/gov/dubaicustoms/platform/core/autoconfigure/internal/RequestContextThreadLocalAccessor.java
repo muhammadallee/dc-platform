@@ -15,8 +15,11 @@ import java.util.Optional;
  * Boot-built executors (wrapped by {@code ContextPropagatingTaskDecorator}) see the caller's trace ID
  * in {@code RequestContext} and the MDC. Registered through {@code META-INF/services}.
  *
- * <p>Every scope this accessor opens is closed by the matching {@code restore}, so pool threads
- * return to an empty context and an empty MDC after each task.
+ * <p>Applying a snapshot REPLACES whatever context the executing thread already has (an isolating
+ * {@link RequestContext#replace} scope): a task captured without a context runs without one, and a
+ * task never inherits the executing thread's extras — even when it runs on a thread that is itself
+ * serving another caller (caller-runs policies, nested propagation). Every scope is closed by the
+ * matching {@code restore}, which brings back the thread's previous context and MDC exactly.
  */
 public final class RequestContextThreadLocalAccessor implements ThreadLocalAccessor<Map<String, String>> {
 
@@ -24,11 +27,6 @@ public final class RequestContextThreadLocalAccessor implements ThreadLocalAcces
     public static final String KEY = "dc.platform.request-context";
 
     private static final String TRACE_ID_KEY = "traceId";
-
-    // One entry per setValue: the scope it opened, or NONE when it opened nothing, so restore()
-    // always pops exactly what the matching setValue pushed.
-    private static final AutoCloseable NONE = () -> {
-    };
 
     private static final ThreadLocal<Deque<AutoCloseable>> OPENED = ThreadLocal.withInitial(ArrayDeque::new);
 
@@ -45,20 +43,16 @@ public final class RequestContextThreadLocalAccessor implements ThreadLocalAcces
 
     @Override
     public void setValue(Map<String, String> value) {
-        Optional<CorrelationId> id = Optional.ofNullable(value.get(TRACE_ID_KEY)).map(CorrelationId::new);
-        if (id.isEmpty()) {
-            OPENED.get().push(NONE);
-            return;
-        }
+        CorrelationId id = Optional.ofNullable(value.get(TRACE_ID_KEY)).map(CorrelationId::new).orElse(null);
         Map<String, String> extras = new LinkedHashMap<>(value);
         extras.remove(TRACE_ID_KEY);
-        OPENED.get().push(RequestContext.open(id.get(), extras));
+        OPENED.get().push(RequestContext.replace(id, extras));
     }
 
     @Override
     public void setValue() {
-        // The snapshot had no context: nothing to open, but restore() still pops one entry.
-        OPENED.get().push(NONE);
+        // The snapshot had no context: the task must run with none, whatever this thread carries.
+        OPENED.get().push(RequestContext.replace(null, Map.of()));
     }
 
     @Override

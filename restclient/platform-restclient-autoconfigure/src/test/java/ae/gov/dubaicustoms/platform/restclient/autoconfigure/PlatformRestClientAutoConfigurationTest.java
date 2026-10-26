@@ -55,6 +55,17 @@ class PlatformRestClientAutoConfigurationTest {
     }
 
     @Test
+    void removedPropagateCorrelationKeyHasNoEffect() {
+        // AC15: the removed key is accepted (no binding failure) and changes nothing.
+        runner.withPropertyValues("dc.platform.restclient.propagate-correlation=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(RestClientProperties.class))
+                            .isEqualTo(new RestClientProperties(true, null, null));
+                });
+    }
+
+    @Test
     void propertiesBindFromKebabKeys() {
         runner.withPropertyValues(
                         "dc.platform.restclient.defaults.connect-timeout=5s",

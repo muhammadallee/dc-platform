@@ -32,6 +32,7 @@ HH_JRE_IMAGE="${HH_JRE_IMAGE:-eclipse-temurin:25-jre}"
 HH_FAILURES=0
 HH_ASSERTIONS=0
 HH_CONTAINERS=()
+HH_PIDS=()
 
 hh_native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 hh_log() { printf '[harness %s] %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$HH_EVIDENCE/harness.log" >&2; }
@@ -99,6 +100,18 @@ hh_generate() {
   (cd "$HH_RUN_DIR/app" && "${HH_MVN[@]}" "$HH_ARCHETYPE_PLUGIN:generate" "${args[@]}" \
       -l "$(hh_native "$HH_EVIDENCE/generate.log")") || hh_abort "archetype generation failed (generate.log)"
   hh_log "generated $artifact (features=$features) in $HH_APP_DIR"
+}
+
+# hh_wait_log <pattern> [timeout-s]: bounded wait for a line in the app container's log; fails the run if absent.
+hh_wait_log() {
+  local pattern=$1 timeout=${2:-30}
+  local deadline=$(( $(date +%s) + timeout ))
+  # grep -c, not -q: under pipefail an early-exiting grep SIGPIPEs `docker logs` on a large log.
+  until [ "$(docker logs "$HH_APP_CONTAINER" 2>&1 | grep -c "$pattern")" -gt 0 ]; do
+    [ "$(date +%s)" -lt "$deadline" ] || { hh_fail "log line '$pattern' not seen within ${timeout}s"; return 1; }
+    sleep 0.2
+  done
+  hh_pass "log line '$pattern' seen"
 }
 
 hh_add_sources() {
@@ -206,18 +219,20 @@ hh_app_stop_graceful() {
   docker stop -t "$grace" "$HH_APP_CONTAINER" >/dev/null
   ended=$(date +%s)
   code=$(docker inspect -f '{{.State.ExitCode}}' "$HH_APP_CONTAINER")
+  # One log file per app container (app.log for the default one); a later container never overwrites it.
   docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" 2>&1 || true
-  [ "${HH_APP_NAME:-app}" = app ] || cp "$HH_EVIDENCE/${HH_APP_NAME}.log" "$HH_EVIDENCE/app.log"
   echo "shutdown_seconds=$((ended - started)) exit_code=$code" >> "$HH_EVIDENCE/run-identity.txt"
   # 143 = 128+SIGTERM: the JVM honoured the signal; 137 would mean docker had to SIGKILL after the grace.
   case "$code" in
-    0|143) hh_pass "app exited on SIGTERM (code $code) in $((ended - started))s" ;;
-    *) hh_fail "app exit code $code after SIGTERM (137 = killed after ${grace}s grace)" ;;
+    # 143 = 128 + SIGTERM: the JVM ran its shutdown on the signal. Anything else is a failure:
+    # 137 means docker SIGKILLed it after the grace, 0 means it exited on its own before the signal.
+    143) hh_pass "app exited on SIGTERM (code 143) in $((ended - started))s" ;;
+    *) hh_fail "app exit code $code after SIGTERM (expected 143; 137 = killed after ${grace}s grace)" ;;
   esac
-  if grep -q "Graceful shutdown complete" "$HH_EVIDENCE/app.log"; then
+  if grep -q "Graceful shutdown complete" "$HH_EVIDENCE/${HH_APP_NAME:-app}.log"; then
     hh_pass "graceful shutdown completed (logged)"
   else
-    hh_fail "no 'Graceful shutdown complete' line in app.log"
+    hh_fail "no 'Graceful shutdown complete' line in ${HH_APP_NAME:-app}.log"
   fi
 }
 
@@ -225,6 +240,8 @@ hh_finish() {
   local rc=$?
   trap - EXIT
   set +e
+  local pid
+  for pid in ${HH_PIDS[@]+"${HH_PIDS[@]}"}; do kill "$pid" 2>/dev/null; done
   if [ -n "${HH_APP_CONTAINER:-}" ] && [ ! -f "$HH_EVIDENCE/app.log" ]; then
     docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/app.log" 2>&1
   fi

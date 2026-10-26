@@ -19,6 +19,13 @@ RFC-9457 problem responses with stable, machine-readable error codes: throw a
   classes and offsets, never reaches the caller).
 - **`retryable`** — `true` for 429, 502, 503, 504, otherwise `false`: a hint for clients deciding
   whether to retry the identical request after backing off.
+- **The servlet error page too** — `PlatformErrorController` replaces Boot's `BasicErrorController`:
+  a filter's `sendError(…)` or an exception escaping the filter chain is rendered as
+  `application/problem+json` (whatever the `Accept` header) with `instance` = the original URI and
+  the request's `traceId`. Define your own `ErrorController` bean to replace it.
+- **Security denials pass through** — an `AccessDeniedException`/`AuthenticationException` thrown in
+  a controller (e.g. method security) is handed back to Spring Security, which renders the platform
+  403/401, instead of being swallowed into a 500.
 - **Validation mapping** — `@Valid` body failures and method-validation
   `ConstraintViolationException`s map to 400 with an `errors[]` extension
   (`field`, `message`). `rejectedValue` is **omitted by default** — rejected values are raw user
@@ -96,8 +103,10 @@ Customizers run last, in order, on every problem body the platform emits.
 
 ## Replace / Disable
 
-- Define a bean named `platformExceptionHandler` to replace the main advice, or
-  `platformValidationExceptionHandler` to replace the constraint-violation advice.
+- Define a `PlatformExceptionHandler` (subclass) bean, or any bean named `platformExceptionHandler`,
+  to replace the main advice; likewise `PlatformConstraintViolationHandler` /
+  `platformValidationExceptionHandler` for the constraint-violation advice; any `ErrorController` bean
+  replaces the error page; a bean named `errorsCapabilityDescriptor` replaces the banner line.
 - `dc.platform.errors.map-validation=false` reverts validation failures to Spring's default
   problem body.
 - `dc.platform.errors.enabled=false` switches the capability off wholesale.

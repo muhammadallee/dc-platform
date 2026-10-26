@@ -33,6 +33,18 @@
       <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
+    <!-- Correlation is the W3C trace ID (hardening HD5), so the core starter ships a tracer: the
+         Micrometer Tracing OpenTelemetry bridge plus Boot's tracing/observation auto-configuration
+         (which also brings Boot's HTTP observation filter that continues inbound traceparent).
+         No exporter: spans are not shipped anywhere unless the observability starter adds one. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+    </dependency>
     <!-- Boot's base starter: logging, SnakeYAML-free config binding, annotations. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

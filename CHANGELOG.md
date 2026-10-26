@@ -23,6 +23,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   is deprecated (always empty for platform-created exceptions).
 
 ### Added
+- Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the
+  filter chain) renders the platform problem body; replaces Boot's `BasicErrorController`.
+- Core starter brings the Micrometer Tracing OTel bridge + Boot tracing auto-configuration (no
+  exporter), so services without the observability starter still correlate by trace ID.
 - Core: context propagation to `@Async` and Boot-built executors (platform default
   `spring.task.execution.propagate-context=true` + a `ThreadLocalAccessor` for `RequestContext`).
 - Errors: Spring MVC's own error bodies (404/405/415/unreadable…) get the platform extensions;
@@ -83,6 +87,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- Security: rejected bearer tokens (malformed/expired/untrusted) now get the platform 401 body (the
+  resource server's own entry point bypassed it); the challenge carries no error description; the
+  servlet ERROR dispatch is no longer re-authorized (a filter's 409 or a filter-chain 500 became 401).
+- Errors: method-security denials thrown in controllers are no longer swallowed into a 500;
+  `ProblemDetailCustomizer`s always receive a non-null `source`, including for framework errors.
+- Core: a consumer `platformCorrelationFilterRegistration` no longer leaves a second, auto-registered
+  platform filter; applying a context snapshot replaces (not merges with) the executing thread's context.
 - Golden-path gate: the platform install is `clean install`, so a stale local `jacoco.exec` no longer
   fails the JaCoCo check of a skipped-tests install on a developer tree.
 - Core: an invalid inbound correlation/trace value is never echoed into a log line or exception message.

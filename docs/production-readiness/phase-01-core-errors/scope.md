@@ -143,3 +143,10 @@ JDK 25, Maven 3.9, Docker (consumer harness only), images `eclipse-temurin:25-jr
 `mvn -B -T1 -pl core/platform-core-api,core/platform-core-autoconfigure,errors/platform-errors-api,errors/platform-errors-autoconfigure,restclient/platform-restclient-autoconfigure,observability/platform-observability-autoconfigure,logging/platform-logging-autoconfigure -am verify`
 → exit 0, BUILD SUCCESS, 12 modules, 0 failures, 0 errors, **0 skipped** (raw log
 `evidence-raw/gate-a-baseline-tests.log`, not committed).
+
+## 9. Scope amendments
+
+| ID | Amendment | Reason | Status |
+|---|---|---|---|
+| A1 | R4.1: "replacement" applies **where a successor property exists**. For the three removed keys there is none; the deprecation `reason` carries the migration guidance (send `traceparent`). | Codex R1 (AC15): inventing a replacement would mislead; the change must be an explicit amendment, not a reinterpretation. | **PENDING owner acceptance** (non-blocking: Low) |
+| A2 | AC3: CR/LF and other control characters in a header are rejected by the servlet container's HTTP parser before the application runs; they are covered at unit level, and the consumer exercises only application-reachable malformed values. | Codex R1 (AC3): container rejection must not be counted as an application pass. | Recorded (clarification of evidence level, no requirement change) |

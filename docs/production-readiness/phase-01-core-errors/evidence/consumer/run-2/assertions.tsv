@@ -1,4 +1,4 @@
-PASS	app ready in 8s
+PASS	app ready in 9s
 PASS	ac1-valid status 200
 PASS	ac1-valid: context == inbound trace
 PASS	ac1-valid: spanId in MDC
@@ -8,6 +8,8 @@ PASS	ac1-valid: no correlationId MDC key
 PASS	ac1-valid: no x-correlation-id header
 PASS	ac2-missing status 200
 PASS	ac2-missing: new 32-hex trace
+PASS	ac2-missing-error status 500
+PASS	ac2-missing-error: new trace reaches the error body
 PASS	ac3-malformed status 200
 PASS	ac3-malformed: new trace for malformed
 PASS	ac3-oversized status 200
@@ -28,23 +30,54 @@ PASS	ac11-validation: no rejectedValue, PII not echoed
 PASS	ac12-boom status 500
 PASS	ac12-boom: generic 500
 PASS	ac12-boom: no internals in the body
+PASS	ac12-platform status 500
+PASS	ac12-platform: own code, generic detail, trace
+PASS	ac12-platform: message not in the body
+PASS	async-ok status 200
+PASS	async-ok: async handler sees the trace
+PASS	async-fail status 500
+PASS	async-fail: async failure body carries the trace
+PASS	error-dispatch-application_json status 409
+PASS	error-dispatch-application_json: 409 contract (application/json)
+PASS	error-dispatch-application_json is application/problem+json
+PASS	error-dispatch-text_html status 409
+PASS	error-dispatch-text_html: 409 contract (text/html)
+PASS	error-dispatch-text_html is application/problem+json
 PASS	ac13-unauthenticated status 401
 PASS	ac13-unauthenticated: 401 contract
+PASS	ac13-unauthenticated: 401 type + instance
+PASS	ac13-malformed-token status 401
+PASS	ac13-malformed-token: malformed token: full 401 contract, no rejection reason
+PASS	malformed token: challenge carries no error description
+PASS	ac13-expired-token status 401
+PASS	ac13-expired-token: expired token: full 401 contract, no rejection reason
+PASS	expired token: challenge carries no error description
+PASS	ac13-untrusted-token status 401
+PASS	ac13-untrusted-token: untrusted token: full 401 contract, no rejection reason
+PASS	untrusted token: challenge carries no error description
+PASS	ac13-valid-token status 200
+PASS	ac13-forbidden status 403
+PASS	ac13-forbidden: 403 contract
 PASS	framework-404 status 404
 PASS	framework-404: 404 contract
 PASS	AC8 {"check": "concurrent", "requests": 600, "rounds": 3, "bleed": 0, "examples": []}
-PASS	app exited on SIGTERM (code 143) in 7s
+PASS	AC8 errors {"check": "concurrent-errors", "requests": 600, "rounds": 3, "wrong": 0, "examples": []}
+PASS	log line 'slow request entered' seen
+PASS	app exited on SIGTERM (code 143) in 6s
 PASS	graceful shutdown completed (logged)
 PASS	in-flight request completed with 200 during graceful shutdown
-PASS	logs {"check": "logs", "events": 629, "non_json_lines": 10, "problems": []}
+PASS	logs {"check": "logs", "events": 1234, "non_json_lines": 10, "problems": []}
 PASS	sanitized rejection marker logged
-PASS	AC12 full exception detail is in the log, on the request's trace
+PASS	AC12 'db-secret-host' detail is in the log, on the request's trace
+PASS	AC12 'pricing-7.internal' detail is in the log, on the request's trace
+PASS	AC2 the fresh trace of an error body is the trace of its log line
+PASS	no bearer token in the log
 PASS	app ready in 9s
 PASS	ac6-unsampled status 200
 PASS	ac6-unsampled: unsampled trace kept
 PASS	ac6-unsampled-new: fresh unsampled trace
 PASS	ac6-unsampled-error status 500
 PASS	ac6-unsampled-error: traceId in an unsampled error body
-PASS	app exited on SIGTERM (code 143) in 4s
+PASS	app exited on SIGTERM (code 143) in 2s
 PASS	graceful shutdown completed (logged)
-PASS	cleanup: no containers left for dch-20261026075817-43601
+PASS	cleanup: no containers left for dch-20261026085548-57029

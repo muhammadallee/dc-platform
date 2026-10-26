@@ -11,10 +11,13 @@ exception model, and the startup capability banner.
   platform never parses the header). The platform filter then opens `RequestContext` with the trace
   ID, so `RequestContext.correlationId()`, the SLF4J `MDC` (`traceId`, `spanId`) and every error body
   (`traceId`) carry it. No custom correlation header is read, generated, echoed or sent: a caller's
-  `X-Correlation-Id` is ignored. An invalid `traceparent` is logged only as a sanitized,
-  length-capped DEBUG marker — never verbatim.
+  `X-Correlation-Id` is ignored. A `traceparent` the propagator did not continue is logged only as a fixed DEBUG marker
+  with the header's length — no header content ever reaches a log line.
 - **Works when unsampled** — unsampled spans still carry a valid trace ID, so correlation does not
   depend on `management.tracing.sampling.probability`.
+- **Every dispatch** — the context is re-established on ASYNC redispatches (a `Callable`/`CompletableFuture`
+  handler that completes or fails later) and on the servlet ERROR dispatch (`sendError`, exceptions
+  escaping the filter chain), so those error bodies carry the request's `traceId` too.
 - **Context propagation** — the platform turns on Boot's own
   `spring.task.execution.propagate-context`, and registers a Micrometer `ThreadLocalAccessor` for
   `RequestContext`: `@Async` methods and Boot-built executors see the caller's trace in
@@ -35,9 +38,11 @@ exception model, and the startup capability banner.
 </dependency>
 ```
 
-Correlation needs a tracer: `platform-starter-observability` brings the Micrometer Tracing
-OpenTelemetry bridge (the archetype includes it). Without tracing on the classpath, requests run with
-no correlation context and error bodies omit `traceId` — the platform never invents an id.
+The core starter brings the tracer correlation needs: the Micrometer Tracing OpenTelemetry bridge and
+Boot's tracing/observation auto-configuration (no exporter — spans are only shipped when the
+observability starter adds one). A service with just core + errors + logging therefore still continues
+an inbound `traceparent` into its logs and error bodies. If tracing is removed or disabled, requests
+run with no correlation context and error bodies omit `traceId` — the platform never invents an id.
 
 ## Zero-config behavior
 
@@ -81,8 +86,9 @@ RequestContext.correlationId()
 ## Replace / Disable
 
 - Define your own `CorrelationIdFilter` bean to replace the filter (the platform registration
-  wraps yours); define a `FilterRegistrationBean` named `platformCorrelationFilterRegistration`
-  to take over registration entirely. Keep it after the observation filter, or there is no span yet.
+  wraps yours); define a bean named `platformCorrelationFilterRegistration` to take over registration
+  entirely — the platform then creates no filter bean at all (Boot would otherwise auto-register it).
+  Keep yours after the observation filter, or there is no span yet.
 - Define an `ApplicationRunner` named `platformBannerRunner` to replace the banner.
 - `dc.platform.core.enabled=false` switches the capability off wholesale (no correlation context, no
   platform executor default); tracing itself keeps working.

@@ -3,6 +3,29 @@ ae.gov.dubaicustoms.hardening:hardening-core:jar:1.0-SNAPSHOT
 |  +- ae.gov.dubaicustoms.platform:platform-core-autoconfigure:jar:1.0.0-SNAPSHOT:compile
 |  |  +- ae.gov.dubaicustoms.platform:platform-core-api:jar:1.0.0-SNAPSHOT:compile
 |  |  \- org.springframework.boot:spring-boot-autoconfigure:jar:4.1.0:compile
+|  +- io.micrometer:micrometer-tracing-bridge-otel:jar:1.7.0:compile
+|  |  +- org.jspecify:jspecify:jar:1.0.0:compile
+|  |  +- io.micrometer:micrometer-tracing:jar:1.7.0:compile
+|  |  |  +- io.micrometer:context-propagation:jar:1.2.1:compile
+|  |  |  \- aopalliance:aopalliance:jar:1.0:compile
+|  |  +- org.slf4j:slf4j-api:jar:2.0.18:compile
+|  |  +- io.micrometer:micrometer-observation:jar:1.17.0:compile
+|  |  |  \- io.micrometer:micrometer-commons:jar:1.17.0:compile
+|  |  +- io.opentelemetry:opentelemetry-api:jar:1.62.0:compile
+|  |  |  \- io.opentelemetry:opentelemetry-context:jar:1.62.0:compile
+|  |  |     \- io.opentelemetry:opentelemetry-common:jar:1.62.0:compile
+|  |  +- io.opentelemetry.semconv:opentelemetry-semconv:jar:1.41.1:compile
+|  |  +- io.opentelemetry:opentelemetry-sdk-common:jar:1.62.0:compile
+|  |  +- io.opentelemetry:opentelemetry-sdk-trace:jar:1.62.0:compile
+|  |  +- io.opentelemetry:opentelemetry-sdk:jar:1.62.0:compile
+|  |  |  +- io.opentelemetry:opentelemetry-sdk-metrics:jar:1.62.0:compile
+|  |  |  \- io.opentelemetry:opentelemetry-sdk-logs:jar:1.62.0:compile
+|  |  \- io.opentelemetry:opentelemetry-extension-trace-propagators:jar:1.62.0:compile
+|  +- org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry:jar:4.1.0:compile
+|  |  +- org.springframework.boot:spring-boot:jar:4.1.0:compile
+|  |  +- org.springframework.boot:spring-boot-micrometer-observation:jar:4.1.0:compile
+|  |  +- org.springframework.boot:spring-boot-micrometer-tracing:jar:4.1.0:compile
+|  |  \- org.springframework.boot:spring-boot-opentelemetry:jar:4.1.0:compile
 |  \- org.springframework.boot:spring-boot-starter:jar:4.1.0:compile
 |     +- org.springframework.boot:spring-boot-starter-logging:jar:4.1.0:compile
 |     |  +- ch.qos.logback:logback-classic:jar:1.5.34:compile
@@ -40,30 +63,7 @@ ae.gov.dubaicustoms.hardening:hardening-core:jar:1.0-SNAPSHOT
 |  |  +- org.springframework.boot:spring-boot-actuator-autoconfigure:jar:4.1.0:compile
 |  |  |  \- org.springframework.boot:spring-boot-actuator:jar:4.1.0:compile
 |  |  +- org.springframework.boot:spring-boot-health:jar:4.1.0:compile
-|  |  +- io.micrometer:micrometer-observation:jar:1.17.0:compile
-|  |  |  \- io.micrometer:micrometer-commons:jar:1.17.0:compile
 |  |  \- io.micrometer:micrometer-jakarta9:jar:1.17.0:compile
-|  +- io.micrometer:micrometer-tracing-bridge-otel:jar:1.7.0:compile
-|  |  +- org.jspecify:jspecify:jar:1.0.0:compile
-|  |  +- io.micrometer:micrometer-tracing:jar:1.7.0:compile
-|  |  |  +- io.micrometer:context-propagation:jar:1.2.1:compile
-|  |  |  \- aopalliance:aopalliance:jar:1.0:compile
-|  |  +- org.slf4j:slf4j-api:jar:2.0.18:compile
-|  |  +- io.opentelemetry:opentelemetry-api:jar:1.62.0:compile
-|  |  |  \- io.opentelemetry:opentelemetry-context:jar:1.62.0:compile
-|  |  |     \- io.opentelemetry:opentelemetry-common:jar:1.62.0:compile
-|  |  +- io.opentelemetry.semconv:opentelemetry-semconv:jar:1.41.1:compile
-|  |  +- io.opentelemetry:opentelemetry-sdk-common:jar:1.62.0:compile
-|  |  +- io.opentelemetry:opentelemetry-sdk-trace:jar:1.62.0:compile
-|  |  +- io.opentelemetry:opentelemetry-sdk:jar:1.62.0:compile
-|  |  |  +- io.opentelemetry:opentelemetry-sdk-metrics:jar:1.62.0:compile
-|  |  |  \- io.opentelemetry:opentelemetry-sdk-logs:jar:1.62.0:compile
-|  |  \- io.opentelemetry:opentelemetry-extension-trace-propagators:jar:1.62.0:compile
-|  +- org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry:jar:4.1.0:compile
-|  |  +- org.springframework.boot:spring-boot:jar:4.1.0:compile
-|  |  +- org.springframework.boot:spring-boot-micrometer-observation:jar:4.1.0:compile
-|  |  +- org.springframework.boot:spring-boot-micrometer-tracing:jar:4.1.0:compile
-|  |  \- org.springframework.boot:spring-boot-opentelemetry:jar:4.1.0:compile
 |  +- io.micrometer:micrometer-registry-prometheus:jar:1.17.0:compile
 |  |  +- io.micrometer:micrometer-core:jar:1.17.0:compile
 |  |  |  \- org.hdrhistogram:HdrHistogram:jar:2.2.2:runtime

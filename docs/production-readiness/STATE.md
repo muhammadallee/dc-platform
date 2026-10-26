@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 1 — Core + Error Handling |
-| Current gate | A complete → B (implement) |
+| Current gate | B complete, F run early (green 3x); C in progress (Codex round 1 on `70a04ce`) |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 1 Gate B: implement R1–R4 of `phase-01-core-errors/scope.md`; targeted tests; downstream `-amd test-compile` |
+| Next action | Phase 1 Gate C: record Codex r1 output, respond per finding, Codex reassess, fix; then Gate D; re-run Gate F after any material change |
 
 ## Phase log
 

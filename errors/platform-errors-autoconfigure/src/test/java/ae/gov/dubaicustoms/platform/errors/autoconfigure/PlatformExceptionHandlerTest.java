@@ -213,6 +213,11 @@ class PlatformExceptionHandlerTest {
             throw new TestInfraException();
         }
 
+        @GetMapping("/denied")
+        String denied() {
+            throw new org.springframework.security.access.AccessDeniedException("method security says no");
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("cannot reach jdbc://secret-host:5432");
@@ -227,6 +232,39 @@ class PlatformExceptionHandlerTest {
     static final class TestInfraException extends PlatformException {
         TestInfraException() {
             super(new ErrorCode("DC-TEST-0500"), "transport down");
+        }
+    }
+
+    @Test
+    void securityDenialsPassThroughToSpringSecurityInsteadOfBecoming500() {
+        // A method-security denial inside a controller must reach ExceptionTranslationFilter (which
+        // renders the platform 403); the catch-all would otherwise turn it into a 500.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mockMvc(defaults(), List.of()).perform(get("/denied")))
+                .rootCause().isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    @Test
+    void twoHundredConcurrentErrorsEachCarryTheirOwnTraceId() throws Exception {
+        MockMvc mvc = mockMvc(defaults(), List.of());
+        // Plan §3.11: three consecutive rounds in-test. MockMvc runs on the calling thread, so each
+        // caller's RequestContext is that request's context.
+        for (int round = 0; round < 3; round++) {
+            try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(50)) {
+                List<java.util.concurrent.Future<String[]>> results = new java.util.ArrayList<>();
+                for (int i = 0; i < 200; i++) {
+                    results.add(pool.submit(() -> {
+                        String traceId = java.util.UUID.randomUUID().toString().replace("-", "");
+                        try (AutoCloseable scope = RequestContext.open(new CorrelationId(traceId), Map.of())) {
+                            String body = mvc.perform(get("/boom")).andReturn().getResponse().getContentAsString();
+                            return new String[] {traceId, com.jayway.jsonpath.JsonPath.read(body, "$.traceId")};
+                        }
+                    }));
+                }
+                for (java.util.concurrent.Future<String[]> result : results) {
+                    String[] sentAndSeen = result.get();
+                    assertThat(sentAndSeen[1]).as("round %d", round).isEqualTo(sentAndSeen[0]);
+                }
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.handler.TracingObservationHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,26 +13,33 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.filter.ServerHttpObservationFilter;
 
 /**
  * Servlet filter that establishes the correlation context for every request from the current
  * W3C trace: it opens the {@link RequestContext} with the active span's trace ID (and publishes
- * {@code traceId}/{@code spanId} into the MDC) for the duration of the request, and always closes it.
+ * {@code traceId}/{@code spanId} into the MDC) for the duration of each dispatch, and always closes it.
  *
  * <p>The filter never parses, generates, or echoes correlation headers. Inbound {@code traceparent}
  * handling is the tracing bridge's job (Boot's {@code ServerHttpObservationFilter}, which runs
  * before this filter): a valid header continues the caller's trace, a missing or invalid one starts
- * a new trace. This filter only logs, at DEBUG, a sanitized and length-capped marker when a
- * {@code traceparent} was present but not valid, so the raw value never reaches a log line.
+ * a new trace. Whether a present header was rejected is judged by that outcome alone — the current
+ * trace ID differs from the one the header names — so this filter never second-guesses the
+ * propagator's rules. A rejection is logged at DEBUG as a fixed marker with the header's length only;
+ * no header content ever reaches a log line.
+ *
+ * <p>Runs on REQUEST, ASYNC and ERROR dispatches: an asynchronous handler that completes or fails on a
+ * redispatch, and a {@code sendError} rendered by the servlet error page, still see the request's
+ * trace. On an ERROR dispatch the observation filter has no open scope, so the trace is taken from the
+ * observation it stored on the request.
  *
  * <p>Registered by {@code CoreContextAutoConfiguration} after the observation filter and before
  * the Spring Security filter chain; define your own {@code CorrelationIdFilter} bean to replace it.
  *
- * <p>Thread-safe; the context it opens is confined to the request thread and always closed.
+ * <p>Thread-safe; the context it opens is confined to the dispatching thread and always closed.
  * Constructor arguments must not be {@code null}.
  *
  * @since 0.1.0
@@ -40,12 +48,11 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
-    /** W3C Trace Context, version 00: {@code 00-<32 hex trace-id>-<16 hex parent-id>-<2 hex flags>}. */
-    private static final Pattern TRACEPARENT = Pattern.compile("^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$");
-
     private static final String TRACEPARENT_HEADER = "traceparent";
 
-    private static final int MAX_LOGGED_CHARS = 64;
+    /** Offset and length of the trace-id field in a version-00 {@code traceparent}. */
+    private static final int TRACE_ID_START = 3;
+    private static final int TRACE_ID_END = 35;
 
     private final Tracer tracer;
 
@@ -59,10 +66,22 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        logRejectedTraceparent(request.getHeader(TRACEPARENT_HEADER));
-        TraceContext trace = currentTraceContext();
+        TraceContext trace = currentTraceContext(request);
+        if (!isAsyncDispatch(request) && request.getDispatcherType() == jakarta.servlet.DispatcherType.REQUEST) {
+            logIfRejected(request.getHeader(TRACEPARENT_HEADER), trace);
+        }
         if (trace == null) {
             filterChain.doFilter(request, response);
             return;
@@ -80,16 +99,15 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
     // A trace ID that is not a 128-bit W3C id (e.g. a 64-bit Brave id) is not a correlation id; the
     // request then runs without a RequestContext rather than with a fabricated one.
-    private TraceContext currentTraceContext() {
+    private TraceContext currentTraceContext(HttpServletRequest request) {
         Span span = tracer.currentSpan();
-        if (span == null) {
+        if (span == null || isEmpty(span.context())) {
+            span = observedSpan(request);
+        }
+        if (span == null || isEmpty(span.context())) {
             return null;
         }
         TraceContext context = span.context();
-        if (context.traceId() == null || context.traceId().isEmpty()) {
-            // No-op tracer (tracing disabled): no trace, so no correlation context.
-            return null;
-        }
         if (context.traceId().length() != 32) {
             log.debug("current span has no 128-bit trace id; request runs without a correlation context");
             return null;
@@ -97,29 +115,35 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         return context;
     }
 
-    private static void logRejectedTraceparent(String value) {
-        if (value == null || TRACEPARENT.matcher(value).matches() || !log.isDebugEnabled()) {
-            return;
-        }
-        log.debug("rejected inbound traceparent (length={}, sanitized='{}'); a new trace was started",
-                value.length(), sanitize(value));
+    // ERROR dispatches run outside the observation filter's scope; its observation (and so the span)
+    // is still attached to the request.
+    private static Span observedSpan(HttpServletRequest request) {
+        return ServerHttpObservationFilter.findObservationContext(request)
+                .<TracingObservationHandler.TracingContext>map(context -> context.get(TracingObservationHandler.TracingContext.class))
+                .map(TracingObservationHandler.TracingContext::getSpan)
+                .orElse(null);
     }
 
-    // Keeps only characters a traceparent may legally contain and caps the length, so neither
-    // control characters (log injection) nor an oversized value can reach the log line.
-    static String sanitize(String value) {
-        StringBuilder kept = new StringBuilder(Math.min(value.length(), MAX_LOGGED_CHARS));
-        for (int i = 0; i < value.length() && kept.length() < MAX_LOGGED_CHARS; i++) {
-            char c = value.charAt(i);
-            if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || c == '-') {
-                kept.append(c);
-            } else {
-                kept.append('?');
-            }
+    private static boolean isEmpty(TraceContext context) {
+        // A no-op tracer (tracing disabled) yields spans with an empty trace id.
+        return context == null || context.traceId() == null || context.traceId().isEmpty();
+    }
+
+    // A present traceparent was rejected when the propagator did not continue the trace it names. The
+    // marker deliberately carries no header content, only its length.
+    private static void logIfRejected(String header, TraceContext trace) {
+        // Without a trace (tracing disabled) there is no propagator outcome to judge.
+        if (header == null || trace == null || !log.isDebugEnabled()) {
+            return;
         }
-        if (value.length() > MAX_LOGGED_CHARS) {
-            kept.append("...");
+        if (!continues(header, trace)) {
+            log.debug("rejected inbound traceparent (length={}); a new trace was started", header.length());
         }
-        return kept.toString();
+    }
+
+    static boolean continues(String header, TraceContext trace) {
+        return trace != null
+                && header.length() >= TRACE_ID_END
+                && header.regionMatches(TRACE_ID_START, trace.traceId(), 0, TRACE_ID_END - TRACE_ID_START);
     }
 }

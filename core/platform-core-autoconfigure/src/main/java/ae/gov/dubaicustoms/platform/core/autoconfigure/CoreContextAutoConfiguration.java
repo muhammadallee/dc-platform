@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import io.micrometer.tracing.Tracer;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -19,12 +20,13 @@ import org.springframework.core.Ordered;
  *                 AND dc.platform.core.enabled != false
  *                 (filter beans additionally: micrometer-tracing on the classpath)
  * Backs off when: user defines a CorrelationIdFilter bean (the registration then wraps theirs),
- *                 or a FilterRegistrationBean named platformCorrelationFilterRegistration
+ *                 or a bean named platformCorrelationFilterRegistration (then the platform creates
+ *                 NEITHER bean: a default filter left behind would be auto-registered by Boot)
  * Beans: correlationIdFilter — opens RequestContext with the current span's W3C trace ID (MDC
  *                              traceId/spanId) for the request and always closes it; never reads,
  *                              generates or echoes a correlation header;
  *        platformCorrelationFilterRegistration — registers the filter for all URLs at
- *                              FILTER_ORDER
+ *                              FILTER_ORDER, on REQUEST, ASYNC and ERROR dispatches
  * Order: FILTER_ORDER = HIGHEST_PRECEDENCE + 10: after Boot's ServerHttpObservationFilter
  *        (HIGHEST_PRECEDENCE + 1), which continues or starts the trace from traceparent, and well
  *        before the Spring Security chain (-100), so 401/403 bodies and security log lines already
@@ -47,7 +49,7 @@ public class CoreContextAutoConfiguration {
     static class TraceCorrelationConfiguration {
 
         @Bean
-        @ConditionalOnMissingBean
+        @ConditionalOnMissingBean(value = CorrelationIdFilter.class, name = "platformCorrelationFilterRegistration")
         CorrelationIdFilter correlationIdFilter(ObjectProvider<Tracer> tracer) {
             return new CorrelationIdFilter(tracer.getIfAvailable(() -> Tracer.NOOP));
         }
@@ -58,6 +60,7 @@ public class CoreContextAutoConfiguration {
             FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(filter);
             registration.setOrder(FILTER_ORDER);
             registration.addUrlPatterns("/*");
+            registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
             return registration;
         }
     }

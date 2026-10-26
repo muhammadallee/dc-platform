@@ -97,4 +97,38 @@ class RequestContextTest {
             executor.shutdownNow();
         }
     }
+
+    @Test
+    void replaceIsolatesOuterScopesAndRestoresThemExactly() throws Exception {
+        CorrelationId outerId = new CorrelationId("22222222222222222222222222222222");
+        try (AutoCloseable outer = RequestContext.open(outerId, Map.of("tenant", "dxb"))) {
+            try (AutoCloseable replaced = RequestContext.replace(ID, Map.of("channel", "batch"))) {
+                assertThat(RequestContext.correlationId()).contains(ID);
+                assertThat(RequestContext.asMap()).containsOnlyKeys("traceId", "channel");
+                assertThat(MDC.get("tenant")).isNull();
+                try (AutoCloseable nested = RequestContext.open(ID, Map.of("step", "2"))) {
+                    // a normal scope inside an isolating one still merges with it, not with the outer
+                    assertThat(RequestContext.asMap()).containsOnlyKeys("traceId", "channel", "step");
+                }
+            }
+            assertThat(RequestContext.correlationId()).contains(outerId);
+            assertThat(RequestContext.asMap()).containsEntry("tenant", "dxb").doesNotContainKey("channel");
+            assertThat(MDC.get("tenant")).isEqualTo("dxb");
+            assertThat(MDC.get("traceId")).isEqualTo(outerId.value());
+            assertThat(MDC.get("channel")).isNull();
+        }
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void replaceWithoutAnIdMeansNoCorrelationContext() throws Exception {
+        try (AutoCloseable outer = RequestContext.open(ID, Map.of())) {
+            try (AutoCloseable none = RequestContext.replace(null, Map.of())) {
+                assertThat(RequestContext.correlationId()).isEmpty();
+                assertThat(RequestContext.asMap()).isEmpty();
+                assertThat(MDC.get("traceId")).isNull();
+            }
+            assertThat(MDC.get("traceId")).isEqualTo(ID.value());
+        }
+    }
 }

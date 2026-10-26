@@ -49,6 +49,13 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- ErrorController for the servlet error page; optional, the configuration is guarded by
+         @ConditionalOnClass and replaces Boot's BasicErrorController only when present. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- ConstraintViolationException mapping; optional, guarded by @ConditionalOnClass. -->
     <dependency>
       <groupId>jakarta.validation</groupId>
@@ -83,6 +90,12 @@
     <dependency>
       <groupId>io.github.classgraph</groupId>
       <artifactId>classgraph</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Method-security denials thrown inside a controller must pass through to Spring Security. -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

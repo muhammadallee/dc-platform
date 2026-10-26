@@ -111,7 +111,14 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
      * @return the generic 500 problem response
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request)
+            throws Exception {
+        // Spring Security's authentication/authorization failures (e.g. a method-security denial in a
+        // controller) must reach its ExceptionTranslationFilter, which renders the platform 401/403;
+        // swallowing them here would turn every denial into a 500.
+        if (isSecurityException(exception)) {
+            throw exception;
+        }
         log.error("unhandled exception [{}]", UNEXPECTED_ERROR.value(), exception);
         ProblemDetail problem = factory.create(
                 500, UNEXPECTED_ERROR, "An unexpected error occurred.", request.getRequestURI(), exception);
@@ -145,27 +152,23 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Every body Spring MVC builds for its own exceptions passes here: it gets the platform
-     * extensions, and an unreadable body never exposes the parser's message.
+     * Every body Spring MVC builds for its own exceptions passes here: it gets the platform extensions
+     * (with the originating exception as the customizer {@code source}), and an unreadable body never
+     * exposes the parser's message.
      */
     @Override
-    protected ResponseEntity<Object> createResponseEntity(Object body, HttpHeaders headers, HttpStatusCode statusCode,
-            WebRequest request) {
-        if (body instanceof ProblemDetail problem
+    protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        ResponseEntity<Object> entity = super.handleExceptionInternal(exception, body, headers, statusCode, request);
+        if (entity != null && entity.getBody() instanceof ProblemDetail problem
                 && (problem.getProperties() == null || !problem.getProperties().containsKey("code"))) {
-            ErrorCode code = REQUEST_REJECTED;
-            if (statusCode.value() >= 500) {
-                code = UNEXPECTED_ERROR;
-            } else if (problem.getDetail() != null && problem.getDetail().startsWith("Failed to read request")) {
-                code = MALFORMED_REQUEST;
-                problem.setDetail(MALFORMED_REQUEST_DETAIL);
-            }
+            ErrorCode code = statusCode.value() >= 500 ? UNEXPECTED_ERROR : REQUEST_REJECTED;
             if (problem.getInstance() == null && instancePathOf(request) != null) {
                 problem.setInstance(java.net.URI.create(instancePathOf(request)));
             }
-            factory.decorate(problem, code, null);
+            factory.decorate(problem, code, exception);
         }
-        return super.createResponseEntity(body, headers, statusCode, request);
+        return entity;
     }
 
     @Override
@@ -176,6 +179,17 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = factory.create(400, MALFORMED_REQUEST, MALFORMED_REQUEST_DETAIL,
                 instancePathOf(request), exception);
         return ResponseEntity.badRequest().headers(headers).body(problem);
+    }
+
+    private static boolean isSecurityException(Throwable exception) {
+        for (Class<?> type = exception.getClass(); type != null; type = type.getSuperclass()) {
+            String name = type.getName();
+            if (name.equals("org.springframework.security.access.AccessDeniedException")
+                    || name.equals("org.springframework.security.core.AuthenticationException")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String instancePathOf(WebRequest request) {

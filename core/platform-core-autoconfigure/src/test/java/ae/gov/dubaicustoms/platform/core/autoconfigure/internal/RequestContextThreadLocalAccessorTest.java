@@ -55,18 +55,48 @@ class RequestContextThreadLocalAccessorTest {
     }
 
     @Test
-    void emptyOrIdLessSnapshotsOpenNothingAndStillUnwindOneLevel() throws Exception {
-        try (AutoCloseable outer = RequestContext.open(ID, Map.of())) {
+    void anEmptySnapshotHidesTheExecutingThreadsContextAndRestoreBringsItBack() throws Exception {
+        CorrelationId callerA = new CorrelationId("11111111111111111111111111111111");
+        try (AutoCloseable outer = RequestContext.open(callerA, Map.of("tenant", "dxb"))) {
             accessor.setValue();
-            accessor.setValue(Map.of("tenant", "dxb"));
-            assertThat(RequestContext.correlationId()).contains(ID);
+            assertThat(RequestContext.correlationId()).as("context-free task sees no caller").isEmpty();
+            assertThat(RequestContext.asMap()).isEmpty();
+            assertThat(MDC.get("traceId")).isNull();
+            assertThat(MDC.get("tenant")).isNull();
             accessor.restore();
-            accessor.restore(Map.of());
-            // The outer scope was opened by someone else and must survive both restores.
+            assertThat(RequestContext.correlationId()).contains(callerA);
+            assertThat(MDC.get("traceId")).isEqualTo(callerA.value());
+            assertThat(MDC.get("tenant")).isEqualTo("dxb");
+        }
+        assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
+    }
+
+    @Test
+    void aSnapshotReplacesTheExecutingThreadsContextWithoutInheritingItsExtras() throws Exception {
+        CorrelationId callerA = new CorrelationId("11111111111111111111111111111111");
+        try (AutoCloseable outer = RequestContext.open(callerA, Map.of("tenant", "dxb"))) {
+            accessor.setValue(Map.of("traceId", ID.value(), "spanId", "b7ad6b7169203331"));
+            assertThat(RequestContext.correlationId()).contains(ID);
+            assertThat(RequestContext.asMap()).containsOnlyKeys("traceId", "spanId");
+            assertThat(MDC.get("tenant")).as("caller A's extra must not leak into the task").isNull();
+            assertThat(MDC.get("traceId")).isEqualTo(ID.value());
+            accessor.restore(null);
+            assertThat(RequestContext.asMap()).containsEntry("traceId", callerA.value()).containsEntry("tenant", "dxb");
+            assertThat(MDC.get("tenant")).isEqualTo("dxb");
+            assertThat(MDC.get("spanId")).isNull();
+        }
+    }
+
+    @Test
+    void anIdLessSnapshotRunsWithoutACorrelationIdButWithItsOwnExtras() throws Exception {
+        try (AutoCloseable outer = RequestContext.open(ID, Map.of())) {
+            accessor.setValue(Map.of("tenant", "auh"));
+            assertThat(RequestContext.correlationId()).isEmpty();
+            assertThat(RequestContext.asMap()).containsExactly(Map.entry("tenant", "auh"));
+            assertThat(MDC.get("traceId")).isNull();
+            accessor.restore(null);
             assertThat(RequestContext.correlationId()).contains(ID);
         }
-        accessor.restore();
-        assertThat(RequestContext.correlationId()).isEmpty();
     }
 
     @Test

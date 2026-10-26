@@ -21,6 +21,7 @@ class PlatformErrorHandlingAutoConfigurationTest {
         runner.run(context -> {
             assertThat(context).hasBean("platformExceptionHandler");
             assertThat(context).hasBean("platformValidationExceptionHandler");
+            assertThat(context).hasSingleBean(PlatformErrorController.class);
             assertThat(context).hasSingleBean(CapabilityDescriptor.class);
         });
     }
@@ -81,6 +82,46 @@ class PlatformErrorHandlingAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).getBeans(PlatformExceptionHandler.class).hasSize(1);
                     assertThat(context.getBean(PlatformExceptionHandler.class)).isSameAs(mine);
+                });
+    }
+
+    @Test
+    void consumerSubclassUnderAnyNameReplacesThePlatformAdvice() {
+        ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
+        PlatformExceptionHandler mine = new PlatformExceptionHandler(properties,
+                new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
+                        java.util.List.of(), java.time.Clock.systemUTC())) {
+        };
+        runner.withBean("myHandler", PlatformExceptionHandler.class, () -> mine)
+                .run(context -> {
+                    assertThat(context).getBeans(PlatformExceptionHandler.class).hasSize(1);
+                    assertThat(context).doesNotHaveBean("platformExceptionHandler");
+                });
+    }
+
+    @Test
+    void consumerValidationHandlerUnderAnyNameReplacesThePlatformOne() {
+        ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
+        PlatformConstraintViolationHandler mine = new PlatformConstraintViolationHandler(
+                new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
+                        java.util.List.of(), java.time.Clock.systemUTC()));
+        runner.withBean("myValidation", PlatformConstraintViolationHandler.class, () -> mine)
+                .run(context -> {
+                    assertThat(context).getBean(PlatformConstraintViolationHandler.class).isSameAs(mine);
+                    assertThat(context).doesNotHaveBean("platformValidationExceptionHandler");
+                });
+    }
+
+    @Test
+    void consumerDescriptorAndErrorControllerReplaceThePlatformOnes() {
+        CapabilityDescriptor mine = new CapabilityDescriptor("errors", "ACTIVE", "custom");
+        org.springframework.boot.webmvc.error.ErrorController myErrorPage = new org.springframework.boot.webmvc.error.ErrorController() {
+        };
+        runner.withBean("errorsCapabilityDescriptor", CapabilityDescriptor.class, () -> mine)
+                .withBean("myErrorPage", org.springframework.boot.webmvc.error.ErrorController.class, () -> myErrorPage)
+                .run(context -> {
+                    assertThat(context.getBean(CapabilityDescriptor.class)).isSameAs(mine);
+                    assertThat(context).doesNotHaveBean(PlatformErrorController.class);
                 });
     }
 

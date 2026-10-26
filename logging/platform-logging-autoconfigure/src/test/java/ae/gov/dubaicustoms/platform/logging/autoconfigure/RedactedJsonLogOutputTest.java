@@ -67,6 +67,7 @@ class RedactedJsonLogOutputTest {
         try (ConfigurableApplicationContext context = boot(Empty.class)) {
             MDC.put("authorization", "Bearer abcdefgh12345678");
             MDC.put("payer", "card 4111111111111111");
+            MDC.put("contact", "fatima@customs.gov.ae, +971 50 123 4567");
             log.error("login for {} with password=hunter2 token {}", kv("emiratesId", "784-1990-1234567-1"), JWT,
                     new IllegalStateException("rejected Bearer abcdefgh12345678"));
         }
@@ -77,6 +78,7 @@ class RedactedJsonLogOutputTest {
         assertThat(event.get("message").asText()).contains("password=****").contains("token ****");
         assertThat(event.get("authorization").asText()).isEqualTo("****");
         assertThat(event.get("payer").asText()).isEqualTo("card ****");
+        assertThat(event.get("contact").asText()).isEqualTo("****, ****");
         assertThat(event.get("emiratesId").asText()).isEqualTo("****");
         assertThat(event.get("stack_trace").asText()).contains("IllegalStateException").contains("Bearer ****");
     }

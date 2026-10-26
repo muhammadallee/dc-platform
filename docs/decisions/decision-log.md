@@ -668,10 +668,15 @@ One line of context per decision; details live in the commit bodies referenced.
   `spanId` and the listed keys).
 - **D102 — default log redaction set.** JWTs, `Bearer`/`Basic` credentials, values after credential keys
   (`password`, `secret`, `token`, `authorization`, `cookie`, `api-key`, …), whole values of
-  credential-named MDC entries and structured arguments, Emirates ID, and Luhn-valid 13–19 digit card
-  numbers starting 2–6 (the issuer digit keeps epoch millis out) become `****`. Extendable with
+  credential-named MDC entries and structured arguments, Emirates ID, Luhn-valid 13–19 digit card
+  numbers starting 2–6 (the issuer digit keeps epoch millis out), e-mail addresses and phone numbers
+  (international with `+`/`00`, UAE mobiles in local form; owner request 2026-10-26) become `****`. Extendable with
   `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
   Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
+  `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
+  split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed
+  environment, is masked and injection-safe.
 - **D103 — sampling posture.** Head sampling stays Boot's (`management.tracing.sampling.probability`,
   default `0.1`). Keeping every errored request's trace is delivered by collector tail sampling
   (documented snippet); the platform position is OPEN as a deployment responsibility, as plan §9 Phase 2

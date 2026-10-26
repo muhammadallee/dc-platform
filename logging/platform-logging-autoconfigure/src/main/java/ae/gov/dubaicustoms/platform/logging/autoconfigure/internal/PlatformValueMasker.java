@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
 import net.logstash.logback.mask.ValueMasker;
 
 /**
- * Masks credentials and the default PII set in every string value the platform JSON encoder writes
+ * Masks credentials and the default PII set (Emirates ID, card numbers, e-mail addresses, phone
+ * numbers) in every string value the platform JSON encoder writes
  * (message, MDC values, structured arguments, exception text), then applies the application's
  * {@link LogSanitizer} beans to MDC and structured-argument fields (D102).
  *
@@ -49,6 +50,16 @@ public final class PlatformValueMasker implements ValueMasker {
     // Card numbers: 13–19 digits (single space/dash separators allowed), issuer digit 2–6, Luhn-valid.
     // The issuer digit keeps 13-digit epoch millis (leading 1) out.
     private static final Pattern PAN = Pattern.compile("(?<![\\d-])[2-6](?:[ -]?\\d){12,18}(?![\\d-])");
+    // E-mail addresses (the dotted domain keeps Java's Object@1a2b3c identity strings out).
+    private static final Pattern EMAIL =
+            Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}");
+    // Phone numbers: international with a + or 00 prefix (8–15 digits, single space/dash separators),
+    // and UAE mobile numbers in local form (05X XXX XXXX). Local landlines without a prefix are not
+    // matched: too close to ordinary numeric IDs.
+    private static final Pattern PHONE_INTERNATIONAL =
+            Pattern.compile("(?<![\\w+-])(?:\\+|00)[1-9](?:[ -]?\\d){7,14}(?![\\w-])");
+    private static final Pattern PHONE_UAE_MOBILE =
+            Pattern.compile("(?<![\\w-])05[02-8][ -]?\\d{3}[ -]?\\d{4}(?![\\w-])");
 
     private final List<Pattern> extraPatterns;
 
@@ -90,6 +101,9 @@ public final class PlatformValueMasker implements ValueMasker {
         result = KEY_VALUE.matcher(result).replaceAll("$1$2" + MASK);
         result = EMIRATES_ID.matcher(result).replaceAll(MASK);
         result = maskCardNumbers(result);
+        result = EMAIL.matcher(result).replaceAll(MASK);
+        result = PHONE_INTERNATIONAL.matcher(result).replaceAll(MASK);
+        result = PHONE_UAE_MOBILE.matcher(result).replaceAll(MASK);
         for (Pattern pattern : extraPatterns) {
             result = pattern.matcher(result).replaceAll(MASK);
         }

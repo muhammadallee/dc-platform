@@ -45,8 +45,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - **Minimal actuator exposure.** The platform default is `health,info,prometheus`; `metrics` and
   `platform` are no longer exposed unless added to `management.endpoints.web.exposure.include`.
   Generated services opt in `platform` in their `application.yml` (D105).
-- **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs and card numbers become
-  `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
+- **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs, card numbers, e-mail
+  addresses and phone numbers become `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
 - `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented.
 - `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).
 

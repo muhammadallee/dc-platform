@@ -12,7 +12,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 2 Gate C: Codex round-1 review from `a33168d` (isolated worktree, no Claude conclusions in the prompt). Owner decision pending on phase-2 A1 (console format, HI-0037). |
+| Next action | Phase 2 Gate C: Codex round-1 review from `a33168d` (isolated worktree, no Claude conclusions in the prompt). Phase-2 A1 accepted (D107); D102 extended with e-mail and phone. |
 
 ## Phase log
 

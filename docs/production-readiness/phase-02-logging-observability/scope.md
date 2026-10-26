@@ -37,9 +37,10 @@
    - values of keys named (case-insensitive) `password`, `passwd`, `secret`, `token`, `access_token`,
      `refresh_token`, `client_secret`, `authorization`, `cookie`, `set-cookie`, `api-key`/`apikey`
      in structured arguments and in `key=value` / JSON-ish text;
-   - the default PII list: Emirates ID (`784-YYYY-NNNNNNN-C`, with or without dashes) and payment card
-     numbers (13–19 digits passing Luhn, bounded by non-digits). Decision to log: **D102** (default list;
-     services extend it).
+   - the default PII list: Emirates ID (`784-YYYY-NNNNNNN-C`, with or without dashes), payment card
+     numbers (13–19 digits passing Luhn, bounded by non-digits; also when logged as a number), e-mail
+     addresses, phone numbers (international with `+`/`00`; UAE mobile in local form). Decision to log:
+     **D102** (default list; services extend it; e-mail and phone added by the owner 2026-10-26).
 2. Masked text is replaced by `****` (fixed marker; length not preserved).
 3. **No false positives** on common values: epoch millis (13 digits), numeric order IDs, 32-hex trace IDs,
    16-hex span IDs, UUIDs, ISO timestamps, HTTP status codes and durations are **not** masked (tested;
@@ -225,5 +226,5 @@ observability-autoconfigure 28 (build-tools 38, core-api 37), 0 failures, 0 erro
 
 | ID | Amendment | Status |
 |---|---|---|
-| A1 | R1.3 console mode: no `%replace` of CR/LF and no masking in the `console` format. Console is the `local`-profile, human-only format; overriding Boot's console pattern would fork Boot's styling and colour handling. JSON (every deployed environment) is injection-safe and masked. Documented in `docs/modules/logging.md` (HI-0037). | PROPOSED — owner decision |
+| A1 | R1.3 console mode: no `%replace` of CR/LF and no masking in the `console` format. Console is the `local`-profile, human-only format; overriding Boot's console pattern would fork Boot's styling and colour handling. JSON (every deployed environment) is injection-safe and masked. Documented in `docs/modules/logging.md` (HI-0037). | **ACCEPTED** by owner 2026-10-26 (D107) |
 | A2 | AC8 uses 400 literal outbound URIs (not 1 000): enough to exceed Boot's cap of 100 four times over; the test fails with the cap lifted (`max-uri-tags=1000`, verified at Gate B). | recorded |

@@ -36,13 +36,21 @@ class PlatformValueMaskerTest {
             "id 784199012345671 checked",
             "card 4111111111111111 charged",
             "card 4111 1111 1111 1111 charged",
-            "card 5500-0000-0000-0004 charged"})
+            "card 5500-0000-0000-0004 charged",
+            "mail fatima.ali+orders@customs.gov.ae sent",
+            "call +971 50 123 4567 now",
+            "call +971501234567 now",
+            "call 00971501234567 now",
+            "call 050-123-4567 now",
+            "call 0501234567 now",
+            "intl +44 20 7946 0958 ok"})
     void masksCredentialsAndPii(String text) {
         String masked = masker.maskPatterns(text);
         assertThat(masked).contains(PlatformValueMasker.MASK)
                 .doesNotContain(JWT).doesNotContain("abcdefgh12345678").doesNotContain("dXNlcjpwYXNzd29yZA==")
                 .doesNotContain("hunter2").doesNotContain("s3cr3t-value").doesNotContain("k-123456")
-                .doesNotContain("1234567").doesNotContain("4111").doesNotContain("0004");
+                .doesNotContain("1234567").doesNotContain("4111").doesNotContain("0004")
+                .doesNotContain("@customs").doesNotContain("4567").doesNotContain("0958");
     }
 
     @Test
@@ -61,7 +69,12 @@ class PlatformValueMaskerTest {
             "uuid 3f2504e0-4f89-11d3-9a0c-0305e82c3301",
             "uuid 12345678-1234-5678-1234-567812345678",
             "at 2026-10-26T18:07:36.818Z took PT0.25S status 503",
-            "phone +971501234567",
+            "object com.example.Order@6d06d69c",            // identity hash
+            "trace 0012345678abcdef0123456789abcdef",       // trace id starting 00 + digits
+            "uuid 3f2504e0-0012-3456-7890-0305e82c3301",
+            "version 1.2.3 build 20261026",
+            "ip 10.0.12.7 port 8080",
+            "landline 04 123 4567 not matched",            // documented gap
             "tokens: 5, passwords rotated"})
     void leavesOrdinaryValuesAlone(String text) {
         assertThat(masker.maskPatterns(text)).isEqualTo(text);

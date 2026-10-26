@@ -22,11 +22,16 @@ is watching.
     `set-cookie`) in `key=value`, `key: value` and `"key":"value"` text;
   - the whole value of an MDC entry or structured argument whose **name** is one of those keys;
   - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers (13–19
-    digits starting 2–6, single spaces or dashes allowed — in text and when logged as a number).
+    digits starting 2–6, single spaces or dashes allowed — in text and when logged as a number);
+  - e-mail addresses;
+  - phone numbers: international with a `+` or `00` prefix (`+971 50 123 4567`, `00971501234567`,
+    `+44 20 7946 0958`) and UAE mobiles in local form (`050 123 4567`, `0501234567`).
 
-  Timestamps, epoch millis, trace/span IDs, UUIDs, phone numbers and ordinary numeric IDs are left
-  alone. Residual risk: a numeric ID that happens to be a Luhn-valid 13–19 digit number starting 2–6 is
-  masked.
+  Timestamps, epoch millis, trace/span IDs, UUIDs, IP addresses, version strings, `Object@1a2b3c`
+  identity strings and ordinary numeric IDs are left alone. Residual risks: a numeric ID that happens to
+  be a Luhn-valid 13–19 digit number starting 2–6, or a 10-digit ID starting `050`–`058`, is masked;
+  UAE landlines written without a prefix (`04 123 4567`) are **not** masked — add a pattern if you log
+  them.
 - **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
   user input cannot add a line or a field.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.

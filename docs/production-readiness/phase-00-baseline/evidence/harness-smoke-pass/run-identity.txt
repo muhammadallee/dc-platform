@@ -1,12 +1,13 @@
-run_id=dch-20261026063320-19194
+run_id=dch-20261026064922-24671
 phase=phase-00 scenario=smoke
-platform_commit=7b248e919a7ffed9b2ae36379c8e9a84105f0b75
+platform_commit=06475bb4fed438faa96d77c288e3c1fcbe44457f
+platform_tree_dirty_paths=8
 platform_revision=1.0.0-SNAPSHOT
 maven_repo=/c/Users/Ali/.m2-baseline
 jre_image=eclipse-temurin:25-jre
-started=2026-10-26T06:33:25+04:00
-ready_seconds=14
+started=2026-10-26T06:49:27+04:00
+ready_seconds=11
 shutdown_seconds=2 exit_code=143
-finished=2026-10-26T06:35:21+04:00
+finished=2026-10-26T06:51:20+04:00
 assertions_passed=8 assertions_failed=0 script_rc=0
 verdict=PASS

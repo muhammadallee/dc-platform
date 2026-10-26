@@ -27,3 +27,13 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 - Consumer runs: `bash tooling/hardening/scenarios/<scenario>.sh` with `HH_MAVEN_REPO` pointing at the
   repository the phase installed into; runs land in `~/dc-hardening-runs/<phase>/`.
 - Compatibility baseline repository: `~/.m2-baseline` (baseline `7b248e9` installed by the golden path).
+  **Never install into it.** Its platform artifacts are pinned by
+  `phase-00-baseline/evidence/m2-baseline-manifest.sha256` (230 files). Phase consumer runs use
+  `bash tooling/hardening/phase-repo.sh <phase> <modules>`, which verifies the manifest, copies the
+  baseline to `~/.m2-hardening/<phase>` and installs the phase's modules on top.
+- CI runs on every push via draft PR #2 (not mergeable until Phase 8; HC6 does not apply).
+- Gate F composition conflict (recorded 2026-10-26): a feature-less archetype app already includes
+  core, errors, logging, observability, openapi, security and validation starters (archetype baseline).
+  Resolution: these are documented **fixtures** in Phases 1–7 (not certified by the phase unless it is
+  their phase); the generated POM is not edited. Kill switches are used only where a fixture would
+  interfere with the scenario, and each use is recorded in the phase evidence.

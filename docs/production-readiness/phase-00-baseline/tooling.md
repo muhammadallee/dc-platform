@@ -11,9 +11,9 @@ All commands run on the developer workstation (Windows 10, Git Bash), 2026-10-26
 | T4 | Testcontainers starts a container | `mvn -B -Pdocker -pl data/platform-data-jpa-autoconfigure verify -Djacoco.skip=true` | 0 | `postgres:16-alpine` started in 9.4 s; `PostgresParityIT` 1 test, 0 failures ([evidence](evidence/testcontainers-postgres.txt)) |
 | T5 | Images pullable | `docker pull -q <image>` each | 0 (all) | see below |
 | T6 | Codex | `codex exec --skip-git-repo-check -s read-only "Reply with exactly: CODEX_OK …"` | 0 | `CODEX_OK GPT-6`; header `model: gpt-6-astra`, `provider: openai` |
-| T7 | Foreground timeout | `echo $BASH_MAX_TIMEOUT_MS` after setting it in `~/.claude/settings.json` `env` | 0 | `2700000` (45 min) — meets plan §4.1 |
+| T7 | Foreground timeout | `echo $BASH_MAX_TIMEOUT_MS` after setting it in `~/.claude/settings.json` `env` | 0 | `2700000` (45 min) is set in the shell environment. **Not yet proven** that the tool honours it beyond 10 min (no foreground command has run that long). Until proven, anything that may exceed 10 min runs in supervised background mode (§4.1). |
 | T8 | Archetype generates a buildable app at baseline | `GP_MAVEN_REPO=~/.m2-baseline GP_THREADS=1 bash tooling/scripts/golden-path.sh` | see [baseline run](#baseline-golden-path) | all 8 feature combinations generated, verified, booted and probed |
-| T9 | Consumer harness | `HH_MAVEN_REPO=~/.m2-baseline bash tooling/hardening/scenarios/phase-00-smoke.sh` | 0 | 8/8 assertions; ready 14 s; SIGTERM → exit 143 in 2 s, graceful-shutdown phase logged; 0 leftover containers ([evidence](evidence/harness-smoke-pass/)) |
+| T9 | Consumer harness | `HH_MAVEN_REPO=~/.m2-baseline bash tooling/hardening/scenarios/phase-00-smoke.sh` | 0 | 8/8 assertions; ready 11 s; SIGTERM → exit 143 in 2 s, "Graceful shutdown complete" logged; 0 leftover containers ([evidence](evidence/harness-smoke-pass/)) |
 | T10 | Harness reports failure truthfully | same with `HH_SELFTEST_FAIL=1` | **1** (expected) | 8 passed, 1 failed (`expected 418, got 401`); cleanup still ran, 0 leftovers ([evidence](evidence/harness-smoke-negative/)) |
 
 ## Images

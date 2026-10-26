@@ -48,7 +48,17 @@ exit 0, `CODEX_OK GPT-6`, header `model: gpt-6-astra`.
 
 Independence rule (plan §4.2): the first-pass prompt of every round contains only the phase
 `scope.md`, the diff against the phase start commit, and file paths. Claude's conclusions and test
-summaries enter only at the rebuttal step.
+summaries enter only at the rebuttal step. Because a read-only Codex can still read any file in its
+working directory, first-pass reviews run from a throwaway worktree with this folder removed:
+
+```bash
+git worktree add "$TMP/codex-rN" <reviewed-commit>
+rm -rf "$TMP/codex-rN/docs/production-readiness"
+git diff <phase-start>..<reviewed-commit> -- . ':!docs/production-readiness' > "$TMP/rN.diff"
+# prompt = scope.md (inline) + rN.diff (inline) + file paths; run codex exec from "$TMP/codex-rN"
+```
+
+The prompt is passed on stdin (`codex exec … -`; probe: exit 0, `STDIN_OK`).
 
 ## Evidence levels
 

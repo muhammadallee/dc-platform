@@ -32,4 +32,4 @@ if [ "${HH_SELFTEST_FAIL:-0}" = 1 ]; then
 fi
 
 hh_step "graceful shutdown on SIGTERM"
-hh_app_stop_graceful 30
+hh_app_stop_graceful

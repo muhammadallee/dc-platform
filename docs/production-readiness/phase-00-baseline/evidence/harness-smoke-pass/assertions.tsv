@@ -1,8 +1,8 @@
-PASS	app ready in 14s
+PASS	app ready in 11s
 PASS	readiness status 200
 PASS	readiness: readiness UP
 PASS	liveness status 200
 PASS	unauthenticated status 401
 PASS	app exited on SIGTERM (code 143) in 2s
-PASS	graceful shutdown phase logged
-PASS	cleanup: no containers left for dch-20261026063320-19194
+PASS	graceful shutdown completed (logged)
+PASS	cleanup: no containers left for dch-20261026064922-24671

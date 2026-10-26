@@ -187,9 +187,10 @@ hh_expect_json() {
 }
 
 # Real SIGTERM via docker stop; asserts the JVM exited cleanly within the grace period and that Spring
-# logged its graceful-shutdown phase.
+# completed its graceful-shutdown phase. The default grace (45 s) exceeds Spring's default
+# spring.lifecycle.timeout-per-shutdown-phase (30 s), so docker never SIGKILLs a drain Spring would finish.
 hh_app_stop_graceful() {
-  local grace=${1:-30} started ended code
+  local grace=${1:-45} started ended code
   started=$(date +%s)
   docker stop -t "$grace" "$HH_APP_CONTAINER" >/dev/null
   ended=$(date +%s)
@@ -201,10 +202,10 @@ hh_app_stop_graceful() {
     0|143) hh_pass "app exited on SIGTERM (code $code) in $((ended - started))s" ;;
     *) hh_fail "app exit code $code after SIGTERM (137 = killed after ${grace}s grace)" ;;
   esac
-  if grep -q "Graceful shutdown complete\|Commencing graceful shutdown" "$HH_EVIDENCE/app.log"; then
-    hh_pass "graceful shutdown phase logged"
+  if grep -q "Graceful shutdown complete" "$HH_EVIDENCE/app.log"; then
+    hh_pass "graceful shutdown completed (logged)"
   else
-    hh_fail "no graceful-shutdown log line in app.log"
+    hh_fail "no 'Graceful shutdown complete' line in app.log"
   fi
 }
 

@@ -35,8 +35,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   the platform's `CorrelationIdFilter` as a parameter must now create the filter itself (there is no
   default filter bean to inject), and a bean that reused a reserved name with another type now collides
   instead of silently replacing the platform bean. A bare consumer `CorrelationIdFilter` bean is mapped by
-  Boot to every dispatch type (FORWARD and INCLUDE too); `OncePerRequestFilter` still runs it once per
-  request.
+  Boot to every dispatch type (FORWARD and INCLUDE too); `OncePerRequestFilter` skips nested dispatches
+  within one dispatch, while the ASYNC and ERROR dispatches run it again, as before.
 
 ### Added
 - Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the

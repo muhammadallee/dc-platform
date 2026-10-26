@@ -81,6 +81,24 @@ class PlatformBannerAutoConfigurationTest {
                         .containsOnlyKeys("coreCapabilityDescriptor", "ordersCapabilityDescriptor"));
     }
 
+    @Test
+    void bannerKeepsItsLogCategory() {
+        // Consumers route or silence the banner by this category; moving the runner must not change it.
+        ch.qos.logback.classic.Logger category = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        category.addAppender(appender);
+        try {
+            runner.run(context -> context.getBean(PlatformBannerRunner.class).run(new DefaultApplicationArguments()));
+            assertThat(appender.list).singleElement()
+                    .satisfies(event -> assertThat(event.getFormattedMessage()).startsWith("platform: core[ACTIVE]"));
+        } finally {
+            category.detachAppender(appender);
+        }
+    }
+
     private static org.springframework.beans.factory.ObjectProvider<CapabilityDescriptor> emptyProvider() {
         return new org.springframework.beans.factory.support.DefaultListableBeanFactory()
                 .getBeanProvider(CapabilityDescriptor.class);

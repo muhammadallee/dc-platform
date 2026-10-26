@@ -30,6 +30,9 @@ import org.springframework.boot.ApplicationRunner;
  * }
  * }</pre>
  *
+ * <p>Logs under the {@code ae.gov.dubaicustoms.platform.core.autoconfigure.PlatformBannerAutoConfiguration}
+ * category.
+ *
  * <p>Thread-safe; descriptors are read when {@link #run(ApplicationArguments)} is called. Constructor
  * arguments must not be {@code null}.
  *
@@ -37,7 +40,8 @@ import org.springframework.boot.ApplicationRunner;
  */
 public class PlatformBannerRunner implements ApplicationRunner {
 
-    private static final Logger log = LoggerFactory.getLogger(PlatformBannerRunner.class);
+    // Keeps the category the banner has always logged under, so consumer log configuration still applies.
+    private static final Logger log = LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
 
     private final ObjectProvider<CapabilityDescriptor> descriptors;
 

@@ -30,7 +30,13 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   consumer `CorrelationIdFilter` bean is registered by Boot (it is `Ordered` at `FILTER_ORDER` and runs on
   every dispatch type) instead of being wrapped by the platform registration. The banner is a public
   `PlatformBannerRunner`; an `ApplicationRunner` named `platformBannerRunner` no longer replaces it —
-  define a `PlatformBannerRunner` bean, or set `dc.platform.core.banner-enabled=false`.
+  define a `PlatformBannerRunner` bean, or set `dc.platform.core.banner-enabled=false`. The banner keeps
+  its `PlatformBannerAutoConfiguration` log category. A consumer registration whose factory method took
+  the platform's `CorrelationIdFilter` as a parameter must now create the filter itself (there is no
+  default filter bean to inject), and a bean that reused a reserved name with another type now collides
+  instead of silently replacing the platform bean. A bare consumer `CorrelationIdFilter` bean is mapped by
+  Boot to every dispatch type (FORWARD and INCLUDE too); `OncePerRequestFilter` still runs it once per
+  request.
 
 ### Added
 - Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the

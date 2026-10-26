@@ -5,8 +5,10 @@
 #   hh_init <phase-slug> <scenario-name>        # run dir, evidence dir, docker network, cleanup trap
 #   hh_infra <name> <image> [docker-run args…]  # backing service on the run network (Postgres, Rabbit…)
 #   hh_generate <artifactId> <features|->       # archetype app OUTSIDE the repo, from the local catalog
+#   hh_add_sources <dir> <package-subpath>      # consumer code (e.g. a probe controller) into the app
 #   hh_build_app                                # generated `mvn package`, then a container image
 #   hh_app_start [env KEY=VALUE…]               # app container on the run network, port published
+#                                               # (HH_APP_NAME selects the container name; default "app")
 #   hh_wait_ready [timeout-s]                   # /actuator/health/readiness == UP
 #   hh_http <name> <method> <path> [curl args…] # saves status + body to evidence, sets HH_STATUS/HH_BODY
 #   hh_expect_status <code> / hh_expect_json <python-expr>
@@ -99,6 +101,15 @@ hh_generate() {
   hh_log "generated $artifact (features=$features) in $HH_APP_DIR"
 }
 
+hh_add_sources() {
+  local src=$1 subpath=$2 target
+  target="$HH_APP_DIR/src/main/java/$subpath"
+  mkdir -p "$target"
+  cp "$src"/*.java "$target"/ || hh_abort "could not copy consumer sources from $src"
+  (cd "$src" && sha256sum ./*.java) > "$HH_EVIDENCE/consumer-sources.sha256"
+  hh_log "added consumer sources from $src to $subpath"
+}
+
 hh_build_app() {
   (cd "$HH_APP_DIR" && "${HH_MVN[@]}" package -DskipTests -l "$(hh_native "$HH_EVIDENCE/app-build.log")") \
       || hh_abort "generated app build failed (app-build.log)"
@@ -128,8 +139,8 @@ hh_app_start() {
   local env_args=()
   local kv
   for kv in "$@"; do env_args+=(-e "$kv"); done
-  HH_APP_CONTAINER="$HH_RUN_ID-app"
-  docker run -d --name "$HH_APP_CONTAINER" --network "$HH_NETWORK" --network-alias app \
+  HH_APP_CONTAINER="$HH_RUN_ID-${HH_APP_NAME:-app}"
+  docker run -d --name "$HH_APP_CONTAINER" --network "$HH_NETWORK" --network-alias "${HH_APP_NAME:-app}" \
       --label "dc-hardening=$HH_RUN_ID" -p 127.0.0.1::8080 ${env_args[@]+"${env_args[@]}"} "$HH_APP_IMAGE" >/dev/null \
       || hh_abort "app container did not start"
   HH_CONTAINERS+=("$HH_APP_CONTAINER")
@@ -195,7 +206,8 @@ hh_app_stop_graceful() {
   docker stop -t "$grace" "$HH_APP_CONTAINER" >/dev/null
   ended=$(date +%s)
   code=$(docker inspect -f '{{.State.ExitCode}}' "$HH_APP_CONTAINER")
-  docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/app.log" 2>&1 || true
+  docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" 2>&1 || true
+  cp "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" "$HH_EVIDENCE/app.log"
   echo "shutdown_seconds=$((ended - started)) exit_code=$code" >> "$HH_EVIDENCE/run-identity.txt"
   # 143 = 128+SIGTERM: the JVM honoured the signal; 137 would mean docker had to SIGKILL after the grace.
   case "$code" in
@@ -218,7 +230,7 @@ hh_finish() {
   fi
   local c
   for c in ${HH_CONTAINERS[@]+"${HH_CONTAINERS[@]}"}; do
-    case "$c" in *-app) ;; *) docker logs "$c" > "$HH_EVIDENCE/infra-${c#"$HH_RUN_ID"-}.log" 2>&1 ;; esac
+    case "$c" in *-app*) ;; *) docker logs "$c" > "$HH_EVIDENCE/infra-${c#"$HH_RUN_ID"-}.log" 2>&1 ;; esac
   done
   docker ps -aq --filter "label=dc-hardening=$HH_RUN_ID" | xargs -r docker rm -f >/dev/null 2>&1
   docker network rm "$HH_NETWORK" >/dev/null 2>&1

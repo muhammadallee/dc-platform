@@ -89,7 +89,9 @@ echo "   workdir=$WORKDIR  repo=$MAVEN_REPO  evidence=$EVIDENCE"
 step "1 Install the platform into the isolated repository"
 START=$(date +%s)
 if [ "${GP_SKIP_INSTALL:-0}" != 1 ]; then
-  "${MVN[@]}" -T"${GP_THREADS:-1C}" install -DskipTests -l "$(native_path "$EVIDENCE/platform-install.log")" \
+  # clean: a stale target/jacoco.exec from an earlier local build no longer matches the classes and
+  # fails the JaCoCo check even with tests skipped (CI checkouts are clean; developer trees are not).
+  "${MVN[@]}" -T"${GP_THREADS:-1C}" clean install -DskipTests -l "$(native_path "$EVIDENCE/platform-install.log")" \
       || fail "platform install (see $EVIDENCE/platform-install.log)"
 fi
 REV=$("${MVN[@]}" -q -N help:evaluate -Dexpression=revision -DforceStdout)

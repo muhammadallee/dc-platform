@@ -15,7 +15,7 @@ class ProblemDetailAssertTest {
         ProblemDetail problem = ProblemDetail.forStatus(404);
         problem.setDetail("order 'unknown' was not found");
         problem.setProperty("code", "DC-ORD-0001");
-        problem.setProperty("correlationId", "abc-123");
+        problem.setProperty("traceId", "abc-123");
         return problem;
     }
 
@@ -25,8 +25,8 @@ class ProblemDetailAssertTest {
                 .hasStatus(404)
                 .hasCode("DC-ORD-0001")
                 .hasDetailContaining("not found")
-                .hasProperty("correlationId", "abc-123")
-                .hasPropertyPresent("correlationId");
+                .hasProperty("traceId", "abc-123")
+                .hasPropertyPresent("traceId");
     }
 
     @Test

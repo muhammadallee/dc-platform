@@ -27,8 +27,8 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
                 .isEqualTo("readinessState,db,rabbit,redis");
         assertThat(environment.getProperty("management.endpoint.health.validate-group-membership"))
                 .isEqualTo("false");
-        assertThat(environment.getProperty("management.tracing.baggage.remote-fields"))
-                .isEqualTo("X-Correlation-Id");
+        // HD5: no custom correlation header is mirrored into baggage; traceparent is the only carrier.
+        assertThat(environment.getProperty("management.tracing.baggage.remote-fields")).isNull();
         assertThat(environment.getProperty("management.otlp.metrics.export.enabled")).isEqualTo("false");
         assertThat(environment.getProperty("management.tracing.export.otlp.enabled")).isEqualTo("false");
     }

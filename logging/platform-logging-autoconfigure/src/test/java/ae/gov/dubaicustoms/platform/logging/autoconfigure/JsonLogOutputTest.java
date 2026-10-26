@@ -65,7 +65,8 @@ class JsonLogOutputTest {
                 .contains("\"logger\":\"json.probe\"")
                 .contains("\"message\":\"probe message\"")
                 .contains("\"service\":\"orders\"")
-                .contains("\"correlationId\":\"0123456789abcdef0123456789abcdef\"");
+                .contains("\"traceId\":\"0123456789abcdef0123456789abcdef\"")
+                .doesNotContain("\"correlationId\"");
         // Renamed/dropped by fieldNames config; their presence would mean the resource drifted.
         assertThat(jsonLine).doesNotContain("\"logger_name\"").doesNotContain("\"level_value\"");
     }

@@ -57,7 +57,7 @@ public class ProblemDetailOpenApiCustomizer implements OpenApiCustomizer {
 
     private static Schema<?> problemDetailSchema() {
         // Mirrors org.springframework.http.ProblemDetail plus the platform's extensions
-        // (errors-autoconfigure: code, correlationId, timestamp; errors[] on validation failures).
+        // (errors-autoconfigure: code, traceId, timestamp, retryable; errors[] on validation failures).
         Map<String, Schema> properties = Map.of(
                 "type", new StringSchema(),
                 "title", new StringSchema(),
@@ -65,8 +65,9 @@ public class ProblemDetailOpenApiCustomizer implements OpenApiCustomizer {
                 "detail", new StringSchema(),
                 "instance", new StringSchema(),
                 "code", new StringSchema(),
-                "correlationId", new StringSchema(),
-                "timestamp", new StringSchema().format("date-time"));
+                "traceId", new StringSchema(),
+                "timestamp", new StringSchema().format("date-time"),
+                "retryable", new Schema<Boolean>().type("boolean"));
         return new Schema<>().type("object").properties(properties);
     }
 

@@ -15,7 +15,7 @@ import org.springframework.validation.annotation.Validated;
  * @param enabled master kill switch for the whole capability
  * @param format log output format; {@code json} in every deployed environment, {@code console}
  *        for humans (auto-selected when the {@code local} profile is active)
- * @param includeMdc copy MDC entries (correlationId, …) into JSON log fields
+ * @param includeMdc copy MDC entries (traceId, spanId, …) into JSON log fields
  * @param serviceName service name stamped on every JSON log line; defaults to
  *        {@code spring.application.name}
  * @since 0.1.0
@@ -27,7 +27,7 @@ public record LoggingProperties(
         @DefaultValue("true") boolean enabled,
         /** Output format: json (deployed) or console (humans; auto-picked on the local profile). */
         @DefaultValue("json") Format format,
-        /** Copy MDC entries (correlationId, ...) into JSON log fields. */
+        /** Copy MDC entries (traceId, spanId, ...) into JSON log fields. */
         @DefaultValue("true") boolean includeMdc,
         /** Service name stamped on every JSON line; defaults to spring.application.name. */
         @DefaultValue("") String serviceName) {

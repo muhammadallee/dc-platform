@@ -10,16 +10,16 @@ import org.springframework.core.env.MapPropertySource;
 
 /**
  * Contributes the platform's management-plane defaults — actuator exposure, liveness/readiness
- * health groups, correlation baggage, and the local OTLP-off posture — as a LOWEST-precedence
+ * health groups, and the local OTLP-off posture — as a LOWEST-precedence
  * property source named {@code platform-observability-defaults}, so user configuration always
  * wins and the source name is visible in {@code /actuator/env} for debuggability
  * (property-conventions §7).
  *
- * <p>Cardinality rationale (mandatory, phase-05 spec): the correlation id is HIGH-cardinality —
- * one value per request. It must never become a metric tag or observation key-value (it would
- * explode time-series storage), so the platform propagates it exclusively through tracing
- * baggage ({@code management.tracing.baggage.remote-fields}); log/MDC correlation is already
- * handled by the core filter.
+ * <p>Cardinality rationale (mandatory, phase-05 spec): the correlation id — the W3C trace ID — is
+ * HIGH-cardinality, one value per request. It must never become a metric tag or observation
+ * key-value (it would explode time-series storage); it travels only in the standard
+ * {@code traceparent} header, and log/MDC correlation is handled by the core filter. No custom
+ * correlation header is mirrored into tracing baggage any more.
  *
  * <p>Stateless and thread-safe.
  *
@@ -51,9 +51,6 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
             // membership validation on, a service without a DB would fail startup.
             defaults.put("management.endpoint.health.validate-group-membership", "false");
         }
-        // Correlation propagates via baggage ONLY — see the class javadoc cardinality rationale.
-        // Header name mirrors the core filter's dc.platform.core.correlation.header-name default.
-        defaults.put("management.tracing.baggage.remote-fields", "X-Correlation-Id");
         if (!environment.getProperty("dc.platform.observability.otlp.enabled", Boolean.class, false)) {
             // Local default OFF: no collector on laptops; flipping dc.platform.observability
             // .otlp.enabled=true removes these defaults so Boot's export config takes over.

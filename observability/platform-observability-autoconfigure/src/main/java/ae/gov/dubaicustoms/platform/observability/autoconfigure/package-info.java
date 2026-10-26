@@ -1,8 +1,8 @@
 /**
  * Auto-configuration for the observability capability: common meter tags
  * ({@code service}/{@code env}/{@code platform.version}), liveness/readiness health-group and
- * actuator-exposure defaults contributed before the context exists, correlation propagation via
- * tracing baggage (never metric tags — cardinality), and the {@code platform} actuator endpoint
+ * actuator-exposure defaults contributed before the context exists (the trace ID is never a metric
+ * tag — cardinality), and the {@code platform} actuator endpoint
  * reporting active capabilities.
  *
  * <p>Kill switch: {@code dc.platform.observability.enabled}. OTLP export is OFF by default

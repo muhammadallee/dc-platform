@@ -35,10 +35,11 @@ public final class RequestContextThreadLocalAccessor implements ThreadLocalAcces
         return KEY;
     }
 
+    // Never null: an empty map records "no context" in the snapshot, so applying it isolates the task
+    // even under Boot's default decorator, whose snapshot factory does not clear missing values.
     @Override
     public Map<String, String> getValue() {
-        Map<String, String> snapshot = RequestContext.asMap();
-        return snapshot.isEmpty() ? null : snapshot;
+        return RequestContext.asMap();
     }
 
     @Override

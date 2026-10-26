@@ -56,8 +56,9 @@ class TraceCorrelationIntegrationTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final HttpClient HTTP = HttpClient.newHttpClient();
 
-    /** Records the MDC at the very edge of the servlet chain (before tracing, after everything). */
+    /** Records the MDC at the very edge of the servlet chain (before tracing, after everything), per dispatch. */
     static final ConcurrentLinkedQueue<Map<String, String>> EDGE_MDC = new ConcurrentLinkedQueue<>();
+    static final ConcurrentLinkedQueue<String> EDGE_DISPATCHES = new ConcurrentLinkedQueue<>();
 
     @SpringBootConfiguration
     @EnableAutoConfiguration
@@ -72,11 +73,27 @@ class TraceCorrelationIntegrationTest {
                     chain.doFilter(request, response);
                 } finally {
                     EDGE_MDC.add(Optional.ofNullable(MDC.getCopyOfContextMap()).orElse(Map.of()));
+                    EDGE_DISPATCHES.add(request.getDispatcherType().name());
                 }
             };
             FilterRegistrationBean<Filter> registration = new FilterRegistrationBean<>(filter);
             registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+            registration.setDispatcherTypes(jakarta.servlet.DispatcherType.REQUEST, jakarta.servlet.DispatcherType.ASYNC,
+                    jakarta.servlet.DispatcherType.ERROR);
             return registration;
+        }
+
+        // Inner rejection: sendError → a container ERROR dispatch the edge recorder also sees.
+        @Bean
+        FilterRegistrationBean<Filter> rejecting() {
+            Filter filter = (request, response, chain) -> {
+                if ("/reject".equals(((jakarta.servlet.http.HttpServletRequest) request).getRequestURI())) {
+                    ((jakarta.servlet.http.HttpServletResponse) response).sendError(409);
+                    return;
+                }
+                chain.doFilter(request, response);
+            };
+            return new FilterRegistrationBean<>(filter);
         }
 
         // Instrumented like any Boot-managed client: the observation registry adds traceparent.
@@ -122,6 +139,11 @@ class TraceCorrelationIntegrationTest {
                     .uri("http://127.0.0.1:" + context.getWebServer().getPort() + "/headers")
                     .retrieve().body(Map.class));
             return body;
+        }
+
+        @GetMapping("/callable")
+        java.util.concurrent.Callable<Map<String, String>> callable() {
+            return TraceCorrelationIntegrationTest::snapshot;
         }
 
         @GetMapping("/headers")
@@ -272,6 +294,23 @@ class TraceCorrelationIntegrationTest {
         }
 
         @Test
+        void asyncAndErrorRedispatchesSeeTheTraceAndLeaveTheEdgesClean() throws Exception {
+            EDGE_MDC.clear();
+            EDGE_DISPATCHES.clear();
+            String traceId = randomTraceId();
+            Map<String, Object> body = get("/callable", Map.of("traceparent", traceparent(traceId)));
+            assertThat(body).containsEntry("context", traceId).containsEntry("mdcTraceId", traceId);
+
+            HttpRequest rejected = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/reject"))
+                    .header("traceparent", traceparent(traceId)).build();
+            assertThat(HTTP.send(rejected, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(409);
+
+            // The redispatches really happened and every edge — REQUEST, ASYNC and ERROR — was clean.
+            assertThat(EDGE_DISPATCHES).contains("REQUEST", "ASYNC", "ERROR");
+            assertThat(EDGE_MDC).hasSize(EDGE_DISPATCHES.size() * 2).allSatisfy(mdc -> assertThat(mdc).isEmpty());
+        }
+
+        @Test
         void twoHundredConcurrentRequestsNeverBleedContext() throws Exception {
             // Plan §3.11: concurrency tests must pass 3 consecutive runs, so the round repeats in-test.
             for (int round = 0; round < 3; round++) {
@@ -287,7 +326,7 @@ class TraceCorrelationIntegrationTest {
                                 .containsEntry("context", expected).containsEntry("mdcTraceId", expected);
                         @SuppressWarnings("unchecked")
                         Map<String, String> async = (Map<String, String>) body.get("async");
-                        assertThat(async).containsEntry("context", expected);
+                        assertThat(async).containsEntry("context", expected).containsEntry("mdcTraceId", expected);
                     }
                 }
             }

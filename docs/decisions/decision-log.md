@@ -632,3 +632,6 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D95 — trace rejection judged by the propagator's outcome.** The core filter does not re-implement
   W3C validation: a present `traceparent` counts as rejected exactly when the current trace is not the
   one it names, and the marker carries the header length only.
+- **D96 — shared-type infrastructure beans override by name.** The banner `ApplicationRunner` and the
+  correlation filter's `FilterRegistrationBean` back off by name only: consumers routinely define other
+  beans of those Spring types, and type-based back-off would silently drop the platform's.

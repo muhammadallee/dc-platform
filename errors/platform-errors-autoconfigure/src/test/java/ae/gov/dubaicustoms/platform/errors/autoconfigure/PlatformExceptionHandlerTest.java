@@ -213,6 +213,25 @@ class PlatformExceptionHandlerTest {
             throw new TestInfraException();
         }
 
+        // Constraints on handler parameters: Spring MVC's native method validation applies to the
+        // whole method, so even the @Valid body failure surfaces as HandlerMethodValidationException.
+        @GetMapping("/quantity")
+        String quantity(@org.springframework.web.bind.annotation.RequestParam @jakarta.validation.constraints.Min(1)
+                int quantity) {
+            return "ok";
+        }
+
+        @PostMapping("/copies")
+        String copies(@jakarta.validation.Valid @RequestBody NewOrder order,
+                @org.springframework.web.bind.annotation.RequestParam @jakarta.validation.constraints.Min(1) int copies) {
+            return "ok";
+        }
+
+        @GetMapping("/unwritable")
+        Unwritable unwritable() {
+            return new Unwritable(); // the JSON converter fails while writing → framework 500
+        }
+
         @GetMapping("/denied")
         String denied() {
             throw new org.springframework.security.access.AccessDeniedException("method security says no");
@@ -226,6 +245,12 @@ class PlatformExceptionHandlerTest {
         @PostMapping("/orders")
         String create(@jakarta.validation.Valid @RequestBody NewOrder order) {
             return "created";
+        }
+    }
+
+    public static final class Unwritable {
+        public String getValue() {
+            throw new IllegalStateException("serializer reached db-secret-host");
         }
     }
 
@@ -266,5 +291,49 @@ class PlatformExceptionHandlerTest {
                 }
             }
         }
+    }
+
+    @Test
+    void nativeMethodValidationOfAQueryParameterMapsToTheErrorsShape() throws Exception {
+        mockMvc(defaults(), List.of()).perform(get("/quantity").param("quantity", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[0].field").value("quantity"))
+                .andExpect(jsonPath("$.errors[0].message").exists())
+                .andExpect(jsonPath("$.errors[0].rejectedValue").doesNotExist());
+    }
+
+    @Test
+    void nativeMethodValidationOfANestedArgumentListsItsFieldPaths() throws Exception {
+        mockMvc(defaults(), List.of())
+                .perform(post("/copies").param("copies", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"password\":\"0123456789abcdef\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[?(@.field=='name')].message").exists());
+    }
+
+    @Test
+    void frameworkServerErrorsAreLoggedOnceWithTheThrowableAndTheTrace() throws Exception {
+        ch.qos.logback.classic.Logger handlerLog =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(PlatformExceptionHandler.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        handlerLog.addAppender(appender);
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            mockMvc(defaults(), List.of()).perform(get("/unwritable"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value("DC-CORE-0500"))
+                    .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION));
+        } finally {
+            handlerLog.detachAppender(appender);
+        }
+        assertThat(appender.list).filteredOn(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+                .singleElement().satisfies(event -> {
+                    assertThat(event.getThrowableProxy()).isNotNull();
+                    assertThat(event.getMDCPropertyMap()).containsEntry("traceId", CORRELATION);
+                });
     }
 }

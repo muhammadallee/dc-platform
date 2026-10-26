@@ -53,9 +53,26 @@ class CoreContextAutoConfigurationTest {
 
     @Test
     void backsOffWhenUserRegistrationPresent() {
-        FilterRegistrationBean<CorrelationIdFilter> mine = new FilterRegistrationBean<>(new CorrelationIdFilter(Tracer.NOOP));
+        CorrelationIdFilter theirs = new CorrelationIdFilter(Tracer.NOOP);
+        FilterRegistrationBean<CorrelationIdFilter> mine = new FilterRegistrationBean<>(theirs);
+        mine.setEnabled(false); // a consumer may even switch the filter off
         runner.withBean("platformCorrelationFilterRegistration", FilterRegistrationBean.class, () -> mine)
-                .run(context -> assertThat(context.getBean("platformCorrelationFilterRegistration")).isSameAs(mine));
+                .run(context -> {
+                    assertThat(context.getBean("platformCorrelationFilterRegistration")).isSameAs(mine);
+                    assertThat(context).doesNotHaveBean("correlationIdFilter");
+                    // What Boot would register with the servlet container: no second, auto-registered
+                    // CorrelationIdFilter next to the consumer's (disabled) registration.
+                    var initializers = new org.springframework.boot.web.servlet.ServletContextInitializerBeans(
+                            context.getBeanFactory());
+                    java.util.List<Object> correlationFilters = new java.util.ArrayList<>();
+                    initializers.forEach(initializer -> {
+                        if (initializer instanceof FilterRegistrationBean<?> registration
+                                && registration.getFilter() instanceof CorrelationIdFilter filter) {
+                            correlationFilters.add(filter);
+                        }
+                    });
+                    assertThat(correlationFilters).containsExactly(theirs);
+                });
     }
 
     @Test

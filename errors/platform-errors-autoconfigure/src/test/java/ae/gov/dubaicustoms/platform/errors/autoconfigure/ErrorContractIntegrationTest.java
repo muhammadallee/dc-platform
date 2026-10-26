@@ -137,4 +137,10 @@ class ErrorContractIntegrationTest {
         List<String> names = List.of(context.getBeanNamesForType(PlatformErrorController.class));
         assertThat(names).containsExactly("platformErrorController");
     }
+
+    @Test
+    void aDirectRequestToTheErrorPathStillHasAnInstance() throws Exception {
+        Map<String, Object> body = call("/error", "application/json", 500);
+        assertThat(body).containsEntry("instance", "/error").containsEntry("code", "DC-CORE-0500");
+    }
 }

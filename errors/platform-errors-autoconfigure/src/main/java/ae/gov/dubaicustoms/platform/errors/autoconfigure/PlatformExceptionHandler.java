@@ -159,6 +159,11 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
             HttpStatusCode statusCode, WebRequest request) {
+        if (statusCode.value() >= 500) {
+            // Framework 5xx (async timeout, conversion failure, …) reach only this hook: log them here,
+            // once, while the request context (trace ID) is still open.
+            log.error("framework exception [{}] status {}", UNEXPECTED_ERROR.value(), statusCode.value(), exception);
+        }
         ResponseEntity<Object> entity = super.handleExceptionInternal(exception, body, headers, statusCode, request);
         if (entity != null && entity.getBody() instanceof ProblemDetail problem
                 && (problem.getProperties() == null || !problem.getProperties().containsKey("code"))) {
@@ -169,6 +174,52 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
             factory.decorate(problem, code, exception);
         }
         return entity;
+    }
+
+    /**
+     * Spring MVC's native method validation (constraints on {@code @RequestParam}/{@code @PathVariable}
+     * or on {@code @Valid} arguments of a controller without class-level {@code @Validated}) maps to the
+     * same 400 {@code errors[]} shape as body validation. Return-value validation is a server bug and
+     * keeps its 500 with the generic body.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            org.springframework.web.method.annotation.HandlerMethodValidationException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        if (!properties.mapValidation() || status.value() >= 500) {
+            return super.handleHandlerMethodValidationException(exception, headers, status, request);
+        }
+        List<Map<String, Object>> errors = new ArrayList<>();
+        for (org.springframework.validation.method.ParameterValidationResult result
+                : exception.getParameterValidationResults()) {
+            String parameter = result.getMethodParameter().getParameterName();
+            if (result instanceof org.springframework.validation.method.ParameterErrors parameterErrors) {
+                parameterErrors.getFieldErrors().forEach(fieldError -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", fieldError.getField());
+                    entry.put("message", fieldError.getDefaultMessage());
+                    factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
+                    errors.add(entry);
+                });
+                parameterErrors.getGlobalErrors().forEach(globalError -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", parameter);
+                    entry.put("message", globalError.getDefaultMessage());
+                    errors.add(entry);
+                });
+            } else {
+                result.getResolvableErrors().forEach(error -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", parameter);
+                    entry.put("message", error.getDefaultMessage());
+                    factory.putRejectedValue(entry, parameter, result.getArgument());
+                    errors.add(entry);
+                });
+            }
+        }
+        ProblemDetail problem = factory.create(400, VALIDATION_FAILED, "Validation failed.", instancePathOf(request), exception);
+        problem.setProperty("errors", errors);
+        return ResponseEntity.badRequest().headers(headers).body(problem);
     }
 
     @Override

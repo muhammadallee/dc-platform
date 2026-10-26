@@ -32,8 +32,33 @@ class RequestContextThreadLocalAccessorTest {
     }
 
     @Test
-    void capturesNothingWithoutAContext() {
-        assertThat(accessor.getValue()).isNull();
+    void capturesAbsenceExplicitly() {
+        // Never null: a null value would drop the accessor from the snapshot entirely.
+        assertThat(accessor.getValue()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void bootsDefaultDecoratorRunsAContextFreeTaskWithoutTheExecutingCallersContext() throws Exception {
+        // Boot wires ContextPropagatingTaskDecorator with its no-arg constructor (clearMissing=false):
+        // the path the explicit-absence capture exists for.
+        org.springframework.core.task.support.ContextPropagatingTaskDecorator decorator =
+                new org.springframework.core.task.support.ContextPropagatingTaskDecorator();
+        java.util.Map<String, Object> seen = new java.util.HashMap<>();
+        Runnable contextFree = decorator.decorate(() -> {
+            seen.put("context", RequestContext.correlationId());
+            seen.put("mdcTraceId", java.util.Optional.ofNullable(MDC.get("traceId")));
+            seen.put("mdcTenant", java.util.Optional.ofNullable(MDC.get("tenant")));
+        });
+        CorrelationId callerA = new CorrelationId("11111111111111111111111111111111");
+        try (AutoCloseable outer = RequestContext.open(callerA, Map.of("tenant", "dxb"))) {
+            contextFree.run(); // e.g. a callback decorated earlier, invoked while serving caller A
+            assertThat(RequestContext.correlationId()).as("caller A restored").contains(callerA);
+            assertThat(MDC.get("traceId")).isEqualTo(callerA.value());
+            assertThat(MDC.get("tenant")).isEqualTo("dxb");
+        }
+        assertThat(seen.get("context")).isEqualTo(java.util.Optional.empty());
+        assertThat(seen.get("mdcTraceId")).isEqualTo(java.util.Optional.empty());
+        assertThat(seen.get("mdcTenant")).isEqualTo(java.util.Optional.empty());
     }
 
     @Test

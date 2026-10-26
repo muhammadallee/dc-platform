@@ -32,7 +32,9 @@ public class PlatformBannerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
 
+    // CapabilityDescriptor is a shared type (one bean per capability): overridden by name (D93).
     @Bean
+    @ConditionalOnMissingBean(name = "coreCapabilityDescriptor")
     CapabilityDescriptor coreCapabilityDescriptor() {
         return new CapabilityDescriptor("core", "ACTIVE", "");
     }

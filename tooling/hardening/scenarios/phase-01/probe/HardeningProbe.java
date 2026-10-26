@@ -167,6 +167,11 @@ public final class HardeningProbe {
             });
         }
 
+        @GetMapping("/async-timeout")
+        public org.springframework.web.context.request.async.DeferredResult<String> asyncTimeout() {
+            return new org.springframework.web.context.request.async.DeferredResult<>(200L); // never completed
+        }
+
         @GetMapping("/boom")
         public String boom() {
             throw new IllegalStateException("cannot reach jdbc:oracle:thin:@db-secret-host:1521/PRD");

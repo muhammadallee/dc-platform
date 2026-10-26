@@ -63,7 +63,9 @@ public class PlatformErrorController implements ErrorController {
     public void error(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int status = statusOf(request);
         Throwable failure = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
-        String path = (String) request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI);
+        // A container ERROR dispatch carries the failing URI; a direct request to the error path does not.
+        Object failingUri = request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI);
+        String path = failingUri instanceof String uri ? uri : request.getRequestURI();
         ErrorCode code = status >= 500 ? PlatformExceptionHandler.UNEXPECTED_ERROR : PlatformExceptionHandler.REQUEST_REJECTED;
         if (status >= 500) {
             log.error("servlet error dispatch [{}] status {} for {}", code.value(), status, path, failure);

@@ -74,4 +74,17 @@ class PlatformBannerAutoConfigurationTest {
                             .contains("platform: alpha[ACTIVE], core[ACTIVE], zeta[ACTIVE] (inmemory)");
                 });
     }
+
+    @Test
+    void consumerCoreDescriptorReplacesThePlatformOne() {
+        ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor mine =
+                new ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor("core", "ACTIVE", "custom");
+        new org.springframework.boot.test.context.runner.ApplicationContextRunner()
+                .withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(
+                        PlatformBannerAutoConfiguration.class))
+                .withBean("coreCapabilityDescriptor", ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class,
+                        () -> mine)
+                .run(context -> assertThat(context)
+                        .getBean(ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class).isSameAs(mine));
+    }
 }

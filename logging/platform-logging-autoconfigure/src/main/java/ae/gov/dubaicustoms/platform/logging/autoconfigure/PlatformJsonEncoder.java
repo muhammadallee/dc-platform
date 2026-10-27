@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.CredentialFieldMasker;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.SanitizedMessageView;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -75,6 +76,7 @@ public class PlatformJsonEncoder extends LogstashEncoder {
         }
         if (redactionEnabled) {
             MaskingJsonGeneratorDecorator masking = new MaskingJsonGeneratorDecorator();
+            masking.addFieldMasker(new CredentialFieldMasker());
             masking.addValueMasker(new PlatformValueMasker(PlatformValueMasker.compile(redactionPatterns)));
             masking.start();
             setJsonGeneratorDecorator(masking);

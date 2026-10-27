@@ -22,11 +22,13 @@ import net.logstash.logback.mask.ValueMasker;
  * structured-argument fields (D102).
  *
  * <p>Order per value: whole-value mask when the field, or any field enclosing it, is a credential key
- * (any value type); {@code LogSanitizer} beans (non-platform fields only); pattern masks. Pattern masks
- * run last, so a sanitizer can neither skip them nor reintroduce a credential the patterns would catch.
- * {@code traceId}/{@code spanId} fields holding W3C hex IDs are never pattern-masked. Every pattern is
- * anchored to token starts and bounded, so masking stays linear in the input length. Masked text
- * becomes {@value #MASK}.
+ * (any value type; {@link CredentialFieldMasker} also replaces such fields before their value is
+ * written); {@code LogSanitizer} beans, keyed by the nearest enclosing field name (not the platform's
+ * own top-level fields); pattern masks. Pattern masks run last, so a sanitizer can neither skip them nor
+ * reintroduce a credential the patterns would catch. Only top-level {@code traceId}/{@code spanId}
+ * fields holding W3C hex IDs are exempt from pattern masks; every other field, whatever its name, is
+ * masked. Every pattern is anchored to token starts and bounded, and no pattern recurses per character,
+ * so masking stays linear in the input length and stack-safe. Masked text becomes {@value #MASK}.
  *
  * <p>Stateless apart from the immutable extra patterns; thread-safe.
  */
@@ -35,14 +37,12 @@ public final class PlatformValueMasker implements ValueMasker {
     /** Replacement for masked text; fixed length so the original length is not disclosed. */
     public static final String MASK = "****";
 
-    // Field names written by the encoder itself; LogSanitizers apply to everything else (MDC, args).
+    // Top-level fields the encoder writes itself; LogSanitizers apply to everything else (MDC, args).
     private static final Set<String> PLATFORM_FIELDS = Set.of("@timestamp", "level", "logger", "message",
             "stack_trace", "service", "traceId", "spanId", "tags");
 
-    // Encoder-written fields: never pattern-masked.
-    private static final Set<String> ENCODER_FIELDS = Set.of("@timestamp", "level", "logger");
-    // traceId/spanId are exempt only when they hold what the platform writes there: W3C hex IDs (a hex
-    // ID may contain a Luhn-valid digit run). Anything else under those names is masked as usual.
+    // The platform writes W3C hex IDs to the top-level traceId/spanId fields (a hex ID may contain a
+    // Luhn-valid digit run). Anything else, or the same names nested in a structured value, is masked.
     private static final Pattern TRACE_OR_SPAN_ID = Pattern.compile("[0-9a-f]{32}|[0-9a-f]{16}");
 
     // Normalized (lower case, no '-' or '_') field names whose whole value is a credential.
@@ -50,22 +50,28 @@ public final class PlatformValueMasker implements ValueMasker {
             "clientsecret", "token", "accesstoken", "refreshtoken", "idtoken", "authorization",
             "proxyauthorization", "cookie", "setcookie", "apikey", "xapikey");
 
-    // A JWT header is base64url JSON: '{' then '"' or whitespace encodes to "ey" / "ew" (RFC 7515 allows
-    // whitespace); the smallest header ({"alg":"x"}) is 15 characters. {} as payload encodes to e30;
-    // alg=none has no signature.
-    private static final Pattern JWT =
-            Pattern.compile("(?<![A-Za-z0-9_-])e[wy][A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{2,}\\.[A-Za-z0-9_-]*");
+    // Compact JWS/JWE candidates: runs of base64url segments joined by dots. A window of three segments
+    // is a token when the first decodes to a JSON object (RFC 7515 allows whitespace around it); the
+    // smallest header ({"alg":"x"}) is 15 characters, {} as payload encodes to e30, alg=none has no
+    // signature.
+    private static final Pattern DOTTED_RUN = Pattern.compile("[A-Za-z0-9_.-]{15,}");
     private static final Pattern BEARER = Pattern.compile("(?i)(?<![\\w-])(Bearer)(\\s+)([A-Za-z0-9._~+/=-]+)");
     private static final Pattern BASIC = Pattern.compile("(?i)(?<![\\w-])(Basic)(\\s+)([A-Za-z0-9+/]+={0,2})");
-    private static final String QUOTED_OR_BARE =
-            "(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|(?:(?:Bearer|Basic)\\s+)?[^\\s\"'&,;}]+)";
+    // Quoted values with escapes, unrolled and possessive: a loop over an alternation would recurse once
+    // per character in java.util.regex and overflow the stack on long values. An unterminated quote runs
+    // to the end of the text.
+    private static final String QUOTED = "\"[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+(?:\"|\\z)"
+            + "|'[^'\\\\]*+(?:\\\\.[^'\\\\]*+)*+(?:'|\\z)";
     // key=value, key: value, "key":"value", key='value'; quoted values masked whole, quotes kept.
     private static final Pattern KEY_VALUE = Pattern.compile("(?i)(?<![\\w-])(password|passwd|pwd|secret"
             + "|client_secret|access_token|refresh_token|id_token|token|api[-_]?key|authorization)"
-            + "(\"?\\s*[:=]\\s*)" + QUOTED_OR_BARE);
-    // A cookie header carries several pairs: everything up to the end of the line (or the quote) goes.
-    private static final Pattern COOKIE = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\"?\\s*[:=]\\s*)"
-            + "(\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'|[^\\r\\n\"]+)");
+            + "(\"?\\s*[:=]\\s*)(" + QUOTED + "|(?:(?:Bearer|Basic)\\s+)?[^\\s\"'&,;}]+)");
+    // "cookie":"…" (a quoted field): the quoted value goes. Cookie: … (header text, several pairs, quoted
+    // pair values included): everything up to the end of the line goes.
+    private static final Pattern COOKIE_FIELD = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\"\\s*:\\s*)("
+            + QUOTED + ")");
+    private static final Pattern COOKIE_HEADER = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\\s*[:=]\\s*)"
+            + "([^\\r\\n]+)");
     // Emirates ID: 784-YYYY-NNNNNNN-C, dashes optional.
     private static final Pattern EMIRATES_ID = Pattern.compile("(?<![\\w-])784-?\\d{4}-?\\d{7}-?\\d(?![\\w-])");
     // Card numbers, issuer digit 2–6 (keeps 13-digit epoch millis out), Luhn-valid: contiguous 13–19
@@ -106,7 +112,16 @@ public final class PlatformValueMasker implements ValueMasker {
         if (underCredentialKey(context)) {
             return MASK;
         }
+        String key = nearestName(context);
+        boolean sanitizable = key != null && !(topLevel(context) && PLATFORM_FIELDS.contains(key));
         if (value instanceof Number number) {
+            if (sanitizable && !LogSanitizerRegistry.current().isEmpty()) {
+                String original = number.toString();
+                String sanitized = sanitize(key, original);
+                if (!sanitized.equals(original)) {
+                    return maskPatterns(sanitized);
+                }
+            }
             // kv("card", 4111111111111111L): a card number written as a JSON number.
             String digits = integralDigits(number);
             return digits != null && DIGITS.matcher(digits).matches() && luhn(digits) ? MASK : null;
@@ -114,28 +129,25 @@ public final class PlatformValueMasker implements ValueMasker {
         if (!(value instanceof CharSequence text)) {
             return null;
         }
-        String field = context.getCurrentName();
         String original = text.toString();
-        if (field != null && (ENCODER_FIELDS.contains(field)
-                || ("traceId".equals(field) || "spanId".equals(field)) && TRACE_OR_SPAN_ID.matcher(original).matches())) {
+        if (topLevel(context) && ("traceId".equals(key) || "spanId".equals(key))
+                && TRACE_OR_SPAN_ID.matcher(original).matches()) {
             return null;
         }
-        String result = original;
-        if (field != null && !PLATFORM_FIELDS.contains(field)) {
-            result = sanitize(field, result);
-        }
+        String result = sanitizable ? sanitize(key, original) : original;
         result = maskPatterns(result);
         return result.equals(original) ? null : result;
     }
 
     /** Applies the pattern masks (credentials, PII, extra patterns) to free text. */
     String maskPatterns(String text) {
-        String result = JWT.matcher(text).replaceAll(MASK);
+        String result = maskJwts(text);
         // RFC 6750 tokens may be letters only: whatever follows "Bearer" goes, prose included.
         result = BEARER.matcher(result).replaceAll("$1$2" + MASK);
         result = replace(result, BASIC, m -> basicCredential(m.group(3)) ? m.group(1) + m.group(2) + MASK : m.group());
         result = replace(result, KEY_VALUE, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
-        result = replace(result, COOKIE, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
+        result = replace(result, COOKIE_FIELD, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
+        result = replace(result, COOKIE_HEADER, m -> m.group(1) + m.group(2) + MASK);
         result = EMIRATES_ID.matcher(result).replaceAll(MASK);
         result = replace(result, PAN_GROUPED, PlatformValueMasker::groupedCard);
         result = replace(result, PAN_CONTIGUOUS, m -> luhn(m.group()) ? MASK : m.group());
@@ -174,24 +186,126 @@ public final class PlatformValueMasker implements ValueMasker {
         return result;
     }
 
+    /**
+     * Whether a field name denotes a credential, compared case-insensitively and ignoring {@code -} and
+     * {@code _} ({@code api-key}, {@code API_KEY}, {@code apiKey}).
+     *
+     * @param name the field name; may be {@code null}
+     * @return {@code true} when the field's whole value must be masked
+     */
+    static boolean isCredentialKey(String name) {
+        return name != null && CREDENTIAL_KEYS.contains(normalize(name));
+    }
+
     private static boolean underCredentialKey(JsonStreamContext context) {
         for (JsonStreamContext c = context; c != null; c = c.getParent()) {
-            String name = c.getCurrentName();
-            if (name != null && CREDENTIAL_KEYS.contains(normalize(name))) {
+            if (isCredentialKey(c.getCurrentName())) {
                 return true;
             }
         }
         return false;
     }
 
-    private static String integralDigits(Number number) {
-        if (number instanceof Long || number instanceof Integer || number instanceof BigInteger) {
-            return number.toString();
-        }
-        if (number instanceof BigDecimal decimal && decimal.stripTrailingZeros().scale() <= 0) {
-            return decimal.toBigInteger().toString();
+    // The key a value is filed under: its own field name, or for an array element the enclosing field's.
+    private static String nearestName(JsonStreamContext context) {
+        for (JsonStreamContext c = context; c != null; c = c.getParent()) {
+            if (c.getCurrentName() != null) {
+                return c.getCurrentName();
+            }
         }
         return null;
+    }
+
+    private static boolean topLevel(JsonStreamContext context) {
+        return context.inObject() && context.getParent() != null && context.getParent().inRoot();
+    }
+
+    private static String integralDigits(Number number) {
+        if (number instanceof Long || number instanceof Integer) {
+            return number.toString();
+        }
+        if (number instanceof BigInteger integer) {
+            // 19 digits fit in 64 bits; anything longer is no card number and is never expanded.
+            return integer.bitLength() <= 64 ? integer.toString() : null;
+        }
+        if (number instanceof BigDecimal decimal) {
+            BigDecimal stripped = decimal.stripTrailingZeros();
+            // Integer digits from precision and scale (long: scale may be near Integer.MIN_VALUE), so
+            // 1E+100000000 is rejected without expanding it.
+            long integerDigits = (long) stripped.precision() - stripped.scale();
+            return stripped.scale() <= 0 && integerDigits >= 13 && integerDigits <= 19
+                    ? stripped.toBigInteger().toString() : null;
+        }
+        return null;
+    }
+
+    private static String maskJwts(String text) {
+        if (text.indexOf('.') < 0) {
+            return text;
+        }
+        Matcher run = DOTTED_RUN.matcher(text);
+        StringBuilder out = null;
+        int copied = 0;
+        while (run.find()) {
+            String masked = maskJwtRun(run.group());
+            if (masked != null) {
+                if (out == null) {
+                    out = new StringBuilder(text.length());
+                }
+                out.append(text, copied, run.start()).append(masked);
+                copied = run.end();
+            }
+        }
+        return out == null ? text : out.append(text, copied, text.length()).toString();
+    }
+
+    // Masks every header.payload.signature window in one dotted run; null when there is none.
+    private static String maskJwtRun(String run) {
+        String[] segments = run.split("\\.", -1);
+        if (segments.length < 3) {
+            return null;
+        }
+        StringBuilder out = new StringBuilder(run.length());
+        boolean found = false;
+        int i = 0;
+        while (i < segments.length) {
+            if (i + 2 < segments.length && jsonObjectHeader(segments[i]) && segments[i + 1].length() >= 2) {
+                out.append(MASK);
+                found = true;
+                i += 3;
+            } else {
+                out.append(segments[i]);
+                i++;
+            }
+            if (i < segments.length) {
+                out.append('.');
+            }
+        }
+        return found ? out.toString() : null;
+    }
+
+    private static boolean jsonObjectHeader(String segment) {
+        if (segment.length() < 10 || segment.length() % 4 == 1 || segment.indexOf('=') >= 0) {
+            return false;
+        }
+        try {
+            String header = new String(Base64.getUrlDecoder().decode(segment), StandardCharsets.ISO_8859_1);
+            int start = 0;
+            int end = header.length();
+            while (start < end && jsonWhitespace(header.charAt(start))) {
+                start++;
+            }
+            while (end > start && jsonWhitespace(header.charAt(end - 1))) {
+                end--;
+            }
+            return end - start >= 2 && header.charAt(start) == '{' && header.charAt(end - 1) == '}';
+        } catch (IllegalArgumentException notBase64) {
+            return false;
+        }
+    }
+
+    private static boolean jsonWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r';
     }
 
     private static String maskValue(String value) {

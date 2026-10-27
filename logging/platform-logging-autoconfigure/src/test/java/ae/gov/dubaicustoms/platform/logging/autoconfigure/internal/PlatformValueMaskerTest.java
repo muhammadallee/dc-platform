@@ -139,7 +139,11 @@ class PlatformValueMaskerTest {
         assertThat(masker.mask(field("traceId"), "abcd4111111111111111abcdefabcdef")).isNull();
         assertThat(masker.mask(field("spanId"), "4111111111111111")).isNull();
         assertThat(masker.mask(field("traceId"), "password=hunter2")).isEqualTo("password=****");
-        assertThat(masker.mask(field("level"), "password=hunter2")).isNull();
+        // Round 2 R2-F6: no name exempts a consumer value — not the encoder's own field names, and not
+        // traceId/spanId below the top level.
+        assertThat(masker.mask(field("level"), "password=hunter2")).isEqualTo("password=****");
+        assertThat(masker.mask(field("logger"), "card 4111111111111111")).isEqualTo("card ****");
+        assertThat(masker.mask(nested("payload", "spanId"), "4111111111111111")).isEqualTo(MASK);
     }
 
     @Test
@@ -219,12 +223,25 @@ class PlatformValueMaskerTest {
         new LogSanitizerRegistry(beans.getBeanProvider(LogSanitizer.class)).afterSingletonsInstantiated();
     }
 
+    // A top-level field: its object's parent is the root context.
     private static JsonStreamContext field(String name) {
-        return context(name, null);
+        return context(name, ROOT);
     }
 
+    private static final JsonStreamContext ROOT = new JsonStreamContext(JsonStreamContext.TYPE_ROOT, 0) {
+        @Override
+        public JsonStreamContext getParent() {
+            return null;
+        }
+
+        @Override
+        public String getCurrentName() {
+            return null;
+        }
+    };
+
     private static JsonStreamContext nested(String outer, String inner) {
-        return context(inner, context(outer, null));
+        return context(inner, context(outer, ROOT));
     }
 
     private static JsonStreamContext context(String name, JsonStreamContext parent) {

@@ -47,7 +47,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   Generated services opt in `platform` in their `application.yml` (D105).
 - **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs, card numbers, e-mail
   addresses and phone numbers become `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
-- `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented.
+- `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented: strings,
+  numbers, maps, collections and arrays, in the JSON field and in the formatted `message` alike.
+  Credential-keyed arguments read `password=****` in `message`.
+- `platform.capability.active` is now registered when Boot creates the meter registry (the
+  auto-configuration was evaluated before Boot's registry existed and backed off).
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`
   previously exported metrics but never traces.
 - `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).

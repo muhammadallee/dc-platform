@@ -16,14 +16,18 @@ is watching.
   are the only MDC keys platform code writes.
 - **Redaction** — in every string the JSON encoder writes (message, MDC values, structured arguments,
   exception message, stack trace) the platform replaces with `****`:
-  - JWTs; whatever follows `Bearer` (so prose such as "Bearer token missing" reads
+  - JWTs (three dot-separated base64url segments whose first decodes to a JSON object, whitespace
+    around it allowed); whatever follows `Bearer` (so prose such as "Bearer token missing" reads
     "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
   - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
     `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`) in `key=value`,
-    `key: value`, `"key":"value"` and `key='value'` text — quoted values whole, quotes kept;
-  - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs);
-  - the whole value — of any type, nested values included — of an MDC entry or structured argument
-    whose **name** is one of those keys or `cookie` / `set-cookie`;
+    `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
+    unterminated quote to the end), quotes kept;
+  - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
+  - the whole value — of any type (string, number, boolean, `byte[]`, object, array) — of an MDC entry or
+    structured-argument field, at any depth, whose **name** is one of those keys or `cookie` /
+    `set-cookie`; in the formatted `message` such an argument reads `password=****` (`****` for a
+    value-only `v(...)`);
   - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
     2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
     digits) and `3782 822463 10005`, with one consistent space or dash separator — in text and when
@@ -34,17 +38,24 @@ is watching.
 
   Timestamps, epoch millis, trace/span IDs (also hex IDs with digit runs inside), UUIDs, IP addresses,
   version strings, `Object@1a2b3c` identity strings and ordinary numeric IDs are left alone. The
-  `traceId`/`spanId` fields are never masked while they hold W3C hex IDs. Masking is linear in the input
-  length. Residual risks: a numeric ID that happens to
+  top-level `traceId`/`spanId` fields are never masked while they hold W3C hex IDs; no other field name
+  exempts a value (the encoder's own `level`/`logger` included). Masking is linear in the input length
+  and stack-safe on long values. Residual risks: a numeric ID that happens to
   be a Luhn-valid 13–19 digit number starting 2–6, or a 10-digit ID starting `050`–`058`, is masked;
   UAE landlines written without a prefix (`04 123 4567`) are **not** masked — add a pattern if you log
-  them.
+  them; a card number your code logs as a top-level field named `traceId`/`spanId` that is also a
+  16-character hex string is not masked.
 - **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
   user input cannot add a line or a field.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
-- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` to MDC values and keyed arguments
-  (`Kv.of`, Logstash `kv(...)`) — both the structured field and the argument's text in `message` — but not
-  to the platform's own fields, before the platform masks run.
+- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` before the platform masks run, to
+  MDC values and to keyed arguments — `Kv.of`, Logstash `kv(...)`/`v(...)`/`value(...)` and
+  `entries(...)` — in both the structured field and the argument's text in `message`, but not to the
+  platform's own top-level fields. Supported values: strings, numbers, maps, collections and object
+  arrays, nested in any combination; each value is sanitized under its own key (map entries under
+  theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
+  field in the JSON output only; in `message` they keep their `toString()`, over which the platform
+  masks still run. An argument whose rendering throws reads `[unrenderable]` in `message`.
 
 ## Starter coordinates
 

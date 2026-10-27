@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 2 — Logging + Observability |
-| Current gate | C done (round 1: 7 High findings, all FIXED; record `review-round-1.md`) → D round 2 |
+| Current gate | D in progress: round 2 + verification pass 1 done, fixes in `f5ce14c`/`8334836`; verification pass 2 pending (prompt `codex/v3-verify.prompt.md`, worktree `$TEMP/hd/codex-p2v2` at `f5ce14c`). Gate E register entries HI-0041..46 written. Gate F scenario drafted (uncommitted), trial 2: 73/75 |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 2 Gate D: fresh Codex review of the revised code from `a33168d`, confirm round-1 dispositions, hunt regressions; rebut, re-evaluate, fix, verification pass. |
+| Next action | Re-run Codex verification pass 2 (stopped by memory pressure 2026-10-27 06:55), then Gate F trial 3 (`HH_MAVEN_REPO=~/.m2-hardening/phase-02`, repo refreshed at `f5ce14c`); confirm CI on `8334836`; write `review-round-2.md`. |
 
 ## Phase log
 
@@ -20,7 +20,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|---|---|---|
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
-| 2 | `a33168d` | in progress (Gate C done) | — | — |
+| 2 | `a33168d` | in progress (Gate D) | — | — |
 
 ## Environment notes for resumption
 

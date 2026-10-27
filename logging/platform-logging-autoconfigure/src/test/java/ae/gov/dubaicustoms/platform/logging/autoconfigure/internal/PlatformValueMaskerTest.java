@@ -183,14 +183,24 @@ class PlatformValueMaskerTest {
     // Round 1 F6: long inputs are scanned in linear time.
     @Test
     void longInputsWithoutMatchesAreScannedQuickly() {
-        String noAt = "a".repeat(200_000);
-        String trailingAt = "a.".repeat(100_000) + "@";
-        String digits = "1".repeat(200_000);
+        // Scaling, not a wall-clock budget (shared CI runners vary): 4x the input must cost far less than
+        // the 16x a quadratic scan would. The absolute ceiling only catches a pathological case.
+        scanTime(50_000); // warm-up (JIT)
+        long small = Math.max(scanTime(50_000), Duration.ofMillis(1).toNanos());
+        long large = scanTime(200_000);
+        assertThat(large).as("4x input: %d ns vs %d ns", large, small).isLessThan(8 * small);
+        assertThat(Duration.ofNanos(large)).isLessThan(Duration.ofSeconds(5));
+    }
+
+    private long scanTime(int length) {
+        String noAt = "a".repeat(length);
+        String trailingAt = "a.".repeat(length / 2) + "@";
+        String digits = "1".repeat(length);
         long start = System.nanoTime();
         assertThat(masker.maskPatterns(noAt)).isEqualTo(noAt);
         assertThat(masker.maskPatterns(trailingAt)).isEqualTo(trailingAt);
         assertThat(masker.maskPatterns(digits)).isEqualTo(digits);
-        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofMillis(750));
+        return System.nanoTime() - start;
     }
 
     @Test

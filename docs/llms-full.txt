@@ -800,13 +800,16 @@ is watching.
     around it allowed); whatever follows `Bearer` (so prose such as "Bearer token missing" reads
     "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
   - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
-    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`) in `key=value`,
+    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`, and compound keys
+    ending in one of them or in `cookie`: `session_token`, `db-password`, `smtpSecret`, `sessionCookie`)
+    in `key=value`,
     `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
     unterminated quote to the end), quotes kept;
   - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
   - the whole value — of any type (string, number, boolean, `byte[]`, object, array) — of an MDC entry or
     structured-argument field, at any depth, whose **name** is one of those keys or `cookie` /
-    `set-cookie`; in the formatted `message` such an argument reads `password=****` (`****` for a
+    `set-cookie`, or ends in one of them ignoring case, `-` and `_` (`sessionToken`, `x-auth-token`,
+    `db_password`); in the formatted `message` such an argument reads `password=****` (`****` for a
     value-only `v(...)`);
   - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
     2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
@@ -826,7 +829,8 @@ is watching.
   them; a card number your code logs as a top-level field named `traceId`/`spanId` that is also a
   16-character hex string is not masked.
 - **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
-  user input cannot add a line or a field.
+  user input cannot add a line or a field. In JSON mode Boot's startup banner is off
+  (`spring.main.banner-mode=off`, overridable), so every stdout line is one JSON object.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
 - **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` before the platform masks run, to
   MDC values and to keyed arguments — `Kv.of`, Logstash `kv(...)`/`v(...)`/`value(...)` and
@@ -835,7 +839,10 @@ is watching.
   arrays, nested in any combination; each value is sanitized under its own key (map entries under
   theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
   field in the JSON output only; in `message` they keep their `toString()`, over which the platform
-  masks still run. An argument whose rendering throws reads `[unrenderable]` in `message`.
+  masks still run (`fields(bean)` likewise). In `message`, a value nested more than 64 levels deep, or
+  a container that contains itself, reads `****`. An argument whose rendering throws reads
+  `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback
+  status).
 
 ## Starter coordinates
 
@@ -4384,6 +4391,18 @@ One line of context per decision; details live in the commit bodies referenced.
   (international with `+`/`00`, UAE mobiles in local form; owner request 2026-10-26) become `****`. Extendable with
   `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
   Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D108 — no startup banner in JSON mode (hardening phase 2, Gate F trial).** The ASCII banner is
+  written to stdout outside logging, so a log shipper parsing stdout line by line saw non-JSON lines.
+  The logging EPP defaults `spring.main.banner-mode=off` whenever the JSON format is resolved
+  (lowest precedence; `console` or `log` set by the service wins). Console format keeps Boot's banner.
+- **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
+  ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
+  case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run
+  showed an MDC key `session-token` written in clear; over-masking a `…Token` field is the safer error.
+  In text, `sessionCookie=…` masks its value like any credential key; only the exact `Cookie:` /
+  `Set-Cookie:` header masks to the end of the line. The message view traverses structured values to
+  64 levels and masks anything deeper or cyclic (fail closed): deep enough that ordinary payloads stay
+  readable, bounded so a hostile value cannot exhaust the stack (verification pass 2).
 - **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
   `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
   split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed

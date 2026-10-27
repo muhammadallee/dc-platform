@@ -159,6 +159,20 @@ class EncoderRedactionTest {
         assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("orderId=ORD-42, phase=ready, password=****");
     }
 
+    @Test
+    void aDeferredArgumentLeaksNothing() throws Exception {
+        // Pre-pass-4 sweep: defer(...) is the one StructuredArgument that is not a marker. Encoder 8.1
+        // gives it no toString (the message shows its identity), and the JSON masks the supplied field.
+        int before = context.getStatusManager().getCount();
+        String line = encode(event("{} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.defer(() -> v("password", "hunter2")),
+                net.logstash.logback.argument.StructuredArguments.defer(() -> kv("entity", new HostileBean()))}));
+        assertThat(line).doesNotContain("hunter2").doesNotContain("hunter5");
+        assertThat(JSON.readTree(line).get("password").asText()).isEqualTo("****");
+        assertThat(context.getStatusManager().getCopyOfStatusList().subList(before, context.getStatusManager().getCount()))
+                .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

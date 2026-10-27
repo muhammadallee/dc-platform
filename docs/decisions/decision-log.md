@@ -677,6 +677,14 @@ One line of context per decision; details live in the commit bodies referenced.
   written to stdout outside logging, so a log shipper parsing stdout line by line saw non-JSON lines.
   The logging EPP defaults `spring.main.banner-mode=off` whenever the JSON format is resolved
   (lowest precedence; `console` or `log` set by the service wins). Console format keeps Boot's banner.
+- **D109 — `raw(...)` JSON is masked; unparseable raw text becomes a string (hardening phase 2, Gate D).**
+  Logstash's masking generator forwards `writeRawValue` unread, so `raw("payload", "{\"password\":…}")`
+  reached the log in clear. The platform reads the raw text as exactly one JSON value (member order,
+  duplicates and exact numbers kept, escapes decoded) and writes it back through the masks. Text that
+  is not one JSON value is written as a JSON **string**, escapes decoded, under the pattern masks:
+  written raw it would make the whole line invalid JSON, and undecoded escapes (`password`)
+  would hide credential names from the masks. Simpler than accepting the bypass as a residual, and
+  fail-closed.
 - **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
   ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
   case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run

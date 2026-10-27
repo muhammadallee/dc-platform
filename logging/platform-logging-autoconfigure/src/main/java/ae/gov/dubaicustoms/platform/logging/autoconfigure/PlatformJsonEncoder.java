@@ -101,11 +101,14 @@ public class PlatformJsonEncoder extends LogstashEncoder {
             PlatformValueMasker masker = new PlatformValueMasker(PlatformValueMasker.compile(redactionPatterns));
             masking.addValueMasker(masker);
             masking.start();
-            // Outside the masking generator: raw(...) JSON is parsed and written back through it.
+            // Outside the masking generator: raw(...) JSON is parsed and written back through it. A
+            // generator decorator set in the consumer's Logback file stays innermost.
+            JsonGeneratorDecorator configuredGenerator = getJsonGeneratorDecorator();
             setJsonGeneratorDecorator(new JsonGeneratorDecorator() {
                 @Override
                 public JsonGenerator decorate(JsonGenerator generator) {
-                    return new RawJsonMaskingGenerator(masking.decorate(generator), masker);
+                    JsonGenerator base = configuredGenerator == null ? generator : configuredGenerator.decorate(generator);
+                    return new RawJsonMaskingGenerator(masking.decorate(base), masker);
                 }
             });
         }

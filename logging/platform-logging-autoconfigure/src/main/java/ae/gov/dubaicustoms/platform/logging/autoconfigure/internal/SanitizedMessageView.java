@@ -184,13 +184,13 @@ public final class SanitizedMessageView {
 
     // raw(...): read as one JSON value (RawJson) and shown decoded, like any structured value — names and
     // strings unescaped, so the pattern masks over the message see them as written. Text that is not
-    // exactly one JSON value is shown as is (the pattern masks still run over the message).
+    // exactly one JSON value is shown with its escapes decoded (the pattern masks run over the message).
     private static String rawText(String name, String raw, int depth) {
         Object parsed;
         try {
             parsed = RawJson.parse(raw);
         } catch (IOException e) {
-            return raw;
+            return RawJson.decodeEscapes(raw);
         }
         return valueText(rawClean(name, parsed, depth));
     }

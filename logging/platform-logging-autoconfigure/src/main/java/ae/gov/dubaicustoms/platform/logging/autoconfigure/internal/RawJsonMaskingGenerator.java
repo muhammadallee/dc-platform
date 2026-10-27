@@ -9,8 +9,8 @@ import java.io.IOException;
  * Logstash's masking generator forwards {@code writeRawValue} unread. The raw text is read as one JSON
  * value ({@link RawJson}: member order, duplicates and exact numbers kept, escapes decoded) and written
  * back through this generator, so field-name and value masks apply to its contents; text that is not
- * exactly one JSON value is written raw after the pattern masks. One instance per event's generator;
- * not thread-safe, like the generator it wraps.
+ * exactly one JSON value is written as a JSON string, escapes decoded, after the pattern masks. One
+ * instance per event's generator; not thread-safe, like the generator it wraps.
  */
 public final class RawJsonMaskingGenerator extends JsonGeneratorDelegate {
 
@@ -31,7 +31,9 @@ public final class RawJsonMaskingGenerator extends JsonGeneratorDelegate {
         try {
             value = RawJson.parse(text);
         } catch (IOException e) {
-            super.writeRawValue(masker.maskPatterns(text));
+            // Not one JSON value: written as a string (raw it would break the line's JSON), escapes
+            // decoded first so the pattern masks see escaped names (D109).
+            writeString(masker.maskPatterns(RawJson.decodeEscapes(text)));
             return;
         }
         // Through this generator, not the delegate's raw path: the masks see every member.

@@ -65,10 +65,10 @@ is watching.
   masked like any other structured value, in the JSON field and in `message` (escapes decoded, member
   order and duplicate names kept, numbers exact; `message` shows it decoded, `{name=value}`, like
   other structured values); raw text that is not exactly one JSON value (invalid, trailing text) is
-  kept whole with the pattern masks only. Card numbers logged as a `double` (`4111111111111111.0`,
-  also inside a `double[]`) are masked too; `LogSanitizer` beans run before that check. In `message`, a value nested
-  more than 64 levels deep, or
-  a container that contains itself, reads `****`. An argument whose rendering throws reads
+  written as a JSON string, escapes decoded, under the pattern masks (D109). Card numbers logged as a
+  `double` (`4111111111111111.0`, also inside a `double[]`) are masked too; `LogSanitizer` beans run
+  before that check. In `message`, a value nested more than 64 levels deep, or a container that
+  contains itself, reads `****`. An argument whose rendering throws reads
   `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback
   status).
 

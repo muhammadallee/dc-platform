@@ -280,6 +280,24 @@ class EncoderRedactionTest {
         assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("card=ending-1111");
     }
 
+    @Test
+    void unparseableRawTextIsDecodedMaskedAndWrittenAsAString() throws Exception {
+        // Pre-pass-7 probe: whatever makes the parse fail, escaped names must not reach the text masks
+        // undecoded, and the log line must stay one valid JSON object.
+        String longNumber = "1".repeat(1_200);
+        String line = encode(event("{} {} {} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("comma", "{\"pass\\u0077ord\":\"hunter6\",}"),
+                net.logstash.logback.argument.StructuredArguments.raw("long", "{\"pass\\u0077ord\":\"hunter7\",\"n\":" + longNumber + "}"),
+                net.logstash.logback.argument.StructuredArguments.raw("empty", ""),
+                net.logstash.logback.argument.StructuredArguments.defer(
+                        () -> net.logstash.logback.argument.StructuredArguments.raw("deferred", "{\"pass\\u0077ord\":\"hunter8\"}"))}));
+        assertThat(line).doesNotContain("hunter6").doesNotContain("hunter7").doesNotContain("hunter8");
+        JsonNode node = JSON.readTree(line);
+        assertThat(node.get("comma").isTextual()).isTrue();
+        assertThat(node.get("empty").asText()).isEmpty();
+        assertThat(node.get("deferred").get("password").asText()).isEqualTo("****");
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

@@ -79,6 +79,54 @@ final class RawJson {
         };
     }
 
+    /**
+     * Decodes JSON escapes ({@code \"}, {@code \\}, {@code \/}, {@code \b}, {@code \f}, {@code \n},
+     * {@code \r}, {@code \t}, {@code \}{@code uXXXX}) in text that did not parse, so the pattern masks
+     * see escaped names and values as written. A malformed escape is kept as is.
+     */
+    static String decodeEscapes(String text) {
+        if (text.indexOf('\\') < 0) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c != '\\' || i + 1 == text.length()) {
+                out.append(c);
+                continue;
+            }
+            char next = text.charAt(i + 1);
+            switch (next) {
+                case '"', '\\', '/' -> out.append(next);
+                case 'b' -> out.append('\b');
+                case 'f' -> out.append('\f');
+                case 'n' -> out.append('\n');
+                case 'r' -> out.append('\r');
+                case 't' -> out.append('\t');
+                case 'u' -> {
+                    if (i + 6 <= text.length() && hex(text, i + 2, i + 6)) {
+                        out.append((char) Integer.parseInt(text, i + 2, i + 6, 16));
+                        i += 4;
+                    } else {
+                        out.append(c).append(next);
+                    }
+                }
+                default -> out.append(c).append(next);
+            }
+            i++;
+        }
+        return out.toString();
+    }
+
+    private static boolean hex(String text, int from, int to) {
+        for (int i = from; i < to; i++) {
+            if (Character.digit(text.charAt(i), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Writes a parsed value through the given generator (so its masks apply to every member). */
     static void write(Object value, JsonGenerator generator) throws IOException {
         switch (value) {

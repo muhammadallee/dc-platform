@@ -841,7 +841,9 @@ is watching.
   field in the JSON output only; in `message` they keep their `toString()`, over which the platform
   masks still run (`fields(bean)` likewise). A `Kv` or marker nested inside a value is treated like a
   top-level one (a nested `Kv` is written `{"<key>": value}` in JSON, so its credential name masks it);
-  chained markers (`append(...).and(...)`) render each one, `, `-joined. In `message`, a value nested
+  chained markers (`append(...).and(...)`) render each one, `, `-joined. `raw(...)` JSON is parsed and
+  masked like any other structured value, in the JSON field and in `message` (escaped field names
+  included); raw text that is not JSON gets the pattern masks only. In `message`, a value nested
   more than 64 levels deep, or
   a container that contains itself, reads `****`. An argument whose rendering throws reads
   `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback

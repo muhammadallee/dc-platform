@@ -867,7 +867,7 @@ each made three recorded attempts (§6.3). Step 7 turns a failure into a degrade
 
 **Hints.**
 
-- `curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq`
+- `curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq` (expose `metrics` first: it is not exposed by default)
 - The fallback signature must be the guarded method's parameters plus a `Throwable`. A mismatch fails
   silently at runtime, not at compile time.
 
@@ -972,6 +972,8 @@ catch (RemoteCallException e) {
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq
 curl -s localhost:8080/actuator/metrics/http.client.requests | jq '.availableTags'
 curl -s localhost:8080/actuator/configprops | jq '.. | .restclient? // empty'

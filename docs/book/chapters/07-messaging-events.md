@@ -1019,6 +1019,8 @@ void on(InvoiceIssued event) { }          // exact runtime type — not assignab
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/platform | jq            # messaging[ACTIVE] (provider)?
 curl -s localhost:8080/actuator/metrics/platform.messaging.handled | jq '.availableTags'
 curl -s localhost:8080/actuator/metrics/platform.messaging.published | jq

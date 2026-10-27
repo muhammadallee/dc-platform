@@ -62,7 +62,7 @@ rules, coverage, and binary-compatibility checks are all enforced by a green `mv
 # Quickstart — a new platform service in under 10 minutes
 
 The DC Platform ships a Maven archetype that generates a ready-to-run service wired with the
-golden-path chassis (correlation IDs, JSON logging, RFC-9457 errors, validation, metrics/tracing,
+golden-path chassis (W3C trace correlation, JSON logging, RFC-9457 errors, validation, metrics/tracing,
 OpenAPI, and an authenticated-by-default security filter chain). You add business logic; the platform
 does the cross-cutting work.
 
@@ -110,7 +110,7 @@ orders-service/
   src/test/java/.../HelloControllerTest.java     @PlatformWebTest + TestTokens
   src/test/java/.../ApplicationSmokeTest.java    @PlatformTest (boots the full context)
   src/test/java/.../SecurityIntegrationTest.java real HTTP: 401 for missing/untrusted/expired tokens, 200 via a loopback JWKS
-  src/test/java/.../StructuredLoggingTest.java   parses the emitted JSON log events: fields, correlation, no tokens
+  src/test/java/.../StructuredLoggingTest.java   parses the emitted JSON log events: fields, traceId, no tokens
   src/test/java/.../data/NoteRepositoryTest.java Flyway-created schema, CRUD across transactions, rollback, constraint
   src/test/java/.../client/GreetingClientTest.java real calls to a loopback stub: JSON, errors, timeouts, relay
   src/test/java/.../PlatformConformanceTest.java runs PlatformUsageRules over your code
@@ -488,16 +488,31 @@ tests fail the build if a generated surface drifts from the code, so the discove
 
 # Core
 
-The smallest useful chassis: correlation-id propagation, the platform exception model, and the
-startup capability banner.
+The smallest useful chassis: request correlation by W3C trace ID, context propagation, the platform
+exception model, and the startup capability banner.
 
 ## What you get
 
-- **Correlation ids** — every servlet request gets a `CorrelationId` (32 lowercase hex): read from
-  the `X-Correlation-Id` header or freshly generated, published to the SLF4J `MDC`
-  (`%X{correlationId}`), readable via `RequestContext`, and echoed on the response.
+- **Correlation = the W3C trace ID** — the only correlation identifier is the trace ID of the
+  current span. A request carrying a valid `traceparent` continues that trace; a missing or invalid
+  one starts a new trace (Boot's observation filter and the OpenTelemetry W3C propagator do this — the
+  platform never parses the header). The platform filter then opens `RequestContext` with the trace
+  ID, so `RequestContext.correlationId()`, the SLF4J `MDC` (`traceId`, `spanId`) and every error body
+  (`traceId`) carry it. No custom correlation header is read, generated, echoed or sent: a caller's
+  `X-Correlation-Id` is ignored. A `traceparent` the propagator did not continue is logged only as a fixed DEBUG marker
+  with the header's length — no header content ever reaches a log line.
+- **Works when unsampled** — unsampled spans still carry a valid trace ID, so correlation does not
+  depend on `management.tracing.sampling.probability`.
+- **Every dispatch** — the context is re-established on ASYNC redispatches (a `Callable`/`CompletableFuture`
+  handler that completes or fails later) and on the servlet ERROR dispatch (`sendError`, exceptions
+  escaping the filter chain), so those error bodies carry the request's `traceId` too.
+- **Context propagation** — the platform turns on Boot's own
+  `spring.task.execution.propagate-context`, and registers a Micrometer `ThreadLocalAccessor` for
+  `RequestContext`: `@Async` methods and Boot-built executors see the caller's trace in
+  `RequestContext` and the MDC, and pool threads are clean after each task. Executors you build
+  yourself need `ContextPropagatingTaskDecorator` (or `ContextSnapshot.wrap`) to get the same.
 - **Exception model** — subclass `PlatformException` with a stable `ErrorCode`
-  (`DC-<CAP>-<NNNN>`); phase 4 maps them to RFC-9457 problem responses.
+  (`DC-<CAP>-<NNNN>`); the errors capability maps them to RFC-9457 problem responses.
 - **Capability banner** — one INFO line at startup listing every active platform capability:
   `platform: core[ACTIVE], messaging[ACTIVE] (kafka)`.
 - **API markers** — `@PlatformApi` (SemVer-guaranteed) and `@PlatformInternal` (no guarantees).
@@ -511,26 +526,34 @@ startup capability banner.
 </dependency>
 ```
 
+The core starter brings the tracer correlation needs: the Micrometer Tracing OpenTelemetry bridge and
+Boot's tracing/observation auto-configuration (no exporter — spans are only shipped when the
+observability starter adds one). A service with just core + errors + logging therefore still continues
+an inbound `traceparent` into its logs and error bodies. If tracing is removed or disabled, requests
+run with no correlation context and error bodies omit `traceId` — the platform never invents an id.
+
 ## Zero-config behavior
 
-On a servlet web app: the correlation filter runs at highest filter precedence (it wraps security
-and logging), generating ids when the header is absent or malformed. In any app: the banner logs
-once the context is ready. Non-web apps get no filter; everything else is unchanged.
+On a servlet web app: the correlation filter runs at order `HIGHEST_PRECEDENCE + 10` — after Boot's
+`ServerHttpObservationFilter` (`HIGHEST_PRECEDENCE + 1`, which continues or starts the trace) and
+before Spring Security (`-100`), so 401/403 bodies and security log lines already carry the trace ID.
+In any app: Boot's task executors propagate context, and the banner logs once the context is ready.
+Non-web apps get no filter; everything else is unchanged.
 
 ## Properties
 
 | Key | Default | Meaning |
 |---|---|---|
-| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability. |
+| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability (tier `DEFAULT_ON`). |
 | `dc.platform.core.banner-enabled` | `true` | Log the startup capability banner. |
-| `dc.platform.core.correlation.header-name` | `X-Correlation-Id` | HTTP header carrying the id. |
-| `dc.platform.core.correlation.generate-if-missing` | `true` | Mint a fresh id when the request has none. |
+| `spring.task.execution.propagate-context` | `true` (platform default; Boot's is `false`) | Boot's own context propagation for its executors. |
 
-(Hand-written until the generated reference lands in phase 14.)
+Removed (deprecated, level `error` — setting them has no effect): `dc.platform.core.correlation.header-name`,
+`dc.platform.core.correlation.generate-if-missing`. There is no header to name and nothing to generate:
+a request without a valid `traceparent` always starts a new trace.
 
 ## Customize
 
-- Change the header name or generation policy via the properties above.
 - Contribute a capability line to the banner from your own auto-configuration:
 
 ```java
@@ -540,26 +563,62 @@ CapabilityDescriptor myCapabilityDescriptor() {
 }
 ```
 
+- Read the correlation id anywhere on a request (or `@Async`) thread:
+
+```java
+RequestContext.correlationId()
+        .map(CorrelationId::value)          // the W3C trace ID
+        .ifPresent(traceId -> receipt.setSupportReference(traceId));
+```
+
 ## Replace / Disable
 
-- Define your own `CorrelationIdFilter` bean (any name) to replace the filter; Boot registers it at
-  the platform's order and dispatch types. Define a `FilterRegistrationBean<CorrelationIdFilter>`
-  (any name) to take over registration entirely.
-- Define a `PlatformBannerRunner` bean (any name) to replace the banner; a bean named
-  `coreCapabilityDescriptor` replaces the core banner entry.
-- `dc.platform.core.enabled=false` switches the capability off wholesale.
+Overrides are by type, under any bean name (D98), the way Boot backs off its own filters:
+
+- Define your own `CorrelationIdFilter` bean (a subclass, say) to replace the filter. The platform
+  registration backs off and Boot registers yours; `CorrelationIdFilter` is `Ordered` at
+  `CoreContextAutoConfiguration.FILTER_ORDER` and runs on REQUEST, ASYNC and ERROR dispatches, so it
+  keeps the platform's position.
+- Define a `FilterRegistrationBean<CorrelationIdFilter>` to control the registration yourself (order,
+  URL patterns, or `setEnabled(false)`). Keep it after the observation filter, or there is no span yet:
+
+  ```java
+  @Bean
+  FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
+      var registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
+      registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
+      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
+      return registration;
+  }
+  ```
+
+  Unrelated filters and registrations never affect the platform's.
+- Define a `PlatformBannerRunner` bean (subclass it and override `describe`) to change the banner, or
+  set `dc.platform.core.banner-enabled=false` and add your own `ApplicationRunner`. Other
+  `ApplicationRunner` beans never suppress the banner.
+- Capability descriptors are one bean per capability, so they back off **by name**, like Boot's health
+  indicators (D97): a bean named `coreCapabilityDescriptor` replaces the core entry. A descriptor under
+  any other name is simply one more entry.
+- `dc.platform.core.enabled=false` switches the capability off wholesale (no correlation context, no
+  platform executor default); tracing itself keeps working.
 
 ## Error codes
 
-None yet — core defines the model (`PlatformException`, `ErrorCode`); capabilities start
-registering codes in phase 4.
+None — core defines the model (`PlatformException`, `ErrorCode`); see the errors capability for the
+codes the platform maps.
 
 ## Testing
 
 `RequestContext.open(id, extras)` is `@PlatformInternal` but usable from tests to establish a
-context around code under test (try-with-resources). The filter is a plain
-`OncePerRequestFilter`: `MockMvcBuilders.standaloneSetup(controller).addFilters(new
-CorrelationIdFilter("X-Correlation-Id", true))` exercises it without a full context.
+context around code under test (try-with-resources). For a real request, send a `traceparent`
+(`00-<32 hex trace id>-<16 hex span id>-01`) and assert the trace ID in the response's ProblemDetail or
+the JSON log's `traceId`; the archetype's `HttpIntegrationTestSupport` does exactly that.
+
+## Upgrading from the `X-Correlation-Id` model
+
+Callers that sent `X-Correlation-Id` should send `traceparent` instead (any OpenTelemetry/W3C client
+does this automatically). Log queries on `correlationId` become queries on `traceId`; ProblemDetail
+consumers read `traceId`. `CorrelationId` and `RequestContext.correlationId()` keep their API.
 
 ## Local dev notes
 
@@ -575,8 +634,8 @@ starter is on the classpath and `dc.platform.core.enabled` is not `false`.
 # Errors
 
 RFC-9457 problem responses with stable, machine-readable error codes: throw a
-`BusinessException`, get a correct `application/problem+json` body with `code`, `correlationId`,
-and `timestamp` — correlated with the JSON log line.
+`BusinessException`, get a correct `application/problem+json` body with `code`, `traceId`,
+`timestamp` and `retryable` — correlated with the JSON log line by the W3C trace ID.
 
 ## What you get
 
@@ -584,16 +643,32 @@ and `timestamp` — correlated with the JSON log line.
   (404), `ConflictException` (409); each carries an `ErrorCode` (`DC-<CAP>-<NNNN>`) that becomes
   the problem `type`/`title` and the `code` extension.
 - **Platform exception mapping** — any other `PlatformException` maps to 500 with its own code;
-  anything unmapped maps to 500 with `DC-CORE-0500` and a generic detail (the message is never
-  leaked — the full exception goes to the log, correlated via MDC).
+  anything unmapped maps to 500 with `DC-CORE-0500`. **No 5xx body ever carries an exception
+  message** — every 5xx gets the generic detail `An unexpected error occurred.`; the full exception
+  goes to the log with the trace ID. 4xx business exceptions keep their application-authored message.
+- **Framework errors get the same contract** — Spring MVC's own rejections (404, 405, 406, 415, …) keep
+  their statuses and gain `code` (`DC-CORE-0499`), `traceId`, `timestamp`, `retryable`; an unreadable
+  or malformed body is `DC-CORE-0410` with a fixed detail (the JSON parser's message, which names
+  classes and offsets, never reaches the caller).
+- **`retryable`** — `true` for 429, 502, 503, 504, otherwise `false`: a hint for clients deciding
+  whether to retry the identical request after backing off.
+- **The servlet error page too** — `PlatformErrorController` replaces Boot's `BasicErrorController`:
+  a filter's `sendError(…)` or an exception escaping the filter chain is rendered as
+  `application/problem+json` (whatever the `Accept` header) with `instance` = the original URI and
+  the request's `traceId`. Define your own `ErrorController` bean to replace it.
+- **Security denials pass through** — an `AccessDeniedException`/`AuthenticationException` thrown in
+  a controller (e.g. method security) is handed back to Spring Security, which renders the platform
+  403/401, instead of being swallowed into a 500.
 - **Validation mapping** — `@Valid` body failures and method-validation
   `ConstraintViolationException`s map to 400 with an `errors[]` extension
-  (`field`, `message`, `rejectedValue`); rejected values for password/secret/token-shaped fields
-  are `REDACTED`.
+  (`field`, `message`). `rejectedValue` is **omitted by default** — rejected values are raw user
+  input and may be personal data; turn it on with `dc.platform.errors.include-rejected-values=true`,
+  and even then password/secret/token-shaped fields are `REDACTED`.
 - **Customization SPI-lite** — `ProblemDetailCustomizer` beans applied in `@Order` to every
   outgoing problem body.
-- **Error-code registry** — a build-time gate asserts code format and platform-wide uniqueness
-  and exports `target/error-codes.csv` (feeds the phase-14 reference).
+- **Error-code registry** — build-time gates assert code format and platform-wide uniqueness:
+  one scans the classpath and exports `target/error-codes.csv` (feeds the reference), the other reads
+  the production sources of every platform module, so a duplicate anywhere fails the build.
 
 ## Starter coordinates
 
@@ -626,8 +701,9 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
   "detail": "order 42 not found",
   "instance": "/orders/42",
   "code": "DC-ORDER-0404",
-  "correlationId": "0123456789abcdef0123456789abcdef",
-  "timestamp": "2026-01-01T00:00:00Z"
+  "traceId": "0123456789abcdef0123456789abcdef",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "retryable": false
 }
 ```
 
@@ -639,6 +715,12 @@ throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found"
 | `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debug only). |
 | `dc.platform.errors.type-base-uri` | `urn:dc:problem:` | Base URI forming the problem `type`. |
 | `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 + `errors[]`. |
+| `dc.platform.errors.include-rejected-values` | `false` | Echo invalid values as `errors[].rejectedValue` (raw user input; credentials stay redacted). |
+
+The default `type` prefix `urn:dc:problem:` is a neutral, non-dereferenceable identifier (RFC 9457
+allows a `type` that is not a locator): clients match on it, nothing tries to fetch it, and it points at
+no host the platform does not own. Once your organisation publishes error documentation, set
+`type-base-uri` to that `https://…/` base so `type` links to the page for each code (D99).
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -656,8 +738,10 @@ Customizers run last, in order, on every problem body the platform emits.
 
 ## Replace / Disable
 
-- Define a bean named `platformExceptionHandler` to replace the main advice, or
-  `platformValidationExceptionHandler` to replace the constraint-violation advice.
+- Define a `PlatformExceptionHandler` (subclass) bean, or any bean named `platformExceptionHandler`,
+  to replace the main advice; likewise `PlatformConstraintViolationHandler` /
+  `platformValidationExceptionHandler` for the constraint-violation advice; any `ErrorController` bean
+  replaces the error page; a bean named `errorsCapabilityDescriptor` replaces the banner line.
 - `dc.platform.errors.map-validation=false` reverts validation failures to Spring's default
   problem body.
 - `dc.platform.errors.enabled=false` switches the capability off wholesale.
@@ -667,7 +751,11 @@ Customizers run last, in order, on every problem body the platform emits.
 | Code | Meaning |
 |---|---|
 | `DC-CORE-0400` | Request validation failed (`errors[]` lists the violations). |
+| `DC-CORE-0410` | Request body unreadable or malformed (e.g. invalid JSON). |
+| `DC-CORE-0499` | Any other request the servlet stack rejected (404, 405, 406, 415, …); status preserved. |
 | `DC-CORE-0500` | Unhandled exception; generic body, full details in the log. |
+| `DC-SEC-0401` | Missing or unacceptable credentials (security entry point). |
+| `DC-SEC-0403` | Authenticated, but lacking the required authority (security denied handler). |
 
 Applications register their own codes by declaring `static final ErrorCode` constants — the
 registry gate picks them up automatically.
@@ -677,7 +765,7 @@ registry gate picks them up automatically.
 The advices are plain beans:
 `MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(handler)` exercises mappings
 without a full context. Open a `RequestContext` (try-with-resources) around the call to see the
-`correlationId` extension. Inject a fixed `Clock` bean to make `timestamp` deterministic.
+`traceId` extension. Inject a fixed `Clock` bean to make `timestamp` deterministic.
 
 ## Local dev notes
 
@@ -692,21 +780,62 @@ starter is missing or the kill switch is off.
 
 # Logging
 
-Structured JSON logs on stdout with service identity and correlation, configured before the
-application context exists — and readable console output when a human is watching.
+Structured JSON logs on stdout with service identity and correlation, credentials and common PII
+masked, configured before the application context exists — and readable console output when a human
+is watching.
 
 ## What you get
 
 - **JSON by default** — one logstash-encoded line per event with ECS-ish fields:
-  `@timestamp`, `level`, `logger`, `message`, `service`, `correlationId` (and every other MDC
+  `@timestamp`, `level`, `logger`, `message`, `service`, `traceId`, `spanId` (and every other MDC
   entry), `stack_trace`.
 - **Console for humans** — activate the `local` profile and output falls back to Boot's
   human-readable console format (explicit `dc.platform.logging.format` always wins).
-- **Correlation built in** — the core filter publishes `correlationId` to the MDC; the encoder
-  lifts MDC entries into JSON fields, so log lines correlate with problem responses for free.
+- **Correlation built in** — the core filter publishes the W3C `traceId` (and `spanId`) to the MDC; the encoder
+  lifts MDC entries into JSON fields, so log lines correlate with problem responses for free. These two
+  are the only MDC keys platform code writes.
+- **Redaction** — in every string the JSON encoder writes (message, MDC values, structured arguments,
+  exception message, stack trace) the platform replaces with `****`:
+  - JWTs (three dot-separated base64url segments whose first decodes to a JSON object, whitespace
+    around it allowed); whatever follows `Bearer` (so prose such as "Bearer token missing" reads
+    "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
+  - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
+    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`) in `key=value`,
+    `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
+    unterminated quote to the end), quotes kept;
+  - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
+  - the whole value — of any type (string, number, boolean, `byte[]`, object, array) — of an MDC entry or
+    structured-argument field, at any depth, whose **name** is one of those keys or `cookie` /
+    `set-cookie`; in the formatted `message` such an argument reads `password=****` (`****` for a
+    value-only `v(...)`);
+  - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
+    2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
+    digits) and `3782 822463 10005`, with one consistent space or dash separator — in text and when
+    logged as a number;
+  - e-mail addresses;
+  - phone numbers: international with a `+` or `00` prefix (`+971 50 123 4567`, `00971501234567`,
+    `+44 20 7946 0958`) and UAE mobiles in local form (`050 123 4567`, `0501234567`).
+
+  Timestamps, epoch millis, trace/span IDs (also hex IDs with digit runs inside), UUIDs, IP addresses,
+  version strings, `Object@1a2b3c` identity strings and ordinary numeric IDs are left alone. The
+  top-level `traceId`/`spanId` fields are never masked while they hold W3C hex IDs; no other field name
+  exempts a value (the encoder's own `level`/`logger` included). Masking is linear in the input length
+  and stack-safe on long values. Residual risks: a numeric ID that happens to
+  be a Luhn-valid 13–19 digit number starting 2–6, or a 10-digit ID starting `050`–`058`, is masked;
+  UAE landlines written without a prefix (`04 123 4567`) are **not** masked — add a pattern if you log
+  them; a card number your code logs as a top-level field named `traceId`/`spanId` that is also a
+  16-character hex string is not masked.
+- **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
+  user input cannot add a line or a field.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
-- **`LogSanitizer` SPI-lite** — contribute beans to scrub sensitive values; collected by the
-  log-enrichment components of later phases.
+- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` before the platform masks run, to
+  MDC values and to keyed arguments — `Kv.of`, Logstash `kv(...)`/`v(...)`/`value(...)` and
+  `entries(...)` — in both the structured field and the argument's text in `message`, but not to the
+  platform's own top-level fields. Supported values: strings, numbers, maps, collections and object
+  arrays, nested in any combination; each value is sanitized under its own key (map entries under
+  theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
+  field in the JSON output only; in `message` they keep their `toString()`, over which the platform
+  masks still run. An argument whose rendering throws reads `[unrenderable]` in `message`.
 
 ## Starter coordinates
 
@@ -725,9 +854,9 @@ through a lowest-precedence property source named `platform-logging-defaults` (v
 `/actuator/env`). `service` defaults to `spring.application.name`, then `application`.
 
 ```json
-{"@timestamp":"2026-01-01T00:00:00.000Z","message":"order accepted orderId=42",
+{"@timestamp":"2026-01-01T00:00:00.000Z","message":"login for alice with password=****",
  "logger":"ae.gov.dc.orders.OrderService","level":"INFO","service":"orders",
- "correlationId":"0123456789abcdef0123456789abcdef"}
+ "traceId":"0123456789abcdef0123456789abcdef","spanId":"b7ad6b7169203331"}
 ```
 
 ## Properties
@@ -738,36 +867,59 @@ through a lowest-precedence property source named `platform-logging-defaults` (v
 | `dc.platform.logging.format` | `json` | `json` or `console`; unset + `local` profile ⇒ console. |
 | `dc.platform.logging.include-mdc` | `true` | Copy MDC entries into JSON fields. |
 | `dc.platform.logging.service-name` | `${spring.application.name}` | Service stamped on every line. |
+| `dc.platform.logging.mdc.include` | empty | Strict mode: when set, only `traceId`, `spanId` and these MDC keys are written. |
+| `dc.platform.logging.redaction.enabled` | `true` | Mask credentials and PII in JSON output. |
+| `dc.platform.logging.redaction.patterns` | empty | Extra regular expressions whose matches are masked. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
 ## Customize
 
 - `dc.platform.logging.service-name=customs-orders` overrides the stamped service identity.
+- `dc.platform.logging.mdc.include=tenant,channel` keeps only those MDC keys (plus `traceId`/`spanId`)
+  — use it when other libraries put noisy or sensitive entries in the MDC.
+- `dc.platform.logging.redaction.patterns[0]=CASE-\d{6}` masks your own identifiers too.
+- A `LogSanitizer` bean scrubs by key:
+
+  ```java
+  @Bean
+  LogSanitizer customerNameSanitizer() {
+      return (key, value) -> "customerName".equals(key) ? "C***" : value;
+  }
+  ```
 - `dc.platform.logging.include-mdc=false` drops MDC fields (correlation included — rarely wise).
-- Contribute `LogSanitizer` beans for value scrubbing (applied by later-phase enrichment).
 
 ## Replace / Disable
 
-- Set `logging.config` to your own file — any user-set value outranks the platform default.
-- `dc.platform.logging.format=console` keeps Boot's default logging everywhere.
+- Set `logging.config` to your own file — any user-set value outranks the platform default. Your file
+  then decides about masking: reuse
+  `ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformJsonEncoder` or accept that
+  nothing is masked.
+- `dc.platform.logging.format=console` keeps Boot's default logging everywhere (no masking).
+- `dc.platform.logging.redaction.enabled=false` writes values unmasked (also removes the
+  `LogSanitizerRegistry` bean that hands your `LogSanitizer` beans to the encoder).
 - `dc.platform.logging.enabled=false` switches the capability off wholesale.
 
 ## Error codes
 
-None — logging fails soft by design; a broken logging setup must never take the service down.
+None — logging fails soft by design; a broken logging setup must never take the service down. A
+`LogSanitizer` that throws is skipped for that value; the platform masks still apply.
 
 ## Testing
 
 `OutputCaptureExtension` + a real `SpringApplicationBuilder(...).run()` exercises the whole
 chain (EPP → logback → encoder); assert JSON keys on `output.getOut()`. Logback state is
 JVM-global — `((LoggerContext) LoggerFactory.getILoggerFactory()).reset()` after such tests.
+`LogSanitizer` beans are handed to the encoder once the context has started; with several contexts in
+one JVM the most recently started one wins.
 
 ## Local dev notes
 
-Run with `--spring.profiles.active=local` for readable console lines. If production output is
-not JSON: check the banner line `logging[ACTIVE] (json|console)` — it reports the effective
-format decision, and `/actuator/env` shows whether `platform-logging-defaults` was outranked.
+Run with `--spring.profiles.active=local` for readable console lines. Console output is for humans and
+is **not** masked, and a CR/LF in a message can split a console line — never ship console format to log
+aggregation. If production output is not JSON: check the banner line `logging[ACTIVE] (json|console)` —
+it reports the effective format decision, and `/actuator/env` shows whether `platform-logging-defaults`
+was outranked.
 
 
 ---
@@ -866,25 +1018,31 @@ never saw a bundle — check that the starter (not just the api jar) is on the c
 
 # Observability
 
-Metrics with a consistent identity, health probes that work on any platform, correlation that
-propagates without exploding your time-series storage, and one endpoint that tells you which
-platform capabilities a running service actually has.
+Metrics with a consistent identity, health probes that answer "can this pod serve" without turning a
+shared outage into a fleet outage, correlation that propagates without exploding your time-series
+storage, and an opt-in endpoint that tells you which platform capabilities a running service has.
 
 ## What you get
 
 - **Common meter tags** — every meter carries `service` (= `spring.application.name`),
   `env` (= first active profile) and `platform.version` (from the platform jar manifest), so
   dashboards slice uniformly across the fleet.
-- **Health groups out of the box** — `/actuator/health/liveness` and
-  `/actuator/health/readiness` exist everywhere (not only on Kubernetes); readiness additionally
-  reflects `db`, `rabbit` and `redis` indicators **when present**.
-- **`/actuator/platform`** — the `CapabilityDescriptor` report as JSON: which platform
-  capabilities are ACTIVE in this running service, with provider detail.
-- **Prometheus locally, OTLP when you have a collector** — the starter ships both registries;
-  OTLP export is OFF by default because laptops have no collector.
-- **Correlation via baggage, never metric tags** — the correlation id is high-cardinality (one
-  value per request); it propagates downstream through tracing baggage (`X-Correlation-Id`) and
-  is never added as a metric tag or observation key-value.
+- **Pod-local probes** — `/actuator/health/liveness` (`livenessState`) and
+  `/actuator/health/readiness` (`readinessState`) exist everywhere, not only on Kubernetes. Neither
+  checks an external system, so a database outage does not mark every replica unready at once.
+- **A `dependencies` group** — `/actuator/health/dependencies` reports `db`, `rabbit` and `redis`
+  **when present**, for dashboards and alerts.
+- **Minimal exposure** — over http only `health`, `info` and `prometheus` are exposed. `metrics`,
+  `platform` and everything else are an explicit opt-in.
+- **`/actuator/platform` (opt-in)** — the `CapabilityDescriptor` report as JSON: which platform
+  capabilities are ACTIVE in this running service, with provider detail. Generated services expose it.
+- **Prometheus locally, OTLP when you have a collector** — the starter ships both metric registries
+  and the OTLP span exporter; OTLP export is OFF by default because laptops have no collector.
+- **Bounded metric tags** — the trace ID never becomes a metric tag or observation key-value, and
+  Boot's `uri` tag cap (`management.metrics.web.server.max-uri-tags` /
+  `management.metrics.web.client.max-uri-tags`, default 100) stops a client that builds URIs by string
+  concatenation (`"/orders/" + id`) from creating one series per ID. Prefer templates
+  (`uri("/orders/{id}", id)`) anyway.
 
 ## Starter coordinates
 
@@ -902,19 +1060,22 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 
 | Contributed key | Value |
 |---|---|
-| `management.endpoints.web.exposure.include` | `health,info,platform,metrics,prometheus` |
+| `management.endpoints.web.exposure.include` | `health,info,prometheus` |
 | `management.endpoint.health.probes.enabled` | `true` |
 | `management.endpoint.health.group.liveness.include` | `livenessState` |
-| `management.endpoint.health.group.readiness.include` | `readinessState,db,rabbit,redis` |
-| `management.endpoint.health.validate-group-membership` | `false` (the readiness list names optional members) |
-| `management.tracing.baggage.remote-fields` | `X-Correlation-Id` |
+| `management.endpoint.health.group.readiness.include` | `readinessState` |
+| `management.endpoint.health.group.dependencies.include` | `db,rabbit,redis` |
+| `management.endpoint.health.validate-group-membership` | `false` (the dependencies list names optional members) |
+| `management.tracing.baggage.remote-fields` | not set (was `X-Correlation-Id`; removed in the hardening phase 1) |
 | `management.otlp.metrics.export.enabled` | `false` (only while `otlp.enabled=false`) |
 | `management.tracing.export.otlp.enabled` | `false` (only while `otlp.enabled=false`) |
 
-Any user-set value outranks every one of these.
+Any user-set value outranks every one of these. The top-level `/actuator/health` still aggregates every
+contributor (the database included) — point probes at `readiness` and `liveness`, never at the top level.
 
-> **Exposure note:** `platform` is exposed over http by default. It reports capability names and
-> providers — no secrets — and real endpoint security arrives with the phase-6 security baseline.
+> **Access:** with the security starter, `/actuator/health/**` and `/actuator/info` are open and
+> `/actuator/prometheus` needs a token. How Prometheus scrapes in OpenShift (token, separate management
+> port, or a permit rule) is decided with the security hardening; until then, scrape with a token.
 
 ## Properties
 
@@ -923,8 +1084,8 @@ Any user-set value outranks every one of these.
 | `dc.platform.observability.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.observability.common-tags.enabled` | `true` | Stamp `service`/`env`/`platform.version` on every meter. |
 | `dc.platform.observability.otlp.enabled` | `false` | Enable OTLP export (metrics + traces). |
-| `dc.platform.observability.health.groups.enabled` | `true` | Contribute liveness/readiness group defaults. |
-| `dc.platform.observability.platform-endpoint.enabled` | `true` | Serve `/actuator/platform`. |
+| `dc.platform.observability.health.groups.enabled` | `true` | Contribute liveness/readiness/dependencies group defaults. |
+| `dc.platform.observability.platform-endpoint.enabled` | `true` | Serve `/actuator/platform` when it is exposed. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -940,19 +1101,50 @@ management:
     metrics:
       export:
         url: http://otel-collector:4318/v1/metrics
+  opentelemetry:
     tracing:
-      endpoint: http://otel-collector:4318/v1/traces
+      export:
+        otlp:
+          endpoint: http://otel-collector:4318/v1/traces
 ```
+
+(`management.otlp.tracing.endpoint` was removed in Boot 4 — it no longer has any effect.)
+
+## Sampling
+
+Tracing is head-sampled: `management.tracing.sampling.probability`, Boot default `0.1`. The trace ID in
+logs and error bodies does not depend on sampling — an unsampled request still has one. A head sampler
+cannot know a request will fail, so **keeping every failed request's trace is the collector's job**: run
+the OpenTelemetry Collector with tail sampling and an error policy.
+
+```yaml
+# OpenTelemetry Collector (contrib) — keep all errored traces, 10 % of the rest.
+processors:
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: baseline
+        type: probabilistic
+        probabilistic: { sampling_percentage: 10 }
+```
+
+Tail sampling only sees spans the service exported, so with it in place set
+`management.tracing.sampling.probability: 1.0` in the service and let the collector decide.
 
 ## Customize
 
 - Define your own `MeterRegistryCustomizer` bean named `platformCommonTagsCustomizer` to replace
   the platform tags wholesale (any other bean name adds to them).
+- Expose more endpoints: `management.endpoints.web.exposure.include: health,info,prometheus,platform,metrics`.
 - Override any contributed `management.*` key in `application.yml` — user config always wins.
 
 ## Replace / Disable
 
 - `dc.platform.observability.platform-endpoint.enabled=false` removes `/actuator/platform`.
+- A bean named `observabilityCapabilityDescriptor` replaces the banner/report entry.
 - `management.endpoints.web.exposure.include=health` shrinks the http surface back to Boot's own.
 - `dc.platform.observability.enabled=false` switches the capability off wholesale.
 
@@ -962,10 +1154,10 @@ None — observability fails soft; a broken metrics/tracing setup must never tak
 
 ## Testing
 
-The `ApplicationContextRunner` matrix covers activation/back-off; a `RANDOM_PORT` boot test
-proves the exposure + health-group defaults end to end (`/actuator/platform`,
-`/actuator/health/liveness|readiness`). The EnvironmentPostProcessor is unit-tested against a
-`MockEnvironment` — user values always win.
+The `ApplicationContextRunner` matrix covers activation/back-off; `RANDOM_PORT` boot tests prove the
+exposure and health-group defaults end to end (a simulated `db` outage leaves readiness UP and the
+`dependencies` group DOWN), the scrape content, and Boot's client `uri` cap. The
+EnvironmentPostProcessor is unit-tested against a `MockEnvironment` — user values always win.
 
 ## Local dev notes
 
@@ -1058,20 +1250,21 @@ declares that status explicitly — the platform customizer never overwrites an 
 # REST Client
 
 Platform-conventional outbound REST calls: inject `PlatformRestClientFactory` instead of
-`RestClient.Builder` to get correlation propagation, sane timeouts, and error mapping on every
+`RestClient.Builder` to get W3C trace propagation, sane timeouts, and error mapping on every
 outbound call for free.
 
 ## What you get
 
 - **`PlatformRestClientFactory`** — `builder(String clientName)` returns a pre-configured
   `RestClient.Builder` on the JDK `HttpClient` request factory.
-- **Correlation propagation** — the current `RequestContext` correlation id (if any) is sent as
-  an `X-Correlation-Id` header on every outbound call (matches the core capability's default
-  header name).
+- **Trace propagation** — every client is instrumented with the observation registry, so the
+  current trace travels as the standard `traceparent` header (the platform's only correlation id).
+  No custom correlation header is sent or read (the former `X-Correlation-Id` behaviour is gone).
 - **Per-client timeouts** — a `connect-timeout`/`read-timeout` default, overridable per client
   name.
 - **Error mapping** — any non-2xx response throws `RemoteCallException` (status, 1KB-truncated
-  body, remote correlation id echoed by the callee).
+  body). `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
+  caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
 - **`PlatformRestClientCustomizer` extension point** — ordered beans that further customize a
   named client's builder.
 - **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
@@ -1122,7 +1315,7 @@ class OrdersClient {
 | Key | Default | Meaning |
 |---|---|---|
 | `dc.platform.restclient.enabled` | `true` | Kill switch for the whole capability. |
-| `dc.platform.restclient.propagate-correlation` | `true` | Send the current correlation id as an outbound header. |
+| ~~`dc.platform.restclient.propagate-correlation`~~ | — | Removed (deprecated, level `error`): `traceparent` is always propagated. |
 | `dc.platform.restclient.defaults.connect-timeout` | `2s` | Default connect timeout. |
 | `dc.platform.restclient.defaults.read-timeout` | `10s` | Default read timeout. |
 | `dc.platform.restclient.clients.<name>.connect-timeout` | (defaults) | Per-client connect timeout override. |
@@ -1181,7 +1374,15 @@ exposes the authenticated principal without coupling application code to JWT/cla
   properties (issuer-uri or jwk-set-uri); no platform-specific JWT configuration.
 - **RFC-9457 401/403 bodies** — the security filter chain runs before the `DispatcherServlet`, so
   the errors capability's `@RestControllerAdvice` cannot shape these; a small internal
-  entry-point/denied-handler pair writes the problem body directly.
+  entry-point/denied-handler pair writes the problem body directly, with the full platform contract
+  (`type` = `dc.platform.errors.type-base-uri` + code, `title`, `status`, `detail`, `instance`,
+  `code` `DC-SEC-0401`/`DC-SEC-0403`, `traceId`, `timestamp`, `retryable`). The same body is used
+  for missing credentials **and** for rejected bearer tokens (malformed, expired, untrusted key):
+  the resource server's own entry point is replaced too. The challenge is `WWW-Authenticate: Bearer`
+  without an error description, so the reason a token was rejected is never disclosed.
+- **Error page not re-authorized** — the servlet ERROR dispatch is permitted, so a filter's
+  `sendError(409)` or an exception escaping the filter chain keeps its real status for anonymous
+  callers instead of turning into a 401.
 - **`CurrentUser` / `CurrentUserAccessor`** — token-format-neutral principal (subject, tenant,
   roles, claims), independent of the underlying JWT shape.
 - **`SecurityCustomizer` extension point** — ordered beans that extend the baseline chain (e.g.
@@ -1213,7 +1414,10 @@ spring:
 Anonymous requests to anything not in `permit-paths` get:
 
 ```json
-{"status":401,"title":"Unauthorized","detail":"Full authentication is required to access this resource"}
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,
+ "detail":"Full authentication is required to access this resource","instance":"/orders",
+ "code":"DC-SEC-0401","traceId":"0af7651916cd43dd8448eb211c80319c",
+ "timestamp":"2026-01-01T00:00:00Z","retryable":false}
 ```
 
 A valid bearer JWT authenticates the request; `CurrentUserAccessor.currentUser()` returns the
@@ -2760,7 +2964,7 @@ class OrdersEventsTest {
   ```
 
 - **`assertThatProblem(...)`** — AssertJ assertions over RFC-9457 `ProblemDetail` bodies, including
-  the platform `code`/`correlationId` extensions:
+  the platform `code`/`traceId` extensions:
 
   ```java
   assertThatProblem(response).hasStatus(404).hasCode("DC-ORD-0001");
@@ -2949,8 +3153,8 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.core.banner-enabled` | Boolean | `true` | whether the startup capability banner is logged |  |
-| `dc.platform.core.correlation.generate-if-missing` | Boolean | `true` | generate a fresh id when the incoming request carries none |  |
-| `dc.platform.core.correlation.header-name` | String | `X-Correlation-Id` | HTTP header carrying the correlation id |  |
+| `dc.platform.core.correlation.generate-if-missing` | Boolean |  | Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id. | error (The tracing bridge always starts a new trace when traceparent is missing or invalid.) |
+| `dc.platform.core.correlation.header-name` | String |  | Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure. | error (Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written.) |
 | `dc.platform.core.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 
 ## dc.platform.data
@@ -2965,6 +3169,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.errors.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
+| `dc.platform.errors.include-rejected-values` | Boolean | `false` | echo each invalid value as rejectedValue (off by default: rejected values are raw user input and may be personal data; credential-shaped fields stay redacted even when on) |  |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | add a stacktrace extension to problem bodies (debugging aid; never enable in production) |  |
 | `dc.platform.errors.map-validation` | Boolean | `true` | map Bean Validation failures to 400 problem responses with errors[] |  |
 | `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | base URI prepended to the error code to form the problem type |  |
@@ -3014,7 +3219,10 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 |-----|------|---------|-------------|-------------|
 | `dc.platform.logging.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` | log output format; json in every deployed environment, console for humans (auto-selected when the local profile is active) |  |
-| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (correlationId, …) into JSON log fields |  |
+| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (traceId, spanId, …) into JSON log fields |  |
+| `dc.platform.logging.mdc.include` | List<String> |  | MDC keys written besides traceId and spanId; empty (the default) writes every MDC key, a non-empty list switches to strict mode and drops unlisted keys |  |
+| `dc.platform.logging.redaction.enabled` | Boolean | `true` | mask values (on by default) |  |
+| `dc.platform.logging.redaction.patterns` | List<String> |  | additional regular expressions whose matches are masked |  |
 | `dc.platform.logging.service-name` | String |  | service name stamped on every JSON log line; defaults to name |  |
 
 ## dc.platform.messaging
@@ -3076,11 +3284,11 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) |  |
+| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
 | `dc.platform.restclient.defaults.connect-timeout` | Duration | `2s` | connection timeout |  |
 | `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | read timeout |  |
 | `dc.platform.restclient.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.restclient.propagate-correlation` | Boolean | `true` | propagate the current RequestContext correlation id as an outbound header |  |
+| `dc.platform.restclient.propagate-correlation` | Boolean |  | Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent. | error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.) |
 
 ## dc.platform.scheduling
 
@@ -4102,6 +4310,97 @@ One line of context per decision; details live in the commit bodies referenced.
   resource server can fetch. A reusable `platform-test-api` fixture (JDK `HttpServer` + JDK RSA
   signing, no third-party types in its API) serves generated services and the golden-path gate (which
   compiles its helper against the installed jar) instead of copying ~150 lines into every service.
+- **D88 — startup budget measured in an isolated CI step.** `StartupBudgetTest` is a wall-clock
+  guard. In the `-T1C` reactor it overlapped other modules' test contexts (docs snippet compilation,
+  the event-driven examples) and measured 19-25 s against the 15 s baseline, although the same commit
+  boots in the same time as `main` when measured alone. CI now skips it in the parallel `verify`
+  (`-Dplatform.startup-budget.skip=true`) and runs it serially in its own step. Raising the baseline
+  was rejected: it would hide the regressions the guard exists to catch.
+- **D89 — correlation is the W3C trace ID (hardening HD5).** The platform-minted `X-Correlation-Id`
+  is removed everywhere (core filter, REST client, tracing baggage, MDC key, ProblemDetail property).
+  `CorrelationId`/`RequestContext` keep their API and carry the trace ID; inbound `traceparent`
+  handling is left to Boot's observation filter and the OpenTelemetry W3C propagator. The platform
+  filter moves to `HIGHEST_PRECEDENCE + 10` (after the observation filter, before security).
+  Without a tracer the platform establishes no correlation context rather than inventing an id.
+- **D90 — no exception message in any 5xx body.** Including `PlatformException`s with status >= 500 and
+  Spring MVC's own 5xx bodies; 4xx business messages stay (application-authored). Simpler and safer
+  than classifying messages as safe.
+- **D91 — `rejectedValue` off by default.** Field-name redaction cannot recognise personal data
+  (national ID, email, phone); omitting the value by default is the allow-list default, opt-in via
+  `dc.platform.errors.include-rejected-values`.
+- **D92 — error-code uniqueness read from sources.** The classpath registry only sees the errors
+  module's dependencies; a source scan over every platform module's `src/main/java` covers modules no
+  single test classpath contains. Examples and the archetype are excluded (separate services).
+- **D93 — overrides by type and by name; descriptors by name only.** Platform advice beans back off
+  for a consumer bean of their type under any name, or any bean of their documented name.
+  `CapabilityDescriptor` is one shared type with one bean per capability, so each descriptor backs off
+  by name only.
+- **D94 — the platform owns the servlet error page.** A `PlatformErrorController` replaces Boot's
+  `BasicErrorController` (ordered before `ErrorMvcAutoConfiguration`), and the security chain permits
+  the ERROR dispatch, so every error path — MVC, security, filters, the container — renders one
+  problem contract. Spring Security's own guidance for error pages; the original request was already
+  authorized or rejected on its REQUEST dispatch.
+- **D95 — trace rejection judged by the propagator's outcome.** The core filter does not re-implement
+  W3C validation: a present `traceparent` counts as rejected exactly when the current trace is not the
+  one it names, and the marker carries the header length only.
+- **D96 — shared-type infrastructure beans override by name.** *Superseded by D98.* The banner
+  `ApplicationRunner` and the correlation filter's `FilterRegistrationBean` backed off by name only:
+  consumers routinely define other beans of those Spring types, and type-based back-off would silently
+  drop the platform's.
+- **D97 — capability descriptors override by name, like Boot's health indicators (hardening A3).**
+  `CapabilityDescriptor` is collected one-bean-per-capability, so type-based back-off would let any
+  consumer descriptor remove every platform one. Spring Boot 4.1 makes the same choice for its collected
+  health indicators (`@ConditionalOnMissingBean(name = "diskSpaceHealthIndicator")`, likewise
+  `livenessStateHealthIndicator`, `readinessStateHealthIndicator`, `sslHealthIndicator`) while its
+  single beans (`SslInfo`) back off by type. The capability kill switch `dc.platform.<cap>.enabled`
+  removes the descriptor with the capability. Each remaining capability's descriptor gets the same
+  guard and a real-override test in its own hardening phase.
+- **D98 — single infrastructure beans override by type (supersedes D96).** The correlation filter is
+  registered the way Boot registers its own `ServerHttpObservationFilter`: one
+  `FilterRegistrationBean<CorrelationIdFilter>` with the filter created inline, guarded by
+  `@ConditionalOnMissingFilterBean(CorrelationIdFilter.class)`, so a consumer `CorrelationIdFilter` bean
+  or `FilterRegistrationBean<CorrelationIdFilter>` under any name replaces it, and unrelated filter
+  registrations do not. `CorrelationIdFilter` is `Ordered` at `FILTER_ORDER`, so a consumer filter bean
+  that Boot registers keeps the platform's position and dispatch types. The banner is a public
+  `PlatformBannerRunner` class backing off by type; unrelated `ApplicationRunner` beans no longer matter.
+- **D99 — neutral problem `type` default `urn:dc:problem:` (hardening HI-0010).** Supersedes the
+  `type-base-uri="https://errors.dc.com/"` default in `specs/phase-04-errors-logging-validation.md`: that
+  host is not owned by the platform. RFC 9457 allows a non-dereferenceable `type`; `dc` is not an
+  IANA-registered URN namespace, so the value is an opaque identifier that services replace with an
+  `https://` documentation base once one exists. 401/403 bodies read the same key and default.
+- **D100 — no `replacement` for the removed correlation properties (hardening A1).** The
+  `dc.platform.core.correlation.*` and `dc.platform.restclient.propagate-correlation` keys are
+  deprecated at level `error` with a reason only: the correlation ID is now the W3C trace ID and has no
+  successor property, so naming one would mislead.
+- **D101 — the platform's own MDC emission is an allow-list; consumer MDC passes through (hardening
+  phase 2).** Platform code writes only `traceId` and `spanId` (source-scan test). Consumer MDC keys keep
+  reaching JSON logs, masked like every other value; dropping them by default would silently break
+  services. Strict mode is opt-in: `dc.platform.logging.mdc.include` (non-empty: only `traceId`,
+  `spanId` and the listed keys).
+- **D102 — default log redaction set.** JWTs, `Bearer`/`Basic` credentials, values after credential keys
+  (`password`, `secret`, `token`, `authorization`, `cookie`, `api-key`, …), whole values of
+  credential-named MDC entries and structured arguments, Emirates ID, Luhn-valid 13–19 digit card
+  numbers starting 2–6 (the issuer digit keeps epoch millis out), e-mail addresses and phone numbers
+  (international with `+`/`00`, UAE mobiles in local form; owner request 2026-10-26) become `****`. Extendable with
+  `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
+  Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
+  `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
+  split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed
+  environment, is masked and injection-safe.
+- **D103 — sampling posture.** Head sampling stays Boot's (`management.tracing.sampling.probability`,
+  default `0.1`). Keeping every errored request's trace is delivered by collector tail sampling
+  (documented snippet); the platform position is OPEN as a deployment responsibility, as plan §9 Phase 2
+  allows. Trace IDs in logs and problem bodies are independent of sampling.
+- **D104 — readiness is pod-local (implements D6).** `readiness` = `readinessState`, `liveness` =
+  `livenessState`; `db`, `rabbit`, `redis` move to a `dependencies` group for dashboards.
+- **D105 — minimal actuator exposure.** Chassis default `health,info,prometheus`; `metrics` and
+  `platform` are opt-ins. The archetype opts in `platform` because the generated docs, the golden path
+  and the smoke matrix read it; access stays governed by security. Prometheus scraping is authenticated
+  until the security phase decides between token, management port and permit rule.
+- **D106 — uri tag cardinality is Boot's.** Boot 4.1 caps `uri` values for server and client HTTP
+  meters (`management.metrics.web.{server,client}.max-uri-tags`, 100, deny + log once). The platform adds
+  no `uri` filter of its own and keeps a test that fails if the cap is lifted.
 
 
 ---

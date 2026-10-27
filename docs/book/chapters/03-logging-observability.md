@@ -6,6 +6,14 @@
 > validation errors omit `rejectedValue` by default. Where this chapter still describes the
 > `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
 > `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+>
+> **Updated by capability hardening, phase 2 (2026-10).** Readiness is **pod-local**
+> (`readinessState` only); `db`, `rabbit` and `redis` moved to a separate `dependencies` health group.
+> The chassis exposes only `health`, `info` and `prometheus` over http — `metrics` and `platform` are
+> opt-ins (`management.endpoints.web.exposure.include`; generated services opt in `platform`). JSON logs
+> mask credentials and common PII, and `LogSanitizer` beans (`String sanitize(String key, String value)`)
+> are applied to MDC values and structured arguments. Where this chapter differs, `docs/modules/logging.md`,
+> `docs/modules/observability.md` and decisions D101–D107 are authoritative.
 
 > **Capabilities covered:** `logging`, `observability`
 >
@@ -217,22 +225,24 @@ Two questions an orchestrator asks, with two different consequences:
 | **Liveness** | Is this process broken beyond recovery? | The pod is **killed and restarted** |
 | **Readiness** | Can this instance serve traffic right now? | The pod is **removed from the load balancer**, not restarted |
 
-Getting these backwards causes outages. A database blip should fail *readiness* — the instance cannot
-serve, but restarting will not fix the database, and a restart loop across every replica turns a
-recoverable dependency blip into a full outage.
+Getting these backwards causes outages. A database blip must fail *neither* probe: restarting will not
+fix the database, and a database every replica shares would take every replica out of the load
+balancer at once — a recoverable dependency blip becomes a full outage. Requests that need the database
+fail on their own (with a problem response); the rest keep being served.
 
-The platform's defaults:
+The platform's defaults (D104):
 
 ```
-  liveness    <- livenessState
-  readiness   <- readinessState, db, rabbit, redis      (each only "when present")
+  liveness      <- livenessState
+  readiness     <- readinessState                          (pod-local)
+  dependencies  <- db, rabbit, redis      (each only "when present"; for dashboards and alerts, not probes)
 ```
 
 Two details make this work in practice. `management.endpoint.health.probes.enabled=true` makes the
 liveness and readiness contributors exist on **any** platform — Boot only auto-enables them when it
-detects Kubernetes. And `validate-group-membership=false` is what lets the readiness group name `db`,
-`rabbit`, and `redis` optionally: with validation on, a service that has no database would fail to
-start because its readiness group references a health indicator that does not exist.
+detects Kubernetes. And `validate-group-membership=false` is what lets the `dependencies` group name
+`db`, `rabbit`, and `redis` optionally: with validation on, a service that has no database would fail to
+start because its group references a health indicator that does not exist.
 
 ### 2.7 Baggage — how correlation crosses a service boundary without becoming a tag
 
@@ -609,14 +619,16 @@ curl -s localhost:8080/actuator/prometheus | grep '^http_server_requests'
 **Metrics missing tags.** `common-tags.enabled` is off, or a bean named `platformCommonTagsCustomizer`
 is replacing the platform's. Check `/actuator/beans`.
 
-**Readiness is always down.** A member of the readiness group is failing. The group is
-`readinessState,db,rabbit,redis` and each is optional *if absent* — but if `db` is **present** and
-unhealthy, readiness is correctly down. `curl -s localhost:8080/actuator/health/readiness | jq` names
-the failing component.
+**Readiness is always down.** Readiness is `readinessState` only, so the application itself reported
+`REFUSING_TRAFFIC` (during startup or shutdown, or set by your code); a database outage does not take
+it down. `curl -s localhost:8080/actuator/health/dependencies | jq` names a failing `db`, `rabbit` or
+`redis`.
 
 **The metrics backend is struggling.** Almost certainly cardinality. Find the offender:
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/metrics | jq -r '.names[]' | while read m; do
   echo "$(curl -s "localhost:8080/actuator/metrics/$m" | jq '[.availableTags[].values|length] | add // 0') $m"
 done | sort -rn | head
@@ -660,7 +672,7 @@ long-retained, widely readable, and rarely reviewed.
 | PII or secrets in log fields | `LogSanitizer` beans, centrally. Review what you put in MDC extras |
 | Secrets in exception messages | The [errors](02-errors-validation.md) capability logs full exceptions at ERROR. Anything in the message is in the log |
 | Log injection | [`@SafeText`](02-errors-validation.md) on single-line fields; `CorrelationId`'s format check |
-| Actuator exposure | Default exposure is `health,info,platform,metrics,prometheus`. The security chain permits only `health` and `info` |
+| Actuator exposure | Default exposure is `health,info,prometheus` (`platform`, `metrics` are opt-ins). The security chain permits only `health` and `info` |
 | `/actuator/env` leaking configuration | It shows property values. Boot masks known-sensitive keys, but a key named `myCustomThing` is not known-sensitive |
 | Metric tags with user identifiers | A cardinality problem *and* a privacy problem — metrics are retained far longer than logs |
 
@@ -861,7 +873,7 @@ carries the three common tags.
 1. Add a `Timer` tagged with a per-request identifier — the correlation id is the purest form of the
    mistake.
 2. Drive 1,000 requests.
-3. `curl -s localhost:8080/actuator/metrics/<name> | jq '.availableTags'`. Count the values.
+3. `curl -s localhost:8080/actuator/metrics/<name> | jq '.availableTags'` (expose `metrics` first). Count the values.
 4. Measure `/actuator/prometheus` response size and time before and after. Extrapolate to 10 million
    requests.
 5. Run the cardinality-ranking command from §5.3. Confirm your meter is at the top.

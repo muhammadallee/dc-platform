@@ -3,7 +3,7 @@
 # §4.3, §8 Gate F). A scenario script sources this file, then:
 #
 #   hh_init <phase-slug> <scenario-name>        # run dir, evidence dir, docker network, cleanup trap
-#   hh_infra <name> <image> [docker-run args…]  # backing service on the run network (Postgres, Rabbit…)
+#   hh_infra <name> <image> [docker-run args…] [-- command…]  # backing service on the run network
 #   hh_generate <artifactId> <features|->       # archetype app OUTSIDE the repo, from the local catalog
 #   hh_add_sources <dir> <package-subpath>      # consumer code (e.g. a probe controller) into the app
 #   hh_build_app                                # generated `mvn package`, then a container image
@@ -80,9 +80,15 @@ hh_init() {
 
 hh_infra() {
   local name=$1 image=$2; shift 2
-  local cname="$HH_RUN_ID-$name"
+  local cname="$HH_RUN_ID-$name" run_args=() cmd_args=()
+  # Arguments before a lone "--" go to docker run; after it, to the container command.
+  while [ $# -gt 0 ]; do
+    if [ "$1" = "--" ]; then shift; cmd_args=("$@"); break; fi
+    run_args+=("$1"); shift
+  done
   docker run -d --name "$cname" --network "$HH_NETWORK" --network-alias "$name" \
-      --label "dc-hardening=$HH_RUN_ID" "$@" "$image" >/dev/null || hh_abort "could not start $name ($image)"
+      --label "dc-hardening=$HH_RUN_ID" ${run_args[@]+"${run_args[@]}"} "$image" ${cmd_args[@]+"${cmd_args[@]}"} \
+      >/dev/null || hh_abort "could not start $name ($image)"
   HH_CONTAINERS+=("$cname")
   hh_log "infra $name ($image) started as $cname"
 }

@@ -54,9 +54,10 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   exception is no longer reported to stderr or the Logback status manager. A `Kv` nested in a
   structured value is written `{"<key>": value}` (was `{"key": …, "value": …}`; also with redaction
   off), so credential names mask it; `fields(kv)` writes its one field. `raw(...)` JSON is now masked:
-  it is parsed (numbers exact) and written back through the masks, so its JSON field is re-serialized
-  (whitespace and escapes normalized) when redaction is on; raw text that is not exactly one JSON
-  value is kept whole under the pattern masks. Integral `double`/`float` card numbers are masked.
+  it is read as one JSON value (member order, duplicates and exact numbers kept) and written back
+  through the masks, so its JSON field is re-serialized (whitespace and escapes normalized) when
+  redaction is on, and `message` shows it decoded (`{name=value}`); raw text that is not exactly one
+  JSON value is kept whole under the pattern masks. Integral `double`/`float` card numbers are masked.
 - `platform.capability.active` is now registered when Boot creates the meter registry (the
   auto-configuration was evaluated before Boot's registry existed and backed off).
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`

@@ -253,6 +253,33 @@ class EncoderRedactionTest {
         assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("payload=[[phase=ready]]");
     }
 
+    @Test
+    void rawJsonEscapesAndDuplicatesNeverHideACredential() throws Exception {
+        // Verification pass 6: an escaped tab after Bearer; duplicates sent escaped keys to the text masks.
+        String line = encode(event("{} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("tabbed", "\"Bearer\\thunter2\""),
+                net.logstash.logback.argument.StructuredArguments.raw("payload",
+                        "{\"pass\\u0077ord\":\"hunter3\",\"phase\":1,\"phase\":2}")}));
+        assertThat(line).doesNotContain("hunter2").doesNotContain("hunter3");
+        assertThat(line).contains("\"phase\":1").contains("\"phase\":2");
+    }
+
+    @Test
+    void cardNumbersInPrimitiveArraysAreMaskedInTheMessage() throws Exception {
+        // Verification pass 6 regression 2.
+        String line = encode(event("{}", new Object[] {
+                kv("payload", List.of(kv("phase", "ready"), new double[] {4111111111111111.0d}))}));
+        assertThat(line).doesNotContain("4.111111111111111E15").doesNotContain("4111111111111111");
+    }
+
+    @Test
+    void sanitizersRunBeforeTheNumericCardCheckInTheMessage() throws Exception {
+        // Verification pass 6 regression 3: LogSanitizer beans come first, as in the JSON field.
+        publish((key, value) -> "card".equals(key) ? "ending-1111" : value);
+        String line = encode(event("{}", new Object[] {kv("card", 4111111111111111L)}));
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("card=ending-1111");
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

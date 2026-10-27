@@ -2,8 +2,7 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
 import ae.gov.dubaicustoms.platform.logging.Kv;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -54,7 +53,6 @@ public final class SanitizedMessageView {
     private static final Field MAP_ENTRIES = field(MapEntriesAppendingMarker.class, "map");
     private static final Field OBJECT_FIELDS = field(ObjectFieldsAppendingMarker.class, "object");
     private static final Method SELF_TEXT = accessor(LogstashMarker.class, "toStringSelf");
-    private static final ObjectMapper RAW = RawJsonMaskingGenerator.RAW;
 
     private SanitizedMessageView() {
     }
@@ -165,7 +163,7 @@ public final class SanitizedMessageView {
             }
             Object value = read(FIELD_VALUE, field);
             if (marker instanceof RawJsonAppendingMarker && value instanceof String raw) {
-                return render(field, name, rawText(name, raw, depth, path));
+                return render(field, name, rawText(name, raw, depth));
             }
             return render(field, name, valueText(sanitizedTree(name, value, depth, path)));
         }
@@ -184,22 +182,36 @@ public final class SanitizedMessageView {
         return SELF_TEXT == null ? "" : String.valueOf(read(SELF_TEXT, marker));
     }
 
-    // raw(...): parsed, so escaped field names are seen, and shown as JSON again with escapes decoded, so
-    // the pattern masks over the message see a JSON-escaped space after "Bearer" as a space. Text that is not one clean
-    // JSON value is shown as is (the pattern masks still run over the message).
-    private static String rawText(String name, String raw, int depth, Set<Object> path) {
+    // raw(...): read as one JSON value (RawJson) and shown decoded, like any structured value — names and
+    // strings unescaped, so the pattern masks over the message see them as written. Text that is not
+    // exactly one JSON value is shown as is (the pattern masks still run over the message).
+    private static String rawText(String name, String raw, int depth) {
         Object parsed;
         try {
-            parsed = RAW.readValue(raw, Object.class);
-        } catch (JsonProcessingException e) {
+            parsed = RawJson.parse(raw);
+        } catch (IOException e) {
             return raw;
         }
-        Object clean = sanitizedTree(name, parsed, depth, path);
-        try {
-            return RAW.writeValueAsString(clean);
-        } catch (JsonProcessingException e) {
+        return valueText(rawClean(name, parsed, depth));
+    }
+
+    // As sanitizedTree, over a parsed raw value (duplicate members kept).
+    private static Object rawClean(String key, Object node, int depth) {
+        if (key != null && PlatformValueMasker.isCredentialKey(key) || depth >= MAX_DEPTH) {
             return PlatformValueMasker.MASK;
         }
+        if (node instanceof RawJson.RawObject object) {
+            RawJson.RawObject copy = new RawJson.RawObject();
+            object.members.forEach(member ->
+                    copy.add(member.getKey(), rawClean(member.getKey(), member.getValue(), depth + 1)));
+            return copy;
+        }
+        if (node instanceof List<?> array) {
+            List<Object> copy = new ListCopy();
+            array.forEach(element -> copy.add(rawClean(key, element, depth + 1)));
+            return copy;
+        }
+        return sanitizedTree(key, node, depth);
     }
 
     // A structured argument is rendered exactly once, here, under the caller's guard: handing it back to
@@ -223,13 +235,34 @@ public final class SanitizedMessageView {
             case byte[] array -> Arrays.toString(array);
             case short[] array -> Arrays.toString(array);
             case int[] array -> Arrays.toString(array);
-            case long[] array -> Arrays.toString(array);
+            case long[] array -> numbers(Arrays.stream(array).boxed().toList());
             case char[] array -> Arrays.toString(array);
-            case float[] array -> Arrays.toString(array);
-            case double[] array -> Arrays.toString(array);
+            case float[] array -> numbers(floats(array));
+            case double[] array -> numbers(Arrays.stream(array).boxed().toList());
             case boolean[] array -> Arrays.toString(array);
+            case RawJson.RawObject object -> {
+                StringJoiner text = new StringJoiner(", ", "{", "}");
+                object.members.forEach(member -> text.add(member.getKey() + "=" + valueText(member.getValue())));
+                yield text.toString();
+            }
             default -> String.valueOf(value);
         };
+    }
+
+    // Primitive number arrays by content, each element through the numeric card check (the JSON array's
+    // elements are masked one by one too).
+    private static String numbers(List<? extends Number> elements) {
+        StringJoiner text = new StringJoiner(", ", "[", "]");
+        elements.forEach(number -> text.add(PlatformValueMasker.cardNumber(number) ? PlatformValueMasker.MASK : String.valueOf(number)));
+        return text.toString();
+    }
+
+    private static List<Float> floats(float[] array) {
+        List<Float> boxed = new ArrayList<>(array.length);
+        for (float element : array) {
+            boxed.add(element);
+        }
+        return boxed;
     }
 
     // The sanitized copies show their elements as valueText does (arrays by content, at any nesting);
@@ -310,17 +343,17 @@ public final class SanitizedMessageView {
             // An array stays an array, so it is shown by content (deepToString) as before.
             return value instanceof Object[] ? copy.toArray() : copy;
         }
-        if (value instanceof Number number && PlatformValueMasker.cardNumber(number)) {
-            // As the JSON number masker: a double's text (4.111111111111111E15) escapes the text masks.
-            return PlatformValueMasker.MASK;
-        }
+        // LogSanitizer beans first, then the numeric card check — the JSON field's order.
         if (key != null && (value instanceof CharSequence || value instanceof Number)
                 && !LogSanitizerRegistry.current().isEmpty()) {
             String raw = value.toString();
             String clean = PlatformValueMasker.sanitize(key, raw);
-            return clean.equals(raw) ? value : clean;
+            if (!clean.equals(raw)) {
+                return clean;
+            }
         }
-        return value;
+        // As the JSON number masker: a double's text (4.111111111111111E15) escapes the text masks.
+        return value instanceof Number number && PlatformValueMasker.cardNumber(number) ? PlatformValueMasker.MASK : value;
     }
 
     // As SingleFieldAppendingMarker.toStringSelf, with the given value text.

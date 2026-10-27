@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import net.logstash.logback.marker.LogstashMarker;
 import net.logstash.logback.marker.MapEntriesAppendingMarker;
 import net.logstash.logback.marker.ObjectFieldsAppendingMarker;
@@ -53,7 +54,7 @@ public final class SanitizedMessageView {
     private static final Field MAP_ENTRIES = field(MapEntriesAppendingMarker.class, "map");
     private static final Field OBJECT_FIELDS = field(ObjectFieldsAppendingMarker.class, "object");
     private static final Method SELF_TEXT = accessor(LogstashMarker.class, "toStringSelf");
-    private static final ObjectMapper RAW = new ObjectMapper();
+    private static final ObjectMapper RAW = RawJsonMaskingGenerator.RAW;
 
     private SanitizedMessageView() {
     }
@@ -183,8 +184,9 @@ public final class SanitizedMessageView {
         return SELF_TEXT == null ? "" : String.valueOf(read(SELF_TEXT, marker));
     }
 
-    // raw(...): parsed, so escaped field names are seen; masked contents are shown as JSON again. Text
-    // that is not JSON is shown as is (the pattern masks still run over the message).
+    // raw(...): parsed, so escaped field names are seen, and shown as JSON again with escapes decoded, so
+    // the pattern masks over the message see a JSON-escaped space after "Bearer" as a space. Text that is not one clean
+    // JSON value is shown as is (the pattern masks still run over the message).
     private static String rawText(String name, String raw, int depth, Set<Object> path) {
         Object parsed;
         try {
@@ -193,9 +195,6 @@ public final class SanitizedMessageView {
             return raw;
         }
         Object clean = sanitizedTree(name, parsed, depth, path);
-        if (clean == parsed) {
-            return raw;
-        }
         try {
             return RAW.writeValueAsString(clean);
         } catch (JsonProcessingException e) {
@@ -214,7 +213,13 @@ public final class SanitizedMessageView {
     private static String valueText(Object value) {
         return switch (value) {
             case null -> "null";
-            case Object[] array -> Arrays.deepToString(array);
+            case Object[] array -> {
+                StringJoiner text = new StringJoiner(", ", "[", "]");
+                for (Object element : array) {
+                    text.add(valueText(element));
+                }
+                yield text.toString();
+            }
             case byte[] array -> Arrays.toString(array);
             case short[] array -> Arrays.toString(array);
             case int[] array -> Arrays.toString(array);
@@ -225,6 +230,28 @@ public final class SanitizedMessageView {
             case boolean[] array -> Arrays.toString(array);
             default -> String.valueOf(value);
         };
+    }
+
+    // The sanitized copies show their elements as valueText does (arrays by content, at any nesting);
+    // collections the caller passed in, unchanged, keep their own toString.
+    private static final class ListCopy extends ArrayList<Object> {
+
+        @Override
+        public String toString() {
+            StringJoiner text = new StringJoiner(", ", "[", "]");
+            forEach(element -> text.add(valueText(element)));
+            return text.toString();
+        }
+    }
+
+    private static final class MapCopy extends LinkedHashMap<Object, Object> {
+
+        @Override
+        public String toString() {
+            StringJoiner text = new StringJoiner(", ", "{", "}");
+            forEach((key, value) -> text.add(key + "=" + valueText(value)));
+            return text.toString();
+        }
     }
 
     /**
@@ -256,7 +283,7 @@ public final class SanitizedMessageView {
         }
         if (value instanceof Map<?, ?> map) {
             path.add(value);
-            Map<Object, Object> copy = new LinkedHashMap<>();
+            Map<Object, Object> copy = new MapCopy();
             boolean changed = false;
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 Object clean = sanitizedTree(String.valueOf(entry.getKey()), entry.getValue(), depth + 1, path);
@@ -269,7 +296,7 @@ public final class SanitizedMessageView {
         if (container) {
             path.add(value);
             Iterable<?> elements = value instanceof Object[] array ? Arrays.asList(array) : (Collection<?>) value;
-            List<Object> copy = new ArrayList<>();
+            List<Object> copy = new ListCopy();
             boolean changed = false;
             for (Object element : elements) {
                 Object clean = sanitizedTree(key, element, depth + 1, path);
@@ -282,6 +309,10 @@ public final class SanitizedMessageView {
             }
             // An array stays an array, so it is shown by content (deepToString) as before.
             return value instanceof Object[] ? copy.toArray() : copy;
+        }
+        if (value instanceof Number number && PlatformValueMasker.cardNumber(number)) {
+            // As the JSON number masker: a double's text (4.111111111111111E15) escapes the text masks.
+            return PlatformValueMasker.MASK;
         }
         if (key != null && (value instanceof CharSequence || value instanceof Number)
                 && !LogSanitizerRegistry.current().isEmpty()) {

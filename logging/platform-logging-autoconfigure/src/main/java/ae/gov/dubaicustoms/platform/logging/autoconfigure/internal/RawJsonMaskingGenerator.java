@@ -2,9 +2,13 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.util.JsonGeneratorDelegate;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.io.IOException;
 
 /**
@@ -16,7 +20,13 @@ import java.io.IOException;
  */
 public final class RawJsonMaskingGenerator extends JsonGeneratorDelegate {
 
-    private static final ObjectMapper RAW = new ObjectMapper();
+    // Exact numbers (no Double rounding, no Infinity), and only one clean value: duplicate members or
+    // trailing text fail the parse, so the text is kept whole under the pattern masks, never truncated.
+    static final ObjectMapper RAW = JsonMapper.builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .nodeFactory(JsonNodeFactory.withExactBigDecimals(true))
+            .build();
 
     private final PlatformValueMasker masker;
 

@@ -133,8 +133,7 @@ public final class PlatformValueMasker implements ValueMasker {
                 }
             }
             // kv("card", 4111111111111111L): a card number written as a JSON number.
-            String digits = integralDigits(number);
-            return digits != null && DIGITS.matcher(digits).matches() && luhn(digits) ? MASK : null;
+            return cardNumber(number) ? MASK : null;
         }
         if (!(value instanceof CharSequence text)) {
             return null;
@@ -234,6 +233,12 @@ public final class PlatformValueMasker implements ValueMasker {
         return context.inObject() && context.getParent() != null && context.getParent().inRoot();
     }
 
+    /** Whether a number is a Luhn-valid card number (integral, 13–19 digits, issuer digit 2–6). */
+    static boolean cardNumber(Number number) {
+        String digits = integralDigits(number);
+        return digits != null && DIGITS.matcher(digits).matches() && luhn(digits);
+    }
+
     private static String integralDigits(Number number) {
         if (number instanceof Long || number instanceof Integer) {
             return number.toString();
@@ -249,6 +254,11 @@ public final class PlatformValueMasker implements ValueMasker {
             long integerDigits = (long) stripped.precision() - stripped.scale();
             return stripped.scale() <= 0 && integerDigits >= 13 && integerDigits <= 19
                     ? stripped.toBigInteger().toString() : null;
+        }
+        if (number instanceof Double || number instanceof Float) {
+            // 4111111111111111.0 logged as a double: integral finite values are checked like any number.
+            double value = number.doubleValue();
+            return Double.isFinite(value) && value == Math.rint(value) ? integralDigits(BigDecimal.valueOf(value)) : null;
         }
         return null;
     }

@@ -215,6 +215,44 @@ class EncoderRedactionTest {
                 .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
     }
 
+    @Test
+    void rawJsonKeepsNumbersAndMasksEscapedAndDecimalSecrets() throws Exception {
+        // Verification pass 5: raw parsing must not change numbers, and escapes must not hide secrets.
+        String line = encode(event("{} {} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("escaped", "\"Bearer\\u0020hunter2\""),
+                net.logstash.logback.argument.StructuredArguments.raw("payload",
+                        "{\"password\":\"hunter3\",\"card\":4111111111111111.0,\"amount\":0.12345678901234567890123456789,\"big\":1e400}"),
+                kv("double", 4111111111111111.0d)}));
+        assertThat(line).doesNotContain("hunter2").doesNotContain("hunter3")
+                .doesNotContain("4111111111111111").doesNotContain("4.111111111111111E15");
+        // Exact in the encoded text (the test's own reader would round to a double).
+        assertThat(line).contains("\"amount\":0.12345678901234567890123456789").contains("\"big\":1E+400");
+        assertThat(JSON.readTree(line).get("payload").get("big").isNumber()).isTrue();
+    }
+
+    @Test
+    void rawJsonThatIsNotOneCleanValueIsKeptWholeUnderThePatternMasks() throws Exception {
+        // Verification pass 5: duplicates and trailing text were silently dropped by the parser.
+        String line = encode(event("probe", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("dup", "{\"phase\":\"queued\",\"phase\":\"ready\"}"),
+                net.logstash.logback.argument.StructuredArguments.raw("tail", "{\"region\":\"dxb\"}")}));
+        JsonNode node = JSON.readTree(line);
+        assertThat(line).contains("\"queued\"").contains("\"ready\"");
+        assertThat(node.get("tail").get("region").asText()).isEqualTo("dxb");
+        // Not valid JSON before or after; kept whole rather than truncated, under the pattern masks.
+        String trailing = encode(event("probe", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("tail", "{\"region\":\"dxb\"} password=hunter4")}));
+        assertThat(trailing).contains("dxb").doesNotContain("hunter4");
+    }
+
+    @Test
+    void changedArraysInsideCollectionsRenderByContent() throws Exception {
+        // Verification pass 5 regression 4.
+        String line = encode(event("{}", new Object[] {
+                kv("payload", java.util.Collections.singletonList(new Object[] {kv("phase", "ready")}))}));
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("payload=[[phase=ready]]");
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

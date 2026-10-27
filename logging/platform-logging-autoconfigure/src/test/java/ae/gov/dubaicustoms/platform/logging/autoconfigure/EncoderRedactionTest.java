@@ -74,7 +74,75 @@ class EncoderRedactionTest {
                 row("nested level field", "probe", new Object[] {kv("payload", Map.of("level", "card 4111111111111111"))},
                         "4111111111111111"),
                 // R2-F7: a JWT whose header has leading JSON whitespace.
-                row("whitespace-led JWT header", "token {}", new Object[] {SPACED_JWT}, HS256_SPACE_HEADER));
+                row("whitespace-led JWT header", "token {}", new Object[] {SPACED_JWT}, HS256_SPACE_HEADER),
+                // Verification pass: quoted-key cookie forms, and a credential below the traversal depth.
+                row("quoted cookie key with =", "{}", new Object[] {"\"cookie\"=\"sid=abc123\""}, "abc123"),
+                row("quoted cookie key, bare value", "{}", new Object[] {"{\"cookie\":12345678}"}, "12345678"),
+                // Gate F trial: a non-credential "basic"/"bearer" word before the real scheme, and
+                // compound credential names in text, MDC-like fields and arguments.
+                row("basic before Basic", "header {}", new Object[] {"basic Basic YWxpY2U6czNjcjN0LTJiMDgwMA=="},
+                        "YWxpY2U6czNjcjN0LTJiMDgwMA=="),
+                row("bearer before Bearer", "header {}", new Object[] {"bearer Bearer abcdefgh12345678"}, "abcdefgh12345678"),
+                row("compound key in text", "{}", new Object[] {"session_token=st-123456 db-password: pw-987 smtpSecret=sx-1"},
+                        "st-123456", "pw-987", "sx-1"),
+                row("compound credential field", "stored", new Object[] {kv("sessionToken", "st-abcdef"), Kv.of("x-auth-token", "xa-1")},
+                        "st-abcdef", "xa-1"),
+                row("credential 17 levels deep", "{}",
+                        new Object[] {kv("payload", wrap(Map.of("password", "correct horse battery staple"), 16))},
+                        "horse", "staple"));
+    }
+
+    private static Object wrap(Object value, int times) {
+        Object wrapped = value;
+        for (int i = 0; i < times; i++) {
+            wrapped = List.of(wrapped);
+        }
+        return wrapped;
+    }
+
+    @Test
+    void aSanitizedValueBelowTheTraversalDepthIsNotShownInTheMessage() {
+        publish((key, value) -> "customerName".equals(key) ? "C***" : value);
+        String line = encode(event("{}", new Object[] {kv("customerName", wrap("Fatima", 16))}));
+        assertThat(line).doesNotContain("Fatima");
+    }
+
+    @Test
+    void anyThrowableFromToStringIsContainedAndNothingIsRenderedTwice() throws Exception {
+        Object asserting = new Object() {
+            @Override
+            public String toString() {
+                throw new AssertionError("boom");
+            }
+        };
+        Object flaky = new Object() {
+            private int calls;
+
+            @Override
+            public String toString() {
+                if (++calls == 1) {
+                    return "ok";
+                }
+                throw new IllegalStateException("password=hunter4");
+            }
+        };
+        java.io.PrintStream originalErr = System.err;
+        java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+        String line;
+        System.setErr(new java.io.PrintStream(err, true, StandardCharsets.UTF_8));
+        try {
+            line = encode(event("{} {}", new Object[] {Kv.of("a", asserting), Kv.of("entity", flaky)}));
+        } finally {
+            System.setErr(originalErr);
+        }
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("[unrenderable] entity=ok");
+        assertThat(err.toString(StandardCharsets.UTF_8)).doesNotContain("hunter4");
+    }
+
+    @Test
+    void objectArraysWithNullsStayReadable() throws Exception {
+        String line = encode(event("{}", new Object[] {kv("items", new Object[] {"ok", null})}));
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("items=[ok, null]");
     }
 
     @ParameterizedTest(name = "{0}")

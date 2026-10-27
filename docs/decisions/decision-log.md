@@ -673,6 +673,14 @@ One line of context per decision; details live in the commit bodies referenced.
   (international with `+`/`00`, UAE mobiles in local form; owner request 2026-10-26) become `****`. Extendable with
   `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
   Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D108 — no startup banner in JSON mode (hardening phase 2, Gate F trial).** The ASCII banner is
+  written to stdout outside logging, so a log shipper parsing stdout line by line saw non-JSON lines.
+  The logging EPP defaults `spring.main.banner-mode=off` whenever the JSON format is resolved
+  (lowest precedence; `console` or `log` set by the service wins). Console format keeps Boot's banner.
+- **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
+  ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
+  case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run
+  showed an MDC key `session-token` written in clear; over-masking a `…Token` field is the safer error.
 - **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
   `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
   split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.logstash.logback.mask.ValueMasker;
@@ -45,31 +46,39 @@ public final class PlatformValueMasker implements ValueMasker {
     // Luhn-valid digit run). Anything else, or the same names nested in a structured value, is masked.
     private static final Pattern TRACE_OR_SPAN_ID = Pattern.compile("[0-9a-f]{32}|[0-9a-f]{16}");
 
-    // Normalized (lower case, no '-' or '_') field names whose whole value is a credential.
+    // Normalized (lower case, no '-' or '_') field names whose whole value is a credential: these, and
+    // compound names ending in one of the suffixes (sessionToken, db_password, x-auth-token, smtpSecret).
     private static final Set<String> CREDENTIAL_KEYS = Set.of("password", "passwd", "pwd", "secret",
             "clientsecret", "token", "accesstoken", "refreshtoken", "idtoken", "authorization",
             "proxyauthorization", "cookie", "setcookie", "apikey", "xapikey");
+    private static final List<String> CREDENTIAL_SUFFIXES = List.of("password", "passwd", "secret", "token",
+            "apikey", "authorization", "cookie");
 
     // Compact JWS/JWE candidates: runs of base64url segments joined by dots. A window of three segments
     // is a token when the first decodes to a JSON object (RFC 7515 allows whitespace around it); the
     // smallest header ({"alg":"x"}) is 15 characters, {} as payload encodes to e30, alg=none has no
     // signature.
     private static final Pattern DOTTED_RUN = Pattern.compile("[A-Za-z0-9_.-]{15,}");
-    private static final Pattern BEARER = Pattern.compile("(?i)(?<![\\w-])(Bearer)(\\s+)([A-Za-z0-9._~+/=-]+)");
-    private static final Pattern BASIC = Pattern.compile("(?i)(?<![\\w-])(Basic)(\\s+)([A-Za-z0-9+/]+={0,2})");
+    // Scheme then token. The token is matched in a lookahead, so a word that is not a credential ("basic
+    // Basic dXNlcjpw…") is not consumed and the scan resumes right after the scheme.
+    private static final Pattern BEARER = Pattern.compile("(?i)(?<![\\w-])(Bearer)(\\s+)(?=([A-Za-z0-9._~+/=-]+))");
+    private static final Pattern BASIC = Pattern.compile("(?i)(?<![\\w-])(Basic)(\\s+)(?=([A-Za-z0-9+/]+={0,2}))");
     // Quoted values with escapes, unrolled and possessive: a loop over an alternation would recurse once
     // per character in java.util.regex and overflow the stack on long values. An unterminated quote runs
     // to the end of the text.
     private static final String QUOTED = "\"[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+(?:\"|\\z)"
             + "|'[^'\\\\]*+(?:\\\\.[^'\\\\]*+)*+(?:'|\\z)";
-    // key=value, key: value, "key":"value", key='value'; quoted values masked whole, quotes kept.
-    private static final Pattern KEY_VALUE = Pattern.compile("(?i)(?<![\\w-])(password|passwd|pwd|secret"
-            + "|client_secret|access_token|refresh_token|id_token|token|api[-_]?key|authorization)"
+    // key=value, key: value, "key":"value", key='value'; quoted values masked whole, quotes kept. The key
+    // may be compound (session_token=, db-password:, smtpSecret=); the prefix is lazy and starts a token,
+    // so scanning stays linear.
+    private static final Pattern KEY_VALUE = Pattern.compile("(?i)(?<![\\w-])([A-Za-z0-9_-]*?(?:password|passwd|pwd"
+            + "|secret|token|api[-_]?key|authorization))"
             + "(\"?\\s*[:=]\\s*)(" + QUOTED + "|(?:(?:Bearer|Basic)\\s+)?[^\\s\"'&,;}]+)");
-    // "cookie":"…" (a quoted field): the quoted value goes. Cookie: … (header text, several pairs, quoted
-    // pair values included): everything up to the end of the line goes.
-    private static final Pattern COOKIE_FIELD = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\"\\s*:\\s*)("
-            + QUOTED + ")");
+    // A quoted key ("cookie":"…", "cookie"="…", "cookie":12345678): the value goes — a quoted one whole,
+    // a bare one up to the next , } or line end. An unquoted key (Cookie: … header text, several pairs,
+    // quoted pair values included): everything up to the end of the line goes.
+    private static final Pattern COOKIE_FIELD = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\"\\s*[:=]\\s*)("
+            + QUOTED + "|[^\\s\"',}][^,}\\r\\n]*+)");
     private static final Pattern COOKIE_HEADER = Pattern.compile("(?i)(?<![\\w-])(set-cookie|cookie)(\\s*[:=]\\s*)"
             + "([^\\r\\n]+)");
     // Emirates ID: 784-YYYY-NNNNNNN-C, dashes optional.
@@ -143,8 +152,8 @@ public final class PlatformValueMasker implements ValueMasker {
     String maskPatterns(String text) {
         String result = maskJwts(text);
         // RFC 6750 tokens may be letters only: whatever follows "Bearer" goes, prose included.
-        result = BEARER.matcher(result).replaceAll("$1$2" + MASK);
-        result = replace(result, BASIC, m -> basicCredential(m.group(3)) ? m.group(1) + m.group(2) + MASK : m.group());
+        result = schemeMask(result, BEARER, token -> !"bearer".equalsIgnoreCase(token));
+        result = schemeMask(result, BASIC, token -> !"basic".equalsIgnoreCase(token) && basicCredential(token));
         result = replace(result, KEY_VALUE, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
         result = replace(result, COOKIE_FIELD, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
         result = replace(result, COOKIE_HEADER, m -> m.group(1) + m.group(2) + MASK);
@@ -194,7 +203,11 @@ public final class PlatformValueMasker implements ValueMasker {
      * @return {@code true} when the field's whole value must be masked
      */
     static boolean isCredentialKey(String name) {
-        return name != null && CREDENTIAL_KEYS.contains(normalize(name));
+        if (name == null) {
+            return false;
+        }
+        String normalized = normalize(name);
+        return CREDENTIAL_KEYS.contains(normalized) || CREDENTIAL_SUFFIXES.stream().anyMatch(normalized::endsWith);
     }
 
     private static boolean underCredentialKey(JsonStreamContext context) {
@@ -338,6 +351,29 @@ public final class PlatformValueMasker implements ValueMasker {
             return ext == null ? MASK : MASK + ext;
         }
         return m.group();
+    }
+
+    // Masks the token after each scheme match the predicate accepts; a rejected match consumes only the
+    // scheme and its whitespace.
+    private static String schemeMask(String text, Pattern scheme, Predicate<String> isCredential) {
+        Matcher matcher = scheme.matcher(text);
+        StringBuilder out = null;
+        int copied = 0;
+        int from = 0;
+        while (from <= text.length() && matcher.find(from)) {
+            String token = matcher.group(3);
+            if (isCredential.test(token)) {
+                if (out == null) {
+                    out = new StringBuilder(text.length());
+                }
+                out.append(text, copied, matcher.end()).append(MASK);
+                copied = matcher.end() + token.length();
+                from = copied;
+            } else {
+                from = matcher.end();
+            }
+        }
+        return out == null ? text : out.append(text, copied, text.length()).toString();
     }
 
     private static String replace(String text, Pattern pattern, Function<Matcher, String> replacement) {

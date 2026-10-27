@@ -65,6 +65,9 @@ class JsonLogOutputTest {
                 .orElseThrow(() -> new AssertionError("no probe line captured"));
 
         assertThat(jsonLine).startsWith("{");
+        // R1.1: every stdout line is JSON — the banner is off in JSON mode (D108).
+        assertThat(output.getOut().lines().filter(line -> !line.isBlank()))
+                .allSatisfy(line -> assertThat(line).startsWith("{"));
         assertThat(jsonLine)
                 .contains("\"@timestamp\":")
                 .contains("\"level\":\"INFO\"")

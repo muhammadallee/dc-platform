@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +27,8 @@ import org.slf4j.helpers.MessageFormatter;
  * any combination, keyed as in the JSON output (an array element by its enclosing field). Other objects
  * keep their {@code toString}; the pattern masks still run over the whole message.
  *
- * <p>Each argument is rendered under its own guard: one whose rendering throws becomes
+ * <p>Values nested deeper than {@value #MAX_DEPTH} levels read {@code ****} in the message. Each structured
+ * argument is rendered exactly once, under its own guard: one whose rendering throws becomes
  * {@value #UNRENDERABLE}, so neither the event nor a sibling's mask is lost and the exception text never
  * reaches a diagnostic channel. Returns an event-local view: the logged event and its argument array
  * are never mutated; when nothing changes, the original event is returned. Thread-safe.
@@ -62,7 +64,11 @@ public final class SanitizedMessageView {
             Object rendered;
             try {
                 rendered = displayed(arguments[i]);
-            } catch (RuntimeException | LinkageError e) {
+            } catch (OutOfMemoryError e) {
+                throw e;
+            } catch (Throwable e) {
+                // Whatever SLF4J's own formatting would have survived (assertion errors, a recursive
+                // toString's StackOverflowError) is survived here too, without reporting the text.
                 rendered = UNRENDERABLE;
             }
             if (rendered != arguments[i]) {
@@ -87,7 +93,7 @@ public final class SanitizedMessageView {
                 });
     }
 
-    // The argument itself when its rendering is unchanged, otherwise the text to show in its place.
+    // The text to show in the argument's place (an unstructured argument is left to SLF4J).
     private static Object displayed(Object argument) {
         if (argument instanceof Kv kv) {
             if (PlatformValueMasker.isCredentialKey(kv.key())) {
@@ -116,10 +122,10 @@ public final class SanitizedMessageView {
         return argument;
     }
 
-    // A structured argument whose own toString throws is shown as UNRENDERABLE, not handed to SLF4J.
+    // A structured argument is rendered exactly once, here, under the caller's guard: handing it back to
+    // SLF4J would render it a second time, outside the guard.
     private static Object guardedToString(Object argument) {
-        argument.toString();
-        return argument;
+        return String.valueOf(argument);
     }
 
     /**
@@ -131,8 +137,12 @@ public final class SanitizedMessageView {
         if (key != null && PlatformValueMasker.isCredentialKey(key)) {
             return PlatformValueMasker.MASK;
         }
-        if (value == null || depth >= MAX_DEPTH) {
-            return value;
+        if (value == null) {
+            return null;
+        }
+        if (depth >= MAX_DEPTH) {
+            // Deeper than the traversal goes: shown masked rather than unchecked.
+            return PlatformValueMasker.MASK;
         }
         if (value instanceof Map<?, ?> map) {
             Map<Object, Object> copy = new LinkedHashMap<>();
@@ -145,7 +155,7 @@ public final class SanitizedMessageView {
             return changed ? copy : value;
         }
         if (value instanceof Collection<?> || value instanceof Object[]) {
-            Iterable<?> elements = value instanceof Object[] array ? List.of(array) : (Collection<?>) value;
+            Iterable<?> elements = value instanceof Object[] array ? Arrays.asList(array) : (Collection<?>) value;
             List<Object> copy = new ArrayList<>();
             boolean changed = false;
             for (Object element : elements) {

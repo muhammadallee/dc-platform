@@ -53,6 +53,9 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("logging.config", CONFIG_LOCATION);
+        // The ASCII banner goes to stdout outside logging: in JSON mode it would put non-JSON lines in
+        // the stream a log shipper parses line by line (D108).
+        defaults.put("spring.main.banner-mode", "off");
         // Resolved here (not in logback XML) because springProperty supports a single source:
         // explicit dc.platform.logging.service-name > spring.application.name > "application".
         defaults.put("dc.platform.logging.service-name",

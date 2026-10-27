@@ -20,13 +20,15 @@ is watching.
     around it allowed); whatever follows `Bearer` (so prose such as "Bearer token missing" reads
     "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
   - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
-    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`) in `key=value`,
+    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`, and compound keys
+    ending in one of them: `session_token`, `db-password`, `smtpSecret`) in `key=value`,
     `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
     unterminated quote to the end), quotes kept;
   - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
   - the whole value — of any type (string, number, boolean, `byte[]`, object, array) — of an MDC entry or
     structured-argument field, at any depth, whose **name** is one of those keys or `cookie` /
-    `set-cookie`; in the formatted `message` such an argument reads `password=****` (`****` for a
+    `set-cookie`, or ends in one of them ignoring case, `-` and `_` (`sessionToken`, `x-auth-token`,
+    `db_password`); in the formatted `message` such an argument reads `password=****` (`****` for a
     value-only `v(...)`);
   - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
     2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
@@ -46,7 +48,8 @@ is watching.
   them; a card number your code logs as a top-level field named `traceId`/`spanId` that is also a
   16-character hex string is not masked.
 - **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
-  user input cannot add a line or a field.
+  user input cannot add a line or a field. In JSON mode Boot's startup banner is off
+  (`spring.main.banner-mode=off`, overridable), so every stdout line is one JSON object.
 - **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
 - **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` before the platform masks run, to
   MDC values and to keyed arguments — `Kv.of`, Logstash `kv(...)`/`v(...)`/`value(...)` and

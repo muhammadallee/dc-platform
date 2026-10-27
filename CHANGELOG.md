@@ -55,6 +55,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`
   previously exported metrics but never traces.
 - `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).
+- JSON mode switches Boot's startup banner off (`spring.main.banner-mode=off`, overridable) so every
+  stdout line is JSON (D108).
 
 ### Added
 - Logging: `dc.platform.logging.mdc.include` (strict MDC mode), `dc.platform.logging.redaction.enabled`,

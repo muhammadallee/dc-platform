@@ -53,6 +53,15 @@ class PlatformLoggingEnvironmentPostProcessorTest {
     }
 
     @Test
+    void userBannerModeWins() {
+        MockEnvironment environment = new MockEnvironment().withProperty("spring.main.banner-mode", "console");
+
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("spring.main.banner-mode")).isEqualTo("console");
+    }
+
+    @Test
     void localProfileFallsBackToConsole() {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("local");
@@ -104,6 +113,7 @@ class PlatformLoggingEnvironmentPostProcessorTest {
 
         assertThat(environment.getProperty("logging.config")).isEqualTo(PlatformLoggingEnvironmentPostProcessor.CONFIG_LOCATION);
         assertThat(environment.getProperty("dc.platform.logging.service-name")).isEqualTo("orders");
+        assertThat(environment.getProperty("spring.main.banner-mode")).isEqualTo("off");
         assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.MDC_INCLUDE_RESOLVED)).isEmpty();
         assertThat(environment.getProperty(PlatformLoggingEnvironmentPostProcessor.REDACTION_PATTERNS_RESOLVED)).isEmpty();
     }

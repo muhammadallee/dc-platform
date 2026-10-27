@@ -173,6 +173,48 @@ class EncoderRedactionTest {
                 .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
     }
 
+    @Test
+    void rawJsonIsMaskedLikeAnyOtherStructuredValue() throws Exception {
+        // Verification pass 4: raw(...) went through writeRawValue, which the masking generator forwards.
+        String line = encode(event("{} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.raw("payload", "{\"password\":\"hunter2\",\"region\":\"dxb\"}"),
+                net.logstash.logback.argument.StructuredArguments.raw("escaped", "{\"pass\\u0077ord\":\"hunter3\"}")}));
+        assertThat(line).doesNotContain("hunter2").doesNotContain("hunter3");
+        JsonNode node = JSON.readTree(line);
+        assertThat(node.get("payload").get("password").asText()).isEqualTo("****");
+        assertThat(node.get("payload").get("region").asText()).isEqualTo("dxb");
+    }
+
+    @Test
+    void fieldsOfAKvKeepsItsField() throws Exception {
+        // Verification pass 4 regression 3: fields(...) needs an unwrapping serializer.
+        String line = encode(event("stored", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.fields(Kv.of("orderId", "ORD-42"))}));
+        assertThat(JSON.readTree(line).get("orderId").asText()).isEqualTo("ORD-42");
+    }
+
+    @Test
+    void unchangedArrayContentsAndTheDepthBoundaryAreKept() throws Exception {
+        // Verification pass 4 regressions 1 and 2.
+        String line = encode(event("{} {}", new Object[] {
+                kv("payload", new Object[] {kv("phase", "ready"), new int[] {1, 2}}),
+                kv("deep", wrap(1793001600123L, 63))}));
+        assertThat(JSON.readTree(line).get("message").asText())
+                .startsWith("payload=[phase=ready, [1, 2]] deep=").contains("1793001600123");
+    }
+
+    @Test
+    void markersInsideFieldsAreRenderedUnderTheGuard() throws Exception {
+        // Verification pass 4: fields(List.of(marker)) rendered the nested marker through its own toString.
+        int before = context.getStatusManager().getCount();
+        String line = encode(event("{} {}", new Object[] {
+                net.logstash.logback.argument.StructuredArguments.fields(List.of(v("password", "hunter2"))),
+                net.logstash.logback.argument.StructuredArguments.fields(List.of(kv("entity", new HostileBean())))}));
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("[****] [unrenderable]");
+        assertThat(context.getStatusManager().getCopyOfStatusList().subList(before, context.getStatusManager().getCount()))
+                .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

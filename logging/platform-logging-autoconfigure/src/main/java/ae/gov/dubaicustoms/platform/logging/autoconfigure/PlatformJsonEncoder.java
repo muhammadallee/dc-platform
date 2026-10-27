@@ -4,9 +4,11 @@ import ae.gov.dubaicustoms.platform.logging.Kv;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.CredentialFieldMasker;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.KvJsonSerializer;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.RawJsonMaskingGenerator;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.SanitizedMessageView;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import java.io.IOException;
@@ -14,6 +16,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 import net.logstash.logback.decorate.JsonFactoryDecorator;
+import net.logstash.logback.decorate.JsonGeneratorDecorator;
 import net.logstash.logback.encoder.LogstashEncoder;
 import net.logstash.logback.mask.MaskingJsonGeneratorDecorator;
 
@@ -95,9 +98,16 @@ public class PlatformJsonEncoder extends LogstashEncoder {
         if (redactionEnabled) {
             MaskingJsonGeneratorDecorator masking = new MaskingJsonGeneratorDecorator();
             masking.addFieldMasker(new CredentialFieldMasker());
-            masking.addValueMasker(new PlatformValueMasker(PlatformValueMasker.compile(redactionPatterns)));
+            PlatformValueMasker masker = new PlatformValueMasker(PlatformValueMasker.compile(redactionPatterns));
+            masking.addValueMasker(masker);
             masking.start();
-            setJsonGeneratorDecorator(masking);
+            // Outside the masking generator: raw(...) JSON is parsed and written back through it.
+            setJsonGeneratorDecorator(new JsonGeneratorDecorator() {
+                @Override
+                public JsonGenerator decorate(JsonGenerator generator) {
+                    return new RawJsonMaskingGenerator(masking.decorate(generator), masker);
+                }
+            });
         }
         super.start();
     }

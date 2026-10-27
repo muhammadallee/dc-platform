@@ -2,6 +2,8 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
 import ae.gov.dubaicustoms.platform.logging.Kv;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -19,6 +21,7 @@ import java.util.Set;
 import net.logstash.logback.marker.LogstashMarker;
 import net.logstash.logback.marker.MapEntriesAppendingMarker;
 import net.logstash.logback.marker.ObjectFieldsAppendingMarker;
+import net.logstash.logback.marker.RawJsonAppendingMarker;
 import net.logstash.logback.marker.SingleFieldAppendingMarker;
 import org.slf4j.Marker;
 import org.slf4j.helpers.MessageFormatter;
@@ -50,6 +53,7 @@ public final class SanitizedMessageView {
     private static final Field MAP_ENTRIES = field(MapEntriesAppendingMarker.class, "map");
     private static final Field OBJECT_FIELDS = field(ObjectFieldsAppendingMarker.class, "object");
     private static final Method SELF_TEXT = accessor(LogstashMarker.class, "toStringSelf");
+    private static final ObjectMapper RAW = new ObjectMapper();
 
     private SanitizedMessageView() {
     }
@@ -113,7 +117,7 @@ public final class SanitizedMessageView {
             if (PlatformValueMasker.isCredentialKey(kv.key())) {
                 return kv.key() + "=" + PlatformValueMasker.MASK;
             }
-            Object clean = sanitizedTree(kv.key(), kv.value(), depth + 1, path);
+            Object clean = sanitizedTree(kv.key(), kv.value(), depth, path);
             return clean == kv.value() ? guardedToString(argument) : kv.key() + "=" + valueText(clean);
         }
         if (argument instanceof LogstashMarker marker) {
@@ -158,19 +162,45 @@ public final class SanitizedMessageView {
             if (PlatformValueMasker.isCredentialKey(name) || FIELD_VALUE == null) {
                 return render(field, name, PlatformValueMasker.MASK);
             }
-            return render(field, name, valueText(sanitizedTree(name, read(FIELD_VALUE, field), depth + 1, path)));
+            Object value = read(FIELD_VALUE, field);
+            if (marker instanceof RawJsonAppendingMarker && value instanceof String raw) {
+                return render(field, name, rawText(name, raw, depth, path));
+            }
+            return render(field, name, valueText(sanitizedTree(name, value, depth, path)));
         }
         if (marker instanceof MapEntriesAppendingMarker entries) {
             return MAP_ENTRIES == null ? PlatformValueMasker.MASK
-                    : String.valueOf(sanitizedTree(null, read(MAP_ENTRIES, entries), depth + 1, path));
+                    : String.valueOf(sanitizedTree(null, read(MAP_ENTRIES, entries), depth, path));
         }
         if (marker instanceof ObjectFieldsAppendingMarker fields) {
-            // fields(bean): the JSON fields are sanitized one by one; the message keeps the bean's text.
-            return OBJECT_FIELDS == null ? PlatformValueMasker.MASK : valueText(read(OBJECT_FIELDS, fields));
+            // fields(bean): the JSON fields are sanitized one by one; the message keeps the bean's text
+            // (a collection or map of structured arguments is traversed like any value).
+            return OBJECT_FIELDS == null ? PlatformValueMasker.MASK
+                    : valueText(sanitizedTree(null, read(OBJECT_FIELDS, fields), depth, path));
         }
         // Other markers (the empty marker, consumer subclasses) render their own text; in encoder 8.1 only
         // the two types above go through StructuredArguments.toString.
         return SELF_TEXT == null ? "" : String.valueOf(read(SELF_TEXT, marker));
+    }
+
+    // raw(...): parsed, so escaped field names are seen; masked contents are shown as JSON again. Text
+    // that is not JSON is shown as is (the pattern masks still run over the message).
+    private static String rawText(String name, String raw, int depth, Set<Object> path) {
+        Object parsed;
+        try {
+            parsed = RAW.readValue(raw, Object.class);
+        } catch (JsonProcessingException e) {
+            return raw;
+        }
+        Object clean = sanitizedTree(name, parsed, depth, path);
+        if (clean == parsed) {
+            return raw;
+        }
+        try {
+            return RAW.writeValueAsString(clean);
+        } catch (JsonProcessingException e) {
+            return PlatformValueMasker.MASK;
+        }
     }
 
     // A structured argument is rendered exactly once, here, under the caller's guard: handing it back to
@@ -217,7 +247,7 @@ public final class SanitizedMessageView {
         if (value instanceof Kv || value instanceof LogstashMarker) {
             // A structured argument nested in a value: rendered here like a top-level one, never through
             // its own toString.
-            return displayed(value, depth, path);
+            return displayed(value, depth + 1, path);
         }
         boolean container = value instanceof Map<?, ?> || value instanceof Collection<?> || value instanceof Object[];
         if (depth >= MAX_DEPTH || container && path.contains(value)) {
@@ -247,7 +277,11 @@ public final class SanitizedMessageView {
                 copy.add(clean);
             }
             path.remove(value);
-            return changed ? copy : value;
+            if (!changed) {
+                return value;
+            }
+            // An array stays an array, so it is shown by content (deepToString) as before.
+            return value instanceof Object[] ? copy.toArray() : copy;
         }
         if (key != null && (value instanceof CharSequence || value instanceof Number)
                 && !LogSanitizerRegistry.current().isEmpty()) {

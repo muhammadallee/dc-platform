@@ -53,8 +53,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   or cyclic, read `****` there. A value whose `toString()` throws reads `[unrenderable]`, and its
   exception is no longer reported to stderr or the Logback status manager. A `Kv` nested in a
   structured value is written `{"<key>": value}` (was `{"key": …, "value": …}`; also with redaction
-  off), so credential names
-  mask it.
+  off), so credential names mask it; `fields(kv)` writes its one field. `raw(...)` JSON is now masked:
+  it is parsed and written back through the masks, so its JSON field is re-serialized (whitespace
+  and key formatting normalized) when redaction is on.
 - `platform.capability.active` is now registered when Boot creates the meter registry (the
   auto-configuration was evaluated before Boot's registry existed and backed off).
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`

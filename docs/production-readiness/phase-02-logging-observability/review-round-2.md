@@ -77,9 +77,54 @@ red (`evidence-raw/d11-red.log`, `d11b.log`), fixed in `85bf2ad`, `llms-full.txt
 | Regression 2 | Chained markers (`append(...).and(...)`) lost their references in `message` | FIXED — rendered as `LogstashMarker.toString`: own text, then each reference `, `-joined |
 | Found while fixing | A `Kv` nested in a value was serialized as a record (`{"key":"token","value":"tk-1"}`), so its credential name escaped the field masker and the value reached the JSON | FIXED — `KvJsonSerializer` writes `{"<key>": value}`, registered after any configured `JsonFactoryDecorator` |
 
-## Verification pass 4
+## Verification pass 4 (`b61cf2e`, checklist + implementation inventory)
 
-_Pending._
+Accepted: pass-3 regressions 1–2, nested `Kv` masking, `defer(...)`. Rejected: AC5 (`raw(...)` JSON
+bypassing masking — pre-existing, normal API use) and `fields(List.of(marker))` (unusual composition);
+three regressions (depth boundary off by one, primitive arrays by identity, `fields(Kv)` empty).
+Reproduced red (`d13-red.log`), fixed in `91c2639` (HI-0048, HI-0049).
+
+## Verification pass 5 (`edcd515`)
+
+Accepted: `fields(...)` gap, pass-4 regressions 1–3. Rejected AC5: an escaped space in raw JSON hid
+`Bearer` in `message`; raw parsing rounded numbers, dropped duplicate members and trailing text;
+integral `double` card numbers unmasked (HI-0050); changed arrays inside lists by identity.
+Reproduced red (`d14-red.log`), fixed in `6619ed7`.
+
+## Verification pass 6 (`2ca797d`)
+
+Accepted: pass-5 regressions 1–5. Rejected AC5: an escaped tab after `Bearer` re-escaped by
+re-serialization; strict duplicate rejection sent escaped credential keys to the text-only fallback;
+`double[]` card numbers in `message`; the numeric card check ran before `LogSanitizer` beans in
+`message`. Reproduced red (`d15-red.log`), fixed in `4fcdba8` (streaming `RawJson` reader keeping
+order, duplicates and exact numbers; message shows raw JSON decoded).
+
+Before pass 7, Claude probed the remaining fallback itself (`d16-red.log`): unparseable raw text with an
+escaped credential key (trailing comma; a 1 200-digit number) reached the text masks undecoded. D109:
+such text is written as a JSON string, escapes decoded, under the pattern masks. A consumer's
+`JsonGeneratorDecorator` is now chained, not replaced. The scaling test (flaky on CI at `2ca797d`,
+0.54 s vs 0.06 s) takes the fastest of five runs per size, threshold 10×.
+
+## Verification pass 7
+
+Scope: the `2ca797d..HEAD` diff only. A finding reproducible with a plain `String` argument through
+`{}` is the D102 text-mask baseline, not a structured-argument defect.
+
+**Outcome rule (written before the result):**
+- Only unusual-composition or baseline findings → Gate D closes; the residuals below go to the owner
+  for acceptance.
+- A normal-API leak in `message` rendering remains → no further patch-and-rerun. Passes 4–6 each
+  found 3–5 items, mostly in code the previous pass added; that is a design question for the owner:
+  (a) keep extending the message view type by type, or (b) fail closed — `message` renders scalars
+  only and every container, raw value, bean or nested marker reads `key=****`, the JSON field being the
+  readable source (changes the documented message contract, AC6).
+
+**Residuals proposed for acceptance** (not to be re-raised): depth > 64 / cycles read `****` in
+`message`; bean `toString` prose in `message` gets text masks only; top-level W3C `traceId`/`spanId`
+exemption; unparseable raw text gets text masks only (D109); console format unmasked (D107); custom
+`LogstashMarker` subclasses and custom serializers are not certified.
+
+_Result pending — `codex/v8-verify.out.md`._
 
 Evidence scan (plan §4.7) of this file and `codex/*`: the only token-shaped strings are the synthetic
 JWT fixture already in committed test source and `hunter*`/`correct horse…` test values.

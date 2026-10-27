@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 2 — Logging + Observability |
-| Current gate | D in progress: round 2 + verification pass 1 done, fixes in `f5ce14c`/`8334836`; verification pass 2 pending (prompt `codex/v3-verify.prompt.md`, worktree `$TEMP/hd/codex-p2v2` at `f5ce14c`). Gate E register entries HI-0041..46 written. Gate F scenario drafted (uncommitted), trial 2: 73/75 |
+| Current gate | D in progress: round 2 + verification passes 1–6 done (records in `review-round-2.md`, `codex/v2..v7-*`); pass 6 fixes and the D109 raw-text fallback committed; verification pass 7 next (narrow scope, outcome rule in `review-round-2.md`). Gate E register HI-0041..50. Gate F scenario committed (`371b838`), trial 2: 73/75 |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Re-run Codex verification pass 2 (stopped by memory pressure 2026-10-27 06:55), then Gate F trial 3 (`HH_MAVEN_REPO=~/.m2-hardening/phase-02`, repo refreshed at `f5ce14c`); confirm CI on `8334836`; write `review-round-2.md`. |
+| Next action | Verification pass 7; on close of Gate D refresh `~/.m2-hardening/phase-02` at the final Gate D commit (still at `f5ce14c`), then Gate F trial 3 alone (expect message-shape drift in `checks.py`: raw renders `{name=value}`, nested `Kv` JSON shape). |
 
 ## Phase log
 

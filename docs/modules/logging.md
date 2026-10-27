@@ -59,7 +59,10 @@ is watching.
   arrays, nested in any combination; each value is sanitized under its own key (map entries under
   theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
   field in the JSON output only; in `message` they keep their `toString()`, over which the platform
-  masks still run (`fields(bean)` likewise). In `message`, a value nested more than 64 levels deep, or
+  masks still run (`fields(bean)` likewise). A `Kv` or marker nested inside a value is treated like a
+  top-level one (a nested `Kv` is written `{"<key>": value}` in JSON, so its credential name masks it);
+  chained markers (`append(...).and(...)`) render each one, `, `-joined. In `message`, a value nested
+  more than 64 levels deep, or
   a container that contains itself, reads `****`. An argument whose rendering throws reads
   `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback
   status).

@@ -131,6 +131,34 @@ class EncoderRedactionTest {
                 .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
     }
 
+    @Test
+    void aMarkerNestedInAValueIsRenderedUnderTheSameGuard() throws Exception {
+        // Verification pass 3: a marker inside a structured value went through its own toString.
+        int before = context.getStatusManager().getCount();
+        String line = encode(event("{} {}", new Object[] {
+                kv("payload", wrap(kv("entity", new HostileBean()), 16)),
+                kv("wrapper", List.of(kv("password", "hunter2"), Kv.of("token", "tk-1")))}));
+        // (The text masks then take a bare value up to whitespace , ; or } — the closing ] included.)
+        assertThat(JSON.readTree(line).get("message").asText())
+                .startsWith("[unrenderable] wrapper=[password=****, token=****")
+                .doesNotContain("hunter2").doesNotContain("tk-1");
+        // A nested Kv is written {"token": …}, so the credential-name field masker applies.
+        assertThat(line).doesNotContain("hunter2").doesNotContain("tk-1");
+        assertThat(JSON.readTree(line).get("wrapper").get(1).get("token").asText()).isEqualTo("****");
+        assertThat(context.getStatusManager().getCopyOfStatusList().subList(before, context.getStatusManager().getCount()))
+                .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
+    }
+
+    @Test
+    void chainedMarkersKeepTheirReferencesInTheMessage() throws Exception {
+        // Verification pass 3: LogstashMarker.toString appends referenced markers, ", "-joined.
+        net.logstash.logback.marker.LogstashMarker chained = net.logstash.logback.marker.Markers.append("orderId", "ORD-42")
+                .and(net.logstash.logback.marker.Markers.append("phase", "ready"))
+                .and(net.logstash.logback.marker.Markers.append("password", "hunter2"));
+        String line = encode(event("{}", new Object[] {chained}));
+        assertThat(JSON.readTree(line).get("message").asText()).isEqualTo("orderId=ORD-42, phase=ready, password=****");
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

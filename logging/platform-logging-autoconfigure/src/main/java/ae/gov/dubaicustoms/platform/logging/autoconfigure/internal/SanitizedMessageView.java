@@ -16,9 +16,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.logstash.logback.marker.LogstashMarker;
 import net.logstash.logback.marker.MapEntriesAppendingMarker;
 import net.logstash.logback.marker.ObjectFieldsAppendingMarker;
 import net.logstash.logback.marker.SingleFieldAppendingMarker;
+import org.slf4j.Marker;
 import org.slf4j.helpers.MessageFormatter;
 
 /**
@@ -47,6 +49,7 @@ public final class SanitizedMessageView {
     private static final Field FORMAT_PATTERN = field(SingleFieldAppendingMarker.class, "messageFormatPattern");
     private static final Field MAP_ENTRIES = field(MapEntriesAppendingMarker.class, "map");
     private static final Field OBJECT_FIELDS = field(ObjectFieldsAppendingMarker.class, "object");
+    private static final Method SELF_TEXT = accessor(LogstashMarker.class, "toStringSelf");
 
     private SanitizedMessageView() {
     }
@@ -101,35 +104,73 @@ public final class SanitizedMessageView {
 
     // The text to show in the argument's place (an unstructured argument is left to SLF4J).
     private static Object displayed(Object argument) {
+        return displayed(argument, 0, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    // Also used for a Kv or marker nested inside a structured value, with the enclosing depth and path.
+    private static Object displayed(Object argument, int depth, Set<Object> path) {
         if (argument instanceof Kv kv) {
             if (PlatformValueMasker.isCredentialKey(kv.key())) {
                 return kv.key() + "=" + PlatformValueMasker.MASK;
             }
-            Object clean = sanitizedTree(kv.key(), kv.value(), 0);
+            Object clean = sanitizedTree(kv.key(), kv.value(), depth + 1, path);
             return clean == kv.value() ? guardedToString(argument) : kv.key() + "=" + valueText(clean);
         }
-        if (argument instanceof SingleFieldAppendingMarker marker) {
-            String name = marker.getFieldName();
-            if (PlatformValueMasker.isCredentialKey(name)) {
-                return render(marker, name, PlatformValueMasker.MASK);
+        if (argument instanceof LogstashMarker marker) {
+            if (depth >= MAX_DEPTH || !path.add(marker)) {
+                return PlatformValueMasker.MASK;
             }
-            if (FIELD_VALUE == null) {
-                return guardedToString(argument);
+            try {
+                return markerText(marker, depth, path);
+            } finally {
+                path.remove(marker);
             }
-            // Rendered here even when unchanged: the marker's own toString goes through
-            // StructuredArguments.toString.
-            return render(marker, name, valueText(sanitizedTree(name, read(FIELD_VALUE, marker), 0)));
-        }
-        if (argument instanceof MapEntriesAppendingMarker entries && MAP_ENTRIES != null) {
-            Object map = read(MAP_ENTRIES, entries);
-            Object clean = sanitizedTree(null, map, 0);
-            return clean == map ? guardedToString(argument) : String.valueOf(clean);
-        }
-        if (argument instanceof ObjectFieldsAppendingMarker fields && OBJECT_FIELDS != null) {
-            // fields(bean): the JSON fields are sanitized one by one; the message keeps the bean's text.
-            return valueText(read(OBJECT_FIELDS, fields));
         }
         return argument;
+    }
+
+    // As LogstashMarker.toString — its own text, then each referenced marker's, ", "-joined — rendered
+    // here even when nothing changes: Logstash's own rendering goes through StructuredArguments.toString.
+    private static String markerText(LogstashMarker marker, int depth, Set<Object> path) {
+        String self = selfText(marker, depth, path);
+        if (!marker.hasReferences()) {
+            return self;
+        }
+        StringBuilder text = new StringBuilder(self);
+        boolean separator = !self.isEmpty();
+        for (Marker reference : marker) {
+            if (separator) {
+                text.append(", ");
+            }
+            String referenceText = String.valueOf(displayed(reference, depth + 1, path));
+            if (!referenceText.isEmpty()) {
+                text.append(referenceText);
+                separator = true;
+            }
+        }
+        return text.toString();
+    }
+
+    // A reflective accessor missing (another encoder version) shows the value masked, never unrendered.
+    private static String selfText(LogstashMarker marker, int depth, Set<Object> path) {
+        if (marker instanceof SingleFieldAppendingMarker field) {
+            String name = field.getFieldName();
+            if (PlatformValueMasker.isCredentialKey(name) || FIELD_VALUE == null) {
+                return render(field, name, PlatformValueMasker.MASK);
+            }
+            return render(field, name, valueText(sanitizedTree(name, read(FIELD_VALUE, field), depth + 1, path)));
+        }
+        if (marker instanceof MapEntriesAppendingMarker entries) {
+            return MAP_ENTRIES == null ? PlatformValueMasker.MASK
+                    : String.valueOf(sanitizedTree(null, read(MAP_ENTRIES, entries), depth + 1, path));
+        }
+        if (marker instanceof ObjectFieldsAppendingMarker fields) {
+            // fields(bean): the JSON fields are sanitized one by one; the message keeps the bean's text.
+            return OBJECT_FIELDS == null ? PlatformValueMasker.MASK : valueText(read(OBJECT_FIELDS, fields));
+        }
+        // Other markers (the empty marker, consumer subclasses) render their own text; in encoder 8.1 only
+        // the two types above go through StructuredArguments.toString.
+        return SELF_TEXT == null ? "" : String.valueOf(read(SELF_TEXT, marker));
     }
 
     // A structured argument is rendered exactly once, here, under the caller's guard: handing it back to
@@ -172,6 +213,11 @@ public final class SanitizedMessageView {
         }
         if (value == null) {
             return null;
+        }
+        if (value instanceof Kv || value instanceof LogstashMarker) {
+            // A structured argument nested in a value: rendered here like a top-level one, never through
+            // its own toString.
+            return displayed(value, depth, path);
         }
         boolean container = value instanceof Map<?, ?> || value instanceof Collection<?> || value instanceof Object[];
         if (depth >= MAX_DEPTH || container && path.contains(value)) {

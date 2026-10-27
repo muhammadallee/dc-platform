@@ -1,13 +1,19 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
+import ae.gov.dubaicustoms.platform.logging.Kv;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.CredentialFieldMasker;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.KvJsonSerializer;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.SanitizedMessageView;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
+import net.logstash.logback.decorate.JsonFactoryDecorator;
 import net.logstash.logback.encoder.LogstashEncoder;
 import net.logstash.logback.mask.MaskingJsonGeneratorDecorator;
 
@@ -74,6 +80,18 @@ public class PlatformJsonEncoder extends LogstashEncoder {
             PLATFORM_MDC_KEYS.forEach(this::addIncludeMdcKeyName);
             keys.stream().filter(k -> !PLATFORM_MDC_KEYS.contains(k)).forEach(this::addIncludeMdcKeyName);
         }
+        // A Kv nested in a structured value is written {"<key>": value}, after any decorator already set.
+        JsonFactoryDecorator configured = getJsonFactoryDecorator();
+        setJsonFactoryDecorator(new JsonFactoryDecorator() {
+            @Override
+            public JsonFactory decorate(JsonFactory factory) {
+                JsonFactory decorated = configured == null ? factory : configured.decorate(factory);
+                if (decorated.getCodec() instanceof ObjectMapper mapper) {
+                    mapper.registerModule(new SimpleModule("platform-kv").addSerializer(Kv.class, new KvJsonSerializer()));
+                }
+                return decorated;
+            }
+        });
         if (redactionEnabled) {
             MaskingJsonGeneratorDecorator masking = new MaskingJsonGeneratorDecorator();
             masking.addFieldMasker(new CredentialFieldMasker());

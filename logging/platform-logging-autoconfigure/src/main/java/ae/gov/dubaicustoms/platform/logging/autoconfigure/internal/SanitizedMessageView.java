@@ -10,11 +10,14 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.logstash.logback.argument.StructuredArguments;
+import java.util.Set;
 import net.logstash.logback.marker.MapEntriesAppendingMarker;
+import net.logstash.logback.marker.ObjectFieldsAppendingMarker;
 import net.logstash.logback.marker.SingleFieldAppendingMarker;
 import org.slf4j.helpers.MessageFormatter;
 
@@ -27,8 +30,10 @@ import org.slf4j.helpers.MessageFormatter;
  * any combination, keyed as in the JSON output (an array element by its enclosing field). Other objects
  * keep their {@code toString}; the pattern masks still run over the whole message.
  *
- * <p>Values nested deeper than {@value #MAX_DEPTH} levels read {@code ****} in the message. Each structured
- * argument is rendered exactly once, under its own guard: one whose rendering throws becomes
+ * <p>Values nested deeper than {@value #MAX_DEPTH} levels, and a container that contains itself, read
+ * {@code ****} in the message. Each structured argument is rendered exactly once, here, under its own
+ * guard — never through Logstash's {@code StructuredArguments.toString}, which reports a throwing value's
+ * exception to the Logback status manager unmasked: one whose rendering throws becomes
  * {@value #UNRENDERABLE}, so neither the event nor a sibling's mask is lost and the exception text never
  * reaches a diagnostic channel. Returns an event-local view: the logged event and its argument array
  * are never mutated; when nothing changes, the original event is returned. Thread-safe.
@@ -37,10 +42,11 @@ public final class SanitizedMessageView {
 
     static final String UNRENDERABLE = "[unrenderable]";
 
-    private static final int MAX_DEPTH = 16;
+    private static final int MAX_DEPTH = 64;
     private static final Method FIELD_VALUE = accessor(SingleFieldAppendingMarker.class, "getFieldValue");
     private static final Field FORMAT_PATTERN = field(SingleFieldAppendingMarker.class, "messageFormatPattern");
     private static final Field MAP_ENTRIES = field(MapEntriesAppendingMarker.class, "map");
+    private static final Field OBJECT_FIELDS = field(ObjectFieldsAppendingMarker.class, "object");
 
     private SanitizedMessageView() {
     }
@@ -100,7 +106,7 @@ public final class SanitizedMessageView {
                 return kv.key() + "=" + PlatformValueMasker.MASK;
             }
             Object clean = sanitizedTree(kv.key(), kv.value(), 0);
-            return clean == kv.value() ? guardedToString(argument) : kv.key() + "=" + StructuredArguments.toString(clean);
+            return clean == kv.value() ? guardedToString(argument) : kv.key() + "=" + valueText(clean);
         }
         if (argument instanceof SingleFieldAppendingMarker marker) {
             String name = marker.getFieldName();
@@ -110,14 +116,18 @@ public final class SanitizedMessageView {
             if (FIELD_VALUE == null) {
                 return guardedToString(argument);
             }
-            Object value = read(FIELD_VALUE, marker);
-            Object clean = sanitizedTree(name, value, 0);
-            return clean == value ? guardedToString(argument) : render(marker, name, StructuredArguments.toString(clean));
+            // Rendered here even when unchanged: the marker's own toString goes through
+            // StructuredArguments.toString.
+            return render(marker, name, valueText(sanitizedTree(name, read(FIELD_VALUE, marker), 0)));
         }
         if (argument instanceof MapEntriesAppendingMarker entries && MAP_ENTRIES != null) {
             Object map = read(MAP_ENTRIES, entries);
             Object clean = sanitizedTree(null, map, 0);
             return clean == map ? guardedToString(argument) : String.valueOf(clean);
+        }
+        if (argument instanceof ObjectFieldsAppendingMarker fields && OBJECT_FIELDS != null) {
+            // fields(bean): the JSON fields are sanitized one by one; the message keeps the bean's text.
+            return valueText(read(OBJECT_FIELDS, fields));
         }
         return argument;
     }
@@ -128,41 +138,69 @@ public final class SanitizedMessageView {
         return String.valueOf(argument);
     }
 
+    // As StructuredArguments.toString (arrays by content), minus its catch: a throwing value reaches the
+    // caller's guard instead of the Logback status manager.
+    private static String valueText(Object value) {
+        return switch (value) {
+            case null -> "null";
+            case Object[] array -> Arrays.deepToString(array);
+            case byte[] array -> Arrays.toString(array);
+            case short[] array -> Arrays.toString(array);
+            case int[] array -> Arrays.toString(array);
+            case long[] array -> Arrays.toString(array);
+            case char[] array -> Arrays.toString(array);
+            case float[] array -> Arrays.toString(array);
+            case double[] array -> Arrays.toString(array);
+            case boolean[] array -> Arrays.toString(array);
+            default -> String.valueOf(value);
+        };
+    }
+
     /**
      * Applies credential masking and the {@code LogSanitizer} beans to a structured value: the same
      * instance when nothing changes, otherwise a sanitized copy (maps, collections and object arrays
      * become maps and lists).
      */
     static Object sanitizedTree(String key, Object value, int depth) {
+        return sanitizedTree(key, value, depth, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    // path: the containers being traversed, by identity, so a container holding itself ends the descent.
+    private static Object sanitizedTree(String key, Object value, int depth, Set<Object> path) {
         if (key != null && PlatformValueMasker.isCredentialKey(key)) {
             return PlatformValueMasker.MASK;
         }
         if (value == null) {
             return null;
         }
-        if (depth >= MAX_DEPTH) {
-            // Deeper than the traversal goes: shown masked rather than unchecked.
+        boolean container = value instanceof Map<?, ?> || value instanceof Collection<?> || value instanceof Object[];
+        if (depth >= MAX_DEPTH || container && path.contains(value)) {
+            // Deeper than the traversal goes, or a cycle: shown masked rather than unchecked.
             return PlatformValueMasker.MASK;
         }
         if (value instanceof Map<?, ?> map) {
+            path.add(value);
             Map<Object, Object> copy = new LinkedHashMap<>();
             boolean changed = false;
             for (Map.Entry<?, ?> entry : map.entrySet()) {
-                Object clean = sanitizedTree(String.valueOf(entry.getKey()), entry.getValue(), depth + 1);
+                Object clean = sanitizedTree(String.valueOf(entry.getKey()), entry.getValue(), depth + 1, path);
                 changed |= clean != entry.getValue();
                 copy.put(entry.getKey(), clean);
             }
+            path.remove(value);
             return changed ? copy : value;
         }
-        if (value instanceof Collection<?> || value instanceof Object[]) {
+        if (container) {
+            path.add(value);
             Iterable<?> elements = value instanceof Object[] array ? Arrays.asList(array) : (Collection<?>) value;
             List<Object> copy = new ArrayList<>();
             boolean changed = false;
             for (Object element : elements) {
-                Object clean = sanitizedTree(key, element, depth + 1);
+                Object clean = sanitizedTree(key, element, depth + 1, path);
                 changed |= clean != element;
                 copy.add(clean);
             }
+            path.remove(value);
             return changed ? copy : value;
         }
         if (key != null && (value instanceof CharSequence || value instanceof Number)

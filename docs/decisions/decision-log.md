@@ -681,6 +681,10 @@ One line of context per decision; details live in the commit bodies referenced.
   ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
   case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run
   showed an MDC key `session-token` written in clear; over-masking a `…Token` field is the safer error.
+  In text, `sessionCookie=…` masks its value like any credential key; only the exact `Cookie:` /
+  `Set-Cookie:` header masks to the end of the line. The message view traverses structured values to
+  64 levels and masks anything deeper or cyclic (fail closed): deep enough that ordinary payloads stay
+  readable, bounded so a hostile value cannot exhaust the stack (verification pass 2).
 - **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
   `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
   split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed

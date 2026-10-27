@@ -69,10 +69,11 @@ public final class PlatformValueMasker implements ValueMasker {
     private static final String QUOTED = "\"[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+(?:\"|\\z)"
             + "|'[^'\\\\]*+(?:\\\\.[^'\\\\]*+)*+(?:'|\\z)";
     // key=value, key: value, "key":"value", key='value'; quoted values masked whole, quotes kept. The key
-    // may be compound (session_token=, db-password:, smtpSecret=); the prefix is lazy and starts a token,
-    // so scanning stays linear.
+    // may be compound (session_token=, db-password:, smtpSecret=, sessionCookie=); the prefix is lazy and
+    // starts a token, so scanning stays linear. A bare cookie key here masks its first value; the cookie
+    // patterns below then take a header's remaining pairs.
     private static final Pattern KEY_VALUE = Pattern.compile("(?i)(?<![\\w-])([A-Za-z0-9_-]*?(?:password|passwd|pwd"
-            + "|secret|token|api[-_]?key|authorization))"
+            + "|secret|token|api[-_]?key|authorization|cookie))"
             + "(\"?\\s*[:=]\\s*)(" + QUOTED + "|(?:(?:Bearer|Basic)\\s+)?[^\\s\"'&,;}]+)");
     // A quoted key ("cookie":"…", "cookie"="…", "cookie":12345678): the value goes — a quoted one whole,
     // a bare one up to the next , } or line end. An unquoted key (Cookie: … header text, several pairs,
@@ -152,8 +153,8 @@ public final class PlatformValueMasker implements ValueMasker {
     String maskPatterns(String text) {
         String result = maskJwts(text);
         // RFC 6750 tokens may be letters only: whatever follows "Bearer" goes, prose included.
-        result = schemeMask(result, BEARER, token -> !"bearer".equalsIgnoreCase(token));
-        result = schemeMask(result, BASIC, token -> !"basic".equalsIgnoreCase(token) && basicCredential(token));
+        result = schemeMask(result, BEARER, token -> true);
+        result = schemeMask(result, BASIC, PlatformValueMasker::basicCredential);
         result = replace(result, KEY_VALUE, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
         result = replace(result, COOKIE_FIELD, m -> m.group(1) + m.group(2) + maskValue(m.group(3)));
         result = replace(result, COOKIE_HEADER, m -> m.group(1) + m.group(2) + MASK);
@@ -357,12 +358,17 @@ public final class PlatformValueMasker implements ValueMasker {
     // scheme and its whitespace.
     private static String schemeMask(String text, Pattern scheme, Predicate<String> isCredential) {
         Matcher matcher = scheme.matcher(text);
+        Matcher next = scheme.matcher(text).useTransparentBounds(true).useAnchoringBounds(false);
         StringBuilder out = null;
         int copied = 0;
         int from = 0;
         while (from <= text.length() && matcher.find(from)) {
             String token = matcher.group(3);
-            if (isCredential.test(token)) {
+            // "bearer Bearer <token>": the scheme word is skipped only when a scheme + token follows it;
+            // "Bearer bearer" alone is a credential like any other.
+            boolean schemeWord = token.equalsIgnoreCase(matcher.group(1))
+                    && next.region(matcher.end(), text.length()).lookingAt();
+            if (!schemeWord && isCredential.test(token)) {
                 if (out == null) {
                     out = new StringBuilder(text.length());
                 }

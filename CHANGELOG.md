@@ -49,7 +49,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   addresses and phone numbers become `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
 - `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented: strings,
   numbers, maps, collections and arrays, in the JSON field and in the formatted `message` alike.
-  Credential-keyed arguments read `password=****` in `message`.
+  Credential-keyed arguments read `password=****` in `message`; values nested deeper than 64 levels,
+  or cyclic, read `****` there. A value whose `toString()` throws reads `[unrenderable]`, and its
+  exception is no longer reported to stderr or the Logback status manager.
 - `platform.capability.active` is now registered when Boot creates the meter registry (the
   auto-configuration was evaluated before Boot's registry existed and backed off).
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`

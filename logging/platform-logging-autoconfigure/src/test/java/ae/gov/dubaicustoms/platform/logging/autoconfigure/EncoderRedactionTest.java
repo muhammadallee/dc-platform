@@ -89,7 +89,59 @@ class EncoderRedactionTest {
                         "st-abcdef", "xa-1"),
                 row("credential 17 levels deep", "{}",
                         new Object[] {kv("payload", wrap(Map.of("password", "correct horse battery staple"), 16))},
-                        "horse", "staple"));
+                        "horse", "staple"),
+                row("credential below the traversal depth", "{}",
+                        new Object[] {kv("payload", wrap(Map.of("password", "correct horse battery staple"), 64))},
+                        "horse", "staple"),
+                // Verification pass 2: compound cookie names in text.
+                row("compound cookie key in text", "{}", new Object[] {"sessionCookie=abc123"}, "abc123"),
+                row("compound cookie JSON field", "{}", new Object[] {"{\"sessionCookie\":\"sid=abc123\"}"}, "abc123"));
+    }
+
+    @Test
+    void aSchemeWordIsItselfACredentialUnlessAnotherSchemeFollows() throws Exception {
+        // Verification pass 2: the overlap repair must not exempt "Bearer bearer".
+        assertThat(message("Bearer bearer")).isEqualTo("Bearer ****");
+        assertThat(message("Bearer BEARER")).isEqualTo("Bearer ****");
+        assertThat(message("bearer Bearer abcdefgh12345678")).isEqualTo("bearer Bearer ****");
+        assertThat(message("basic Basic YWxpY2U6czNjcjN0LTJiMDgwMA==")).isEqualTo("basic Basic ****");
+    }
+
+    private String message(String text) throws Exception {
+        return JSON.readTree(encode(event("{}", new Object[] {text}))).get("message").asText();
+    }
+
+    @Test
+    void ordinaryValuesNestedWithinTheTraversalDepthStayReadable() throws Exception {
+        // Verification pass 2: R3.3 common values are not masked merely for being nested.
+        String line = encode(event("{}", new Object[] {kv("payload", wrap(1793001600123L, 32))}));
+        assertThat(JSON.readTree(line).get("message").asText()).contains("1793001600123");
+    }
+
+    @Test
+    void aThrowingValueInsideALogstashMarkerNeverReachesTheStatusManager() throws Exception {
+        // Verification pass 2: StructuredArguments.toString reports the exception, unmasked, as a status.
+        HostileBean bad = new HostileBean();
+        int before = context.getStatusManager().getCount();
+        String line = encode(event("{} {} {}", new Object[] {
+                kv("items", new Object[] {null, bad}), kv("entity", bad), net.logstash.logback.argument.StructuredArguments.fields(bad)}));
+        assertThat(JSON.readTree(line).get("message").asText())
+                .isEqualTo("[unrenderable] [unrenderable] [unrenderable]");
+        assertThat(context.getStatusManager().getCopyOfStatusList().subList(before, context.getStatusManager().getCount()))
+                .noneSatisfy(status -> assertThat(String.valueOf(status.getThrowable())).contains("hunter5"));
+    }
+
+    /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
+    public static final class HostileBean {
+
+        public String getId() {
+            return "b-1";
+        }
+
+        @Override
+        public String toString() {
+            throw new IllegalStateException("password=hunter5");
+        }
     }
 
     private static Object wrap(Object value, int times) {
@@ -103,7 +155,7 @@ class EncoderRedactionTest {
     @Test
     void aSanitizedValueBelowTheTraversalDepthIsNotShownInTheMessage() {
         publish((key, value) -> "customerName".equals(key) ? "C***" : value);
-        String line = encode(event("{}", new Object[] {kv("customerName", wrap("Fatima", 16))}));
+        String line = encode(event("{}", new Object[] {kv("customerName", wrap("Fatima", 64))}));
         assertThat(line).doesNotContain("Fatima");
     }
 

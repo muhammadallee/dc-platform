@@ -21,7 +21,8 @@ is watching.
     "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
   - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
     `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`, and compound keys
-    ending in one of them: `session_token`, `db-password`, `smtpSecret`) in `key=value`,
+    ending in one of them or in `cookie`: `session_token`, `db-password`, `smtpSecret`, `sessionCookie`)
+    in `key=value`,
     `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
     unterminated quote to the end), quotes kept;
   - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
@@ -58,7 +59,10 @@ is watching.
   arrays, nested in any combination; each value is sanitized under its own key (map entries under
   theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
   field in the JSON output only; in `message` they keep their `toString()`, over which the platform
-  masks still run. An argument whose rendering throws reads `[unrenderable]` in `message`.
+  masks still run (`fields(bean)` likewise). In `message`, a value nested more than 64 levels deep, or
+  a container that contains itself, reads `****`. An argument whose rendering throws reads
+  `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback
+  status).
 
 ## Starter coordinates
 

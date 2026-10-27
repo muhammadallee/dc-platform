@@ -60,7 +60,9 @@ class PlatformEndpointWebTest {
             get(environment, "/actuator/health/readiness");
             String scrape = get(environment, "/actuator/prometheus").body();
             assertThat(scrape).contains("service=\"observability-web-test\"").contains("platform_version=\"")
-                    .contains("env=\"default\"");
+                    .contains("env=\"default\"")
+                    // R5.1: the platform's own meter, with Boot creating the registry (no registry bean of ours).
+                    .contains("platform_capability_active{");
             Matcher labels = LABEL_VALUE.matcher(scrape);
             while (labels.find()) {
                 assertThat(labels.group(1)).as("label value")

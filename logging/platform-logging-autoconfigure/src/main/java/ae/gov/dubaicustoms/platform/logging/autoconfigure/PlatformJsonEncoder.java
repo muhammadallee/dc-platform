@@ -47,6 +47,10 @@ public class PlatformJsonEncoder extends LogstashEncoder {
     private String mdcInclude = "";
     private boolean redactionEnabled = true;
     private String redactionPatterns = "";
+    private JsonFactoryDecorator consumerFactoryDecorator;
+    private JsonFactoryDecorator installedFactoryDecorator;
+    private JsonGeneratorDecorator consumerGeneratorDecorator;
+    private JsonGeneratorDecorator installedGeneratorDecorator;
 
     /**
      * Comma-separated MDC keys to write besides {@code traceId} and {@code spanId}. Blank (the
@@ -83,9 +87,17 @@ public class PlatformJsonEncoder extends LogstashEncoder {
             PLATFORM_MDC_KEYS.forEach(this::addIncludeMdcKeyName);
             keys.stream().filter(k -> !PLATFORM_MDC_KEYS.contains(k)).forEach(this::addIncludeMdcKeyName);
         }
+        // Decorators the platform installed on an earlier start() are replaced, never wrapped again, so a
+        // restart keeps one masking layer around the consumer's own decorators.
+        if (getJsonFactoryDecorator() != installedFactoryDecorator) {
+            consumerFactoryDecorator = getJsonFactoryDecorator();
+        }
+        if (getJsonGeneratorDecorator() != installedGeneratorDecorator) {
+            consumerGeneratorDecorator = getJsonGeneratorDecorator();
+        }
         // A Kv nested in a structured value is written {"<key>": value}, after any decorator already set.
-        JsonFactoryDecorator configured = getJsonFactoryDecorator();
-        setJsonFactoryDecorator(new JsonFactoryDecorator() {
+        JsonFactoryDecorator configured = consumerFactoryDecorator;
+        installedFactoryDecorator = new JsonFactoryDecorator() {
             @Override
             public JsonFactory decorate(JsonFactory factory) {
                 JsonFactory decorated = configured == null ? factory : configured.decorate(factory);
@@ -94,7 +106,9 @@ public class PlatformJsonEncoder extends LogstashEncoder {
                 }
                 return decorated;
             }
-        });
+        };
+        setJsonFactoryDecorator(installedFactoryDecorator);
+        installedGeneratorDecorator = null;
         if (redactionEnabled) {
             MaskingJsonGeneratorDecorator masking = new MaskingJsonGeneratorDecorator();
             masking.addFieldMasker(new CredentialFieldMasker());
@@ -103,15 +117,16 @@ public class PlatformJsonEncoder extends LogstashEncoder {
             masking.start();
             // Outside the masking generator: raw(...) JSON is parsed and written back through it. A
             // generator decorator set in the consumer's Logback file stays innermost.
-            JsonGeneratorDecorator configuredGenerator = getJsonGeneratorDecorator();
-            setJsonGeneratorDecorator(new JsonGeneratorDecorator() {
+            JsonGeneratorDecorator configuredGenerator = consumerGeneratorDecorator;
+            installedGeneratorDecorator = new JsonGeneratorDecorator() {
                 @Override
                 public JsonGenerator decorate(JsonGenerator generator) {
                     JsonGenerator base = configuredGenerator == null ? generator : configuredGenerator.decorate(generator);
                     return new RawJsonMaskingGenerator(masking.decorate(base), masker);
                 }
-            });
+            };
         }
+        setJsonGeneratorDecorator(installedGeneratorDecorator == null ? consumerGeneratorDecorator : installedGeneratorDecorator);
         super.start();
     }
 

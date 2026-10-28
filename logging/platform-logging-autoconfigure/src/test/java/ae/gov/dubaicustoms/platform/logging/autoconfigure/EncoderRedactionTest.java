@@ -298,6 +298,28 @@ class EncoderRedactionTest {
         assertThat(node.get("deferred").get("password").asText()).isEqualTo("****");
     }
 
+    @Test
+    void restartingTheEncoderKeepsOneMaskingLayerAndTheConsumerDecorator() throws Exception {
+        // Pass-7 regression: stop/start wrapped the previous platform wrapper, so sanitizers ran twice.
+        publish((key, value) -> "recordId".equals(key) && value != null ? "ref-" + value : value);
+        java.util.concurrent.atomic.AtomicInteger consumerCalls = new java.util.concurrent.atomic.AtomicInteger();
+        PlatformJsonEncoder encoder = new PlatformJsonEncoder();
+        encoder.setContext(context);
+        encoder.setJsonGeneratorDecorator(generator -> {
+            consumerCalls.incrementAndGet();
+            return generator;
+        });
+        encoder.start();
+        encoder.stop();
+        encoder.start();
+        LoggingEvent event = event("{}", new Object[] {kv("recordId", "7"), kv("nested", Kv.of("token", "tk-9"))});
+        JsonNode node = JSON.readTree(new String(encoder.encode(event), StandardCharsets.UTF_8));
+        assertThat(node.get("recordId").asText()).isEqualTo("ref-7");
+        assertThat(node.get("message").asText()).startsWith("recordId=ref-7");
+        assertThat(node.get("nested").get("token").asText()).isEqualTo("****");
+        assertThat(consumerCalls).hasValue(1);
+    }
+
     /** Serializable as JSON ({@code {"id":"b-1"}}); its toString throws with a secret in the message. */
     public static final class HostileBean {
 

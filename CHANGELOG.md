@@ -58,7 +58,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   through the masks, so its JSON field is re-serialized (whitespace and escapes normalized) when
   redaction is on, and `message` shows it decoded (`{name=value}`); raw text that is not exactly one
   JSON value is written as a JSON string, escapes decoded, under the pattern masks (was: raw, which
-  made the line invalid JSON; D109). Integral `double`/`float` card numbers are masked.
+  made the line invalid JSON; D109). Integral `double`/`float` card numbers are masked. A
+  `jsonGeneratorDecorator` set on `PlatformJsonEncoder` in your Logback file is kept (inside the
+  masking) instead of replaced, and restarting the encoder keeps one masking layer.
 - `platform.capability.active` is now registered when Boot creates the meter registry (the
   auto-configuration was evaluated before Boot's registry existed and backed off).
 - The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`

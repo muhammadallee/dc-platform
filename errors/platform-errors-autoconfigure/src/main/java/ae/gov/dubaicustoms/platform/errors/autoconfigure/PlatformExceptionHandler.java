@@ -3,12 +3,14 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import ae.gov.dubaicustoms.platform.errors.BusinessException;
+import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -34,6 +36,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * bodies get the same platform extensions ({@code DC-CORE-0410} for an unreadable request body,
  * {@code DC-CORE-0499} for any other rejected request). No 5xx body ever carries an exception
  * message: the full exception is logged with the trace ID instead.
+ * Data-access failures — Spring's translated types and the raw JPA/Hibernate/JDBC ones a service using
+ * the {@code EntityManager} directly lets through — become 409 {@code DC-DATA-0409} (constraint
+ * violation), 409 {@code DC-DATA-0410} (concurrent update or lock) or 503 {@code DC-DATA-0503}
+ * (no connection, timeout, lost connection), with a fixed detail that never names SQL, tables or
+ * constraints.
  * Ordered at {@link Ordered#LOWEST_PRECEDENCE} so application advice beans win first.
  *
  * <p>Registered by {@code PlatformErrorHandlingAutoConfiguration}; define your own bean named
@@ -102,7 +109,8 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Fallback: anything unmapped is a 500 with code {@code DC-CORE-0500}. The exception message
+     * Fallback: a data-access failure (anywhere in the cause chain) is a 409/503 data problem;
+     * anything else unmapped is a 500 with code {@code DC-CORE-0500}. The exception message
      * is NOT leaked — unexpected messages routinely carry internals (SQL, hosts, file paths); the
      * full exception goes to the log, correlated via MDC.
      *
@@ -118,6 +126,17 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
         // swallowing them here would turn every denial into a 500.
         if (isSecurityException(exception)) {
             throw exception;
+        }
+        // Data-access failures (D111): 409 for a conflict with stored data, 503 for an unavailable
+        // database, with a fixed detail — their messages carry SQL and constraint names. The full
+        // exception is logged once on the request's trace.
+        Optional<DataAccessFailure> dataFailure = DataAccessFailure.classify(exception);
+        if (dataFailure.isPresent()) {
+            DataAccessFailure failure = dataFailure.get();
+            log.warn("data access failure [{}]", failure.code().value(), exception);
+            ProblemDetail problem = factory.create(failure.status(), failure.code(), failure.detail(),
+                    request.getRequestURI(), exception);
+            return ResponseEntity.status(failure.status()).body(problem);
         }
         log.error("unhandled exception [{}]", UNEXPECTED_ERROR.value(), exception);
         ProblemDetail problem = factory.create(

@@ -98,5 +98,22 @@
       <artifactId>spring-security-core</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Data-access failures (D111) are classified by class name, so main code has no dependency on
+         these; the tests rebuild the exception chains observed on Oracle from the real types. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-jdbc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

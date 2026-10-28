@@ -69,7 +69,18 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - JSON mode switches Boot's startup banner off (`spring.main.banner-mode=off`, overridable) so every
   stdout line is JSON (D108).
 
+### Breaking (capability hardening, phase 3 — data access, Oracle)
+- **Data-access failures are no longer a generic 500.** A unique, foreign-key, NOT NULL or check
+  violation is **409 `DC-DATA-0409`**; an optimistic or pessimistic locking failure is
+  **409 `DC-DATA-0410`**; no connection within the pool timeout, a statement or transaction timeout,
+  or a lost connection is **503 `DC-DATA-0503`** (`retryable: true`). The detail is fixed (never SQL,
+  table or constraint names); the full exception is logged at WARN on the request's trace. Raw
+  JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
+  (by cause chain and SQLState). An application `@ExceptionHandler` for these types still wins (D111).
+
 ### Added
+- Data: `platform-starter-data-jpa-oracle` — the data-jpa stack plus the Oracle JDBC driver and
+  `flyway-database-oracle` (HD12).
 - Logging: `dc.platform.logging.mdc.include` (strict MDC mode), `dc.platform.logging.redaction.enabled`,
   `dc.platform.logging.redaction.patterns`.
 - Observability: `dependencies` health group; docs for collector tail sampling of errored requests.

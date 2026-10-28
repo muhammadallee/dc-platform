@@ -10,7 +10,15 @@ RFC-9457 problem responses with stable, machine-readable error codes: throw a
   (404), `ConflictException` (409); each carries an `ErrorCode` (`DC-<CAP>-<NNNN>`) that becomes
   the problem `type`/`title` and the `code` extension.
 - **Platform exception mapping** — any other `PlatformException` maps to 500 with its own code;
-  anything unmapped maps to 500 with `DC-CORE-0500`. **No 5xx body ever carries an exception
+  a data-access failure maps to 409/503 with a `DC-DATA-*` code (below); anything else unmapped maps
+  to 500 with `DC-CORE-0500`.
+- **Data-access failures** — recognised anywhere in the cause chain, whether Spring translated them
+  (`DataIntegrityViolationException`, `OptimisticLockingFailureException`, …) or not (raw
+  Hibernate/JPA/JDBC types from code that uses the `EntityManager` directly; SQLState `23`/`40`/`08`):
+  constraint violation → 409 `DC-DATA-0409`, concurrent update or lock → 409 `DC-DATA-0410`,
+  unavailable database or timeout → 503 `DC-DATA-0503` (`retryable: true`). The detail is fixed — the
+  database's message, which names SQL, tables and constraints, never reaches the caller; it is logged
+  at WARN on the request's trace. A SQL bug (bad grammar, unknown table) stays a 500. **No 5xx body ever carries an exception
   message** — every 5xx gets the generic detail `An unexpected error occurred.`; the full exception
   goes to the log with the trace ID. 4xx business exceptions keep their application-authored message.
 - **Framework errors get the same contract** — Spring MVC's own rejections (404, 405, 406, 415, …) keep
@@ -121,6 +129,9 @@ Customizers run last, in order, on every problem body the platform emits.
 | `DC-CORE-0410` | Request body unreadable or malformed (e.g. invalid JSON). |
 | `DC-CORE-0499` | Any other request the servlet stack rejected (404, 405, 406, 415, …); status preserved. |
 | `DC-CORE-0500` | Unhandled exception; generic body, full details in the log. |
+| `DC-DATA-0409` | 409 — the request conflicts with stored data (unique, foreign-key, NOT NULL or check constraint). |
+| `DC-DATA-0410` | 409 — the data was changed or is locked by another request; reload and retry. |
+| `DC-DATA-0503` | 503 — the database is unavailable: no pooled connection in time, statement/transaction timeout, lost connection. Retryable. |
 | `DC-SEC-0401` | Missing or unacceptable credentials (security entry point). |
 | `DC-SEC-0403` | Authenticated, but lacking the required authority (security denied handler). |
 

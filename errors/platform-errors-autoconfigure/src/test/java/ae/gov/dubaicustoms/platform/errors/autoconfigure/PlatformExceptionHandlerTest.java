@@ -135,6 +135,53 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
+    void constraintViolationMapsTo409WithAFixedDetailAndNoSql() throws Exception {
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            MvcResult result = mockMvc(defaults(), List.of()).perform(get("/duplicate"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("DC-DATA-0409"))
+                    .andExpect(jsonPath("$.type").value("urn:dc:problem:DC-DATA-0409"))
+                    .andExpect(jsonPath("$.detail").value("The request conflicts with existing data."))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION))
+                    .andExpect(jsonPath("$.retryable").value(false))
+                    .andReturn();
+            assertThat(result.getResponse().getContentAsString())
+                    .doesNotContain("ORA-").doesNotContain("ORDERS_REF_UK").doesNotContainIgnoringCase("insert into");
+        }
+    }
+
+    @Test
+    void concurrentUpdateMapsTo409WithItsOwnCode() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/stale"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DC-DATA-0410"))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("ORDERS#42");
+    }
+
+    @Test
+    void unavailableDatabaseMapsTo503RetryableWithoutConnectionDetails() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/db-down"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DC-DATA-0503"))
+                .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.retryable").value(true))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain("db-secret-host").doesNotContain("HikariPool").doesNotContain("jdbc:");
+    }
+
+    @Test
+    void aSqlBugIsStillAGeneric500() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/bad-sql"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0500"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("secret_column");
+    }
+
+    @Test
     void requestBodyValidationOmitsRejectedValuesByDefault() throws Exception {
         MvcResult result = mockMvc(defaults(), List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
@@ -240,6 +287,39 @@ class PlatformExceptionHandlerTest {
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("cannot reach jdbc://secret-host:5432");
+        }
+
+        // The chains observed on Oracle (OracleExceptionPathsIT), with Oracle's message text.
+        @GetMapping("/duplicate")
+        String duplicate() {
+            throw new org.springframework.dao.DataIntegrityViolationException(
+                    "could not execute batch [ORA-00001: unique constraint (APP.ORDERS_REF_UK) violated] "
+                            + "[insert into orders (reference_code,id) values (?,?)]",
+                    new org.hibernate.exception.ConstraintViolationException("could not execute batch",
+                            new java.sql.BatchUpdateException("ORA-00001: unique constraint (APP.ORDERS_REF_UK) violated",
+                                    "23000", 1, new int[0]), "APP.ORDERS_REF_UK"));
+        }
+
+        @GetMapping("/stale")
+        String stale() {
+            throw new org.springframework.dao.OptimisticLockingFailureException(
+                    "Row was updated or deleted by another transaction: [ORDERS#42]");
+        }
+
+        @GetMapping("/db-down")
+        String dbDown() {
+            throw new org.springframework.transaction.CannotCreateTransactionException(
+                    "Could not open JPA EntityManager for transaction",
+                    new org.hibernate.exception.JDBCConnectionException("Unable to acquire JDBC Connection",
+                            new java.sql.SQLTransientConnectionException(
+                                    "HikariPool-1 - Connection is not available, request timed out after 5000ms "
+                                            + "(jdbc:oracle:thin:@db-secret-host:1521/APP)")));
+        }
+
+        @GetMapping("/bad-sql")
+        String badSql() {
+            throw new org.springframework.jdbc.BadSqlGrammarException("select",
+                    "select secret_column from orders", new java.sql.SQLException("ORA-00942", "42000"));
         }
 
         @PostMapping("/orders")

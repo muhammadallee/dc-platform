@@ -63,6 +63,7 @@ final class PlatformDocs {
         m.put("platform-starter-messaging-rabbit", "modules/messaging.md");
         m.put("platform-starter-events", "modules/events.md");
         m.put("platform-starter-data-jpa", "modules/data.md");
+        m.put("platform-starter-data-jpa-oracle", "modules/data.md");
         m.put("platform-starter-cache-caffeine", "modules/cache.md");
         m.put("platform-starter-cache-redis", "modules/cache.md");
         m.put("platform-starter-redis", "modules/redis.md");

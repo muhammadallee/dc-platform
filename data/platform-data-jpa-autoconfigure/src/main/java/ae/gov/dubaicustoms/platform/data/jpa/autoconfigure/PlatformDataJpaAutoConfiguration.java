@@ -23,7 +23,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 /*
  * Activates when: JPA (jakarta.persistence.EntityManagerFactory + Spring Data AuditorAware) on the
  *                 classpath AND dc.platform.data.jpa.enabled != false.
- * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway check) or
+ * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway check /
+ *                 dataJpaCapabilityDescriptor) or
  *                 already enables JPA auditing themselves (jpaAuditingHandler present).
  * Beans: platformAuditorAware — AuditorAware<String>; resolves the current user's subject when the
  *                 security capability is present and a request is authenticated, otherwise "system".
@@ -50,7 +51,9 @@ public class PlatformDataJpaAutoConfiguration {
         return new FlywayPresenceCheck(properties.requireMigrations(), getClass().getClassLoader());
     }
 
+    // CapabilityDescriptor is a shared type (one per capability), so the override is by name (D97).
     @Bean
+    @ConditionalOnMissingBean(name = "dataJpaCapabilityDescriptor")
     CapabilityDescriptor dataJpaCapabilityDescriptor() {
         return new CapabilityDescriptor("data-jpa", "ACTIVE", "");
     }

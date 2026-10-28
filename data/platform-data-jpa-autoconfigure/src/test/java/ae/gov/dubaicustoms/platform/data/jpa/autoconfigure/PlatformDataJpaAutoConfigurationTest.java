@@ -50,6 +50,20 @@ class PlatformDataJpaAutoConfigurationTest {
     }
 
     @Test
+    void descriptorBacksOffWhenUserDescriptorPresentUnderItsName() {
+        CapabilityDescriptor mine = new CapabilityDescriptor("data-jpa", "ACTIVE", "custom");
+        runner.withBean("dataJpaCapabilityDescriptor", CapabilityDescriptor.class, () -> mine)
+                .run(context -> assertThat(context.getBean(CapabilityDescriptor.class)).isSameAs(mine));
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheDataJpaOne() {
+        runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("other", "ACTIVE", ""))
+                .run(context -> assertThat(context).hasBean("dataJpaCapabilityDescriptor"));
+    }
+
+    @Test
     void inactiveWhenClassMissing() {
         runner.withClassLoader(new FilteredClassLoader(EntityManagerFactory.class))
                 .run(context -> assertThat(context).doesNotHaveBean(PlatformDataJpaAutoConfiguration.class));

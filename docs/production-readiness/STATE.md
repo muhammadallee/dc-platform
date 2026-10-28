@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 2 — Logging + Observability |
-| Current gate | D **closed** (verification pass 7: 4/4 accepted, one unusual-composition regression fixed in `81d0aa0`; residuals in `review-round-2.md` await owner acceptance). Gate E register HI-0041..50. Gate F: trial 3 74/75 (harness check defect fixed in `d0d7a13`, JVM stderr warnings judged as stdout) |
+| Current gate | H written (`closure.md`, `docs/samples/logging-observability/`). Gate F: consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, downstream compile 9 modules — all on `5b8e820`. Verdict pending owner acceptance of the redaction residuals |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
-| Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
+| Pending human decisions | Phase 2 redaction residuals (`closure.md` "Owner acceptance"); HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Refresh `~/.m2-hardening/phase-02` at the final Gate D commit, then Gate F official runs 1–3 one at a time (memory), Phase 1 harness against Phase 2 code, golden path; then Gate H. |
+| Next action | On owner acceptance: set the verdict in `closure.md` and `capability-status.md`, confirm CI on the closure commit, tag `hardening/phase-02-closed`, start Phase 3. |
 
 ## Phase log
 

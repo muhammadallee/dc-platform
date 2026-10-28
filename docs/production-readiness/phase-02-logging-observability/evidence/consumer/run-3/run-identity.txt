@@ -1,0 +1,22 @@
+run_id=dch-20261028192520-41090
+phase=phase-02 scenario=logging-observability
+platform_commit=5b8e8207a916649c45da812a4486e6f8bf59bd7a
+platform_tree_dirty_paths=4
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-02
+jre_image=eclipse-temurin:25-jre
+started=2026-10-28T19:25:26+04:00
+postgres_image=postgres@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+collector_image=otel/opentelemetry-collector-contrib@sha256:d2da12c4336a79758826700be9e21ecf4a9f7d945b7f8a58ba55ee3fa45427c8
+toxiproxy_image=ghcr.io/shopify/toxiproxy@sha256:b44c283298cea49e2defaba1b3028783798346f2a926684e3a345fd8441af3b8
+ready_seconds=13
+memory_mib baseline=534 after_down=546 after_slow=557 warns_down=8 warns_slow=3
+shutdown_seconds=3 exit_code=143
+ready_seconds=13
+shutdown_seconds=3 exit_code=143
+ready_seconds=13
+shutdown_seconds=9 exit_code=143
+startup_healthy_seconds=13 startup_no_collector_seconds=13
+finished=2026-10-28T19:30:50+04:00
+assertions_passed=75 assertions_failed=0 script_rc=0
+verdict=PASS

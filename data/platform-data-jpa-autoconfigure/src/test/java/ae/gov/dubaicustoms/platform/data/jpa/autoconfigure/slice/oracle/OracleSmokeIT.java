@@ -51,7 +51,7 @@ class OracleSmokeIT {
     void flywayMigratedAndAnEntityRoundTrips() {
         Object applied = em.createNativeQuery(
                 "select count(*) from \"flyway_schema_history\" where \"success\" = 1").getSingleResult();
-        assertThat(((Number) applied).intValue()).isEqualTo(1);
+        assertThat(((Number) applied).intValue()).isEqualTo(2);
 
         CorrelationId correlationId = CorrelationId.random();
         OracleWidget widget = new OracleWidget();

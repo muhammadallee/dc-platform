@@ -12,8 +12,10 @@
 ## 1. Requirements
 
 ### R1 Oracle support (G3-01, HD3, HD12, HD13)
-1. New POM-only starter `platform-starter-data-jpa-oracle`: `platform-starter-data-jpa` +
-   `com.oracle.database.jdbc:ojdbc11` + `org.flywaydb:flyway-database-oracle` (versions from Boot's
+1. New POM-only starter `platform-starter-data-jpa-oracle`. Starter → starter is forbidden (CLAUDE.md
+   rule 5), so it lists the data-jpa starter's dependencies itself (`platform-data-jpa-autoconfigure`,
+   `spring-boot-starter-data-jpa`, `flyway-core`, `spring-boot-flyway`) plus
+   `com.oracle.database.jdbc:ojdbc11` and `org.flywaydb:flyway-database-oracle` (versions from Boot's
    BOM). Listed in the platform BOM. No code.
 2. Archetype: the `data` feature gets a `database` property, `h2` (default, unchanged output) or
    `oracle`. With `oracle`, the generated POM uses the Oracle starter and the `prod` profile expects
@@ -22,12 +24,21 @@
 3. 19c targeting (HD13): container tests and the consumer run set
    `spring.jpa.properties.jakarta.persistence.database-major-version=19`, so Hibernate generates
    19c SQL and DDL (no SQL `BOOLEAN`, no 23ai-only syntax) against the 23ai container. The platform
-   does **not** set this for consumers (Hibernate reads the real version from the connection).
+   does **not** set this for consumers (Hibernate reads the real version from the connection). The
+   first container test asserts the **resolved** dialect version is 19 (read from the dialect, not
+   inferred from configuration); if the setting does not stick, a fixed-version dialect is used.
+   The pin governs Hibernate-generated SQL only: Flyway migrations, native queries and
+   `connection-init-sql` run raw against 23ai (which accepts `BOOLEAN` columns, `SELECT` without
+   `FROM DUAL`, `IF [NOT] EXISTS`), and Flyway itself sees version 23. Every hand-written SQL file is
+   kept 19c-safe; these limits are recorded under the HD13 residual.
 4. The existing `PostgresParityIT` stays in the build but is **no certification evidence** (HD3).
 
 ### R2 Connection pool and timeouts (G3-02, §7.4)
 Contributed as lowest-precedence defaults (property source `platform-data-jpa-defaults`, user values
-win). Values are fixed at Gate B (decision log D110) — proposals:
+win). Oracle-only keys (`oracle.jdbc.*` connection properties) are contributed only when
+`spring.datasource.url` starts with `jdbc:oracle:` — never on driver presence, because the
+`database=oracle` archetype variant runs on H2 locally with `ojdbc11` on the classpath. Values are
+fixed at Gate B after measuring each lever against Toxiproxy (decision log D110) — proposals:
 1. Hikari `connection-timeout` 5 s (Hikari default 30 s lets request threads pile up behind an
    exhausted pool); `maximum-pool-size` stays Boot's 10 (sizing documented); `max-lifetime` below
    common firewall/Oracle idle limits (30 min); `keepalive-time` 2 min.
@@ -35,7 +46,9 @@ win). Values are fixed at Gate B (decision log D110) — proposals:
 3. Per-statement timeout: `jakarta.persistence.query.timeout` default; transaction timeout:
    `spring.transaction.default-timeout`. Oracle driver read timeout (`oracle.jdbc.ReadTimeout`) as
    the network-level guard for a hung database, so a statement cannot block a thread forever when
-   the database stops answering.
+   the database stops answering. The read timeout sits above the statement timeout, so a legitimately
+   slow query hits the statement timeout first. `spring.transaction.default-timeout` applies to every
+   transaction manager Boot creates (Phase 4's drainer inherits it; noted in D110).
 4. Pool exhaustion: a request that cannot get a connection within `connection-timeout` gets a
    ProblemDetail (R4), not a hang; the pool recovers when load drops.
 
@@ -49,13 +62,19 @@ win). Values are fixed at Gate B (decision log D110) — proposals:
 ### R4 Exception translation without leaking SQL (G3-04, §7.7)
 A data-access advice in `platform-errors-autoconfigure`, active only when Spring's
 `DataAccessException` is on the classpath (same pattern as `PlatformConstraintViolationHandler`):
-- `DataIntegrityViolationException` (unique, FK, NOT NULL, check) → **409**, stable code, no
+- `DataIntegrityViolationException` (unique, FK, NOT NULL, check) → **409**, stable code, a **fixed**
+  `detail` string (the Phase 1 rule that 4xx keep the exception message does not apply: it carries the
+  constraint name and SQL), no
   constraint name, SQL, table or driver message in the body;
 - optimistic / pessimistic locking failures → **409**, `retryable` per the Phase 1 rule;
 - connection-acquisition timeout, query timeout, transaction timeout, resource failure → **503**,
   `retryable=true`;
 - any other `DataAccessException` → generic 500 (`DC-CORE-0500`).
 The full exception (SQL, constraint) is logged once on the request's trace, through the Phase 2 masks.
+Mapped from the exception types observed on real paths (`save`, `saveAndFlush`, commit-time flush in
+a `@Transactional` service, direct `EntityManager` use, pool timeout at transaction begin), not from
+guessed class names. errors is Phase 1 certified: full errors tests and the Phase 1 consumer re-run
+(§3.10).
 Error codes fixed at Gate B (decision log D111).
 
 ### R5 Flyway posture (G3-03)

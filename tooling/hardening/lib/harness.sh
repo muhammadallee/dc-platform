@@ -227,6 +227,8 @@ hh_app_stop_graceful() {
   code=$(docker inspect -f '{{.State.ExitCode}}' "$HH_APP_CONTAINER")
   # One log file per app container (app.log for the default one); a later container never overwrites it.
   docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/${HH_APP_NAME:-app}.log" 2>&1 || true
+  # stdout alone, for checks of the stdout contract (the JVM writes its own warnings to stderr).
+  docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/${HH_APP_NAME:-app}.stdout.log" 2>/dev/null || true
   echo "shutdown_seconds=$((ended - started)) exit_code=$code" >> "$HH_EVIDENCE/run-identity.txt"
   # 143 = 128+SIGTERM: the JVM honoured the signal; 137 would mean docker had to SIGKILL after the grace.
   case "$code" in

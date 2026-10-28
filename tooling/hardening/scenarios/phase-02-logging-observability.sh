@@ -253,7 +253,7 @@ else hh_fail "AC12 export warnings not bounded (down $WARNS_DOWN, slow $WARNS_SL
 
 hh_step "AC14 SIGTERM: shutdown lines on stdout, exit 143"
 hh_app_stop_graceful
-check ac14-json-lines json-lines "$(hh_native "$HH_EVIDENCE/app.log")"
+check ac14-json-lines json-lines "$(hh_native "$HH_EVIDENCE/app.stdout.log")"
 if tail -n 20 "$HH_EVIDENCE/app.log" | grep -q '"message":"Graceful shutdown complete"'; then
   hh_pass "AC14 'Graceful shutdown complete' is a JSON line near the end of stdout"
 else hh_fail "AC14 no JSON 'Graceful shutdown complete' line in the last 20 lines"; fi

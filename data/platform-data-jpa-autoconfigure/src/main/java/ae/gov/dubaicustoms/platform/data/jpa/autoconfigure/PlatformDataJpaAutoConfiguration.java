@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.AuditorAwareProvider;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
@@ -33,7 +34,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  *                 consumer never loads a security type;
  *        platformFlywayPresenceCheck — fails startup when require-migrations is on but Flyway is
  *                 absent, with an actionable message;
- *        dataJpaCapabilityDescriptor — one line in the startup capability banner.
+ *        dataJpaCapabilityDescriptor — one line in the startup capability banner;
+ *        platformOracleConnectionDefaults — adds the Oracle driver read/connect timeouts to a Hikari
+ *                 pool whose URL is jdbc:oracle: (only when HikariCP is present; D110).
  * Nested JpaAuditingConfiguration enables @EnableJpaAuditing only once a real EntityManagerFactory
  *        exists (@ConditionalOnBean) — this is why the class is ordered after HibernateJpa
  *        AutoConfiguration — so a context without JPA infrastructure still starts cleanly.
@@ -80,6 +83,21 @@ public class PlatformDataJpaAutoConfiguration {
     @ConditionalOnMissingBean(name = "jpaAuditingHandler")
     @EnableJpaAuditing(auditorAwareRef = "platformAuditorAware")
     static class JpaAuditingConfiguration {
+    }
+
+    /*
+     * Oracle driver read/connect timeouts on a Hikari pool with a jdbc:oracle: URL (D110). Static: a
+     * BeanPostProcessor must not pull the enclosing configuration in early.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "com.zaxxer.hikari.HikariDataSource")
+    static class OracleConnectionDefaultsConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformOracleConnectionDefaults")
+        static OracleConnectionDefaults platformOracleConnectionDefaults() {
+            return new OracleConnectionDefaults();
+        }
     }
 
     /*

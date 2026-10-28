@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,16 @@ class PlatformDataJpaAutoConfigurationTest {
         runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> new CapabilityDescriptor("other", "ACTIVE", ""))
                 .run(context -> assertThat(context).hasBean("dataJpaCapabilityDescriptor"));
+    }
+
+    @Test
+    void oracleConnectionDefaultsAreRegisteredAndReplaceableByName() {
+        runner.run(context -> assertThat(context).hasSingleBean(OracleConnectionDefaults.class));
+        Object mine = new Object();
+        runner.withBean("platformOracleConnectionDefaults", Object.class, () -> mine)
+                .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
+        runner.withClassLoader(new FilteredClassLoader("com.zaxxer.hikari"))
+                .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
     }
 
     @Test

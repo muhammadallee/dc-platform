@@ -39,6 +39,19 @@ class OracleSmokeIT {
     @Autowired
     private EntityManager em;
 
+    @Autowired
+    private javax.sql.DataSource dataSource;
+
+    @Test
+    void theOracleUrlDefaultsReachTheDriverAndThePool() {
+        // D110: bracketed map keys keep the driver property names' dots and case through binding.
+        var hikari = (com.zaxxer.hikari.HikariDataSource) dataSource;
+        assertThat(hikari.getDataSourceProperties())
+                .containsEntry("oracle.jdbc.ReadTimeout", "60000")
+                .containsEntry("oracle.net.CONNECT_TIMEOUT", "10000");
+        assertThat(hikari.getConnectionTimeout()).isEqualTo(5000);
+    }
+
     @Test
     void hibernateResolvesTheOracle19DialectAgainstTheContainer() {
         var dialect = em.getEntityManagerFactory().unwrap(SessionFactoryImplementor.class)

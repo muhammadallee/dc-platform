@@ -69,7 +69,8 @@ final class OracleContainers {
         try (Connection system = DriverManager.getConnection(oracle.getJdbcUrl(), "system", oracle.getPassword());
                 Statement statement = system.createStatement()) {
             statement.execute("create user " + name + " identified by \"" + secret + "\" quota unlimited on users");
-            statement.execute("grant create session, create table, create sequence, create view to " + name);
+            statement.execute("grant create session, create table, create sequence, create view, create procedure to "
+                    + name);
         } catch (SQLException ex) {
             throw new IllegalStateException("could not create the Oracle test user", ex);
         }

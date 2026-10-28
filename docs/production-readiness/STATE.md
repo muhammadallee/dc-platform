@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 3 — Database / Data Access (Oracle only, HD3 amended; prod 19c, HD13) |
-| Current gate | A done (`phase-03-data-access/scope.md`, baseline green incl. `PostgresParityIT`); B next |
+| Current gate | B nearly done: Oracle starter + archetype `database` (HD12/D113), 23 Oracle 19c-mode container tests, data errors 409/503 (D111), bounded waits (D110), Flyway pins + out-of-order guard (D112), Instant = TSTZ (D114), GX-04 guard |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Gate B: Oracle starter + archetype `database` property (HD12), pool/timeout defaults (D110), data-exception mapping (D111), Flyway pins (D112), Oracle 19c-mode container tests; GX-04 descriptor guard. |
+| Next action | Gate B close: full golden path (9 scenarios) and downstream compile; then Gate C (Codex round 1). Gate F: Oracle consumer harness (Toxiproxy slow/down, pool exhaustion, runtime user cannot ALTER/DROP, read-timeout backstop). Testcontainers reuse is on locally (Oracle cold start ~10 min). |
 
 ## Phase log
 

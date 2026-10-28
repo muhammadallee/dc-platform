@@ -124,12 +124,23 @@ Scope: the `2ca797d..HEAD` diff only. A finding reproducible with a plain `Strin
 exemption; unparseable raw text gets text masks only (D109); console format unmasked (D107); custom
 `LogstashMarker` subclasses and custom serializers are not certified.
 
-_Result pending — `codex/v8-verify.out.md`._
+**Result** (`codex/v8-verify.out.md`, checkout `739a08d`; source-established, no tests executed by
+Codex): all four pass-6 items **accepted**: escaped tab after `Bearer` in raw; duplicates keep
+credential masking; `double[]` PAN in `message`; sanitizers run before the card check. One
+**regression, unusual composition**: `start()` wrapped the platform's own wrapper from an earlier
+`start()`, so after `stop(); start();` a `LogSanitizer` ran twice (`ref-ref-7`). The regression came
+from the `5f088f4` decorator chaining. Fixed in `81d0aa0`: the encoder remembers the decorators it
+installed and re-wraps the consumer's originals on each start. Test
+`restartingTheEncoderKeepsOneMaskingLayerAndTheConsumerDecorator` failed before the fix
+(`d17-red.log`); logging verify 150 green (`d17.log`).
+
+**Outcome:** the rule's first branch applies: no normal-API leak remains. Gate D closes. The
+residuals above go to the owner for acceptance, at Gate H at the latest.
 
 Evidence scan (plan §4.7) of this file and `codex/*`: the only token-shaped strings are the synthetic
 JWT fixture already in committed test source and `hunter*`/`correct horse…` test values.
 
 ## Targeted tests after the fixes
 
-logging-autoconfigure 135, observability-autoconfigure 37 — 0 failures, 0 skipped, JaCoCo gates met
+logging-autoconfigure 150 (after pass 7, `evidence-raw/d17.log`; was 135 in `d10.log`), observability-autoconfigure 37 — 0 failures, 0 skipped, JaCoCo gates met
 (`evidence-raw/d10.log`, `evidence-raw/d4.log`). CI green on `0a54804`.

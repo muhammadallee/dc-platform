@@ -119,7 +119,7 @@ Scope: the `2ca797d..HEAD` diff only. A finding reproducible with a plain `Strin
   only and every container, raw value, bean or nested marker reads `key=****`, the JSON field being the
   readable source (changes the documented message contract, AC6).
 
-**Residuals proposed for acceptance** (not to be re-raised): depth > 64 / cycles read `****` in
+**Residuals — ACCEPTED by the owner 2026-10-28** (not to be re-raised): depth > 64 / cycles read `****` in
 `message`; bean `toString` prose in `message` gets text masks only; top-level W3C `traceId`/`spanId`
 exemption; unparseable raw text gets text masks only (D109); console format unmasked (D107); custom
 `LogstashMarker` subclasses and custom serializers are not certified.

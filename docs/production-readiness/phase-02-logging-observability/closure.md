@@ -1,10 +1,8 @@
 # Phase 2 — Logging + Observability: closure
 
-**Verdict: pending owner acceptance of the redaction residuals** (see "Owner acceptance" below). Every
-gate's evidence is complete on `5b8e820`; the verdict becomes **PASS** when the owner accepts the
-residuals, or **PASS WITH HUMAN-APPROVED EXCEPTIONS** if any is accepted only as an exception.
-Owner decisions so far: amendment A1 (console format, D107) accepted 2026-10-26; e-mail and phone
-added to the default PII list (D102) 2026-10-26.
+**Verdict: PASS** (2026-10-28). The owner accepted the redaction residuals below on 2026-10-28. Earlier
+owner decisions: amendment A1 (console format, D107) accepted 2026-10-26; e-mail and phone added to the
+default PII list (D102) 2026-10-26.
 
 | Item | Value |
 |---|---|
@@ -26,7 +24,7 @@ added to the default PII list (D102) 2026-10-26.
 | Golden path | 8/8, 1 073 s, `5b8e820` | [`evidence/golden-path-summary-5b8e820.tsv`](evidence/golden-path-summary-5b8e820.tsv) |
 | G composition | N/A (checkpoints at Phases 5 and 7) | — |
 | H samples + operations | written | [`../../samples/logging-observability/`](../../samples/logging-observability/) |
-| CI (PR #2) | to be confirmed on the closure commit before tagging (HI-0038 lesson) | GitHub Actions |
+| CI (PR #2) | **green on `dcadac2`** (run 40722527043): build + generator gate; re-confirmed on the closure commit before tagging (HI-0038 lesson) | GitHub Actions |
 
 ## §7 contracts
 
@@ -55,7 +53,7 @@ See CHANGELOG `## [Unreleased]`:
 - `raw(...)` and nested-`Kv` JSON shapes change;
 - the observability starter brings the OTLP exporter.
 
-## Owner acceptance (needed for the verdict)
+## Owner acceptance (ACCEPTED 2026-10-28)
 
 Redaction residuals, proposed in [`review-round-2.md`](review-round-2.md) (pass 7):
 

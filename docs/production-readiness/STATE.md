@@ -6,13 +6,13 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
-| Current phase | 3 — Database / Data Access (next) |
-| Current gate | Phase 2 **closed — PASS** (residuals accepted by owner 2026-10-28). Phase 3 Gate A next |
+| Current phase | 3 — Database / Data Access (Oracle only, HD3 amended; prod 19c, HD13) |
+| Current gate | A done (`phase-03-data-access/scope.md`, baseline green incl. `PostgresParityIT`); B next |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 3 Gate A: scope + baseline for Database / Data Access (PostgreSQL + Oracle; HI-0041 Flyway database modules). |
+| Next action | Gate B: Oracle starter + archetype `database` property (HD12), pool/timeout defaults (D110), data-exception mapping (D111), Flyway pins (D112), Oracle 19c-mode container tests; GX-04 descriptor guard. |
 
 ## Phase log
 
@@ -21,6 +21,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
+| 3 | `60afe86` | in progress (Gate A done) | — | — |
 
 ## Environment notes for resumption
 

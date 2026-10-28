@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.AuditorAwareProvider;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
@@ -18,6 +19,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
@@ -36,7 +38,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  *                 absent, with an actionable message;
  *        dataJpaCapabilityDescriptor — one line in the startup capability banner;
  *        platformOracleConnectionDefaults — adds the Oracle driver read/connect timeouts to a Hikari
- *                 pool whose URL is jdbc:oracle: (only when HikariCP is present; D110).
+ *                 pool whose URL is jdbc:oracle: (only when HikariCP is present; D110);
+ *        platformFlywayOutOfOrderGuard — fails startup when Flyway out-of-order migrations are on
+ *                 outside the local profile (only when Flyway is present; D112).
  * Nested JpaAuditingConfiguration enables @EnableJpaAuditing only once a real EntityManagerFactory
  *        exists (@ConditionalOnBean) — this is why the class is ordered after HibernateJpa
  *        AutoConfiguration — so a context without JPA infrastructure still starts cleanly.
@@ -97,6 +101,21 @@ public class PlatformDataJpaAutoConfiguration {
         @ConditionalOnMissingBean(name = "platformOracleConnectionDefaults")
         static OracleConnectionDefaults platformOracleConnectionDefaults() {
             return new OracleConnectionDefaults();
+        }
+    }
+
+    /*
+     * Out-of-order migrations only under the local profile (D112). Nested so Flyway types are only
+     * touched when Flyway is on the classpath.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer")
+    static class FlywayGuardConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformFlywayOutOfOrderGuard")
+        FlywayOutOfOrderGuard platformFlywayOutOfOrderGuard(Environment environment) {
+            return new FlywayOutOfOrderGuard(environment);
         }
     }
 

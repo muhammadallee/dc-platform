@@ -9,6 +9,13 @@
 #if( $features != "none" && ( $featureRest != "," || $featureSet.contains(",none,") ) )
 #set( $rejected = $featureSet.matches("[dc-platform archetype: unsupported features value ${features} -- use none or a comma-separated subset of messaging,data,restclient without spaces") )
 #end
+## database: "h2" (default) or "oracle", and "oracle" only together with the data feature (HD12).
+#if( $database != "h2" && $database != "oracle" )
+#set( $rejected = $featureSet.matches("[dc-platform archetype: unsupported database value ${database} -- use h2 or oracle") )
+#end
+#if( $database == "oracle" && !$featureSet.contains(",data,") )
+#set( $rejected = $featureSet.matches("[dc-platform archetype: database=oracle needs the data feature -- add data to -Dfeatures") )
+#end
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -76,13 +83,26 @@
 #end
 #if($featureSet.contains(",data,"))
 
+#if($database == "oracle")
+    <!-- feature: data on Oracle — platform JPA conventions (snake_case, auditing, Flyway migrations under
+         db/migration) plus the Oracle JDBC driver and Flyway's Oracle module. H2 backs local runs and
+         tests; the prod profile refuses the embedded fallback, so production supplies an Oracle
+         spring.datasource.url (jdbc:oracle:thin:@//host:1521/service) and credentials. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-data-jpa-oracle</artifactId>
+    </dependency>
+#else
     <!-- feature: data — platform JPA conventions (snake_case, auditing, Flyway migrations under
          db/migration). H2 backs local runs and tests; the prod profile refuses the embedded fallback, so
-         production must supply spring.datasource.* (add its JDBC driver here). -->
+         production must supply spring.datasource.* for a real database. For Oracle, regenerate with
+         -Ddatabase=oracle or replace this starter with platform-starter-data-jpa-oracle: a JDBC driver
+         alone is not enough, Flyway 10+ also needs its database module. -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-starter-data-jpa</artifactId>
     </dependency>
+#end
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>

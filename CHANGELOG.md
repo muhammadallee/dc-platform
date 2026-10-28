@@ -77,10 +77,20 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   table or constraint names); the full exception is logged at WARN on the request's trace. Raw
   JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
   (by cause chain and SQLState). An application `@ExceptionHandler` for these types still wins (D111).
+- **Bounded data-access waits** (D110, lowest-precedence defaults): Hikari `connection-timeout` 5 s
+  (was Hikari's 30 s); `spring.transaction.default-timeout` 30 s (was unbounded) — a longer batch
+  transaction needs an explicit `@Transactional(timeout = …)`; Oracle pools get the driver's
+  `oracle.jdbc.ReadTimeout` 60 s and `oracle.net.CONNECT_TIMEOUT` 10 s; leak detection (20 s) under
+  `local`.
+- **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
+  named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
+  migrations outside the `local` profile fail startup with a diagnostic; `clean-disabled`,
+  `validate-on-migrate` and `out-of-order=false` are pinned (D112).
 
 ### Added
 - Data: `platform-starter-data-jpa-oracle` — the data-jpa stack plus the Oracle JDBC driver and
-  `flyway-database-oracle` (HD12).
+  `flyway-database-oracle` (HD12). Archetype: `-Ddatabase=oracle` (with the `data` feature) generates a
+  service on it; `-Ddatabase` defaults to `h2` (D113).
 - Logging: `dc.platform.logging.mdc.include` (strict MDC mode), `dc.platform.logging.redaction.enabled`,
   `dc.platform.logging.redaction.patterns`.
 - Observability: `dependencies` health group; docs for collector tail sampling of errored requests.

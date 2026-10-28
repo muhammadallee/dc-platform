@@ -37,7 +37,7 @@ platform secrets source — never from `application.yml`:
 | Setting | When |
 |---|---|
 | `spring.security.oauth2.resourceserver.jwt.jwk-set-uri` (or `issuer-uri`) | always |
-| `spring.datasource.url` / `username` / `password` (+ the JDBC driver dependency) | `data` feature |
+| `spring.datasource.url` / `username` / `password` (generate with `-Ddatabase=oracle` for the Oracle driver + Flyway module) | `data` feature |
 | `app.greeting.base-url` | `restclient` feature sample |
 
 A missing value fails startup with a message naming it: `prod` never falls back to the offline

@@ -4,8 +4,10 @@
 #
 #   1. install the platform (tests skipped: the tested reactor build is the separate `mvn verify` gate)
 #      into an ISOLATED Maven repository, and record the archetype that was installed;
-#   2. reject invalid `features` input (unknown token, substring lookalike, spaces, none+feature);
-#   3. for every scenario — all 8 combinations of the optional tokens messaging/data/restclient, one of
+#   2. reject invalid `features` input (unknown token, substring lookalike, spaces, none+feature) and
+#      invalid `database` input (unknown value, oracle without data);
+#   3. for every scenario — all 8 combinations of the optional tokens messaging/data/restclient (plus
+#      data with database=oracle: the Oracle starter is selected, H2 still backs the run), one of
 #      them with every optional property omitted, one relocated (groupId != package, hyphenated
 #      artifactId, path with a space) — generate OUTSIDE the checkout, assert the generated files, run the
 #      generated `mvn verify` (every expected test class must run: no zero-test or skipped passes), check
@@ -126,13 +128,14 @@ UNTRUSTED=$(cat "$IDP_DIR/token-untrusted"); EXPIRED=$(cat "$IDP_DIR/token-expir
 echo "   jwks=$JWKS"
 
 # ---------------------------------------------------------------------------------------------------
-generate() { # log dir groupId artifactId package features(-=omit) platformVersion(-=omit)
-  local log=$1 dir=$2 group=$3 artifact=$4 pkg=$5 features=$6 version=$7
+generate() { # log dir groupId artifactId package features(-=omit) platformVersion(-=omit) database(-=omit)
+  local log=$1 dir=$2 group=$3 artifact=$4 pkg=$5 features=$6 version=$7 database=${8:--}
   local args=(-DarchetypeGroupId="$GROUP_ID" -DarchetypeArtifactId=platform-service-archetype
               -DarchetypeVersion="$REV" -DgroupId="$group" -DartifactId="$artifact" -Dpackage="$pkg"
               -DinteractiveMode=false)
   [ "$features" != "-" ] && args+=("-Dfeatures=$features")
   [ "$version" != "-" ] && args+=("-DplatformVersion=$version")
+  [ "$database" != "-" ] && args+=("-Ddatabase=$database")
   mkdir -p "$dir"
   (cd "$dir" && "${MVN[@]}" "$ARCHETYPE_PLUGIN:generate" "${args[@]}" -l "$(native_path "$log")")
 }
@@ -149,6 +152,18 @@ for bad in kafka database "data, restclient" none,data data,data; do
   [ ! -s "$NEG/neg-$slug/pom.xml" ] && [ ! -d "$NEG/neg-$slug/src" ] \
       || fail "features='$bad' left a buildable partial project"
   echo "   rejected: '$bad'"
+done
+# database: only h2/oracle, and oracle only together with the data feature (HD12).
+for bad in "postgres|data|unsupported database value" "oracle|restclient|needs the data feature"; do
+  IFS='|' read -r db feats message <<< "$bad"
+  slug="db-$db-$(printf '%s' "$feats" | tr -c 'a-z' '_')"
+  if generate "$EVIDENCE/negative-$slug.log" "$NEG" com.dc.demo "neg-$slug" com.dc.demo "$feats" "$REV" "$db"; then
+    fail "database='$db' with features='$feats' was accepted"
+  fi
+  grep -q "$message" "$EVIDENCE/negative-$slug.log" \
+      || fail "database='$db' with features='$feats' failed without the actionable message"
+  [ ! -s "$NEG/neg-$slug/pom.xml" ] || fail "database='$db' left a partial project"
+  echo "   rejected: database='$db' features='$feats'"
 done
 
 # ---------------------------------------------------------------------------------------------------
@@ -176,14 +191,14 @@ assert_generated() { # project package features artifactId
   for feature in messaging data restclient; do
     case $feature in
       messaging) starter=platform-starter-messaging-inmemory; sample="$src/messaging/OrderEvents.java" ;;
-      data) starter=platform-starter-data-jpa; sample="$src/data/Note.java" ;;
+      data) starter="platform-starter-data-jpa(-oracle)?"; sample="$src/data/Note.java" ;;
       restclient) starter=platform-starter-restclient; sample="$src/client/GreetingClient.java" ;;
     esac
     if has "$features" "$feature"; then
-      grep -q "<artifactId>$starter</artifactId>" "$p/pom.xml" || fail "$artifact: $feature enabled but $starter missing"
+      grep -qE "<artifactId>$starter</artifactId>" "$p/pom.xml" || fail "$artifact: $feature enabled but $starter missing"
       [ -s "$sample" ] || fail "$artifact: $feature enabled but $sample is empty"
     else
-      ! grep -q "<artifactId>$starter</artifactId>" "$p/pom.xml" || fail "$artifact: $feature disabled but $starter present"
+      ! grep -qE "<artifactId>$starter</artifactId>" "$p/pom.xml" || fail "$artifact: $feature disabled but $starter present"
       [ ! -s "$sample" ] || fail "$artifact: $feature disabled but $sample has content"
     fi
   done
@@ -323,16 +338,22 @@ probe_http() { # label features log artifact [prod]
   fi
 }
 
-run_scenario() { # id features groupId artifactId package platformVersion subdir
-  local id=$1 features=$2 group=$3 artifact=$4 pkg=$5 version=$6 subdir=$7 t0 dir p tests jar log effective
+run_scenario() { # id features groupId artifactId package platformVersion subdir database
+  local id=$1 features=$2 group=$3 artifact=$4 pkg=$5 version=$6 subdir=$7 database=${8:--} t0 dir p tests jar log effective
   t0=$(date +%s)
   effective=$([ "$features" = "-" ] && echo none || echo "$features")
   step "Scenario $id (features=$effective, groupId=$group, artifactId=$artifact, package=$pkg)"
   dir="$WORKDIR/scenarios/$id${subdir:+/$subdir}"
-  generate "$EVIDENCE/$id-generate.log" "$dir" "$group" "$artifact" "$pkg" "$features" "$version" \
+  generate "$EVIDENCE/$id-generate.log" "$dir" "$group" "$artifact" "$pkg" "$features" "$version" "$database" \
       || fail "$id: generation failed (see $EVIDENCE/$id-generate.log)"
   p="$dir/$artifact"
   assert_generated "$p" "$pkg" "$effective" "$artifact"
+  if [ "$database" = oracle ]; then
+    grep -q "<artifactId>platform-starter-data-jpa-oracle</artifactId>" "$p/pom.xml" \
+        || fail "$id: database=oracle did not select platform-starter-data-jpa-oracle"
+  elif grep -q "platform-starter-data-jpa-oracle" "$p/pom.xml"; then
+    fail "$id: the Oracle starter appeared without database=oracle"
+  fi
   (cd "$p" && ${TIMEOUT[@]+"${TIMEOUT[@]}"} "${MVN[@]}" verify -l "$(native_path "$EVIDENCE/$id-verify.log")") \
       || fail "$id: generated mvn verify failed (see $EVIDENCE/$id-verify.log)"
   tests=$(assert_tests "$p" "$effective" "$artifact")
@@ -416,7 +437,7 @@ requested_service_probes() { # project jar artifactId
 }
 
 # ---------------------------------------------------------------------------------------------------
-# id | features (- = omit) | groupId | artifactId | package | platformVersion (- = omit) | subdir
+# id | features (- = omit) | groupId | artifactId | package | platformVersion (- = omit) | subdir | database (- = omit)
 SCENARIO_TABLE="$(cat <<EOF
 none-defaults|-|com.dc.demo|demo-defaults|com.dc.demo|-|
 messaging|messaging|com.dc.demo|demo-messaging|com.dc.demo|$REV|
@@ -426,15 +447,16 @@ messaging-data|messaging,data|com.dc.demo|demo-messaging-data|com.dc.demo|$REV|
 messaging-restclient|messaging,restclient|com.dc.demo|demo-messaging-restclient|com.dc.demo|$REV|
 data-restclient|data,restclient|com.dc.demo|demo-service|com.dc.demo|$REV|
 all-relocated|restclient,messaging,data|org.example.billing|billing-svc|com.acme.billing.core|$REV|path with space
+data-oracle|data|com.dc.demo|demo-oracle|com.dc.demo|$REV||oracle
 EOF
 )"
 
 SELECTED="${GP_SCENARIOS:-all}"
 RAN=0
-while IFS='|' read -r id features group artifact pkg version subdir; do
+while IFS='|' read -r id features group artifact pkg version subdir database; do
   [ -n "$id" ] || continue
   if [ "$SELECTED" != all ] && ! has "$SELECTED" "$id"; then continue; fi
-  run_scenario "$id" "$features" "$group" "$artifact" "$pkg" "$version" "$subdir"
+  run_scenario "$id" "$features" "$group" "$artifact" "$pkg" "$version" "$subdir" "${database:--}"
   RAN=$((RAN + 1))
 done <<< "$SCENARIO_TABLE"
 [ "$RAN" -gt 0 ] || fail "no scenario matched GP_SCENARIOS=$SELECTED"

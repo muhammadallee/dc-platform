@@ -685,6 +685,40 @@ One line of context per decision; details live in the commit bodies referenced.
   written raw it would make the whole line invalid JSON, and undecoded escapes (`password`)
   would hide credential names from the masks. Simpler than accepting the bypass as a residual, and
   fail-closed.
+- **D110 — bounded data-access waits (hardening phase 3, Gate B).** Measured against Oracle before
+  choosing: a statement cancel (JDBC query timeout, the JPA hint, a Spring transaction timeout) stops
+  SQL work about a second after its limit, but not a PL/SQL or lock wait or a dead network. Defaults
+  (lowest precedence): Hikari `connection-timeout` 5 s (was 30 s; a request behind an exhausted pool
+  fails fast, 503); `spring.transaction.default-timeout` 30 s (bounds every transaction, repository
+  methods included; note: it also applies to every transaction manager Boot creates, so Phase 4's
+  outbox drainer inherits it unless it sets its own); on a `jdbc:oracle:` pool the driver's
+  `oracle.jdbc.ReadTimeout` 60 s (above the transaction timeout, so slow SQL hits that first) and
+  `oracle.net.CONNECT_TIMEOUT` 10 s, added by a BeanPostProcessor keyed on the pool's own URL (an
+  environment check missed URLs from later property sources); leak detection 20 s under `local` only.
+  Hikari's keepalive and max lifetime stay its defaults.
+- **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
+  Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
+  use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`
+  whose SQLState is the only sign of a constraint violation. The errors capability's catch-all
+  therefore classifies the whole cause chain by class name (no compile dependency) and SQLState
+  (`23` → 409 `DC-DATA-0409`, `40`/locking → 409 `DC-DATA-0410`, `08`/timeouts/no connection → 503
+  `DC-DATA-0503`, retryable), with a fixed detail; a SQL bug stays 500. Simpler than a separate advice
+  behind `@ConditionalOnClass`, which would miss the raw types and need ordering.
+- **D112 — Flyway posture pinned; out-of-order refused outside `local` (hardening phase 3, Gate B).**
+  `clean-disabled`, `validate-on-migrate`, `out-of-order=false`, `validate-migration-naming` are
+  contributed explicitly so a Flyway upgrade cannot loosen them. The out-of-order guard is a
+  `FlywayConfigurationCustomizer` that checks the effective configuration before migrating (a check
+  bean could run after Flyway had already applied a migration), with a `FailureAnalyzer`.
+- **D113 — per-database starters; archetype `database` property (hardening phase 3, HD12).** One
+  POM-only starter per certified database carries the JDBC driver and Flyway's database module, so the
+  pair never travels apart (HI-0041). Only `platform-starter-data-jpa-oracle` exists (owner: other
+  databases later). The archetype takes `-Ddatabase=h2|oracle` (default `h2`, unchanged output apart
+  from a corrected comment); `oracle` requires the `data` feature and is validated like `features`.
+- **D114 — `Instant` on Oracle is `TIMESTAMP WITH TIME ZONE` (hardening phase 3, Gate B).** Hibernate
+  maps `Instant` to its UTC timestamp type and reads an offset date-time; a plain `TIMESTAMP` column
+  fails on read with ORA-18716. The platform keeps Hibernate's standard mapping rather than overriding
+  the `Instant` JDBC type for every service and database; Oracle migrations declare `Instant` columns
+  `TIMESTAMP WITH TIME ZONE` (documented, tested across JVM and session zones).
 - **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
   ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
   case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run

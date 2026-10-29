@@ -66,6 +66,19 @@ class OracleConnectionDefaultsTest {
     }
 
     @Test
+    void aStartedPoolThatIsSuspendedIsLeftAloneToo() {
+        // A suspended pool is not "running" but its configuration is still sealed.
+        try (HikariDataSource pool = startedPool(true)) {
+            pool.getHikariPoolMXBean().suspendPool();
+            assertThat(pool.isRunning()).isFalse();
+
+            defaults.postProcessBeforeInitialization(pool, "dataSource");
+
+            assertThat(pool.getDataSourceProperties()).containsOnlyKeys("oracle.jdbc.ReadTimeout");
+        }
+    }
+
+    @Test
     void otherBeansPassThrough() {
         Object bean = new Object();
         assertThat(defaults.postProcessBeforeInitialization(bean, "other")).isSameAs(bean);
@@ -79,7 +92,12 @@ class OracleConnectionDefaultsTest {
 
     /** An Oracle pool started by its constructor without connecting: no idle connections, no fail-fast. */
     private static HikariDataSource startedPool() {
+        return startedPool(false);
+    }
+
+    private static HikariDataSource startedPool(boolean suspendable) {
         HikariConfig config = new HikariConfig();
+        config.setAllowPoolSuspension(suspendable);
         config.setJdbcUrl("jdbc:oracle:thin:@//127.0.0.1:9/APP");
         config.setMinimumIdle(0);
         config.setInitializationFailTimeout(-1);

@@ -31,8 +31,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       non-transactional service — is cancelled by the default query timeout, and the connection is
  *       reused cleanly afterwards;</li>
  *   <li>inside a transaction, the remaining transaction time wins over that default — for a query
- *       created through Spring's {@code EntityManager} proxy or the unwrapped {@code Session}'s
- *       {@code createQuery}/{@code createNativeQuery}, but not for Hibernate's {@code SelectionQuery} or a
+ *       created through Spring's {@code EntityManager} proxy, including {@code unwrap(Session.class)}
+ *       (which returns that proxy) and its {@code createQuery}/{@code createNativeQuery}, but not for
+ *       Hibernate's {@code SelectionQuery} or a
  *       query on the raw delegate (residual R2-F2, pinned);</li>
  *   <li>a transaction whose deadline has passed fails its next statement: a query with Spring's
  *       {@code TransactionTimedOutException}, a flush or commit with Hibernate's
@@ -113,21 +114,24 @@ class OracleTimeoutDefaultsIT {
     }
 
     @Test
-    void aQueryCreatedOnTheNativeSessionKeepsTheTransactionTime() {
-        // Review round 2, R2-F2: a query created on the unwrapped Hibernate Session, not through
-        // Spring's EntityManager proxy, inside transactions shorter and longer than the query default.
+    void aJpaQueryFromTheUnwrappedSessionKeepsTheTransactionTime() {
+        // Review round 2, R2-F2: unwrap(Session.class) on the injected EntityManager returns Spring's
+        // shared proxy, so a jakarta.persistence.Query it creates still gets the remaining transaction
+        // time — inside transactions shorter and longer than the query default.
         Outcome shorter = measure(() -> tx().execute(status ->
                 em.unwrap(Session.class).createNativeQuery(HEAVY_SQL).getSingleResult()));
         assertThat(shorter.chain()).as(shorter.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
-        assertThat(shorter.millis()).as("1 s transaction, 4 s query default").isLessThan(3_500L);
+        assertThat(shorter.millis()).as("1 s transaction, 4 s query default").isBetween(800L, 3_500L);
         TransactionTemplate longer = tx();
         longer.setTimeout(6);
         Outcome kept = measure(() -> longer.execute(status ->
                 em.unwrap(Session.class).createNativeQuery(HEAVY_SQL).getSingleResult()));
         assertThat(kept.chain()).as(kept.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(kept.millis()).as("6 s transaction, 4 s query default").isBetween(5_500L, 9_000L);
         Outcome jpql = measure(() -> longer.execute(status ->
                 em.unwrap(Session.class).createQuery(HEAVY_JPQL, Long.class).getSingleResult()));
-        assertThat(jpql.millis()).as("6 s transaction, Session.createQuery: " + jpql).isGreaterThanOrEqualTo(5_500L);
+        assertThat(jpql.chain()).as(jpql.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(jpql.millis()).as("6 s transaction, Session.createQuery").isBetween(5_500L, 9_000L);
     }
 
     @Test
@@ -144,14 +148,17 @@ class OracleTimeoutDefaultsIT {
         longer.setTimeout(6);
         Outcome selection = measure(() -> longer.execute(status ->
                 em.unwrap(Session.class).createSelectionQuery(HEAVY_JPQL, Long.class).getSingleResult()));
-        assertThat(selection.millis()).as("6 s transaction, selection query: " + selection).isLessThan(5_500L);
+        assertThat(selection.chain()).as(selection.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(selection.millis()).as("6 s transaction, selection query").isBetween(3_500L, 5_500L);
         Outcome delegate = measure(() -> longer.execute(status ->
                 ((EntityManager) em.getDelegate()).createQuery(HEAVY_JPQL, Long.class).getSingleResult()));
-        assertThat(delegate.millis()).as("6 s transaction, raw delegate: " + delegate).isLessThan(5_500L);
-        // The documented workaround: a timeout set on the query itself.
+        assertThat(delegate.chain()).as(delegate.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(delegate.millis()).as("6 s transaction, raw delegate").isBetween(3_500L, 5_500L);
+        // The documented workaround: a timeout set on the query itself (a fresh budget, not the remainder).
         Outcome own = measure(() -> longer.execute(status -> em.unwrap(Session.class)
                 .createSelectionQuery(HEAVY_JPQL, Long.class).setTimeout(6).getSingleResult()));
-        assertThat(own.millis()).as("own timeout: " + own).isGreaterThanOrEqualTo(5_500L);
+        assertThat(own.chain()).as(own.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(own.millis()).as("own timeout").isBetween(5_500L, 9_000L);
     }
 
     @Test

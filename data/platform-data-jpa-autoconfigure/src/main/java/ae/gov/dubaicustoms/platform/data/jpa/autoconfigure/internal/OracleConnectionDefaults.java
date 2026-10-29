@@ -28,8 +28,9 @@ public final class OracleConnectionDefaults implements BeanPostProcessor, Ordere
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) {
-        // A pool built with new HikariDataSource(config) has already started and sealed its configuration.
-        if (bean instanceof HikariDataSource pool && !pool.isRunning() && !pool.isClosed()
+        // A pool built with new HikariDataSource(config) has already started and sealed its configuration
+        // (running, suspended or closed: getHikariPoolMXBean() is set from the start).
+        if (bean instanceof HikariDataSource pool && pool.getHikariPoolMXBean() == null && !pool.isClosed()
                 && isOracle(pool.getJdbcUrl())) {
             DEFAULTS.forEach((key, value) -> {
                 if (!pool.getDataSourceProperties().containsKey(key) && System.getProperty(key) == null) {

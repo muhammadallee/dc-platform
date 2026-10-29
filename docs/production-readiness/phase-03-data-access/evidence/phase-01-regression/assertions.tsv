@@ -1,0 +1,92 @@
+PASS	app ready in 10s
+PASS	ac1-valid status 200
+PASS	ac1-valid: context == inbound trace
+PASS	ac1-valid: spanId in MDC
+PASS	ac1-valid: @Async sees the trace
+PASS	ac1-valid: @Async ran on another thread
+PASS	ac1-valid: no correlationId MDC key
+PASS	ac1-valid: no x-correlation-id header
+PASS	ac1-valid: exactly 0 rejection marker(s) for this request
+PASS	ac2-missing status 200
+PASS	ac2-missing: new 32-hex trace
+PASS	ac2-missing-error status 500
+PASS	ac2-missing-error: new trace reaches the error body
+PASS	ac3-malformed status 200
+PASS	ac3-malformed: new trace for malformed
+PASS	ac3-malformed: exactly 1 rejection marker(s) for this request
+PASS	ac3-oversized status 200
+PASS	ac3-oversized: new trace for oversized
+PASS	ac3-oversized: exactly 1 rejection marker(s) for this request
+PASS	ac3-zero: new trace for an all-zero trace id
+PASS	ac3-zero: exactly 1 rejection marker(s) for this request
+PASS	ac4-stray status 200
+PASS	ac4-stray: trace unaffected by the stray header
+PASS	ac4-stray: no x-correlation-id header
+PASS	ac5-outbound status 200
+PASS	ac5-outbound: downstream traceparent has the same trace
+PASS	ac5-outbound: no correlation header downstream
+PASS	ac10-malformed status 400
+PASS	ac10-malformed: code + fixed detail + traceId
+PASS	ac10-malformed: no parser internals
+PASS	ac11-validation status 400
+PASS	ac11-validation: code + traceId + retryable=false
+PASS	ac11-validation: field paths present
+PASS	ac11-validation: no rejectedValue, PII not echoed
+PASS	ac12-boom status 500
+PASS	ac12-boom: generic 500
+PASS	ac12-boom: no internals in the body
+PASS	ac12-platform status 500
+PASS	ac12-platform: own code, generic detail, trace
+PASS	ac12-platform: message not in the body
+PASS	async-ok status 200
+PASS	async-ok: async handler sees the trace
+PASS	async-fail status 500
+PASS	async-fail: async failure body carries the trace
+PASS	async-timeout status 503
+PASS	async-timeout: 503 contract
+PASS	direct-error: direct /error contract
+PASS	error-dispatch-application_json status 409
+PASS	error-dispatch-application_json: 409 contract (application/json)
+PASS	error-dispatch-application_json is application/problem+json
+PASS	error-dispatch-text_html status 409
+PASS	error-dispatch-text_html: 409 contract (text/html)
+PASS	error-dispatch-text_html is application/problem+json
+PASS	ac13-unauthenticated status 401
+PASS	ac13-unauthenticated: 401 contract
+PASS	ac13-unauthenticated: 401 type + instance
+PASS	ac13-malformed-token status 401
+PASS	ac13-malformed-token: malformed token: full 401 contract, no rejection reason
+PASS	malformed token: challenge carries no error description
+PASS	ac13-expired-token status 401
+PASS	ac13-expired-token: expired token: full 401 contract, no rejection reason
+PASS	expired token: challenge carries no error description
+PASS	ac13-untrusted-token status 401
+PASS	ac13-untrusted-token: untrusted token: full 401 contract, no rejection reason
+PASS	untrusted token: challenge carries no error description
+PASS	ac13-valid-token status 200
+PASS	ac13-forbidden status 403
+PASS	ac13-forbidden: 403 contract
+PASS	framework-404 status 404
+PASS	framework-404: 404 contract
+PASS	AC8 {"check": "concurrent", "requests": 600, "rounds": 3, "bleed": 0, "examples": []}
+PASS	AC8 errors {"check": "concurrent-errors", "requests": 600, "rounds": 3, "wrong": 0, "examples": []}
+PASS	log line 'slow request entered' seen
+PASS	app exited on SIGTERM (code 143) in 6s
+PASS	graceful shutdown completed (logged)
+PASS	in-flight request completed with 200 during graceful shutdown
+PASS	logs {"check": "logs", "events": 1238, "non_json_lines": 0, "problems": []}
+PASS	sanitized rejection marker logged
+PASS	async timeout logged exactly once, with its stack trace, on the request's trace
+PASS	AC12 'db-secret-host' detail is in the log, on the request's trace
+PASS	AC12 'pricing-7.internal' detail is in the log, on the request's trace
+PASS	AC2 the fresh trace of an error body is the trace of its log line
+PASS	no bearer token in the log
+PASS	app ready in 9s
+PASS	ac6-unsampled status 200
+PASS	ac6-unsampled: unsampled trace kept
+PASS	ac6-unsampled-new: fresh unsampled trace
+PASS	ac6-unsampled-error status 500
+PASS	ac6-unsampled-error: traceId in an unsampled error body
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	cleanup: no containers left for dch-20261029074604-21818

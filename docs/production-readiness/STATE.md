@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 3 — Database / Data Access (Oracle only, HD3 amended; prod 19c, HD13) |
-| Current gate | B nearly done: Oracle starter + archetype `database` (HD12/D113), 23 Oracle 19c-mode container tests, data errors 409/503 (D111), bounded waits (D110), Flyway pins + out-of-order guard (D112), Instant = TSTZ (D114), GX-04 guard |
+| Current gate | B done (Oracle starter + archetype `database` HD12/D113, 23 Oracle 19c-mode container tests, data errors 409/503 D111, bounded waits D110, Flyway pins + out-of-order guard D112, Instant = TSTZ D114, GX-04 guard). Gate B evidence: golden path 9/9 on `f9d1a86`, downstream test-compile 13 modules, errors+data `-Pdocker` verify green, Phase 1 consumer 92/92 on Phase 3 code |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7); HD11 outbox approach (asked at Phase 4 Gate A) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Gate B close: full golden path (9 scenarios) and downstream compile; then Gate C (Codex round 1). Gate F: Oracle consumer harness (Toxiproxy slow/down, pool exhaustion, runtime user cannot ALTER/DROP, read-timeout backstop). Testcontainers reuse is on locally (Oracle cold start ~10 min). |
+| Next action | Gate C (Codex round 1, isolated worktree under $TEMP/hd). Gate E must register: a transaction-timeout cancel of SQL inside a PL/SQL function was missed once in ~7 runs (JPQL path, 23ai Free via Docker Desktop; not reproduced in 5 reruns; raw log `phase-03-data-access/evidence-raw/gateB-errors-data-verify.log`), plus the Gate A findings list. Gate F: Oracle consumer harness (Toxiproxy slow/down, pool exhaustion, runtime user cannot ALTER/DROP, read-timeout backstop). Phase consumer repo `~/.m2-hardening/phase-03` needs the full Phase 2 module list plus the data starters (a partial list mixes baseline security/logging with new core). Testcontainers reuse is on locally (Oracle cold start ~10 min). |
 
 ## Phase log
 
@@ -21,7 +21,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 0 | `7b248e9` | complete (tracking docs, tooling, harness) | `hardening/phase-00-closed` | 2026-10-26 |
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
-| 3 | `60afe86` | in progress (Gate A done) | — | — |
+| 3 | `60afe86` | in progress (Gates A, B done) | — | — |
 
 ## Environment notes for resumption
 

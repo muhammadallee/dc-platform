@@ -64,6 +64,14 @@ final class OracleContainers {
         registry.add("spring.jpa.properties.jakarta.persistence.database-major-version", () -> "19");
     }
 
+    /** An extra, empty schema user for a test that needs its own schema; {@code [user, password]}. */
+    static String[] freshUser() {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
+        String[] credentials = {"PDT_" + suffix, "Pw" + suffix};
+        createUser(oracle(), credentials[0], credentials[1]);
+        return credentials;
+    }
+
     /** A schema owner with exactly what the tests' migrations and DML need. */
     private static void createUser(OracleContainer oracle, String name, String secret) {
         try (Connection system = DriverManager.getConnection(oracle.getJdbcUrl(), "system", oracle.getPassword());

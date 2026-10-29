@@ -694,8 +694,13 @@ One line of context per decision; details live in the commit bodies referenced.
   outbox drainer inherits it unless it sets its own); on a `jdbc:oracle:` pool the driver's
   `oracle.jdbc.ReadTimeout` 60 s (above the transaction timeout, so slow SQL hits that first) and
   `oracle.net.CONNECT_TIMEOUT` 10 s, added by a BeanPostProcessor keyed on the pool's own URL (an
-  environment check missed URLs from later property sources); leak detection 20 s under `local` only.
-  Hikari's keepalive and max lifetime stay its defaults.
+  environment check missed URLs from later property sources); leak detection 20 s under `local` only
+  (never with `prod`). Hikari's keepalive and max lifetime stay its defaults. Round 1 (Gate C) added:
+  a 30 s default query timeout (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`),
+  because a declared repository query or a non-transactional service runs outside any transaction (measured:
+  unbounded before); inside a transaction Spring sets the remaining time per query, which wins. And the
+  Oracle driver bounds on Flyway's own `SimpleDriverDataSource` (`spring.flyway.user`/`url`), applied on
+  the `Flyway` bean; residual: a `{vendor}` location connects before that (system properties cover it).
 - **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
   Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
   use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`
@@ -704,11 +709,15 @@ One line of context per decision; details live in the commit bodies referenced.
   (`23` → 409 `DC-DATA-0409`, `40`/locking → 409 `DC-DATA-0410`, `08`/timeouts/no connection → 503
   `DC-DATA-0503`, retryable), with a fixed detail; a SQL bug stays 500. Simpler than a separate advice
   behind `@ConditionalOnClass`, which would miss the raw types and need ordering.
+  Round 1 (Gate C) added `org.hibernate.PropertyValueException` (Hibernate's null check, before any SQL)
+  as 409, and `org.hibernate.TransactionException` as 503 only with Hibernate's exact message
+  `Transaction timeout expired` (a deadline passed before a flush or commit; pinned by an Oracle test).
 - **D112 — Flyway posture pinned; out-of-order refused outside `local` (hardening phase 3, Gate B).**
   `clean-disabled`, `validate-on-migrate`, `out-of-order=false`, `validate-migration-naming` are
   contributed explicitly so a Flyway upgrade cannot loosen them. The out-of-order guard is a
-  `FlywayConfigurationCustomizer` that checks the effective configuration before migrating (a check
-  bean could run after Flyway had already applied a migration), with a `FailureAnalyzer`.
+  bean post-processor on the `Flyway` bean: it checks the finished configuration (after every property and
+  customizer, whatever its order) before Boot's migration initializer runs, with a `FailureAnalyzer`.
+  Round 1 (Gate C) replaced a lowest-precedence customizer, which an equally ordered customizer could follow.
 - **D113 — per-database starters; archetype `database` property (hardening phase 3, HD12).** One
   POM-only starter per certified database carries the JDBC driver and Flyway's database module, so the
   pair never travels apart (HI-0041). Only `platform-starter-data-jpa-oracle` exists (owner: other

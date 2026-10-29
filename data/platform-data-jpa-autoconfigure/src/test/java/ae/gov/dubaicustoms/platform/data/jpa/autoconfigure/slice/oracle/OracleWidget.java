@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -38,6 +39,8 @@ class OracleWidget {
     boolean active;
 
     Instant happenedAt;
+
+    OffsetDateTime offsetAt;
 
     @Convert(converter = MoneyConverter.class)
     Money price;

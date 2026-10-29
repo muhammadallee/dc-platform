@@ -8,6 +8,7 @@ create table oracle_widget (
     reference_code   varchar2(64)  not null,
     active           number(1)     not null,
     happened_at      timestamp(6) with time zone,
+    offset_at        timestamp(6) with time zone,
     price            varchar2(64),
     correlation_id   varchar2(32),
     version          number(19)    not null,

@@ -76,6 +76,18 @@
       <artifactId>spring-boot-data-jpa-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Pool and repository meters (scope R8, AC11): Boot's own metrics auto-configurations, which
+         need Micrometer; a service gets them from the observability starter. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-metrics</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- H2: the default local database for the @DataJpaTest auditing/naming/converter slice. -->
     <dependency>
       <groupId>com.h2database</groupId>
@@ -83,8 +95,8 @@
       <scope>test</scope>
     </dependency>
     <!-- Flyway engine + Boot 4's Flyway integration (the same pair the starter ships). Optional: the
-         out-of-order guard (D112) is a FlywayConfigurationCustomizer, registered only when Flyway is
-         present (@ConditionalOnClass); the presence guard's absent branches are tested with a
+         Flyway checks (D110, D112) are post-processors on the Flyway bean, registered only when Flyway
+         is present (@ConditionalOnClass); the presence guard's absent branches are tested with a
          FilteredClassLoader. -->
     <dependency>
       <groupId>org.flywaydb</groupId>

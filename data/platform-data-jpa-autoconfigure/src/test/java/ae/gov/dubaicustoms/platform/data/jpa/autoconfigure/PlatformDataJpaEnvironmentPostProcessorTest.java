@@ -40,6 +40,8 @@ class PlatformDataJpaEnvironmentPostProcessorTest {
                 "spring.jpa.properties.hibernate.jdbc.time_zone", "UTC",
                 "spring.datasource.hikari.connection-timeout", "5000",
                 "spring.transaction.default-timeout", "30s",
+                "spring.jpa.properties.jakarta.persistence.query.timeout", "30000",
+                "spring.jdbc.template.query-timeout", "30s",
                 "spring.flyway.clean-disabled", "true",
                 "spring.flyway.validate-on-migrate", "true",
                 "spring.flyway.out-of-order", "false",
@@ -67,17 +69,24 @@ class PlatformDataJpaEnvironmentPostProcessorTest {
         prod.setActiveProfiles("prod");
         processor.postProcessEnvironment(prod, new SpringApplication());
         assertThat(contributed(prod)).doesNotContainKey("spring.datasource.hikari.leak-detection-threshold");
+
+        MockEnvironment both = new MockEnvironment();
+        both.setActiveProfiles("prod", "local");
+        processor.postProcessEnvironment(both, new SpringApplication());
+        assertThat(contributed(both)).doesNotContainKey("spring.datasource.hikari.leak-detection-threshold");
     }
 
     @Test
     void userPoolAndTransactionValuesWin() {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.datasource.hikari.connection-timeout", "250")
-                .withProperty("spring.transaction.default-timeout", "2m");
+                .withProperty("spring.transaction.default-timeout", "2m")
+                .withProperty("spring.jpa.properties.jakarta.persistence.query.timeout", "120000");
         processor.postProcessEnvironment(environment, new SpringApplication());
 
         assertThat(environment.getProperty("spring.datasource.hikari.connection-timeout")).isEqualTo("250");
         assertThat(environment.getProperty("spring.transaction.default-timeout")).isEqualTo("2m");
+        assertThat(environment.getProperty("spring.jpa.properties.jakarta.persistence.query.timeout")).isEqualTo("120000");
     }
 
     @Test

@@ -5,6 +5,7 @@ import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.AuditorAware
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
@@ -26,8 +27,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 /*
  * Activates when: JPA (jakarta.persistence.EntityManagerFactory + Spring Data AuditorAware) on the
  *                 classpath AND dc.platform.data.jpa.enabled != false.
- * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway check /
- *                 dataJpaCapabilityDescriptor) or
+ * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway checks /
+ *                 the Oracle defaults / dataJpaCapabilityDescriptor) or
  *                 already enables JPA auditing themselves (jpaAuditingHandler present).
  * Beans: platformAuditorAware — AuditorAware<String>; resolves the current user's subject when the
  *                 security capability is present and a request is authenticated, otherwise "system".
@@ -39,8 +40,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  *        dataJpaCapabilityDescriptor — one line in the startup capability banner;
  *        platformOracleConnectionDefaults — adds the Oracle driver read/connect timeouts to a Hikari
  *                 pool whose URL is jdbc:oracle: (only when HikariCP is present; D110);
- *        platformFlywayOutOfOrderGuard — fails startup when Flyway out-of-order migrations are on
- *                 outside the local profile (only when Flyway is present; D112).
+ *        platformFlywayOutOfOrderGuard — fails startup when the finished Flyway configuration has
+ *                 out-of-order migrations on outside the local profile (only when Flyway is present; D112);
+ *        platformOracleFlywayConnectionDefaults — adds the same Oracle timeouts to a separate Flyway
+ *                 data source (spring.flyway.user/url) with a jdbc:oracle: URL (only when Flyway is present).
  * Nested JpaAuditingConfiguration enables @EnableJpaAuditing only once a real EntityManagerFactory
  *        exists (@ConditionalOnBean) — this is why the class is ordered after HibernateJpa
  *        AutoConfiguration — so a context without JPA infrastructure still starts cleanly.
@@ -105,17 +108,25 @@ public class PlatformDataJpaAutoConfiguration {
     }
 
     /*
-     * Out-of-order migrations only under the local profile (D112). Nested so Flyway types are only
-     * touched when Flyway is on the classpath.
+     * Checks and bounds on the finished Flyway bean: out-of-order migrations only under the local profile
+     * (D112) and the Oracle network bounds on a separate migration data source (D110). Nested so Flyway
+     * types are only touched when Flyway is on the classpath; static bean methods, as a BeanPostProcessor
+     * must not pull the enclosing configuration in early.
      */
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(name = "org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer")
-    static class FlywayGuardConfiguration {
+    @ConditionalOnClass(name = "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration")
+    static class FlywayChecksConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(name = "platformFlywayOutOfOrderGuard")
-        FlywayOutOfOrderGuard platformFlywayOutOfOrderGuard(Environment environment) {
+        static FlywayOutOfOrderGuard platformFlywayOutOfOrderGuard(Environment environment) {
             return new FlywayOutOfOrderGuard(environment);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformOracleFlywayConnectionDefaults")
+        static OracleFlywayConnectionDefaults platformOracleFlywayConnectionDefaults() {
+            return new OracleFlywayConnectionDefaults();
         }
     }
 

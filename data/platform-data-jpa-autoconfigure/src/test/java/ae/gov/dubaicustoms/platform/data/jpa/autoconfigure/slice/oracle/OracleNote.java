@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.oracle;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,5 +14,6 @@ class OracleNote {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
+    @Column(nullable = false)
     String text;
 }

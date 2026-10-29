@@ -7,14 +7,17 @@ import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OutOfOrderMi
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OutOfOrderMigrationsFailureAnalyzer;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.diagnostics.FailureAnalysis;
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
+import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.Ordered;
 
 /**
  * Flyway posture (scope R5, D112, AC7) on H2 with the platform defaults applied as at startup:
@@ -49,6 +52,51 @@ class FlywayPostureTest {
                     assertThat(analysis.getAction()).contains("spring.flyway.out-of-order");
                     assertThat(failure).hasRootCauseInstanceOf(OutOfOrderMigrationsException.class);
                 });
+    }
+
+    @Test
+    void aCustomizerThatEnablesOutOfOrderIsCaughtWhateverItsOrder() {
+        FlywayConfigurationCustomizer unordered = configuration -> configuration.outOfOrder(true);
+        runner(database(), "flyway-posture-ok")
+                .withBean("unorderedOutOfOrder", FlywayConfigurationCustomizer.class, () -> unordered)
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasRootCauseInstanceOf(OutOfOrderMigrationsException.class));
+        runner(database(), "flyway-posture-ok")
+                .withBean("lastOutOfOrder", LastCustomizer.class, LastCustomizer::new)
+                .run(context -> assertThat(context.getStartupFailure())
+                        .hasRootCauseInstanceOf(OutOfOrderMigrationsException.class));
+    }
+
+    @Test
+    void theGuardCanBeReplacedByName() {
+        runner(database(), "flyway-posture-ok").withPropertyValues("spring.flyway.out-of-order=true")
+                .withBean("platformFlywayOutOfOrderGuard", Object.class, Object::new)
+                .run(context -> assertThat(context).hasNotFailed());
+    }
+
+    @Test
+    void theKillSwitchRemovesTheFlywayChecks() {
+        runner(database(), "flyway-posture-ok")
+                .withPropertyValues("spring.flyway.out-of-order=true", "dc.platform.data.jpa.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean("platformFlywayOutOfOrderGuard")
+                            .doesNotHaveBean("platformOracleFlywayConnectionDefaults");
+                });
+    }
+
+    /** Enables out-of-order with the lowest precedence, i.e. competes with the guard for "last". */
+    static final class LastCustomizer implements FlywayConfigurationCustomizer, Ordered {
+
+        @Override
+        public void customize(FluentConfiguration configuration) {
+            configuration.outOfOrder(true);
+        }
+
+        @Override
+        public int getOrder() {
+            return Ordered.LOWEST_PRECEDENCE;
+        }
     }
 
     @Test

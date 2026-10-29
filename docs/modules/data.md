@@ -41,20 +41,40 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   - `spring.transaction.default-timeout=30s`: every transaction, Spring Data repository methods
     included; once it is spent the driver cancels the running statement (reliably for plain SQL; for SQL
     running inside a PL/SQL function the cancel is best-effort, and was once missed in testing);
+  - `spring.jpa.properties.jakarta.persistence.query.timeout=30000` and
+    `spring.jdbc.template.query-timeout=30s`: a query that runs **outside** a transaction is bounded
+    too. A declared repository query (`@Query` or a derived `findBy…`) has no transaction of its own,
+    and neither has a service method without `@Transactional`. Inside a transaction the remaining
+    transaction time is used instead, so this default never lengthens a statement. `EntityManager.find`
+    outside a transaction is not a query; only the read timeout below bounds it;
   - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout=60000` (the backstop
     for what a cancel cannot stop: a PL/SQL or lock wait, a dead network) and
-    `oracle.net.CONNECT_TIMEOUT=10000` are added to the pool's `data-source-properties`;
+    `oracle.net.CONNECT_TIMEOUT=10000` are added to the pool's `data-source-properties`. The same two are
+    added to Flyway's own connection when migrations run as a separate user (see *Schema owner and
+    runtime user*);
   - `leak-detection-threshold=20000` (a stack trace for a connection held over 20 s) only under the
-    `local` profile.
+    `local` profile, and never when `prod` is active as well.
   Hikari's keepalive (2 min) and max lifetime (30 min) are its own defaults. Set any key yourself to
   change it — a value you set always wins (for the driver timeouts: a `data-source-properties` entry or
   a JVM system property).
 - **Data errors as problems (D111)** — handled by the errors capability: a unique, foreign-key, NOT
-  NULL or check violation is a 409 `DC-DATA-0409`, a concurrent update or lock a 409 `DC-DATA-0410`, an
-  unavailable database or a timeout a retryable 503 `DC-DATA-0503`. The body never names SQL, tables or
+  NULL or check violation is a 409 `DC-DATA-0409` (Hibernate's own null check included), a concurrent
+  update or lock a 409 `DC-DATA-0410`, an unavailable database or a timeout a retryable 503
+  `DC-DATA-0503` (a transaction whose deadline passed before a flush or commit included). The body never names SQL, tables or
   constraints; the full exception is logged at WARN on the request's trace. This also covers raw
   Hibernate/JPA exceptions from code that uses the `EntityManager` directly (Spring translates only
   behind a repository).
+
+## Transactions
+
+- Put `@Transactional` on the service method that owns the unit of work, and
+  `@Transactional(readOnly = true)` on service methods that only read. Spring Data's inherited
+  repository methods (`findAll`, `save`, …) already run in a transaction (read-only for reads);
+  a declared query method does not, unless you annotate it or call it from a transactional service.
+- A runtime exception thrown out of a `@Transactional` method rolls the transaction back. A
+  **checked** exception does not: Spring commits by default. Declare
+  `@Transactional(rollbackFor = Exception.class)` where a checked exception must undo the work.
+  Both verified against Oracle (`OracleTransactionRulesIT`).
 
 ## Migrations
 
@@ -71,7 +91,29 @@ Flyway's safe settings are pinned (D112), so an upgrade cannot loosen them: `cle
   instead of being skipped;
 - never edit an applied migration — the checksum mismatch blocks startup; add `V<next>__…` instead;
 - out-of-order migrations are refused outside the `local` profile, with a startup diagnostic that
-  names the fix, however they were switched on (`spring.flyway.*`, `flyway.conf`, a customizer).
+  names the fix, however they were switched on (`spring.flyway.*`, `flyway.conf`, any customizer): the
+  check runs on Flyway's finished configuration, before anything migrates.
+
+### Schema owner and runtime user
+
+In production, migrations and the application connect as different database users:
+
+| User | Grants | Configured by |
+|---|---|---|
+| Schema owner (e.g. `APP_OWNER`) | owns the tables; `create table/sequence/view/procedure` | `spring.flyway.user` / `spring.flyway.password` — Flyway only |
+| Runtime user (e.g. `APP_RUNTIME`) | `create session` and `select/insert/update/delete` on the owner's tables, `select` on its sequences; **no** `alter`, `drop` or `create` | `spring.datasource.username` / `password` — the pool |
+
+The runtime user resolves the owner's unqualified table names either per session —
+`spring.datasource.hikari.connection-init-sql=ALTER SESSION SET CURRENT_SCHEMA=APP_OWNER` — or through
+synonyms the owner creates. Grants for tables added by a later migration go in that migration (or a
+repeatable `R__grants.sql`), so a deploy never needs a manual step.
+
+With `spring.flyway.user` set, Boot gives Flyway its own connection outside the pool; the platform adds
+the same Oracle read and connect timeouts to it. One exception: a `{vendor}` placeholder in
+`spring.flyway.locations` makes Boot open one connection to detect the database **before** the platform
+can set them. Keep the default `db/migration` location, or set
+`-Doracle.jdbc.ReadTimeout=60000 -Doracle.net.CONNECT_TIMEOUT=10000` on the JVM (system properties apply
+to every Oracle connection).
 
 ## Oracle
 

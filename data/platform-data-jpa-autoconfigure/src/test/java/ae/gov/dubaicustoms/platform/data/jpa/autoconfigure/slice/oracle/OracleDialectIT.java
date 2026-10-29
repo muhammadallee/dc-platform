@@ -8,6 +8,7 @@ import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoCo
 import jakarta.persistence.EntityManager;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.TimeZone;
 import javax.sql.DataSource;
@@ -121,6 +122,29 @@ class OracleDialectIT {
             em.createNativeQuery("alter session set time_zone = '+09:00'").executeUpdate();
             OracleWidget loaded = em.find(OracleWidget.class, widget.id);
             assertThat(loaded.happenedAt).isEqualTo(when);
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    void offsetDateTimeRoundTripsToTheSameInstantAcrossJvmAndSessionTimeZones() {
+        OffsetDateTime when = OffsetDateTime.parse("2026-10-29T18:15:30.123456+04:00");
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Asia/Dubai"));
+            em.createNativeQuery("alter session set time_zone = '-05:00'").executeUpdate();
+            OracleWidget widget = widget("TZ-OFFSET");
+            widget.offsetAt = when;
+            em.persist(widget);
+            em.flush();
+            em.clear();
+
+            TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
+            em.createNativeQuery("alter session set time_zone = '+09:00'").executeUpdate();
+            OracleWidget loaded = em.find(OracleWidget.class, widget.id);
+            // The instant is the contract; the offset Hibernate returns depends on its time-zone storage.
+            assertThat(loaded.offsetAt).isAtSameInstantAs(when);
         } finally {
             TimeZone.setDefault(original);
         }

@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
@@ -12,7 +13,7 @@ import org.springframework.core.env.MapPropertySource;
 /**
  * Contributes the platform's Hibernate tuning as standard {@code spring.jpa.*} defaults: open-in-view
  * off, batched inserts/updates (size 50), and a UTC jdbc time zone — plus pool and timeout bounds
- * (D110: 5 s connection wait, 30 s transactions, leak detection under {@code local}) and Flyway's
+ * (D110: 5 s connection wait, 30 s transactions and queries, leak detection under {@code local}) and Flyway's
  * safe settings pinned (D112). Snake_case physical naming is
  * Boot's own default, so it is deliberately left unset rather than pinned to a Boot-version-specific
  * strategy class.
@@ -57,16 +58,23 @@ public class PlatformDataJpaEnvironmentPostProcessor implements EnvironmentPostP
      *   up behind an exhausted pool); it then gets a 503 (D111);
      * - every transaction — Spring Data repository methods included — is bounded at 30 s; Spring
      *   hands the remaining time to each statement, which the driver cancels (ORA-01013);
+ * - a query outside any transaction (a declared repository query has none of its own, a non-transactional
+ *   service) is bounded at 30 s too: Hibernate's default query timeout and JdbcTemplate's; inside a
+ *   transaction Spring sets the remaining transaction time on each query, which overrides this default;
      * - the Oracle driver's read and connect timeouts are added to the pool itself, keyed on its own
      *   URL (internal.OracleConnectionDefaults): the URL may come from a property source added after
      *   this post-processor ran;
-     * - leak detection (a stack trace for a connection held over 20 s) only under the local profile.
+ * - leak detection (a stack trace for a connection held over 20 s) only under the local profile, and
+ *   never when prod is active too.
      * Hikari's own keepalive (2 min) and max lifetime (30 min) defaults are kept.
      */
     private static void poolAndTimeoutDefaults(ConfigurableEnvironment environment, Map<String, Object> defaults) {
         defaults.put("spring.datasource.hikari.connection-timeout", "5000");
         defaults.put("spring.transaction.default-timeout", "30s");
-        if (Arrays.asList(environment.getActiveProfiles()).contains("local")) {
+        defaults.put("spring.jpa.properties.jakarta.persistence.query.timeout", "30000");
+        defaults.put("spring.jdbc.template.query-timeout", "30s");
+        List<String> profiles = Arrays.asList(environment.getActiveProfiles());
+        if (profiles.contains("local") && !profiles.contains("prod")) {
             defaults.put("spring.datasource.hikari.leak-detection-threshold", "20000");
         }
     }

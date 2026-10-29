@@ -3,8 +3,10 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,41 @@ class PlatformDataJpaAutoConfigurationTest {
                 .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
         runner.withClassLoader(new FilteredClassLoader("com.zaxxer.hikari"))
                 .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
+    }
+
+    @Test
+    void flywayChecksAreRegisteredReplaceableByNameAndAbsentWithoutFlyway() {
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(FlywayOutOfOrderGuard.class);
+            assertThat(context).hasSingleBean(OracleFlywayConnectionDefaults.class);
+        });
+        runner.withBean("platformFlywayOutOfOrderGuard", Object.class, Object::new)
+                .withBean("platformOracleFlywayConnectionDefaults", Object.class, Object::new)
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+                    assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+                });
+        runner.withClassLoader(new FilteredClassLoader("org.springframework.boot.flyway"))
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+                    assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+                });
+    }
+
+    @Test
+    void killSwitchRemovesThePostProcessors() {
+        runner.withPropertyValues("dc.platform.data.jpa.enabled=false").run(context -> {
+            assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class);
+            assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+            assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+        });
+    }
+
+    @Test
+    void propertiesDefaultSnapshot() {
+        // §7.2: a changed default fails here until the snapshot is consciously updated (CHANGELOG).
+        runner.run(context -> assertThat(context.getBean(DataJpaProperties.class))
+                .isEqualTo(new DataJpaProperties(true, true)));
     }
 
     @Test

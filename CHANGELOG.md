@@ -76,15 +76,19 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   or a lost connection is **503 `DC-DATA-0503`** (`retryable: true`). The detail is fixed (never SQL,
   table or constraint names); the full exception is logged at WARN on the request's trace. Raw
   JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
-  (by cause chain and SQLState). An application `@ExceptionHandler` for these types still wins (D111).
+  (by cause chain and SQLState), including Hibernate's own null check (409) and a transaction whose
+  deadline passed before a flush or commit (503). An application `@ExceptionHandler` for these types
+  still wins (D111).
 - **Bounded data-access waits** (D110, lowest-precedence defaults): Hikari `connection-timeout` 5 s
   (was Hikari's 30 s); `spring.transaction.default-timeout` 30 s (was unbounded) — a longer batch
-  transaction needs an explicit `@Transactional(timeout = …)`; Oracle pools get the driver's
-  `oracle.jdbc.ReadTimeout` 60 s and `oracle.net.CONNECT_TIMEOUT` 10 s; leak detection (20 s) under
-  `local`.
+  transaction needs an explicit `@Transactional(timeout = …)`; a query outside any transaction (a
+  declared repository query, a non-transactional service, `JdbcTemplate`) is cancelled after 30 s
+  (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`; was unbounded); Oracle pools
+  and a separate Flyway migration connection get the driver's `oracle.jdbc.ReadTimeout` 60 s and
+  `oracle.net.CONNECT_TIMEOUT` 10 s; leak detection (20 s) under `local`, never with `prod`.
 - **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
   named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
-  migrations outside the `local` profile fail startup with a diagnostic; `clean-disabled`,
+  migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,
   `validate-on-migrate` and `out-of-order=false` are pinned (D112).
 
 ### Added

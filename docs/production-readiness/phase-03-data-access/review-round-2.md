@@ -42,3 +42,8 @@ F3, F4, F5 and F6 are confirmed. The AC2, AC3, AC7, AC8, AC9, AC10 (Boot-created
 - R2-F2: Hibernate `SelectionQuery` and raw-delegate queries take the query default instead of the remaining transaction time.
 - R2-F3: a URL-built application `Flyway` bean gets no Oracle driver bounds.
 - From round 1: the `{vendor}` Flyway location residual, and the PL/SQL cancel miss.
+
+## After Gate D
+
+- CI green on `4391125` (run 40963745809).
+- Phase 1 consumer rerun (owed, §3.10, because `4fab487` changed `DataAccessFailure` after the earlier 92/92): **92 passed, 0 failed** on `4391125`. Repo `~/.m2-hardening/phase-03` was rebuilt with the full 14-starter list. Evidence: [`evidence/phase-01-regression-gate-d/`](evidence/phase-01-regression-gate-d/).

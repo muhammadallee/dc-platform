@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +54,18 @@ class OracleConnectionDefaultsTest {
     }
 
     @Test
+    void aPoolTheApplicationAlreadyStartedIsLeftAlone() {
+        // new HikariDataSource(config) starts the pool and seals its configuration; adding to it throws.
+        try (HikariDataSource pool = startedPool()) {
+            assertThat(defaults.postProcessBeforeInitialization(pool, "dataSource")).isSameAs(pool);
+
+            assertThat(pool.getDataSourceProperties())
+                    .containsOnlyKeys("oracle.jdbc.ReadTimeout")
+                    .containsEntry("oracle.jdbc.ReadTimeout", "120000");
+        }
+    }
+
+    @Test
     void otherBeansPassThrough() {
         Object bean = new Object();
         assertThat(defaults.postProcessBeforeInitialization(bean, "other")).isSameAs(bean);
@@ -62,5 +75,15 @@ class OracleConnectionDefaultsTest {
         HikariDataSource pool = new HikariDataSource();
         pool.setJdbcUrl(url);
         return pool;
+    }
+
+    /** An Oracle pool started by its constructor without connecting: no idle connections, no fail-fast. */
+    private static HikariDataSource startedPool() {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:oracle:thin:@//127.0.0.1:9/APP");
+        config.setMinimumIdle(0);
+        config.setInitializationFailTimeout(-1);
+        config.addDataSourceProperty("oracle.jdbc.ReadTimeout", "120000");
+        return new HikariDataSource(config);
     }
 }

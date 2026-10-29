@@ -7,6 +7,8 @@ import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfO
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -74,6 +76,23 @@ class PlatformDataJpaAutoConfigurationTest {
                 .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
         runner.withClassLoader(new FilteredClassLoader("com.zaxxer.hikari"))
                 .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
+    }
+
+    @Test
+    void anOraclePoolTheApplicationStartedItselfDoesNotFailStartup() {
+        // R2-F1: new HikariDataSource(config) is sealed; the defaults back off instead of throwing.
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:oracle:thin:@//127.0.0.1:9/APP");
+        config.setMinimumIdle(0);
+        config.setInitializationFailTimeout(-1);
+        config.addDataSourceProperty("oracle.jdbc.ReadTimeout", "120000");
+        runner.withBean("dataSource", HikariDataSource.class, () -> new HikariDataSource(config),
+                        bean -> bean.setDestroyMethodName("close"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(HikariDataSource.class).getDataSourceProperties())
+                            .containsOnlyKeys("oracle.jdbc.ReadTimeout");
+                });
     }
 
     @Test

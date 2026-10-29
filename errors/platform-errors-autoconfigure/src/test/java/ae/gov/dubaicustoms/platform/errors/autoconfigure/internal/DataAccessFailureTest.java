@@ -7,12 +7,16 @@ import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLRecoverableException;
 import java.sql.SQLTransientConnectionException;
+import org.hibernate.PropertyValueException;
 import org.hibernate.StaleObjectStateException;
+import org.hibernate.TransactionException;
+import org.hibernate.TransientPropertyValueException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.exception.JDBCConnectionException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.transaction.CannotCreateTransactionException;
 
 /**
@@ -71,6 +75,28 @@ class DataAccessFailureTest {
                 .contains(DataAccessFailure.UNAVAILABLE);
         assertThat(DataAccessFailure.classify(new SQLRecoverableException("IO Error: Connection reset", "08006")))
                 .contains(DataAccessFailure.UNAVAILABLE);
+    }
+
+    @Test
+    void aTransactionDeadlinePassedBeforeFlushOrCommitIsUnavailable() {
+        // Observed on Oracle (OracleTimeoutDefaultsIT): flush -> raw TransactionException; commit ->
+        // JpaSystemException wrapping it. Only Hibernate's deadline message counts.
+        TransactionException expired = new TransactionException("Transaction timeout expired");
+        assertThat(DataAccessFailure.classify(expired)).contains(DataAccessFailure.UNAVAILABLE);
+        assertThat(DataAccessFailure.classify(new JpaSystemException(expired))).contains(DataAccessFailure.UNAVAILABLE);
+        assertThat(DataAccessFailure.classify(new TransactionException("Unable to commit against JDBC Connection")))
+                .isEmpty();
+    }
+
+    @Test
+    void hibernatesNullabilityCheckIsAnIntegrityConflictButATransientReferenceIsNot() {
+        assertThat(DataAccessFailure.classify(new PropertyValueException(
+                "not-null property references a null or transient value", "OracleWidget", "referenceCode")))
+                .contains(DataAccessFailure.INTEGRITY_CONFLICT);
+        // An unsaved reference is a programming error, not a conflict with stored data.
+        assertThat(DataAccessFailure.classify(new TransientPropertyValueException(
+                "unsaved transient instance", "Part", "OracleWidget", "part")))
+                .isEmpty();
     }
 
     @Test

@@ -34,6 +34,8 @@ public enum DataAccessFailure {
     private static final Set<String> INTEGRITY_TYPES = Set.of(
             "org.springframework.dao.DataIntegrityViolationException",
             "org.hibernate.exception.ConstraintViolationException",
+            // Hibernate's own nullability check, before any SQL (on when Bean Validation is absent).
+            "org.hibernate.PropertyValueException",
             "java.sql.SQLIntegrityConstraintViolationException");
 
     private static final Set<String> CONCURRENCY_TYPES = Set.of(
@@ -58,6 +60,11 @@ public enum DataAccessFailure {
             "java.sql.SQLTransientConnectionException",
             "java.sql.SQLNonTransientConnectionException",
             "java.sql.SQLRecoverableException");
+
+    // Hibernate 7.4 JdbcCoordinatorImpl: a statement executed after the transaction deadline passed (flush, commit).
+    // Only this message: any other org.hibernate.TransactionException is not an availability problem.
+    private static final String HIBERNATE_TRANSACTION_EXCEPTION = "org.hibernate.TransactionException";
+    private static final String HIBERNATE_TIMEOUT_EXPIRED = "Transaction timeout expired";
 
     private static final int MAX_DEPTH = 32;
 
@@ -110,6 +117,9 @@ public enum DataAccessFailure {
             if (byType.isPresent()) {
                 return byType;
             }
+            if (isHibernateTransactionExpiry(t)) {
+                return Optional.of(UNAVAILABLE);
+            }
             if (t instanceof SQLException sql) {
                 Optional<DataAccessFailure> byState = bySqlState(sql.getSQLState());
                 if (byState.isPresent()) {
@@ -118,6 +128,11 @@ public enum DataAccessFailure {
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean isHibernateTransactionExpiry(Throwable t) {
+        return t.getClass().getName().equals(HIBERNATE_TRANSACTION_EXCEPTION)
+                && HIBERNATE_TIMEOUT_EXPIRED.equals(t.getMessage());
     }
 
     private static Optional<DataAccessFailure> byType(Class<?> type) {

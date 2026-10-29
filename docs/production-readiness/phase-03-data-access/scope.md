@@ -230,4 +230,6 @@ sha256 `7c893394…e0410f`, not committed).
 
 ## 10. Scope amendments
 
-None yet.
+| ID | Date | Amendment | Reason |
+|---|---|---|---|
+| A1 | 2026-10-29 | AC10: pool, transaction and query defaults are verified in the `platform-data-jpa-defaults` environment source; the Oracle driver properties (`oracle.jdbc.ReadTimeout`, `oracle.net.CONNECT_TIMEOUT`) are verified on the pool's `data-source-properties` and on a separate Flyway data source instead. | A URL from a later property source (`@DynamicPropertySource`, a config server) was missed by an environment-keyed default; the properties are applied to the data source itself, keyed on its own URL. Agreed in Gate C round 1 (`codex/r1-reassess.out.md`, AC10). |

@@ -96,6 +96,16 @@ class OracleTimeoutDefaultsIT {
     }
 
     @Test
+    void aLongerTransactionTimeoutIsNotCutShortByTheQueryDefault() {
+        // A batch transaction given more time than the query default keeps it (CHANGELOG advice).
+        TransactionTemplate longer = tx();
+        longer.setTimeout(6);
+        Outcome outcome = measure(() -> longer.execute(status -> em.createNativeQuery(HEAVY_SQL).getSingleResult()));
+        assertThat(outcome.chain()).as(outcome.toString()).startsWith("jakarta.persistence.QueryTimeoutException");
+        assertThat(outcome.millis()).isGreaterThanOrEqualTo(5_500L);
+    }
+
+    @Test
     void aQueryAfterTheDeadlineFailsWithSpringsTimedOutException() {
         Outcome outcome = measure(() -> tx().execute(status -> {
             repository.count();

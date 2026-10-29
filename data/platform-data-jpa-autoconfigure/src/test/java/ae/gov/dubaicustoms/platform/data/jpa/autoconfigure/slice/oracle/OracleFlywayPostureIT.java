@@ -10,6 +10,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
+import oracle.jdbc.OracleDriver;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,9 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.AbstractDriverBasedDataSource;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 
 /**
  * Flyway posture on Oracle (scope R5, R6.1, R7, AC7, D110, D112) under the {@code prod} profile with the
@@ -83,6 +87,24 @@ class OracleFlywayPostureIT {
             assertThat(context).hasNotFailed();
             assertThatThrownBy(context.getBean(Flyway.class)::clean).hasMessageContaining("clean");
         });
+    }
+
+    @Test
+    void aJvmSystemPropertyBoundsADriverDataSourceConnection() {
+        // The documented workaround for a {vendor} location: the driver reads oracle.jdbc.ReadTimeout from
+        // the JVM's system properties for a connection that carries no such property of its own.
+        String[] user = OracleContainers.freshUser();
+        SimpleDriverDataSource dataSource = new SimpleDriverDataSource(new OracleDriver(),
+                OracleContainers.oracle().getJdbcUrl(), user[0], user[1]);
+        System.setProperty("oracle.jdbc.ReadTimeout", "1000");
+        long started = System.nanoTime();
+        try {
+            assertThatThrownBy(() -> new JdbcTemplate(dataSource).execute("begin dbms_session.sleep(5); end;"))
+                    .hasStackTraceContaining("timed out");
+        } finally {
+            System.clearProperty("oracle.jdbc.ReadTimeout");
+        }
+        assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)).isLessThan(4_000L);
     }
 
     @Test

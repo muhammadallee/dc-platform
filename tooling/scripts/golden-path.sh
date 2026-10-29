@@ -351,7 +351,7 @@ run_scenario() { # id features groupId artifactId package platformVersion subdir
   if [ "$database" = oracle ]; then
     grep -q "<artifactId>platform-starter-data-jpa-oracle</artifactId>" "$p/pom.xml" \
         || fail "$id: database=oracle did not select platform-starter-data-jpa-oracle"
-  elif grep -q "platform-starter-data-jpa-oracle" "$p/pom.xml"; then
+  elif grep -q "<artifactId>platform-starter-data-jpa-oracle</artifactId>" "$p/pom.xml"; then
     fail "$id: the Oracle starter appeared without database=oracle"
   fi
   (cd "$p" && ${TIMEOUT[@]+"${TIMEOUT[@]}"} "${MVN[@]}" verify -l "$(native_path "$EVIDENCE/$id-verify.log")") \

@@ -45,13 +45,18 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
     `spring.jdbc.template.query-timeout=30s`: a query that runs **outside** a transaction is bounded
     too. A declared repository query (`@Query` or a derived `findBy…`) has no transaction of its own,
     and neither has a service method without `@Transactional`. Inside a transaction the remaining
-    transaction time is used instead, so this default never lengthens a statement. `EntityManager.find`
-    outside a transaction is not a query; only the read timeout below bounds it;
+    transaction time is used instead for repository queries and for queries created on the injected
+    `EntityManager` (or its unwrapped `Session`'s `createQuery`/`createNativeQuery`). Two paths bypass that
+    and take this default instead — past a shorter transaction's deadline, or cutting a longer one short:
+    Hibernate's `Session.createSelectionQuery(…)` and a query on the raw `getDelegate()`. On those, set the
+    timeout on the query yourself (`.setTimeout(seconds)`). `EntityManager.find` outside a transaction is
+    not a query; only the read timeout below bounds it;
   - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout=60000` (the backstop
     for what a cancel cannot stop: a PL/SQL or lock wait, a dead network) and
     `oracle.net.CONNECT_TIMEOUT=10000` are added to the pool's `data-source-properties`. The same two are
     added to Flyway's own connection when migrations run as a separate user (see *Schema owner and
-    runtime user*);
+    runtime user*). A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
+    nothing is added to it: set both properties on its config;
   - `leak-detection-threshold=20000` (a stack trace for a connection held over 20 s) only under the
     `local` profile, and never when `prod` is active as well.
   Hikari's keepalive (2 min) and max lifetime (30 min) are its own defaults. Set any key yourself to
@@ -113,7 +118,9 @@ the same Oracle read and connect timeouts to it. One exception: a `{vendor}` pla
 `spring.flyway.locations` makes Boot open one connection to detect the database **before** the platform
 can set them. Keep the default `db/migration` location, or set
 `-Doracle.jdbc.ReadTimeout=60000 -Doracle.net.CONNECT_TIMEOUT=10000` on the JVM (system properties apply
-to every Oracle connection).
+to every Oracle connection). The same JVM properties are the way for a `Flyway` bean you define yourself
+with a URL (`Flyway.configure().dataSource(url, user, password)`): Flyway then builds its own connection,
+which the platform does not touch.
 
 ## Oracle
 

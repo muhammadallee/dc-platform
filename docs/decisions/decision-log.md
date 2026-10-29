@@ -701,6 +701,14 @@ One line of context per decision; details live in the commit bodies referenced.
   unbounded before); inside a transaction Spring sets the remaining time per query, which wins. And the
   Oracle driver bounds on Flyway's own `SimpleDriverDataSource` (`spring.flyway.user`/`url`), applied on
   the `Flyway` bean; residual: a `{vendor}` location connects before that (system properties cover it).
+  Round 2 (Gate D): the remaining transaction time wins only for queries Spring creates as a
+  `jakarta.persistence.Query` (repositories, the injected `EntityManager`, the unwrapped `Session`'s
+  `createQuery`/`createNativeQuery`); Hibernate's `SelectionQuery` and raw-delegate queries take the query
+  default (measured both ways). Decision: keep the default and document `.setTimeout(…)` on those paths
+  rather than reaching into Spring's transaction or Hibernate's session internals — the statement stays
+  bounded, and the alternative only approximates the remaining time. A pool started by the application
+  (`new HikariDataSource(config)`, sealed) is now left alone instead of failing startup; a `Flyway` bean the
+  application builds from a URL gets no driver bounds (Flyway's own data source; system properties cover it).
 - **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
   Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
   use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`

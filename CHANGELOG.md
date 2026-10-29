@@ -83,9 +83,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   (was Hikari's 30 s); `spring.transaction.default-timeout` 30 s (was unbounded) — a longer batch
   transaction needs an explicit `@Transactional(timeout = …)`; a query outside any transaction (a
   declared repository query, a non-transactional service, `JdbcTemplate`) is cancelled after 30 s
-  (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`; was unbounded); Oracle pools
+  (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`; was unbounded) — a query
+  built with Hibernate's `Session.createSelectionQuery` or on the raw `getDelegate()` takes this 30 s even
+  inside a transaction, so give it `.setTimeout(…)` where that matters; Oracle pools
   and a separate Flyway migration connection get the driver's `oracle.jdbc.ReadTimeout` 60 s and
-  `oracle.net.CONNECT_TIMEOUT` 10 s; leak detection (20 s) under `local`, never with `prod`.
+  `oracle.net.CONNECT_TIMEOUT` 10 s (not a pool the application started itself, nor a `Flyway` bean of its
+  own built from a URL: set them there); leak detection (20 s) under `local`, never with `prod`.
 - **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
   named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
   migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,

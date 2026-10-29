@@ -60,7 +60,8 @@ public class PlatformDataJpaEnvironmentPostProcessor implements EnvironmentPostP
      *   hands the remaining time to each statement, which the driver cancels (ORA-01013);
  * - a query outside any transaction (a declared repository query has none of its own, a non-transactional
  *   service) is bounded at 30 s too: Hibernate's default query timeout and JdbcTemplate's; inside a
- *   transaction Spring sets the remaining transaction time on each query, which overrides this default;
+ *   transaction Spring sets the remaining transaction time on each query it creates, which overrides
+ *   this default (not on Hibernate's SelectionQuery or a raw-delegate query: OracleTimeoutDefaultsIT);
      * - the Oracle driver's read and connect timeouts are added to the pool itself, keyed on its own
      *   URL (internal.OracleConnectionDefaults): the URL may come from a property source added after
      *   this post-processor ran;

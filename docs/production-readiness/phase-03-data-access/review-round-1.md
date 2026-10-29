@@ -39,6 +39,8 @@
 |---|---|
 | `mvn -o -T1 -Pdocker -pl errors/platform-errors-autoconfigure,data/platform-data-api,data/platform-data-jpa-autoconfigure,data/platform-starter-data-jpa-oracle -am verify` | BUILD SUCCESS — errors 73, data-api 11, data-jpa 52 unit/slice + **40 Oracle container tests** (was 23), 0 skipped (`evidence-raw/r1-errors-data-verify.log`) |
 | `mvn -o -T1 -pl data/platform-data-jpa-autoconfigure,errors/platform-errors-autoconfigure -amd test-compile` | BUILD SUCCESS, 12 modules (`evidence-raw/r1-downstream-compile.log`) |
+| Claims pinned after the advisor check: `TimeoutDefaultsSliceTest` (the defaults reach `JdbcTemplate` 30 s, the EMF query timeout 30000 ms, `JpaTransactionManager` 30 s); `OracleTimeoutDefaultsIT` (a 6 s transaction is cancelled at 7.0 s, not cut short by the 4 s query default); `OracleFlywayPostureIT` (a JVM `oracle.jdbc.ReadTimeout` bounds a driver data source connection — the documented `{vendor}` workaround) | all green (`evidence-raw/r1-pin-claims.log`) |
+| CI on `be4765f` | green (generator gate: 9 scenarios with the new defaults) |
 
 ## Carried to Gate E
 

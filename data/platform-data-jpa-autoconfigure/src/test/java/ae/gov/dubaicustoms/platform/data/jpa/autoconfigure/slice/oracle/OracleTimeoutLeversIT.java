@@ -24,10 +24,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Which timeout lever really bounds a slow Oracle statement (scope R2.3, D110): each test runs the
- * same SQL-engine work (tens of seconds uncancelled) under one lever: each cancels it (ORA-01013) about
- * a second after the 1 s limit (the driver's timeout thread polls once a second). A {@code pdt_sleep}
- * (PL/SQL wait) is NOT interruptible by any of them, like a lock wait or a dead network: that is what the
- * driver read timeout is for. JPA paths surface an untranslated {@code jakarta.persistence.QueryTimeoutException}.
+ * same SQL-engine work (about 10 s uncancelled on a warm container) under one lever: each cancels it
+ * (ORA-01013) about a second after the 1 s limit (the driver's timeout thread polls once a second). A
+ * {@code pdt_sleep} (PL/SQL wait) is NOT interruptible by any of them, like a lock wait or a dead network;
+ * and SQL run inside a PL/SQL function was once not cancelled at all, so the work here stays plain SQL. JPA
+ * paths surface an untranslated {@code jakarta.persistence.QueryTimeoutException}.
  * Excluded from the default build (docker JUnit tag); run under {@code -Pdocker}.
  */
 @Tag("docker")
@@ -44,8 +45,8 @@ class OracleTimeoutLeversIT {
     private static final String HEAVY_SQL =
             "select count(*) from (select level l from dual connect by level <= 20000) a, (select level l from dual connect by level <= 20000) b";
 
-    private static final String HEAVY_JPQL =
-            "select count(w) from OracleWidget w where exists (select 1 from OracleNote n) or function('pdt_heavy') = 1";
+    /** The same work in JPQL: a cross join of generated rows ({@link OracleGeneratedRow}). */
+    private static final String HEAVY_JPQL = "select count(*) from OracleGeneratedRow a, OracleGeneratedRow b";
 
     @DynamicPropertySource
     static void oracle(DynamicPropertyRegistry registry) {

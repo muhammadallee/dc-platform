@@ -153,7 +153,8 @@ class OracleExceptionPathsIT {
     void selectOverItsQueryTimeoutIsCancelled() {
         long started = System.nanoTime();
         Throwable thrown = catchThrowable(() -> tx().executeWithoutResult(status -> em.createNativeQuery(
-                        "select pdt_heavy() from dual")
+                        "select count(*) from (select level l from dual connect by level <= 20000) a,"
+                                + " (select level l from dual connect by level <= 20000) b")
                 .setHint("jakarta.persistence.query.timeout", 1000)
                 .getSingleResult()));
         long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);

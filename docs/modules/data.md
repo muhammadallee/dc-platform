@@ -39,7 +39,8 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   - `spring.datasource.hikari.connection-timeout=5000`: a request behind an exhausted pool fails in 5 s
     (Hikari's own 30 s lets request threads pile up) with a 503 `DC-DATA-0503`;
   - `spring.transaction.default-timeout=30s`: every transaction, Spring Data repository methods
-    included; once it is spent the driver cancels the running statement;
+    included; once it is spent the driver cancels the running statement (reliably for plain SQL; for SQL
+    running inside a PL/SQL function the cancel is best-effort, and was once missed in testing);
   - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout=60000` (the backstop
     for what a cancel cannot stop: a PL/SQL or lock wait, a dead network) and
     `oracle.net.CONNECT_TIMEOUT=10000` are added to the pool's `data-source-properties`;

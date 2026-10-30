@@ -212,9 +212,10 @@ hh_http ac10-dependencies-down GET /actuator/health/dependencies; hh_expect_stat
 hh_expect_json "dependencies DOWN" "b['status'] == 'DOWN'"
 D=$(hex 16)
 hh_http ac10-db-down GET /probe/db -H "traceparent: $(tp "$D")"
-if [ "${HH_STATUS:0:1}" = 5 ]; then hh_pass "ac10-db-down status $HH_STATUS (5xx)"; else hh_fail "ac10-db-down status $HH_STATUS"; fi
-hh_expect_json "problem body on the trace, no SQL/JDBC internals" \
-    "b['traceId'] == '$D' and 'jdbc' not in json.dumps(b).lower() and 'postgres' not in json.dumps(b).lower()"
+# Tightened in phase 3 (Gate F): the data-access mapping (D111) makes a lost database a retryable 503.
+hh_expect_status 503
+hh_expect_json "problem body DC-DATA-0503 on the trace, no SQL/JDBC internals" \
+    "b['code'] == 'DC-DATA-0503' and b['retryable'] is True and b['traceId'] == '$D' and 'jdbc' not in json.dumps(b).lower() and 'postgres' not in json.dumps(b).lower()"
 hh_http ac10-context-down GET /probe/context; hh_expect_status 200
 docker start "$HH_RUN_ID-postgres" >/dev/null
 for _ in $(seq 1 60); do docker exec "$HH_RUN_ID-postgres" pg_isready -U app >/dev/null 2>&1 && break; sleep 1; done

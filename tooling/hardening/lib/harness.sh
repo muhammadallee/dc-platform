@@ -4,12 +4,14 @@
 #
 #   hh_init <phase-slug> <scenario-name>        # run dir, evidence dir, docker network, cleanup trap
 #   hh_infra <name> <image> [docker-run args…] [-- command…]  # backing service on the run network
-#   hh_generate <artifactId> <features|->       # archetype app OUTSIDE the repo, from the local catalog
+#   hh_generate <artifactId> <features|-> [-Dkey=value…]  # extra archetype properties pass through
 #   hh_add_sources <dir> <package-subpath>      # consumer code (e.g. a probe controller) into the app
+#   hh_add_migrations <dir>                     # consumer Flyway migrations (V*.sql) into db/migration
 #   hh_build_app                                # generated `mvn package`, then a container image
 #   hh_app_start [env KEY=VALUE…]               # app container on the run network, port published
 #                                               # (HH_APP_NAME selects the container name; default "app")
 #   hh_wait_ready [timeout-s]                   # /actuator/health/readiness == UP
+#   hh_wait_exit [timeout-s]                    # a start that must fail: exit code + seconds, no readiness
 #   hh_http <name> <method> <path> [curl args…] # saves status + body to evidence, sets HH_STATUS/HH_BODY
 #   hh_expect_status <code> / hh_expect_json <python-expr>
 #   hh_app_stop_graceful [grace-s]              # docker stop = real SIGTERM, asserts clean exit + log line
@@ -94,13 +96,15 @@ hh_infra() {
 }
 
 hh_generate() {
-  local artifact=$1 features=$2
+  local artifact=$1 features=$2; shift 2
   HH_APP_ARTIFACT=$artifact
   HH_APP_DIR="$HH_RUN_DIR/app/$artifact"
   local args=(-DarchetypeGroupId="$HH_GROUP_ID" -DarchetypeArtifactId=platform-service-archetype
               -DarchetypeVersion="$HH_REV" -DarchetypeCatalog=local -DgroupId=ae.gov.dubaicustoms.hardening
               -DartifactId="$artifact" -Dpackage=ae.gov.dubaicustoms.hardening -DinteractiveMode=false)
   [ "$features" != "-" ] && args+=("-Dfeatures=$features")
+  # Further archetype properties (e.g. -Ddatabase=oracle) pass through unchanged.
+  args+=("$@")
   mkdir -p "$HH_RUN_DIR/app"
   printf '%q ' "${HH_MVN[@]}" "$HH_ARCHETYPE_PLUGIN:generate" "${args[@]}" > "$HH_EVIDENCE/generate.cmd"
   (cd "$HH_RUN_DIR/app" && "${HH_MVN[@]}" "$HH_ARCHETYPE_PLUGIN:generate" "${args[@]}" \
@@ -127,6 +131,15 @@ hh_add_sources() {
   cp "$src"/*.java "$target"/ || hh_abort "could not copy consumer sources from $src"
   (cd "$src" && sha256sum ./*.java) > "$HH_EVIDENCE/consumer-sources.sha256"
   hh_log "added consumer sources from $src to $subpath"
+}
+
+# hh_add_migrations <dir>: consumer Flyway migrations (V*.sql) next to the generated ones.
+hh_add_migrations() {
+  local src=$1 target="$HH_APP_DIR/src/main/resources/db/migration"
+  mkdir -p "$target"
+  cp "$src"/V*.sql "$target"/ || hh_abort "could not copy consumer migrations from $src"
+  (cd "$src" && sha256sum ./V*.sql) > "$HH_EVIDENCE/consumer-migrations.sha256"
+  hh_log "added consumer migrations from $src"
 }
 
 hh_build_app() {
@@ -187,6 +200,33 @@ hh_wait_ready() {
     [ "$(date +%s)" -lt "$deadline" ] || hh_abort "app not ready within ${timeout}s (last: ${body:-no response})"
     sleep 1
   done
+}
+
+# hh_wait_exit [timeout-s]: for a start that must fail. Waits for the app container to exit on its own;
+# sets HH_EXIT_CODE and HH_EXIT_SECONDS (from hh_app_start) and saves its log as <name>.log. Fails the
+# assertion (and stops the container) if it is still running at the deadline, or if it became ready.
+hh_wait_exit() {
+  local timeout=${1:-120} name=${HH_APP_NAME:-app}
+  local deadline=$(( $(date +%s) + timeout ))
+  HH_EXIT_CODE=""
+  while [ "$(docker inspect -f '{{.State.Running}}' "$HH_APP_CONTAINER" 2>/dev/null)" = "true" ]; do
+    if curl -s --max-time 2 "$HH_BASE/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; then
+      hh_fail "$name became ready although startup was expected to fail"
+      docker stop -t 10 "$HH_APP_CONTAINER" >/dev/null 2>&1
+      break
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      hh_fail "$name still running ${timeout}s after start (startup did not fail within the bound)"
+      docker stop -t 10 "$HH_APP_CONTAINER" >/dev/null 2>&1
+      break
+    fi
+    sleep 1
+  done
+  HH_EXIT_SECONDS=$(( $(date +%s) - HH_APP_STARTED_AT ))
+  HH_EXIT_CODE=$(docker inspect -f '{{.State.ExitCode}}' "$HH_APP_CONTAINER")
+  docker logs "$HH_APP_CONTAINER" > "$HH_EVIDENCE/$name.log" 2>&1 || true
+  echo "$name exit_code=$HH_EXIT_CODE exit_seconds=$HH_EXIT_SECONDS" >> "$HH_EVIDENCE/run-identity.txt"
+  hh_log "$name exited with $HH_EXIT_CODE after ${HH_EXIT_SECONDS}s"
 }
 
 # hh_http <name> <method> <path> [extra curl args…]: response body + status into evidence/http/<name>.*

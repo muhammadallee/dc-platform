@@ -61,14 +61,18 @@ public enum DataAccessFailure {
             "java.sql.SQLNonTransientConnectionException",
             "java.sql.SQLRecoverableException");
 
-    // Hibernate 7.4 JdbcCoordinatorImpl: a statement executed after the transaction deadline passed (flush, commit).
-    // AbstractLogicalConnectionImplementor: a rollback on a connection that broke (observed: the driver read timeout
-    // closed it; Spring then rethrows this instead of the 08006 cause, and Hikari's closed-connection exception has no
-    // SQLState). Nothing was committed, so it is retryable. Only these messages: a failed commit's outcome is unknown,
-    // and any other org.hibernate.TransactionException is not an availability problem.
+    // Hibernate 7.4 messages of org.hibernate.TransactionException (any other one is not an availability problem):
+    // - JdbcCoordinatorImpl: a statement executed after the transaction deadline passed (flush, commit) -> 503;
+    // - AbstractLogicalConnectionImplementor, for any SQLException from commit: the outcome is unknown, so nothing
+    //   below it may make the failure retryable (a retry could apply the change twice);
+    // - the same, from rollback: its cause classifies as usual, and Hikari's closed-connection exception (no
+    //   SQLState) counts as a lost connection. Observed: the driver read timeout closed the connection mid-transaction
+    //   and Spring rethrew the failed rollback in place of the 08006 cause; nothing was committed.
     private static final String HIBERNATE_TRANSACTION_EXCEPTION = "org.hibernate.TransactionException";
-    private static final Set<String> HIBERNATE_UNAVAILABLE_MESSAGES = Set.of(
-            "Transaction timeout expired", "Unable to rollback against JDBC Connection");
+    private static final String HIBERNATE_TIMEOUT_EXPIRED = "Transaction timeout expired";
+    private static final String HIBERNATE_COMMIT_FAILED = "Unable to commit against JDBC Connection";
+    private static final String HIBERNATE_ROLLBACK_FAILED = "Unable to rollback against JDBC Connection";
+    private static final String HIKARI_CLOSED_CONNECTION = "Connection is closed";
 
     private static final int MAX_DEPTH = 32;
 
@@ -121,7 +125,13 @@ public enum DataAccessFailure {
             if (byType.isPresent()) {
                 return byType;
             }
-            if (isHibernateUnavailable(t)) {
+            if (isHibernateTransactionException(t, HIBERNATE_TIMEOUT_EXPIRED)) {
+                return Optional.of(UNAVAILABLE);
+            }
+            if (isHibernateTransactionException(t, HIBERNATE_COMMIT_FAILED)) {
+                return Optional.empty();
+            }
+            if (isHibernateTransactionException(t, HIBERNATE_ROLLBACK_FAILED) && isClosedConnection(t.getCause())) {
                 return Optional.of(UNAVAILABLE);
             }
             if (t instanceof SQLException sql) {
@@ -134,9 +144,13 @@ public enum DataAccessFailure {
         return Optional.empty();
     }
 
-    private static boolean isHibernateUnavailable(Throwable t) {
-        return t.getClass().getName().equals(HIBERNATE_TRANSACTION_EXCEPTION)
-                && t.getMessage() != null && HIBERNATE_UNAVAILABLE_MESSAGES.contains(t.getMessage());
+    private static boolean isHibernateTransactionException(Throwable t, String message) {
+        return t.getClass().getName().equals(HIBERNATE_TRANSACTION_EXCEPTION) && message.equals(t.getMessage());
+    }
+
+    private static boolean isClosedConnection(Throwable cause) {
+        return cause instanceof SQLException sql && sql.getSQLState() == null
+                && HIKARI_CLOSED_CONNECTION.equals(sql.getMessage());
     }
 
     private static Optional<DataAccessFailure> byType(Class<?> type) {

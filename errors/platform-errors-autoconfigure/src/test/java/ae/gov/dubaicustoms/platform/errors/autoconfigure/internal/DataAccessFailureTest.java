@@ -96,9 +96,25 @@ class DataAccessFailureTest {
         Throwable rollback = new JpaSystemException(new TransactionException(
                 "Unable to rollback against JDBC Connection", new SQLException("Connection is closed")));
         assertThat(DataAccessFailure.classify(rollback)).contains(DataAccessFailure.UNAVAILABLE);
-        // A failed commit is not: its outcome is unknown, so a retry could apply the change twice.
+        // Hibernate uses the same message for any SQLException from rollback: other causes classify as usual.
         assertThat(DataAccessFailure.classify(new JpaSystemException(new TransactionException(
-                "Unable to commit against JDBC Connection", new SQLException("Connection is closed"))))).isEmpty();
+                "Unable to rollback against JDBC Connection", new SQLException("I/O error", "08006")))))
+                .contains(DataAccessFailure.UNAVAILABLE);
+        assertThat(DataAccessFailure.classify(new JpaSystemException(new TransactionException(
+                "Unable to rollback against JDBC Connection", new SQLException("ORA-00600 internal error", "HY000")))))
+                .isEmpty();
+    }
+
+    @Test
+    void aFailedCommitIsNeverRetryableWhateverItsCause() {
+        // The commit's outcome is unknown: a retry could apply the change twice, so even a lost-connection cause
+        // stays unclassified (the generic, non-retryable 500).
+        for (SQLException cause : new SQLException[] {new SQLException("Connection is closed"),
+                new SQLRecoverableException("ORA-18730 Socket read timed out", "08006"),
+                new SQLException("I/O error", "08006")}) {
+            assertThat(DataAccessFailure.classify(new JpaSystemException(
+                    new TransactionException("Unable to commit against JDBC Connection", cause)))).isEmpty();
+        }
     }
 
     @Test

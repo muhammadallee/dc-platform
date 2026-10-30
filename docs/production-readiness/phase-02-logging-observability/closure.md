@@ -69,7 +69,7 @@ landlines without a prefix are not.
 
 ## Open (non-blocking)
 
-- HI-0041: `flyway-database-<db>` module for generated `data` services (Phase 3).
+- HI-0041: `flyway-database-<db>` module for generated `data` services — FIXED in Phase 3 (HD12/D113).
 - G7-02: Prometheus scrape access (token until Phase 7).
 - D103: errored-trace retention via collector tail sampling (deployment, OPEN).
 - HI-0004 (book narrative).

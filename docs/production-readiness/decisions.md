@@ -16,7 +16,9 @@ Owner of every decision, exception and in-scope capability: **repository owner**
 | HD9 | Principal claim for idempotency | **N/A** (idempotency removed). `sub` would suffice later. | ANSWERED |
 | HD10 | Owner | Repository owner owns all exceptions and in-scope capabilities. | ANSWERED |
 | HD11 | Transactional outbox implementation (new module, plan §3.6) | **Deferred to Phase 4 Gate A**: present a design sketch (platform JDBC outbox module vs Spring Modulith event publication registry) and ask then. | DEFERRED (owner, 2026-10-26) |
-| HD12 | Database driver + Flyway module for generated services (HI-0041) | **Per-database POM-only starters**; only `platform-starter-data-jpa-oracle` (JDBC driver + `flyway-database-oracle`) in Phase 3. Other databases are added later, separately. | ANSWERED (owner, 2026-10-28) | | HD13 | Oracle version | **Production runs 19c.** Container certification runs on Oracle 23ai Free (no free 19c image) with the platform restricted to 19c features (Hibernate told the database is major version 19); 19c itself is recorded as not container-verified. | ANSWERED (owner, 2026-10-28) |
+| HD12 | Database driver + Flyway module for generated services (HI-0041) | **Per-database POM-only starters**; only `platform-starter-data-jpa-oracle` (JDBC driver + `flyway-database-oracle`) in Phase 3. Other databases are added later, separately. | ANSWERED (owner, 2026-10-28) |
+| HD13 | Oracle version | **Production runs 19c.** Container certification runs on Oracle 23ai Free (no free 19c image) with the platform restricted to 19c features (Hibernate told the database is major version 19); 19c itself is recorded as not container-verified. | ANSWERED (owner, 2026-10-28) |
+| HD14 | Oracle driver read timeout vs long statements (HI-0070) | **Configurable for both**: `dc.platform.data.jpa.oracle.read-timeout` (pool, default 60 s) and `dc.platform.data.jpa.oracle.flyway-read-timeout` (Flyway's own connection, default 10 min). Chosen over keeping 60 s with documentation only, a longer Flyway bound without a pool property, or no Flyway read timeout. | ANSWERED (owner, 2026-10-30) |
 
 ## Conventions agreed with the owner (2026-10-26)
 

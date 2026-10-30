@@ -92,13 +92,19 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   inside a transaction, so give it `.setTimeout(…)` where that matters; Oracle pools
   and a separate Flyway migration connection get the driver's `oracle.jdbc.ReadTimeout` 60 s and
   `oracle.net.CONNECT_TIMEOUT` 10 s (not a pool the application started itself, nor a `Flyway` bean of its
-  own built from a URL: set them there); leak detection (20 s) under `local`, never with `prod`.
+  own built from a URL: set them there); leak detection (20 s) under `local`, never with `prod`. The
+  read timeout is also the longest any single statement may run: raise `dc.platform.data.jpa.oracle.read-timeout`
+  for transactions longer than 60 s. Flyway's own connection (a separate migration user) gets 10 min instead
+  (`dc.platform.data.jpa.oracle.flyway-read-timeout`), so a long migration statement can finish (HD14).
 - **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
   named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
   migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,
   `validate-on-migrate` and `out-of-order=false` are pinned (D112).
 
 ### Added
+- Data: `dc.platform.data.jpa.oracle.read-timeout` (default `60s`) and
+  `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`): the Oracle driver read timeout on the pool
+  and on Flyway's own connection (HI-0070, HD14). Zero switches the bound off; negative values fail startup.
 - Data: `platform-starter-data-jpa-oracle` — the data-jpa stack plus the Oracle JDBC driver and
   `flyway-database-oracle` (HD12). Archetype: `-Ddatabase=oracle` (with the `data` feature) generates a
   service on it; `-Ddatabase` defaults to `h2` (D113).

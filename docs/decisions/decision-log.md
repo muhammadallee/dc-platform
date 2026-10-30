@@ -709,6 +709,13 @@ One line of context per decision; details live in the commit bodies referenced.
   bounded, and the alternative only approximates the remaining time. A pool started by the application
   (`new HikariDataSource(config)`, sealed) is now left alone instead of failing startup; a `Flyway` bean the
   application builds from a URL gets no driver bounds (Flyway's own data source; system properties cover it).
+  Gate F (HI-0070, owner decision HD14): the read timeout is also the longest any single statement may run, so a
+  migration statement over 60 s (observed: a `CREATE TABLE` on a slow disk) failed startup, and a transaction given
+  a longer `@Transactional(timeout)` was still cut at 60 s. Both are now properties:
+  `dc.platform.data.jpa.oracle.read-timeout` (pool, 60 s) and `dc.platform.data.jpa.oracle.flyway-read-timeout`
+  (Flyway's own connection, 10 min: an index build can finish, a silent database still fails startup). A
+  `data-source-properties` entry or a JVM system property still wins. Migrations through the pool (no separate
+  Flyway user) get the pool's value.
 - **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
   Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
   use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`

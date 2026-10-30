@@ -51,11 +51,16 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
     Hibernate's `Session.createSelectionQuery(…)` and a query on the raw `getDelegate()`. On those, set the
     timeout on the query yourself (`.setTimeout(seconds)`). `EntityManager.find` outside a transaction is
     not a query; only the read timeout below bounds it;
-  - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout=60000` (the backstop
-    for what a cancel cannot stop: a PL/SQL or lock wait, a dead network) and
-    `oracle.net.CONNECT_TIMEOUT=10000` are added to the pool's `data-source-properties`. The same two are
-    added to Flyway's own connection when migrations run as a separate user (see *Schema owner and
-    runtime user*). A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
+  - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout` (the backstop for what
+    a cancel cannot stop: a PL/SQL or lock wait, a dead network) and `oracle.net.CONNECT_TIMEOUT=10000` are
+    added to the pool's `data-source-properties`. The read timeout is
+    `dc.platform.data.jpa.oracle.read-timeout` (default `60s`), and it is also **the longest any single
+    statement may run**, whatever its transaction timeout: a service with `@Transactional(timeout = 300)`
+    batch work raises it to match. Flyway's own connection, when migrations run as a separate user (see
+    *Schema owner and runtime user*), gets the connect timeout and
+    `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`), so a long migration statement (an
+    index build) can finish while a database that stops answering still fails startup. Migrations that run
+    through the pool (no separate Flyway user) get the pool's value. A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
     nothing is added to it: set both properties on its config;
   - `leak-detection-threshold=20000` (a stack trace for a connection held over 20 s) only under the
     `local` profile, and never when `prod` is active as well.

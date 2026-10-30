@@ -89,6 +89,19 @@ class DataAccessFailureTest {
     }
 
     @Test
+    void aRollbackThatFailsOnABrokenConnectionIsUnavailable() {
+        // Observed in the phase-03 consumer run (silent Oracle, driver read timeout): Spring rethrows the
+        // rollback failure in place of the 08006 read timeout, and Hikari's closed-connection exception
+        // carries no SQLState. Nothing was committed, so the request may be retried.
+        Throwable rollback = new JpaSystemException(new TransactionException(
+                "Unable to rollback against JDBC Connection", new SQLException("Connection is closed")));
+        assertThat(DataAccessFailure.classify(rollback)).contains(DataAccessFailure.UNAVAILABLE);
+        // A failed commit is not: its outcome is unknown, so a retry could apply the change twice.
+        assertThat(DataAccessFailure.classify(new JpaSystemException(new TransactionException(
+                "Unable to commit against JDBC Connection", new SQLException("Connection is closed"))))).isEmpty();
+    }
+
+    @Test
     void hibernatesNullabilityCheckIsAnIntegrityConflictButATransientReferenceIsNot() {
         assertThat(DataAccessFailure.classify(new PropertyValueException(
                 "not-null property references a null or transient value", "OracleWidget", "referenceCode")))

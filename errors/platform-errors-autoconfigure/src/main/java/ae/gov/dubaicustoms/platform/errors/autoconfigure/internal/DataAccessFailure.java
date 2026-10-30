@@ -62,9 +62,13 @@ public enum DataAccessFailure {
             "java.sql.SQLRecoverableException");
 
     // Hibernate 7.4 JdbcCoordinatorImpl: a statement executed after the transaction deadline passed (flush, commit).
-    // Only this message: any other org.hibernate.TransactionException is not an availability problem.
+    // AbstractLogicalConnectionImplementor: a rollback on a connection that broke (observed: the driver read timeout
+    // closed it; Spring then rethrows this instead of the 08006 cause, and Hikari's closed-connection exception has no
+    // SQLState). Nothing was committed, so it is retryable. Only these messages: a failed commit's outcome is unknown,
+    // and any other org.hibernate.TransactionException is not an availability problem.
     private static final String HIBERNATE_TRANSACTION_EXCEPTION = "org.hibernate.TransactionException";
-    private static final String HIBERNATE_TIMEOUT_EXPIRED = "Transaction timeout expired";
+    private static final Set<String> HIBERNATE_UNAVAILABLE_MESSAGES = Set.of(
+            "Transaction timeout expired", "Unable to rollback against JDBC Connection");
 
     private static final int MAX_DEPTH = 32;
 
@@ -117,7 +121,7 @@ public enum DataAccessFailure {
             if (byType.isPresent()) {
                 return byType;
             }
-            if (isHibernateTransactionExpiry(t)) {
+            if (isHibernateUnavailable(t)) {
                 return Optional.of(UNAVAILABLE);
             }
             if (t instanceof SQLException sql) {
@@ -130,9 +134,9 @@ public enum DataAccessFailure {
         return Optional.empty();
     }
 
-    private static boolean isHibernateTransactionExpiry(Throwable t) {
+    private static boolean isHibernateUnavailable(Throwable t) {
         return t.getClass().getName().equals(HIBERNATE_TRANSACTION_EXCEPTION)
-                && HIBERNATE_TIMEOUT_EXPIRED.equals(t.getMessage());
+                && t.getMessage() != null && HIBERNATE_UNAVAILABLE_MESSAGES.contains(t.getMessage());
     }
 
     private static Optional<DataAccessFailure> byType(Class<?> type) {

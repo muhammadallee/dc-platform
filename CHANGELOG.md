@@ -95,7 +95,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   own built from a URL: set them there); leak detection (20 s) under `local`, never with `prod`. The
   read timeout is also the longest any single statement may run: raise `dc.platform.data.jpa.oracle.read-timeout`
   for transactions longer than 60 s. Flyway's own connection (a separate migration user) gets 10 min instead
-  (`dc.platform.data.jpa.oracle.flyway-read-timeout`), so a long migration statement can finish (HD14).
+  (`dc.platform.data.jpa.oracle.flyway-read-timeout`), so a long migration statement can finish (HD14);
+  a database that accepts connections but never answers then fails startup after that time (10 min).
 - **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
   named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
   migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,

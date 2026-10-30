@@ -10,8 +10,8 @@
 # owner runs Flyway (spring.flyway.user); the service runs as a runtime user that holds only a role with
 # DML grants and reaches the owner's tables through CURRENT_SCHEMA (connection-init-sql), as data.md
 # documents. Every platform timeout is left at its default (connection 5 s, transaction 30 s, Oracle
-# read 60 s, connect 10 s). Oracle 23ai Free stands in for 19c (HD13), so Hibernate is pinned to 19
-# exactly as the container tests do; a real 19c needs no pin.
+# read 60 s on the pool and 10 min on Flyway's own connection, connect 10 s). Oracle 23ai Free stands in
+# for 19c (HD13), so Hibernate is pinned to 19 exactly as the container tests do; a real 19c needs no pin.
 #
 # Needs about 3 GB of free memory: one Oracle (about 2 GB) and one app container at a time.
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
@@ -19,6 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECKS=(python -I "$(hh_native "$HERE/phase-03/checks.py")")
 ORACLE_IMAGE="${HH_ORACLE_IMAGE:-gvenzl/oracle-free:23-slim-faststart}"
 TOXIPROXY_IMAGE="${HH_TOXIPROXY_IMAGE:-ghcr.io/shopify/toxiproxy:2.9.0}"
+SILENT_IMAGE="${HH_SILENT_IMAGE:-alpine:3}" # busybox nc: a peer that accepts and never answers
 
 hex() { python -I -c "import secrets,sys; print(secrets.token_hex(int(sys.argv[1])))" "$1"; }
 tp() { printf '00-%s-%s-01' "$1" "$(hex 8)"; }
@@ -323,15 +324,20 @@ DOWN_REASON=$(grep -oE 'IO Error[^"]{0,120}|Connection refused|Failed to obtain 
 [ -n "$DOWN_REASON" ] && hh_pass "AC14 Oracle down: the log names the cause ($DOWN_REASON)" || hh_fail "AC14 Oracle down: no connection error in downstart.log"
 [ "$(toxi POST /proxies/oracle '{"enabled":true}')" = 200 ] || hh_fail "could not re-enable the Oracle proxy"
 
-hh_step "AC14 startup with a silent Oracle (connect accepted, no data back) and the separate Flyway user"
-[ "$(toxi POST /proxies/oracle/toxics '{"name":"silentstart","type":"timeout","stream":"downstream","attributes":{"timeout":0}}')" = 200 ] \
-    || hh_fail "could not add the silent-peer toxic"
-HH_APP_NAME=silentstart hh_app_start "${APP_ENV[@]}"
-HH_APP_NAME=silentstart hh_wait_exit 180
+hh_step "AC14 startup against a silent peer (TCP accepted, never a byte back, never closed), separate Flyway user"
+# Not Toxiproxy: through it, Oracle's listener closes a handshake it never completes (inbound connect timeout,
+# about 60 s) and the close reaches the client, so only a peer that holds the socket open tests the client bounds.
+hh_infra silent "$SILENT_IMAGE" -- nc -lk -p 1521 -e sleep 100000
+echo "silent_image=$(pin "$SILENT_IMAGE")" >> "$HH_EVIDENCE/run-identity.txt"
+HH_APP_NAME=silentstart hh_app_start "${APP_ENV[@]}" SPRING_DATASOURCE_URL=jdbc:oracle:thin:@//silent:1521/FREEPDB1
+# The bound is whichever client timeout ends the first connection attempt (connect 10 s, or a read timeout);
+# 12 min covers the longest default (Flyway's own connection, 10 min). The time is recorded.
+HH_APP_NAME=silentstart hh_wait_exit 780
 STARTUP_SILENT=$HH_EXIT_SECONDS
-if [ "$HH_EXIT_CODE" != 0 ] && [ "$STARTUP_SILENT" -le 120 ]; then hh_pass "AC14 silent Oracle: startup failed (exit $HH_EXIT_CODE) in ${STARTUP_SILENT}s"
-else hh_fail "AC14 silent Oracle: exit $HH_EXIT_CODE after ${STARTUP_SILENT}s (expected non-zero within 120 s)"; fi
-toxi DELETE /proxies/oracle/toxics/silentstart >/dev/null
+if [ "$HH_EXIT_CODE" != 0 ] && [ "$STARTUP_SILENT" -le 720 ]; then hh_pass "AC14 silent peer: startup failed (exit $HH_EXIT_CODE) in ${STARTUP_SILENT}s"
+else hh_fail "AC14 silent peer: exit $HH_EXIT_CODE after ${STARTUP_SILENT}s (expected non-zero within 12 min)"; fi
+SILENT_REASON=$(grep -oE 'ORA-[0-9]+[^"\\]{0,100}' "$HH_EVIDENCE/silentstart.log" | sort -u | head -3 | tr '\n' ';' || true)
+echo "silentstart reason=$SILENT_REASON" >> "$HH_EVIDENCE/run-identity.txt"
 
 hh_step "AC3 log checks: the handler logs the full exception once on each violation's trace (Hibernate's own statement lines aside, scope A2)"
 for ENTRY in "${AC3_TRACES[@]}"; do

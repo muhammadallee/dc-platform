@@ -60,7 +60,11 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
     *Schema owner and runtime user*), gets the connect timeout and
     `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`), so a long migration statement (an
     index build) can finish while a database that stops answering still fails startup. Migrations that run
-    through the pool (no separate Flyway user) get the pool's value. A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
+    through the pool (no separate Flyway user) get the pool's value. The connect timeout covers only the
+    TCP connect: a database that accepts the connection and then never answers is ended by the read timeout
+    (measured: a silent peer at startup failed after 610 s with a separate Flyway user, `ORA-17002 … Socket
+    read timed out`). A shorter startup probe restarts the service first, which also bounds it; lower
+    `flyway-read-timeout` if a faster, clearer failure matters more than long migration statements; A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
     nothing is added to it: set both properties on its config;
   - `leak-detection-threshold=20000` (a stack trace for a connection held over 20 s) only under the
     `local` profile, and never when `prod` is active as well.

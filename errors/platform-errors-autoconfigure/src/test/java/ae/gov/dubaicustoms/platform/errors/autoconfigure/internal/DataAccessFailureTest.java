@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLRecoverableException;
 import java.sql.SQLTransientConnectionException;
+import java.util.function.Supplier;
 import org.hibernate.PropertyValueException;
 import org.hibernate.StaleObjectStateException;
 import org.hibernate.TransactionException;
@@ -17,7 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.orm.jpa.JpaSystemException;
+import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 /**
  * Classification of the cause chains observed on Oracle ({@code OracleExceptionPathsIT} in
@@ -114,6 +120,98 @@ class DataAccessFailureTest {
                 new SQLException("I/O error", "08006")}) {
             assertThat(DataAccessFailure.classify(new JpaSystemException(
                     new TransactionException("Unable to commit against JDBC Connection", cause)))).isEmpty();
+        }
+    }
+
+    @Test
+    void aCommitThatLosesItsConnectionThroughSpringsTranslationIsNotRetryable() {
+        // Spring's translator turns Hibernate's commit failure over a recoverable SQLException into a
+        // RecoverableDataAccessException without the Hibernate exception: the veto has to come from where it was
+        // raised, the transaction manager's commit.
+        Supplier<RuntimeException> lostOnCommit = () -> translate(new TransactionException(
+                "Unable to commit against JDBC Connection", new SQLRecoverableException("ORA-17008: Closed connection",
+                "08006")));
+        RuntimeException translated = lostOnCommit.get();
+        assertThat(translated).isNotInstanceOf(JpaSystemException.class);
+        assertThat(DataAccessFailure.classify(translated)).contains(DataAccessFailure.UNAVAILABLE);
+
+        // JpaTransactionManager translates inside doCommit, as the supplier does here.
+        assertThat(DataAccessFailure.classify(failingCommit(lostOnCommit))).isEmpty();
+    }
+
+    @Test
+    void whatTheCommitPhaseMayStillClassify() {
+        // A deadline that passed before the commit (nothing committed) stays a 503, and a conflict found by the
+        // commit-time flush stays a 409.
+        assertThat(DataAccessFailure.classify(failingCommit(
+                () -> new JpaSystemException(new TransactionException("Transaction timeout expired")))))
+                .contains(DataAccessFailure.UNAVAILABLE);
+        assertThat(DataAccessFailure.classify(failingCommit(() -> new DataIntegrityViolationException("duplicate key"))))
+                .contains(DataAccessFailure.INTEGRITY_CONFLICT);
+        // The same lost connection on a rollback is retryable: nothing was committed.
+        assertThat(DataAccessFailure.classify(failingRollback(() -> translate(new TransactionException(
+                "Unable to rollback against JDBC Connection", new SQLRecoverableException("ORA-17008: Closed connection",
+                "08006"))))))
+                .contains(DataAccessFailure.UNAVAILABLE);
+    }
+
+    private static RuntimeException translate(RuntimeException hibernate) {
+        RuntimeException translated = new HibernateJpaDialect().translateExceptionIfPossible(hibernate);
+        return translated != null ? translated : hibernate;
+    }
+
+    /** Raises {@code failure} from inside a real transaction manager's commit. */
+    private static Throwable failingCommit(Supplier<RuntimeException> failure) {
+        FailingTransactionManager manager = new FailingTransactionManager(failure, null);
+        try {
+            manager.commit(manager.getTransaction(new DefaultTransactionDefinition()));
+        } catch (RuntimeException thrown) {
+            return thrown;
+        }
+        throw new AssertionError("commit did not fail");
+    }
+
+    /** Raises {@code failure} from inside a real transaction manager's rollback. */
+    private static Throwable failingRollback(Supplier<RuntimeException> failure) {
+        FailingTransactionManager manager = new FailingTransactionManager(null, failure);
+        try {
+            manager.rollback(manager.getTransaction(new DefaultTransactionDefinition()));
+        } catch (RuntimeException thrown) {
+            return thrown;
+        }
+        throw new AssertionError("rollback did not fail");
+    }
+
+    private static final class FailingTransactionManager extends AbstractPlatformTransactionManager {
+
+        private final Supplier<RuntimeException> onCommit;
+        private final Supplier<RuntimeException> onRollback;
+
+        FailingTransactionManager(Supplier<RuntimeException> onCommit, Supplier<RuntimeException> onRollback) {
+            this.onCommit = onCommit;
+            this.onRollback = onRollback;
+        }
+
+        @Override
+        protected Object doGetTransaction() {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) {
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) {
+            throw onCommit.get();
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) {
+            // Spring also rolls back after a failed commit; only a rollback test makes that fail too.
+            if (onRollback != null) {
+                throw onRollback.get();
+            }
         }
     }
 

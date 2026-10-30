@@ -1,0 +1,1 @@
+GET /actuator/env -> 401

@@ -1,0 +1,1 @@
+{"type":"urn:dc:problem:DC-SEC-0403","title":"Forbidden","status":403,"detail":"The current principal lacks the required authority","instance":"/secured/admin","code":"DC-SEC-0403","traceId":"0d61bef2c3e03feffe818de255ac47f7","timestamp":"2026-10-30T11:21:42.691483684Z","retryable":false}

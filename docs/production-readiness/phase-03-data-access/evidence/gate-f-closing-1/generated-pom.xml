@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- The ONE platform parent (Boot defaults + platform BOM). Upgrade the platform by bumping this
+       version, then run: mvn ...:upgrade-check -Dplatform.target=<new-version>. -->
+  <parent>
+    <groupId>ae.gov.dubaicustoms.platform</groupId>
+    <artifactId>platform-service-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>ae.gov.dubaicustoms.hardening</groupId>
+  <artifactId>hardening-data</artifactId>
+  <version>1.0-SNAPSHOT</version>
+
+  <name>hardening-data</name>
+  <description>A DC Platform service generated from platform-service-archetype.</description>
+
+  <dependencies>
+    <!-- Golden-path chassis: correlation, JSON logs, RFC-9457 errors, validation, metrics/tracing,
+         OpenAPI, and an authenticated-by-default security filter chain. Versions come from the BOM. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-errors</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-logging</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-observability</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-openapi</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-security</artifactId>
+    </dependency>
+    <!-- The app chooses its web stack; the platform layers cross-cutting behavior on top of it. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- feature: data on Oracle — platform JPA conventions (snake_case, auditing, Flyway migrations under
+         db/migration) plus the Oracle JDBC driver and Flyway's Oracle module. H2 backs local runs and
+         tests; the prod profile refuses the embedded fallback, so production supplies an Oracle
+         spring.datasource.url (jdbc:oracle:thin:@//host:1521/service) and credentials. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-data-jpa-oracle</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- Platform test kit: @PlatformWebTest/@PlatformTest slices, TestTokens, assertThatProblem,
+         and PlatformUsageRules for the generated PlatformConformanceTest. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Enables spring-boot:run / :start / :stop and executable-jar repackaging (version from parent). -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

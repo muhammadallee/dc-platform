@@ -1,0 +1,1 @@
+GET /actuator/configprops -> 401

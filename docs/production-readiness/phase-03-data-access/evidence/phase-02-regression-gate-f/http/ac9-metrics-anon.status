@@ -1,0 +1,1 @@
+GET /actuator/metrics -> 401

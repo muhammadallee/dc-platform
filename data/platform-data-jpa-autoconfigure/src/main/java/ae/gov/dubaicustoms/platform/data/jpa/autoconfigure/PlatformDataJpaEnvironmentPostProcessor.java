@@ -47,10 +47,6 @@ public class PlatformDataJpaEnvironmentPostProcessor implements EnvironmentPostP
         defaults.put("spring.jpa.properties.hibernate.order_updates", "true");
         // Persist and read timestamps in UTC regardless of the JVM/db session zone.
         defaults.put("spring.jpa.properties.hibernate.jdbc.time_zone", "UTC");
-        // Hibernate logs every failed statement's error code and driver message (constraint and table names) as two
-        // WARN lines before the exception propagates; the exception is then logged once, with that detail, where it is
-        // handled (the errors capability's single WARN on the request's trace, D111). Errors-only keeps it to that one.
-        defaults.put("logging.level.org.hibernate.orm.jdbc.error", "error");
         poolAndTimeoutDefaults(environment, defaults);
         flywayDefaults(defaults);
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));

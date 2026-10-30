@@ -102,8 +102,8 @@ public class PlatformDataJpaAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(name = "platformOracleConnectionDefaults")
-        static OracleConnectionDefaults platformOracleConnectionDefaults() {
-            return new OracleConnectionDefaults();
+        static OracleConnectionDefaults platformOracleConnectionDefaults(Environment environment) {
+            return new OracleConnectionDefaults(environment);
         }
     }
 
@@ -125,8 +125,8 @@ public class PlatformDataJpaAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(name = "platformOracleFlywayConnectionDefaults")
-        static OracleFlywayConnectionDefaults platformOracleFlywayConnectionDefaults() {
-            return new OracleFlywayConnectionDefaults();
+        static OracleFlywayConnectionDefaults platformOracleFlywayConnectionDefaults(Environment environment) {
+            return new OracleFlywayConnectionDefaults(environment);
         }
     }
 

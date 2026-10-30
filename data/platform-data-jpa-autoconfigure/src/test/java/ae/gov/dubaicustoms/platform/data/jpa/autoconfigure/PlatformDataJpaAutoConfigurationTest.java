@@ -10,6 +10,7 @@ import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlyway
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManagerFactory;
+import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -127,7 +128,15 @@ class PlatformDataJpaAutoConfigurationTest {
     void propertiesDefaultSnapshot() {
         // §7.2: a changed default fails here until the snapshot is consciously updated (CHANGELOG).
         runner.run(context -> assertThat(context.getBean(DataJpaProperties.class))
-                .isEqualTo(new DataJpaProperties(true, true)));
+                .isEqualTo(new DataJpaProperties(true, true,
+                        new DataJpaProperties.Oracle(Duration.ofSeconds(60), Duration.ofMinutes(10)))));
+    }
+
+    @Test
+    void aNegativeOracleReadTimeoutFailsStartup() {
+        runner.withPropertyValues("dc.platform.data.jpa.oracle.read-timeout=-1s")
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("must not be negative"));
     }
 
     @Test

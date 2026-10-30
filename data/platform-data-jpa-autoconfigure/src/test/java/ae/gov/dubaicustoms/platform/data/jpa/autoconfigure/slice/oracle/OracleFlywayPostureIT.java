@@ -119,7 +119,7 @@ class OracleFlywayPostureIT {
                             .getBean(Flyway.class).getConfiguration().getDataSource();
                     assertThat(migration.getUsername()).isEqualTo(owner[0]);
                     assertThat(migration.getConnectionProperties())
-                            .containsEntry("oracle.jdbc.ReadTimeout", "60000")
+                            .containsEntry("oracle.jdbc.ReadTimeout", "600000") // flyway-read-timeout, 10 min
                             .containsEntry("oracle.net.CONNECT_TIMEOUT", "10000");
                 });
         try (Connection connection = DriverManager.getConnection(OracleContainers.oracle().getJdbcUrl(), owner[0],

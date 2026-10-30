@@ -5,10 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 
 class OracleConnectionDefaultsTest {
 
-    private final OracleConnectionDefaults defaults = new OracleConnectionDefaults();
+    private final OracleConnectionDefaults defaults = new OracleConnectionDefaults(new MockEnvironment());
 
     @Test
     void anOraclePoolGetsTheDriverReadAndConnectTimeouts() {
@@ -17,6 +18,19 @@ class OracleConnectionDefaultsTest {
 
         assertThat(pool.getDataSourceProperties())
                 .containsEntry("oracle.jdbc.ReadTimeout", "60000")
+                .containsEntry("oracle.net.CONNECT_TIMEOUT", "10000");
+    }
+
+    @Test
+    void thePlatformReadTimeoutPropertySetsThePoolBound() {
+        // A service whose transactions run longer than 60 s raises the per-statement cap with it.
+        OracleConnectionDefaults configured = new OracleConnectionDefaults(
+                new MockEnvironment().withProperty("dc.platform.data.jpa.oracle.read-timeout", "5m"));
+        HikariDataSource pool = pool("jdbc:oracle:thin:@//db:1521/APP");
+        configured.postProcessBeforeInitialization(pool, "dataSource");
+
+        assertThat(pool.getDataSourceProperties())
+                .containsEntry("oracle.jdbc.ReadTimeout", "300000")
                 .containsEntry("oracle.net.CONNECT_TIMEOUT", "10000");
     }
 

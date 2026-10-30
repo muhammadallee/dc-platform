@@ -720,6 +720,15 @@ One line of context per decision; details live in the commit bodies referenced.
   Round 1 (Gate C) added `org.hibernate.PropertyValueException` (Hibernate's null check, before any SQL)
   as 409, and `org.hibernate.TransactionException` as 503 only with Hibernate's exact message
   `Transaction timeout expired` (a deadline passed before a flush or commit; pinned by an Oracle test).
+  Gate F (consumer run, HI-0068) added Hibernate's `Unable to rollback against JDBC Connection` as 503: when the
+  driver read timeout closes a connection mid-transaction, Spring rethrows the rollback failure in place of the
+  08006 cause, and Hikari's closed-connection `SQLException` has no SQLState. Nothing was committed, so it is
+  retryable; `Unable to commit against JDBC Connection` stays unclassified (outcome unknown). HI-0069: the
+  data-jpa defaults set `logging.level.org.hibernate.orm.jdbc.error=error`, because Hibernate logged each failed
+  statement's error code and driver message as two WARN lines before the handler's own WARN (three per violation,
+  against "logged once"). Decision: quiet Hibernate's lines rather than the handler's, because the handler's line is
+  on the request's trace and carries the whole chain; an exception handled elsewhere is still logged by its
+  handler, and the logger can be set back to `warn`.
 - **D112 — Flyway posture pinned; out-of-order refused outside `local` (hardening phase 3, Gate B).**
   `clean-disabled`, `validate-on-migrate`, `out-of-order=false`, `validate-migration-naming` are
   contributed explicitly so a Flyway upgrade cannot loosen them. The out-of-order guard is a

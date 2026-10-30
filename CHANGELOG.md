@@ -78,8 +78,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
   (by cause chain and SQLState), including Hibernate's own null check (409), a transaction whose
   deadline passed before a flush or commit (503), and a rollback that fails because the pool already
-  closed the broken connection (503: Spring rethrows it in place of the lost-connection cause). A failed
-  commit is never retryable, whatever its cause: its outcome is unknown (500). An application
+  closed the broken connection (503: Spring rethrows it in place of the lost-connection cause). A connection lost
+  while committing is never retryable, whatever the cause or its translation: the outcome is unknown (500). An application
   `@ExceptionHandler` for these types still wins (D111). Hibernate also logs each failed statement's error
   code and driver message at WARN (logger `org.hibernate.orm.jdbc.error`) before the platform's WARN; set
   that logger to `error` to keep only the platform's line.
@@ -89,14 +89,15 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   declared repository query, a non-transactional service, `JdbcTemplate`) is cancelled after 30 s
   (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`; was unbounded) — a query
   built with Hibernate's `Session.createSelectionQuery` or on the raw `getDelegate()` takes this 30 s even
-  inside a transaction, so give it `.setTimeout(…)` where that matters; Oracle pools
-  and a separate Flyway migration connection get the driver's `oracle.jdbc.ReadTimeout` 60 s and
-  `oracle.net.CONNECT_TIMEOUT` 10 s (not a pool the application started itself, nor a `Flyway` bean of its
-  own built from a URL: set them there); leak detection (20 s) under `local`, never with `prod`. The
-  read timeout is also the longest any single statement may run: raise `dc.platform.data.jpa.oracle.read-timeout`
-  for transactions longer than 60 s. Flyway's own connection (a separate migration user) gets 10 min instead
-  (`dc.platform.data.jpa.oracle.flyway-read-timeout`), so a long migration statement can finish (HD14);
-  a database that accepts connections but never answers then fails startup after that time (10 min).
+  inside a transaction, so give it `.setTimeout(…)` where that matters; Oracle pools get the driver's
+  `oracle.jdbc.ReadTimeout` 60 s (`dc.platform.data.jpa.oracle.read-timeout`) and `oracle.net.CONNECT_TIMEOUT`
+  10 s, and a separate Flyway migration connection the same connect timeout with a 10 min read timeout
+  (`dc.platform.data.jpa.oracle.flyway-read-timeout`, HD14) — not a pool the application started itself, nor
+  a `Flyway` bean of its own built from a URL: set them there; leak detection (20 s) under `local`, never
+  with `prod`. The read timeout bounds each wait for the database's answer, so a statement the database
+  takes longer than 60 s to answer fails whatever its transaction timeout: raise the pool's value for such
+  transactions. A database that accepts connections but never answers was measured to fail startup after
+  610 s with a separate Flyway user (its 10 min read timeout).
 - **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
   named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
   migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,

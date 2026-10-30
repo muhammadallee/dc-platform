@@ -709,7 +709,7 @@ One line of context per decision; details live in the commit bodies referenced.
   bounded, and the alternative only approximates the remaining time. A pool started by the application
   (`new HikariDataSource(config)`, sealed) is now left alone instead of failing startup; a `Flyway` bean the
   application builds from a URL gets no driver bounds (Flyway's own data source; system properties cover it).
-  Gate F (HI-0070, owner decision HD14): the read timeout is also the longest any single statement may run, so a
+  Gate F (HI-0070, owner decision HD14): the read timeout bounds each wait for the database's answer, so a
   migration statement over 60 s (observed: a `CREATE TABLE` on a slow disk) failed startup, and a transaction given
   a longer `@Transactional(timeout)` was still cut at 60 s. Both are now properties:
   `dc.platform.data.jpa.oracle.read-timeout` (pool, 60 s) and `dc.platform.data.jpa.oracle.flyway-read-timeout`
@@ -732,7 +732,11 @@ One line of context per decision; details live in the commit bodies referenced.
   Hibernate's `Unable to rollback against JDBC Connection` over that closed-connection exception is a 503 (nothing
   was committed); over any other cause the cause classifies as usual. Codex verification added a veto: below
   Hibernate's `Unable to commit against JDBC Connection` nothing is classified, because a failed commit's outcome
-  is unknown and a retry could apply the change twice (before, an 08006 cause made it a retryable 503).
+  is unknown and a retry could apply the change twice (before, an 08006 cause made it a retryable 503). A second
+  verification found Spring's translator drops that Hibernate exception (a recoverable SQLException cause becomes
+  `RecoverableDataAccessException`), so a lost connection is also vetoed when it was raised inside Spring's
+  `AbstractPlatformTransactionManager.processCommit` (by stack frame); a commit-time-flush conflict stays a 409 and
+  Hibernate's deadline expiry stays a 503.
   HI-0069: Hibernate logs each failed statement's error code and driver message at WARN before the handler's WARN
   (three lines per violation, against scope R4 "logged once"). A default of `error` for that logger was tried and
   reverted on Codex verification: it also silences failures that application code catches, and batch or async

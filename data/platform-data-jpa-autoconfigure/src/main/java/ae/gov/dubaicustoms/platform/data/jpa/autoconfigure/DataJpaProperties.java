@@ -32,12 +32,13 @@ public record DataJpaProperties(
 
     /**
      * The Oracle driver's socket read timeout ({@code oracle.jdbc.ReadTimeout}), the backstop for what a
-     * statement cancel cannot stop (a dead network, a PL/SQL or lock wait). It is also the longest any
-     * single statement may run, whatever its transaction timeout. A {@code data-source-properties} entry
-     * or a JVM system property of that name still wins.
+     * statement cancel cannot stop (a dead network, a PL/SQL or lock wait). It bounds each wait for the
+     * database's answer, so a statement the database takes longer than this to answer fails, whatever its
+     * transaction timeout. A {@code data-source-properties} entry or a JVM system property of that name still
+     * wins.
      *
-     * @param readTimeout read timeout on every connection of an Oracle pool, and so the longest a single
-     *        statement may run; above the 30 s transaction default, so a slow statement is cancelled by that
+     * @param readTimeout read timeout on every connection of an Oracle pool: the longest the driver waits for
+     *        an answer; above the 30 s transaction default, so a slow statement is cancelled by that
      *        first. Raise it for a service whose transactions are longer
      * @param flywayReadTimeout read timeout on Flyway's own connection ({@code spring.flyway.user} or
      *        {@code url}), so a long migration statement (an index build) can finish while a silent database
@@ -45,7 +46,7 @@ public record DataJpaProperties(
      * @since 1.0.0
      */
     public record Oracle(
-            /** Read timeout on an Oracle pool's connections; the longest a single statement may run. */
+            /** Read timeout on an Oracle pool's connections: the longest the driver waits for an answer. */
             @DefaultValue("60s") Duration readTimeout,
             /** Read timeout on Flyway's own Oracle connection (a separate migration user or URL). */
             @DefaultValue("10m") Duration flywayReadTimeout) {

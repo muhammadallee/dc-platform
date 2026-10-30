@@ -14,7 +14,8 @@ import org.springframework.jdbc.datasource.AbstractDriverBasedDataSource;
  * Boot gives Flyway a {@code SimpleDriverDataSource} that is not a bean and shares nothing with the pool, so
  * without this a silent database would block startup indefinitely.
  *
- * <p>Applied on the {@code Flyway} bean, whose configuration is complete, before anything connects. A
+ * <p>Applied on the {@code Flyway} bean, whose configuration is complete, before Flyway connects (with a
+ * {@code {vendor}} location Boot has already opened a detection connection without them; see data.md). A
  * JVM system property of the same name wins (it is the only other way to set driver properties on this data
  * source). Thread-safe; stateless.
  */

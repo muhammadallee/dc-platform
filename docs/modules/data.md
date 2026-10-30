@@ -54,8 +54,9 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout` (the backstop for what
     a cancel cannot stop: a PL/SQL or lock wait, a dead network) and `oracle.net.CONNECT_TIMEOUT=10000` are
     added to the pool's `data-source-properties`. The read timeout is
-    `dc.platform.data.jpa.oracle.read-timeout` (default `60s`), and it is also **the longest any single
-    statement may run**, whatever its transaction timeout: a service with `@Transactional(timeout = 300)`
+    `dc.platform.data.jpa.oracle.read-timeout` (default `60s`). It bounds **each wait for the database's
+    answer**, so a statement the database takes longer than that to answer (a long update, an index build,
+    a lock wait) fails whatever its transaction timeout: a service with `@Transactional(timeout = 300)`
     batch work raises it to match. Flyway's own connection, when migrations run as a separate user (see
     *Schema owner and runtime user*), gets the connect timeout and
     `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`), so a long migration statement (an
@@ -128,11 +129,12 @@ synonyms the owner creates. Grants for tables added by a later migration go in t
 repeatable `R__grants.sql`), so a deploy never needs a manual step.
 
 With `spring.flyway.user` set, Boot gives Flyway its own connection outside the pool; the platform adds
-the same Oracle read and connect timeouts to it. One exception: a `{vendor}` placeholder in
+the connect timeout and `flyway-read-timeout` (10 min) to it. One exception: a `{vendor}` placeholder in
 `spring.flyway.locations` makes Boot open one connection to detect the database **before** the platform
-can set them. Keep the default `db/migration` location, or set
-`-Doracle.jdbc.ReadTimeout=60000 -Doracle.net.CONNECT_TIMEOUT=10000` on the JVM (system properties apply
-to every Oracle connection). The same JVM properties are the way for a `Flyway` bean you define yourself
+can set them. Keep the default `db/migration` location, or set the driver properties on the JVM, e.g.
+`-Doracle.net.CONNECT_TIMEOUT=10000 -Doracle.jdbc.ReadTimeout=600000`. A JVM system property applies to
+every Oracle connection and wins over both platform values, so the pool then gets the same read timeout:
+choose it for the longest statement either side runs. The same JVM properties are the way for a `Flyway` bean you define yourself
 with a URL (`Flyway.configure().dataSource(url, user, password)`): Flyway then builds its own connection,
 which the platform does not touch.
 

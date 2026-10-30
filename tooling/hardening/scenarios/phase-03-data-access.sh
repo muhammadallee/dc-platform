@@ -333,7 +333,7 @@ if [ "$HH_EXIT_CODE" != 0 ] && [ "$STARTUP_SILENT" -le 120 ]; then hh_pass "AC14
 else hh_fail "AC14 silent Oracle: exit $HH_EXIT_CODE after ${STARTUP_SILENT}s (expected non-zero within 120 s)"; fi
 toxi DELETE /proxies/oracle/toxics/silentstart >/dev/null
 
-hh_step "AC3 log checks: one WARN with the detail on each violation's trace"
+hh_step "AC3 log checks: the handler logs the full exception once on each violation's trace (Hibernate's own statement lines aside, scope A2)"
 for ENTRY in "${AC3_TRACES[@]}"; do
   check "${ENTRY%%:*}-warn" warn-on-trace "$(hh_native "$HH_EVIDENCE/app.log")" "${ENTRY#*:}" DC-DATA-0409
 done

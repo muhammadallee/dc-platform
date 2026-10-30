@@ -68,6 +68,11 @@ def clean_body(body_file, code, *tokens):
          detail=body.get('detail'))
 
 
+HANDLER = 'ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler'
+# Hibernate's own per-statement lines (error code, driver message) precede the handler's WARN by design (scope A2).
+HIBERNATE_STATEMENT_LOGGER = 'org.hibernate.orm.jdbc.error'
+
+
 def warn_on_trace(log_file, trace_id, code):
     warns = []
     for line in Path(log_file).read_text(encoding='utf-8', errors='replace').splitlines():
@@ -79,9 +84,12 @@ def warn_on_trace(log_file, trace_id, code):
             continue
         if event.get('traceId') == trace_id and event.get('level') == 'WARN':
             warns.append(event)
-    detail = json.dumps(warns[0]) if warns else ''
-    emit(len(warns) == 1 and code in detail and 'ORA-' in detail, warns=len(warns),
-         message=warns[0].get('message') if warns else None, ora_in_detail='ORA-' in detail)
+    handler = [w for w in warns if w.get('logger') == HANDLER]
+    others = sorted({w.get('logger') for w in warns if w.get('logger') not in (HANDLER, HIBERNATE_STATEMENT_LOGGER)})
+    detail = json.dumps(handler[0]) if handler else ''
+    emit(len(handler) == 1 and code in detail and 'ORA-' in detail and not others, handler_warns=len(handler),
+         hibernate_statement_warns=len(warns) - len(handler) - len(others), other_loggers=others,
+         ora_in_detail='ORA-' in detail)
 
 
 def meters(scrape_file, *forbidden):

@@ -66,9 +66,12 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   NULL or check violation is a 409 `DC-DATA-0409` (Hibernate's own null check included), a concurrent
   update or lock a 409 `DC-DATA-0410`, an unavailable database or a timeout a retryable 503
   `DC-DATA-0503` (a transaction whose deadline passed before a flush or commit included, and a rollback
-  that fails because the connection broke, e.g. after the driver read timeout). The body never names SQL,
-  tables or constraints; the full exception is logged once, at WARN on the request's trace (Hibernate's own
-  per-statement lines, logger `org.hibernate.orm.jdbc.error`, default to ERROR so they do not repeat it). This
+  that fails because the connection broke, e.g. after the driver read timeout). A failed **commit** is a
+  non-retryable 500 whatever its cause, because its outcome is unknown. The body never names SQL, tables or
+  constraints; the platform logs the full exception once, at WARN on the request's trace. Hibernate logs the
+  failed statement's error code and driver message as two WARN lines of its own just before (logger
+  `org.hibernate.orm.jdbc.error`); they are the only record when application code catches the exception, so
+  the platform leaves them on — set `logging.level.org.hibernate.orm.jdbc.error=error` to drop them. This
   also covers raw Hibernate/JPA exceptions from code that uses the `EntityManager` directly (Spring
   translates only behind a repository).
 

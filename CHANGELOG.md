@@ -77,11 +77,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   table or constraint names); the full exception is logged at WARN on the request's trace. Raw
   JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
   (by cause chain and SQLState), including Hibernate's own null check (409), a transaction whose
-  deadline passed before a flush or commit (503), and a rollback that fails on a broken connection (503:
-  Spring rethrows it in place of the lost-connection cause; a failed commit stays a 500, its outcome is
-  unknown). An application `@ExceptionHandler` for these types still wins (D111). Hibernate's own per-statement
-  error lines (`org.hibernate.orm.jdbc.error`) default to ERROR, so a failed statement is logged once
-  where it is handled; set that logger to `warn` to get them back.
+  deadline passed before a flush or commit (503), and a rollback that fails because the pool already
+  closed the broken connection (503: Spring rethrows it in place of the lost-connection cause). A failed
+  commit is never retryable, whatever its cause: its outcome is unknown (500). An application
+  `@ExceptionHandler` for these types still wins (D111). Hibernate also logs each failed statement's error
+  code and driver message at WARN (logger `org.hibernate.orm.jdbc.error`) before the platform's WARN; set
+  that logger to `error` to keep only the platform's line.
 - **Bounded data-access waits** (D110, lowest-precedence defaults): Hikari `connection-timeout` 5 s
   (was Hikari's 30 s); `spring.transaction.default-timeout` 30 s (was unbounded) — a longer batch
   transaction needs an explicit `@Transactional(timeout = …)`; a query outside any transaction (a

@@ -38,6 +38,7 @@ class PlatformDataJpaEnvironmentPostProcessorTest {
                 "spring.jpa.properties.hibernate.order_inserts", "true",
                 "spring.jpa.properties.hibernate.order_updates", "true",
                 "spring.jpa.properties.hibernate.jdbc.time_zone", "UTC",
+                "logging.level.org.hibernate.orm.jdbc.error", "error",
                 "spring.datasource.hikari.connection-timeout", "5000",
                 "spring.transaction.default-timeout", "30s",
                 "spring.jpa.properties.jakarta.persistence.query.timeout", "30000",

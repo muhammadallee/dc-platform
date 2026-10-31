@@ -127,6 +127,13 @@ All under `dc.platform.messaging.outbox`.
 | `platform.outbox.sent`, `.failed`, `.parkings` | Counters. No tags, so no event ids or destinations in labels |
 | `hikaricp_*{pool="platform-outbox"}` | The drainer's own pool |
 
+## Limits worth knowing
+
+- **Outbox off or absent, inside an `afterCommit` callback.** Without a guarantee to protect, the fallback paths are best
+  effort there. With the outbox off, a publish in an `afterCommit` callback goes out at once, even if a `REQUIRES_NEW`
+  transaction around it later rolls back. In the relay's fallback, a `REQUIRED` transaction opened in such a callback joins
+  the finished one, as Spring warns, and its dispatch never runs. The outbox itself refuses in all these shapes.
+
 ## Replace / disable
 
 - Define your own `OutboxPublisher`, `OutboxContext`, `OutboxDrainer` or `outboxCapabilityDescriptor` bean to replace

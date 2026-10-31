@@ -63,7 +63,7 @@ public record OutboxProperties(
             throw new IllegalArgumentException("dc.platform.messaging.outbox.pool-size must be at least 2: one for batches, "
                     + "one for metrics and retention, so a slow batch cannot stop them");
         }
-        if (readTimeout.isZero() || readTimeout.isNegative()) {
+        if (readTimeout.toMillis() < 1) {
             throw new IllegalArgumentException("dc.platform.messaging.outbox.read-timeout must be positive");
         }
     }

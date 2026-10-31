@@ -80,6 +80,8 @@ public final class OutboxConnections implements AutoCloseable {
             if (driver.getConnectionProperties() != null) {
                 config.setDataSourceProperties(copy(driver.getConnectionProperties()));
             }
+            config.setSchema(driver.getSchema());
+            config.setCatalog(driver.getCatalog());
             addOracleBounds(config, readTimeout);
         } else if (application instanceof EmbeddedDatabase) {
             config.setDataSource(application);

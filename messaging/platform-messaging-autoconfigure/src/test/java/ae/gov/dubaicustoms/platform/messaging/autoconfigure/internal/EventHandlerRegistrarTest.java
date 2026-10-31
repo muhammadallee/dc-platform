@@ -88,6 +88,8 @@ class EventHandlerRegistrarTest {
         var handler = new PayloadHandler();
 
         registrar.postProcessAfterInitialization(handler, "handler");
+
+        registrar.afterSingletonsInstantiated();
         transport.send("dc.orders", null, "hello".getBytes(StandardCharsets.UTF_8), Map.of("eventType", "Order"));
 
         assertThat(handler.received).containsExactly("hello");
@@ -110,6 +112,8 @@ class EventHandlerRegistrarTest {
         var handler = new EnvelopeHandler();
 
         registrar.postProcessAfterInitialization(handler, "handler");
+
+        registrar.afterSingletonsInstantiated();
         transport.send("dc.orders", null, "hello".getBytes(StandardCharsets.UTF_8),
                 Map.of("eventType", "Order", "eventVersion", "2", "eventId", "evt-7"));
 
@@ -135,6 +139,8 @@ class EventHandlerRegistrarTest {
         var handler = new FilteredHandler();
 
         registrar.postProcessAfterInitialization(handler, "handler");
+
+        registrar.afterSingletonsInstantiated();
         transport.send("dc.orders", null, "x".getBytes(StandardCharsets.UTF_8), Map.of("eventType", "OrderCancelled"));
 
         assertThat(handler.invocations.get()).isZero();
@@ -157,6 +163,8 @@ class EventHandlerRegistrarTest {
         var handler = new AlwaysFailingHandler();
 
         registrar.postProcessAfterInitialization(handler, "handler");
+
+        registrar.afterSingletonsInstantiated();
         transport.send("dc.orders", null, "x".getBytes(StandardCharsets.UTF_8), Map.of("eventType", "Order"));
 
         assertThat(handler.attempts.get()).isEqualTo(2);
@@ -181,6 +189,8 @@ class EventHandlerRegistrarTest {
         var handler = new EventuallySucceedsHandler();
 
         registrar.postProcessAfterInitialization(handler, "handler");
+
+        registrar.afterSingletonsInstantiated();
         transport.send("dc.orders", null, "x".getBytes(StandardCharsets.UTF_8), Map.of("eventType", "Order"));
 
         assertThat(handler.attempts.get()).isEqualTo(2);
@@ -208,6 +218,7 @@ class EventHandlerRegistrarTest {
         var transport = new SyncTransport();
         var registrar = new EventHandlerRegistrar(transport, PLAIN_TEXT, properties(3), "app", null);
         registrar.postProcessAfterInitialization(new PayloadHandler(), "handler");
+        registrar.afterSingletonsInstantiated();
 
         registrar.destroy();
 

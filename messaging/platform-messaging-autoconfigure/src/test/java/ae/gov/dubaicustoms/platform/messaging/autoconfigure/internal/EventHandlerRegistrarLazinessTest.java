@@ -33,6 +33,21 @@ class EventHandlerRegistrarLazinessTest {
         assertThat(registrar.postProcessAfterInitialization(new Object(), "noHandlers")).isNotNull();
     }
 
+    @Test
+    void aBeanWithAHandlerDoesNotResolveTheTransportDuringItsOwnPostProcessing() {
+        // The transport may need that very bean: a template customizer that also handles events.
+        var registrar = new EventHandlerRegistrar(OutboundFail::transport, OutboundFail::serializer, OutboundFail::properties,
+                "group", OutboundFail::registry);
+
+        assertThat(registrar.postProcessAfterInitialization(new Handler(), "handler")).isNotNull();
+    }
+
+    static final class Handler {
+        @ae.gov.dubaicustoms.platform.messaging.EventHandler(destination = "dc.orders")
+        void on(String event) {
+        }
+    }
+
     private static final class OutboundFail {
         static ae.gov.dubaicustoms.platform.messaging.spi.EventTransport transport() {
             return fail();

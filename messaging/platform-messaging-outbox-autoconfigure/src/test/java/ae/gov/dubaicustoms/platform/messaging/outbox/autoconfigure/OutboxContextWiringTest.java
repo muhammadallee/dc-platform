@@ -118,6 +118,20 @@ class OutboxContextWiringTest {
     }
 
     @Test
+    void anUnpooledSourcesSchemaAndCatalogAreKept() throws Exception {
+        // Otherwise the drainer reads the login's default schema, and the application's rows stay undrained.
+        var source = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        source.setSchema("APP");
+        source.setCatalog("CAT");
+        try (var connections = OutboxConnections.of(source, 2, java.time.Duration.ofSeconds(60), null)) {
+            var drainer = (com.zaxxer.hikari.HikariDataSource) connections.dataSource();
+
+            assertThat(drainer.getSchema()).isEqualTo("APP");
+            assertThat(drainer.getCatalog()).isEqualTo("CAT");
+        }
+    }
+
+    @Test
     void anUnpooledOracleSourceGetsTheDriverBoundsToo() throws Exception {
         try (var connections = OutboxConnections.of(new DriverManagerDataSource("jdbc:oracle:thin:@//127.0.0.1:9/APP"), 2,
                 java.time.Duration.ofSeconds(60), null)) {

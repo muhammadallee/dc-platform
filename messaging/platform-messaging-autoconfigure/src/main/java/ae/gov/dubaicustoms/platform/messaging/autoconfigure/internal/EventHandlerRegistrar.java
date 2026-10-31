@@ -19,6 +19,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.function.SingletonSupplier;
@@ -41,7 +42,7 @@ import org.springframework.util.function.SingletonSupplier;
  * broker-native DLQ mechanism a specific provider also wires up (kafka's
  * {@code DeadLetterPublishingRecoverer}, rabbit's DLX).
  */
-public final class EventHandlerRegistrar implements BeanPostProcessor, DisposableBean {
+public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInitializingSingleton, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(EventHandlerRegistrar.class);
     private static final String METRIC_NAME = "platform.messaging.handled";
@@ -52,6 +53,8 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
     private final String group;
     private final Supplier<MeterRegistry> meterRegistry;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Runnable> pending = new CopyOnWriteArrayList<>();
+    private volatile boolean singletonsReady;
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
             String group, MeterRegistry meterRegistry) {
@@ -96,9 +99,29 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
         }
         EventHandler annotation = method.getAnnotation(EventHandler.class);
         method.setAccessible(true);
-        EventTransport.Subscription subscription = transport.get().subscribe(annotation.destination(), group,
-                (key, value, headers) -> handle(bean, method, annotation, value, headers));
-        subscriptions.add(subscription);
+        Runnable subscribe = () -> subscriptions.add(transport.get().subscribe(annotation.destination(), group,
+                (key, value, headers) -> handle(bean, method, annotation, value, headers)));
+        // Not during this bean's own post-processing: the transport may need this very bean (a template customizer that
+        // also handles events), and creating it now would re-enter the unfinished bean.
+        if (singletonsReady) {
+            subscribe.run();
+        } else {
+            pending.add(subscribe);
+        }
+    }
+
+    /** Subscribes once every singleton exists, with the collaborators resolved first, not on a delivery thread. */
+    @Override
+    public void afterSingletonsInstantiated() {
+        singletonsReady = true;
+        if (pending.isEmpty()) {
+            return;
+        }
+        serializer.get();
+        properties.get();
+        meterRegistry.get();
+        pending.forEach(Runnable::run);
+        pending.clear();
     }
 
     private void handle(Object bean, Method method, EventHandler annotation, byte[] value, Map<String, String> headers) {

@@ -283,6 +283,7 @@ public final class RabbitEventTransport implements EventTransport {
 
     @Override
     public void close() {
+        senders.forEach(Thread::interrupt);
         containers.forEach(SimpleMessageListenerContainer::stop);
         containers.clear();
     }

@@ -144,6 +144,7 @@ JDK 25, Maven 3.9, Docker. Oracle `gvenzl/oracle-free:23-slim-faststart`, Rabbit
 | ID | Date | Amendment | Reason |
 |---|---|---|---|
 | A1 | 2026-10-31 | The plan's "PostgreSQL and Oracle verified" is Oracle only. | HD3 amended: PostgreSQL is out for now. H2 is used for local runs and unit tests, as evidence for neither. |
+| A3 | 2026-10-31 | R4.3 and AC9: rows park after `max-rejections` (the sink refused the message), not the plan's "max attempts". | Attempts also count outages, so a long outage would park good events and recovery would not deliver them. Agreed in round 1 (`codex/r1-response.md`). |
 | A2 | 2026-10-31 | R10: no archetype `outbox` feature. A service adds the starter and copies the DDL. | The archetype can only render an unwanted file empty, and an empty `V2__…` would collide with the service's next migration. The startup failure names the file. |
 
 ## 11. HI-0071 (carried from Phase 3)

@@ -161,6 +161,53 @@ class OutboxOracleIT {
     }
 
     @Test
+    void largeRowsDoNotWidenTheLocksAtEitherBatchSize() throws Exception {
+        // A claimer must leave the rest of the table claimable: the fetch is the lock boundary, and LOB rows must not
+        // change that. Measured directly: while one holds a batch, the other can still claim what is left.
+        char[] big = new char[200_000];
+        Arrays.fill(big, 'x');
+        String payload = new String(big);
+        for (int batchSize : new int[] {1, 7}) {
+            jdbc.update("delete from platform_outbox");
+            transaction.executeWithoutResult(status -> {
+                for (int i = 0; i < 20; i++) {
+                    publisher().publish("dc.orders", EventEnvelope.of(payload).build());
+                }
+            });
+            CountDownLatch bothClaimed = new CountDownLatch(2);
+            ExecutorService executor = Executors.newFixedThreadPool(2);
+            try {
+                Future<Integer> a = executor.submit(() -> drainer(holdingTransport(bothClaimed), batchSize, 3).drainBatch());
+                Future<Integer> b = executor.submit(() -> drainer(holdingTransport(bothClaimed), batchSize, 3).drainBatch());
+
+                assertThat(a.get(60, TimeUnit.SECONDS)).isEqualTo(batchSize);
+                assertThat(b.get(60, TimeUnit.SECONDS)).isEqualTo(batchSize);
+            } finally {
+                executor.shutdownNow();
+            }
+            assertThat(jdbc.queryForObject("select count(*) from platform_outbox where status = 'PENDING'", Integer.class))
+                    .isEqualTo(20 - 2 * batchSize);
+        }
+    }
+
+    @Test
+    void aBusinessConstraintFailingAtCommitLeavesNoRow() {
+        // A deferred constraint fails at commit, after the row was written in the same transaction.
+        String table = "deferred_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        new JdbcTemplate(new DriverManagerDataSource(ORACLE.getJdbcUrl(), owner, password)).execute(
+                "create table " + table + " (id number constraint " + table + "_nn check (id > 0) deferrable initially deferred)");
+        new JdbcTemplate(new DriverManagerDataSource(ORACLE.getJdbcUrl(), owner, password)).execute(
+                "grant insert on " + table + " to " + runtime);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            publisher().publish("dc.orders", EventEnvelope.of("x").build());
+            jdbc.update("insert into " + table + " values (-1)");
+        })).isInstanceOf(RuntimeException.class);
+
+        assertThat(jdbc.queryForObject("select count(*) from platform_outbox", Integer.class)).isZero();
+    }
+
+    @Test
     void aDrainerThatDiesWithoutCommittingLeavesItsRowsDueWithTheSameIds() throws Exception {
         // What a killed pod looks like to the database: the transaction ends without a commit.
         publish(3);

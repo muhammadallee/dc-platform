@@ -119,6 +119,7 @@ class OutboxAutoConfigurationTest {
             assertThat(outbox.gaugeInterval()).isEqualTo(Duration.ofSeconds(5));
             assertThat(outbox.retentionInterval()).isEqualTo(Duration.ofMinutes(5));
             assertThat(outbox.stopTimeout()).isEqualTo(Duration.ofSeconds(30));
+            assertThat(outbox.readTimeout()).isEqualTo(Duration.ofSeconds(60));
         });
     }
 

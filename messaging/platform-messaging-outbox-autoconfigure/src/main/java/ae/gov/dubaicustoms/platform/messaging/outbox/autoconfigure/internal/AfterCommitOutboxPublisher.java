@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
+import ae.gov.dubaicustoms.platform.messaging.outbox.JdbcOutboxPublisher;
 import java.util.Objects;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -22,7 +23,8 @@ public final class AfterCommitOutboxPublisher implements OutboxPublisher {
 
     @Override
     public void publish(String destination, EventEnvelope<?> event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+        // A callback registered during the after-commit phase would never run, so that phase publishes now.
+        if (!TransactionSynchronizationManager.isSynchronizationActive() || JdbcOutboxPublisher.afterCommitPhase()) {
             publisher.publish(destination, event);
             return;
         }

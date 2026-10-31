@@ -3,11 +3,6 @@ package ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.messaging.outbox.OutboxContext;
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.TraceContext;
-import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.propagation.Propagator;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,26 +35,6 @@ public final class PlatformOutboxContext implements OutboxContext {
     @FunctionalInterface
     public interface PrincipalSource {
         String subject();
-    }
-
-    /**
-     * The trace source over Micrometer Tracing.
-     *
-     * @param tracer the tracer; never {@code null}
-     * @param propagator writes the W3C headers; never {@code null}
-     * @return the source; never {@code null}
-     */
-    public static TraceSource traceSource(Tracer tracer, Propagator propagator) {
-        return () -> {
-            Span span = tracer.currentSpan();
-            TraceContext context = span != null ? span.context() : null;
-            if (context == null) {
-                return Map.of();
-            }
-            Map<String, String> headers = new LinkedHashMap<>();
-            propagator.inject(context, headers, Map::put);
-            return headers;
-        };
     }
 
     @Override

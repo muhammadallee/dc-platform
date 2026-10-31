@@ -47,7 +47,7 @@ No dependency on JPA: it needs a `DataSource`, and joins your transaction under 
 
 | Guarantee | Detail |
 |---|---|
-| Atomic with the business write | A rollback leaves no row. `publish` **throws** if no transaction is active on the outbox's `DataSource`, because the row could not commit with your write |
+| Atomic with the business write | A rollback leaves no row. `publish` **throws** if no transaction owns a connection of the outbox's `DataSource`, or in an `afterCommit` callback (nothing would commit the row, unless the callback opens a new transaction) |
 | At-least-once delivery | A kill between a send and its commit repeats the rows of that batch: at most `batch-size` duplicates per kill |
 | Stable event id | Generated once, when the envelope is built; the same on every retry, sent as header `eventId` |
 | Acknowledged sends | A row is marked sent only after the transport acknowledges it. On RabbitMQ that is a publisher confirm; unroutable or nacked messages fail |
@@ -57,15 +57,17 @@ No dependency on JPA: it needs a `DataSource`, and joins your transaction under 
 | Exactly-once | **Consumers must deduplicate by `eventId`** |
 | Ordering | Retries and `SKIP LOCKED` reorder events, even for one key. Consumers must tolerate a later event arriving first |
 
-Stored rows: headers named like a credential (`*token`, `*password`, `authorization`, `*cookie`…) are refused with an
-exception. The principal is the subject id only. `last_error` holds the exception class only. **The payload is your
+Stored rows: headers named like a credential (`*token`, `*password`, `*pwd`, `authorization`, `*cookie`…) are refused with
+an exception, and of the propagated context only `traceparent` and `tracestate` are stored. The principal is the subject id only. `last_error` holds the exception class only. **The payload is your
 data and is stored as is**, so do not put tokens or personal data in an event you would not want in this table.
 
 ## How it works
 
-The drainer runs on one thread, on **its own small connection pool** (`pool-size`, default 2), so a stuck or backlogged
-drainer cannot starve request threads. The pool is copied from your Hikari pool, so it has the same URL, credentials,
-Oracle driver bounds and `connection-init-sql`.
+The drainer runs on **its own small connection pool** (`pool-size`, default 2), so a stuck or backlogged drainer cannot
+starve request threads. It takes the URL, credentials, driver properties and `connection-init-sql` of your Hikari pool
+(not its size, timeouts or auto-commit) and adds the Oracle read and connect bounds itself. Those credentials are read
+once: rotating them on your pool needs a restart. If your `DataSource` is neither Hikari nor plainly unpooled, startup
+fails rather than risk wrapping a pool: define an `OutboxConnections` bean with a small pool of its own.
 
 Each batch is one transaction: claim due rows with `FOR UPDATE SKIP LOCKED`, send each, record each, commit. Row locks
 keep other instances off those rows, and the database releases them when a pod dies, so there is no lease and no recovery
@@ -74,8 +76,10 @@ job. A long-running send holds its row locks and one drainer connection, not a r
 | Failure | What happens |
 |---|---|
 | Sink down or slow (no confirm in time) | The row is retried with backoff and the drainer pauses (up to `max-backoff`). **It never parks**: recovery delivers the whole backlog |
-| Sink rejects the message (unroutable, nacked) | Counts toward `max-rejections`, then the row is `PARKED` with a WARN and a metric. Other rows keep flowing |
+| Sink rejects the message (unroutable, no such exchange) | Counts toward `max-rejections`, then the row is `PARKED` with a WARN and a metric. Other rows keep flowing |
 | Database down | The batch rolls back and the drainer retries with the same pause |
+| A row's stored headers cannot be read | Parked at once; the rest of the batch continues |
+| Shutdown | The batch ends after the send in flight and commits what was sent; idle waits end immediately |
 | Custom transport | Throw `EventPublishException` with `rejected=true` when the sink refuses a message; any other exception is treated as an outage and never parks |
 
 ## Parked rows
@@ -108,6 +112,7 @@ All under `dc.platform.messaging.outbox`.
 | `gauge-interval` | `5s` | How often the backlog metrics refresh (on the drainer's thread, never on scrape) |
 | `retention-interval` | `5m` | How often sent rows are deleted |
 | `stop-timeout` | `30s` | How long a shutdown waits for the batch in flight |
+| `read-timeout` | `60s` | The Oracle driver's read timeout on the drainer's connections, unless your pool sets one |
 
 ## Metrics
 
@@ -116,6 +121,8 @@ All under `dc.platform.messaging.outbox`.
 | `platform.outbox.pending` | Rows waiting to be sent |
 | `platform.outbox.oldest.pending.age` | Age in seconds of the oldest waiting row: the drain lag. **Alert on this** |
 | `platform.outbox.parked` | Parked rows. **Alert on anything above 0** |
+| `platform.outbox.drainer.running` | 1 while the drainer's thread is alive. **Alert on 0** |
+| `platform.outbox.gauges.age` | Seconds since the backlog figures last refreshed; high means they are stale, typically a database outage |
 | `platform.outbox.sent`, `.failed`, `.parked.total` | Counters. No tags, so no event ids or destinations in labels |
 | `hikaricp_*{pool="platform-outbox"}` | The drainer's own pool |
 

@@ -36,6 +36,26 @@ public record OutboxSettings(int batchSize, Duration pollInterval, int maxReject
         Objects.requireNonNull(gaugeInterval, "gaugeInterval must not be null");
         Objects.requireNonNull(retentionInterval, "retentionInterval must not be null");
         Objects.requireNonNull(stopTimeout, "stopTimeout must not be null");
+        requirePositive("poll interval", pollInterval);
+        requirePositive("gauge interval", gaugeInterval);
+        requirePositive("retention interval", retentionInterval);
+        requirePositive("sent retention", sentRetention);
+        if (initialBackoff.isNegative() || maxBackoff.isNegative()) {
+            throw new IllegalArgumentException("backoffs must not be negative");
+        }
+        // JDBC takes whole seconds, and 0 means no limit; Thread.join(0) means wait for ever.
+        if (statementTimeout.toSeconds() < 1) {
+            throw new IllegalArgumentException("statement timeout must be at least 1 second");
+        }
+        if (stopTimeout.toMillis() < 1) {
+            throw new IllegalArgumentException("stop timeout must be at least 1 millisecond");
+        }
+    }
+
+    private static void requirePositive(String name, Duration value) {
+        if (value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
     }
 
     /**

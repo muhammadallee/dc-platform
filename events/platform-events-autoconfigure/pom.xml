@@ -88,6 +88,23 @@
     <!-- Relay integration test against the real inmemory transport (test scope only). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- The messaging auto-configuration needs these on the classpath, though it declares them optional: Phase 5 item. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-messaging-inmemory</artifactId>
       <version>${revision}</version>
       <scope>test</scope>

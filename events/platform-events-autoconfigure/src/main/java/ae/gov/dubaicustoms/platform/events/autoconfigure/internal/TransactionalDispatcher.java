@@ -12,7 +12,8 @@ public final class TransactionalDispatcher implements AfterCommitDispatcher {
 
     @Override
     public void dispatch(Runnable action) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+        // A callback registered during the after-commit phase would never run, so that phase dispatches now.
+        if (!TransactionSynchronizationManager.isSynchronizationActive() || afterCommitPhase()) {
             action.run();
             return;
         }
@@ -22,5 +23,11 @@ public final class TransactionalDispatcher implements AfterCommitDispatcher {
                 action.run();
             }
         });
+    }
+
+    private static boolean afterCommitPhase() {
+        return StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
+                "org.springframework.transaction.support.TransactionSynchronizationUtils".equals(frame.getClassName())
+                        && frame.getMethodName().equals("invokeAfterCommit")));
     }
 }

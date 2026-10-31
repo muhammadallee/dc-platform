@@ -43,9 +43,15 @@ import org.springframework.context.SmartLifecycle;
  *
  * <p>A send failure ends the batch and pauses the drainer. Only a rejection by the sink counts toward parking
  * ({@link EventPublishException#rejected()}); an outage delays rows but never parks them, so recovery delivers
- * the whole backlog. Log lines name the exception class only: a transport message can carry hosts and credentials.
+ * the whole backlog. A row whose stored headers cannot be read is parked at once and does not stop the batch. A stop
+ * ends the batch after the send in flight, and commits what was sent. Parking metrics and WARNs are published after
+ * the commit, so they never describe a state that rolled back. Log lines name event ids and exception classes only:
+ * a transport message or a destination can carry hosts and credentials.
  *
- * <p>Thread-safe. Runs on one daemon thread.
+ * <p>Backlog metrics and retention run on a second thread, so a blocked send or a pause delays neither, and a failure
+ * of one does not stop the other. {@code platform.outbox.gauges.age} says how old the backlog figures are.
+ *
+ * <p>Thread-safe.
  *
  * @since 1.0.0
  */
@@ -78,17 +84,20 @@ public final class OutboxDrainer implements SmartLifecycle {
     private final OutboxContext context;
     private final OutboxSettings settings;
     private final Clock clock;
+    private final MeterRegistry registry;
     private final AtomicLong pending = new AtomicLong();
     private final AtomicLong parked = new AtomicLong();
     private final AtomicLong oldestPendingSeconds = new AtomicLong();
     private final Counter sentCounter;
     private final Counter failedCounter;
     private final Counter parkedCounter;
+    private final List<Gauge> gauges = new ArrayList<>();
 
-    private volatile boolean running;
-    private volatile Thread thread;
-    private Instant nextGauges = Instant.MIN;
-    private Instant nextRetention = Instant.MIN;
+    private volatile Thread worker;
+    private volatile Thread maintenance;
+    private volatile boolean stopping;
+    private volatile boolean inBatch;
+    private volatile Instant lastGaugeRefresh;
     private Duration pause = Duration.ZERO;
 
     /**
@@ -108,35 +117,83 @@ public final class OutboxDrainer implements SmartLifecycle {
         this.context = Objects.requireNonNull(context, "context must not be null");
         this.settings = Objects.requireNonNull(settings, "settings must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
-        if (registry != null) {
-            Gauge.builder("platform.outbox.pending", pending, AtomicLong::get).register(registry);
-            Gauge.builder("platform.outbox.parked", parked, AtomicLong::get).register(registry);
-            Gauge.builder("platform.outbox.oldest.pending.age", oldestPendingSeconds, AtomicLong::get)
-                    .baseUnit("seconds").register(registry);
-        }
+        this.registry = registry;
         this.sentCounter = registry != null ? registry.counter("platform.outbox.sent") : null;
         this.failedCounter = registry != null ? registry.counter("platform.outbox.failed") : null;
         this.parkedCounter = registry != null ? registry.counter("platform.outbox.parked.total") : null;
+        registerGauges();
     }
 
-    @Override
-    public void start() {
-        probeTable();
-        running = true;
-        Thread drainer = new Thread(this::run, "platform-outbox-drainer");
-        drainer.setDaemon(true);
-        thread = drainer;
-        drainer.start();
-    }
-
-    @Override
-    public void stop() {
-        running = false;
-        Thread drainer = thread;
-        if (drainer == null) {
+    // A second context on the same registry must not read this drainer's state: stop() removes them again.
+    private void registerGauges() {
+        if (registry == null || !gauges.isEmpty()) {
             return;
         }
-        // Not interrupted at first: the batch in flight finishes and commits, so its rows are not sent again.
+        gauges.add(Gauge.builder("platform.outbox.pending", pending, AtomicLong::get).register(registry));
+        gauges.add(Gauge.builder("platform.outbox.parked", parked, AtomicLong::get).register(registry));
+        gauges.add(Gauge.builder("platform.outbox.oldest.pending.age", oldestPendingSeconds, AtomicLong::get)
+                .baseUnit("seconds").register(registry));
+        gauges.add(Gauge.builder("platform.outbox.gauges.age", this, OutboxDrainer::gaugesAgeSeconds)
+                .baseUnit("seconds").register(registry));
+        gauges.add(Gauge.builder("platform.outbox.drainer.running", this, OutboxDrainer::workerAlive).register(registry));
+    }
+
+    // Infinite until the first refresh: "never measured" must not read as "no backlog".
+    private double gaugesAgeSeconds() {
+        Instant last = lastGaugeRefresh;
+        return last == null ? Double.POSITIVE_INFINITY : Duration.between(last, clock.instant()).toSeconds();
+    }
+
+    private double workerAlive() {
+        Thread current = worker;
+        return current != null && current.isAlive() ? 1 : 0;
+    }
+
+    @Override
+    public synchronized void start() {
+        if (worker != null) {
+            return;
+        }
+        probeTable();
+        registerGauges();
+        stopping = false;
+        worker = daemon(this::runWorker, "platform-outbox-drainer");
+        maintenance = daemon(this::runMaintenance, "platform-outbox-maintenance");
+        worker.start();
+        maintenance.start();
+    }
+
+    private static Thread daemon(Runnable task, String name) {
+        Thread thread = new Thread(task, name);
+        thread.setDaemon(true);
+        return thread;
+    }
+
+    @Override
+    public synchronized void stop() {
+        stopping = true;
+        Thread drainer = worker;
+        Thread housekeeper = maintenance;
+        worker = null;
+        maintenance = null;
+        if (housekeeper != null) {
+            housekeeper.interrupt();
+        }
+        if (drainer != null) {
+            await(drainer);
+        }
+        if (registry != null) {
+            gauges.forEach(registry::remove);
+            gauges.clear();
+        }
+    }
+
+    // An idle wait ends now. A batch in flight is not interrupted: it stops after the send in flight and commits, so
+    // its rows are not sent again. The worker checks its own identity, so a late exit cannot run alongside a restart.
+    private void await(Thread drainer) {
+        if (!inBatch) {
+            drainer.interrupt();
+        }
         try {
             drainer.join(settings.stopTimeout().toMillis());
             if (drainer.isAlive()) {
@@ -148,12 +205,11 @@ public final class OutboxDrainer implements SmartLifecycle {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        thread = null;
     }
 
     @Override
     public boolean isRunning() {
-        return running;
+        return worker != null;
     }
 
     @Override
@@ -165,9 +221,11 @@ public final class OutboxDrainer implements SmartLifecycle {
     // service may still start (Flyway, when present, has already reported it) and the drainer keeps trying.
     private void probeTable() {
         try (Connection connection = dataSource.getConnection();
-                PreparedStatement statement = connection.prepareStatement(PROBE);
-                ResultSet ignored = statement.executeQuery()) {
-            log.debug("outbox table present");
+                PreparedStatement statement = connection.prepareStatement(PROBE)) {
+            statement.setQueryTimeout(timeoutSeconds());
+            try (ResultSet ignored = statement.executeQuery()) {
+                log.debug("outbox table present");
+            }
         } catch (SQLException e) {
             if (!isConnectionFailure(e)) {
                 throw new OutboxTableMissingException(e);
@@ -181,29 +239,59 @@ public final class OutboxDrainer implements SmartLifecycle {
                 || e instanceof SQLRecoverableException || (e.getSQLState() != null && e.getSQLState().startsWith("08"));
     }
 
-    private void run() {
-        while (running) {
+    private void runWorker() {
+        while (worker == Thread.currentThread()) {
             boolean moreDue = false;
             try {
                 moreDue = drainBatch() == settings.batchSize() && pause.isZero();
-                housekeeping();
-            } catch (SQLException | RuntimeException e) {
-                // The database, not the sink: rows stay locked by nobody and are claimed again.
+            } catch (SQLException | RuntimeException | LinkageError | AssertionError e) {
+                // The database or a bug in a transport, not the sink's answer. The row stays due; the drainer survives,
+                // because a service that keeps writing rows with no drainer loses delivery without a sign.
                 log.warn("Outbox drain failed: {}", e.getClass().getName());
                 increasePause();
             }
-            if (!moreDue && running) {
+            if (!moreDue && worker == Thread.currentThread()) {
                 sleep(pause.isZero() ? settings.pollInterval() : pause);
             }
         }
     }
 
-    private void sleep(Duration duration) {
+    private void runMaintenance() {
+        Instant nextGauges = Instant.MIN;
+        Instant nextRetention = Instant.MIN;
+        while (maintenance == Thread.currentThread()) {
+            Instant now = clock.instant();
+            if (!now.isBefore(nextGauges)) {
+                nextGauges = now.plus(settings.gaugeInterval());
+                maintain("refresh the outbox metrics", this::refreshGauges);
+            }
+            if (!now.isBefore(nextRetention)) {
+                nextRetention = now.plus(settings.retentionInterval());
+                maintain("delete sent outbox rows", this::deleteSent);
+            }
+            sleep(settings.gaugeInterval().compareTo(settings.retentionInterval()) < 0
+                    ? settings.gaugeInterval() : settings.retentionInterval());
+        }
+    }
+
+    private void maintain(String what, MaintenanceTask task) {
+        try {
+            task.run();
+        } catch (SQLException | RuntimeException e) {
+            log.warn("Could not {}: {}", what, e.getClass().getName());
+        }
+    }
+
+    @FunctionalInterface
+    private interface MaintenanceTask {
+        void run() throws SQLException;
+    }
+
+    private static void sleep(Duration duration) {
         try {
             Thread.sleep(duration);
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            running = false;
+            log.debug("outbox wait interrupted");
         }
     }
 
@@ -219,28 +307,36 @@ public final class OutboxDrainer implements SmartLifecycle {
      * @throws SQLException if the database failed; the transaction rolls back and the rows stay due
      */
     int drainBatch() throws SQLException {
+        inBatch = true;
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
+            boolean committed = false;
             try {
+                List<Runnable> afterCommit = new ArrayList<>();
                 List<Row> rows = claim(connection);
                 boolean failed = false;
                 for (Row row : rows) {
-                    if (!send(connection, row)) {
-                        failed = true;
+                    if (stopping || !send(connection, row, afterCommit)) {
+                        failed = !stopping;
                         break;
                     }
                 }
                 connection.commit();
+                committed = true;
+                afterCommit.forEach(Runnable::run);
                 if (failed) {
                     increasePause();
                 } else if (!rows.isEmpty()) {
                     pause = Duration.ZERO;
                 }
                 return rows.size();
-            } catch (SQLException | RuntimeException e) {
-                rollback(connection);
-                throw e;
+            } finally {
+                if (!committed) {
+                    rollback(connection);
+                }
             }
+        } finally {
+            inBatch = false;
         }
     }
 
@@ -270,17 +366,29 @@ public final class OutboxDrainer implements SmartLifecycle {
         return rows;
     }
 
-    private boolean send(Connection connection, Row row) throws SQLException {
-        Map<String, String> stored = parseHeaders(row.headers());
-        try (OutboxContext.Scope ignored = context.restore(stored)) {
-            byte[] key = row.key() != null ? row.key().getBytes(StandardCharsets.UTF_8) : null;
-            transport.send(row.destination(), key, row.payload(), messageHeaders(row, stored));
-            markSent(connection, row);
-            increment(sentCounter);
+    // Returns false when the batch should end. A row that cannot be read does not end it: nothing about it can improve.
+    private boolean send(Connection connection, Row row, List<Runnable> afterCommit) throws SQLException {
+        Map<String, String> stored;
+        try {
+            stored = parseHeaders(row.headers());
+        } catch (JsonProcessingException e) {
+            markFailed(connection, row, e.getClass().getName(), row.rejections(), true, afterCommit);
             return true;
-        } catch (RuntimeException e) {
-            markFailed(connection, row, e);
-            return false;
+        }
+        try (OutboxContext.Scope ignored = context.restore(stored)) {
+            try {
+                byte[] key = row.key() != null ? row.key().getBytes(StandardCharsets.UTF_8) : null;
+                transport.send(row.destination(), key, row.payload(), messageHeaders(row, stored));
+            } catch (RuntimeException e) {
+                boolean rejected = e instanceof EventPublishException publish && publish.rejected();
+                int rejections = row.rejections() + (rejected ? 1 : 0);
+                markFailed(connection, row, e.getClass().getName(), rejections, rejections >= settings.maxRejections(),
+                        afterCommit);
+                return false;
+            }
+            markSent(connection, row);
+            afterCommit.add(() -> increment(sentCounter));
+            return true;
         }
     }
 
@@ -296,12 +404,13 @@ public final class OutboxDrainer implements SmartLifecycle {
         return headers;
     }
 
-    private static Map<String, String> parseHeaders(String json) {
-        try {
-            return JdbcOutboxPublisher.JSON.readValue(json, new TypeReference<LinkedHashMap<String, String>>() { });
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("A stored outbox row has unreadable headers", e);
+    private static Map<String, String> parseHeaders(String json) throws JsonProcessingException {
+        Map<String, String> headers =
+                JdbcOutboxPublisher.JSON.readValue(json, new TypeReference<LinkedHashMap<String, String>>() { });
+        if (headers == null) {
+            throw new com.fasterxml.jackson.core.JsonParseException(null, "outbox headers are null");
         }
+        return headers;
     }
 
     private void markSent(Connection connection, Row row) throws SQLException {
@@ -314,41 +423,28 @@ public final class OutboxDrainer implements SmartLifecycle {
         }
     }
 
-    private void markFailed(Connection connection, Row row, RuntimeException failure) throws SQLException {
+    private void markFailed(Connection connection, Row row, String error, int rejections, boolean park,
+            List<Runnable> afterCommit) throws SQLException {
         int attempts = row.attempts() + 1;
-        boolean isRejection = failure instanceof EventPublishException publish && publish.rejected();
-        int rejections = row.rejections() + (isRejection ? 1 : 0);
-        boolean park = rejections >= settings.maxRejections();
         try (PreparedStatement statement = connection.prepareStatement(MARK_FAILED)) {
             statement.setQueryTimeout(timeoutSeconds());
             statement.setString(1, park ? "PARKED" : "PENDING");
             statement.setInt(2, attempts);
             statement.setInt(3, rejections);
             statement.setObject(4, OffsetDateTime.now(clock).plus(settings.backoff(attempts)));
-            statement.setString(5, failure.getClass().getName());
+            statement.setString(5, error);
             statement.setString(6, row.eventId());
             statement.executeUpdate();
         }
-        increment(failedCounter);
+        // Logged here, inside the restored trace; the parking transition only after it has committed.
+        log.warn("Outbox event {} of type {} failed on attempt {}: {}", row.eventId(), row.eventType(), attempts, error);
+        afterCommit.add(() -> increment(failedCounter));
         if (park) {
-            increment(parkedCounter);
-            log.warn("Outbox event {} of type {} parked after {} rejections by {}", row.eventId(), row.eventType(),
-                    rejections, row.destination());
-        } else {
-            log.warn("Outbox send to {} failed (attempt {}): {}", row.destination(), attempts,
-                    failure.getClass().getName());
-        }
-    }
-
-    private void housekeeping() throws SQLException {
-        Instant now = clock.instant();
-        if (!now.isBefore(nextGauges)) {
-            refreshGauges();
-            nextGauges = now.plus(settings.gaugeInterval());
-        }
-        if (!now.isBefore(nextRetention)) {
-            deleteSent();
-            nextRetention = now.plus(settings.retentionInterval());
+            afterCommit.add(() -> {
+                increment(parkedCounter);
+                log.warn("Outbox event {} of type {} parked ({} rejections): {}", row.eventId(), row.eventType(),
+                        rejections, error);
+            });
         }
     }
 
@@ -382,27 +478,31 @@ public final class OutboxDrainer implements SmartLifecycle {
         }
         pending.set(pendingRows);
         parked.set(parkedRows);
+        lastGaugeRefresh = clock.instant();
     }
 
     /**
-     * Deletes sent rows past retention, in short bounded transactions. Never touches pending or parked rows.
+     * Deletes sent rows past retention, each bounded delete in its own transaction (whatever the pool's auto-commit
+     * default). Never touches pending or parked rows.
      *
      * @return how many rows were deleted
      * @throws SQLException if the database failed
      */
     int deleteSent() throws SQLException {
         int total = 0;
+        int limit = settings.batchSize() * 20;
         OffsetDateTime cutoff = OffsetDateTime.now(clock).minus(settings.sentRetention());
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement(DELETE_SENT)) {
+            connection.setAutoCommit(true);
             statement.setQueryTimeout(timeoutSeconds());
             statement.setObject(1, cutoff);
-            statement.setInt(2, settings.batchSize() * 20);
+            statement.setInt(2, limit);
             int deleted;
             do {
                 deleted = statement.executeUpdate();
                 total += deleted;
-            } while (deleted == settings.batchSize() * 20 && running);
+            } while (deleted == limit && !stopping);
         }
         return total;
     }

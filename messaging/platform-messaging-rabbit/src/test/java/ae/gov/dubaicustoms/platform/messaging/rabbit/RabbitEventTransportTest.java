@@ -74,11 +74,57 @@ class RabbitEventTransportTest {
     }
 
     @Test
-    void aNackFailsTheSend() {
-        confirmEverySend(rabbitTemplate, new CorrelationData.Confirm(false, "channel closed"), null);
+    void aNackFromAClosingChannelFailsTheSendAsAnOutageNotARejection() {
+        // Spring synthesizes this when a connection closes with confirms outstanding: it must never park a row.
+        confirmEverySend(rabbitTemplate, new CorrelationData.Confirm(false, "Channel closed by application"), null);
 
         assertThatThrownBy(() -> transport().send("dc.orders", null, "payload".getBytes(), Map.of()))
-                .isInstanceOf(EventPublishException.class).hasMessageContaining("not confirmed");
+                .isInstanceOfSatisfying(EventPublishException.class, e -> {
+                    assertThat(e).hasMessageContaining("not confirmed");
+                    assertThat(e.rejected()).isFalse();
+                });
+    }
+
+    @Test
+    void aMissingExchangeIsARejection() {
+        confirmEverySend(rabbitTemplate, new CorrelationData.Confirm(false,
+                "channel error; protocol method: #method<channel.close>(reply-code=404, reply-text=NOT_FOUND)"), null);
+
+        assertThatThrownBy(() -> transport().send("dc.orders", null, "payload".getBytes(), Map.of()))
+                .isInstanceOfSatisfying(EventPublishException.class, e -> assertThat(e.rejected()).isTrue());
+    }
+
+    @Test
+    void aPublishThatBlocksIsBoundedByTheTimeout() {
+        // A broker under a resource alarm blocks the publish itself, before any confirm can be awaited.
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Thread.sleep(60_000);
+            return null;
+        }).when(rabbitTemplate).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
+
+        long start = System.nanoTime();
+        assertThatThrownBy(() -> transport().send("dc.orders", null, "payload".getBytes(), Map.of()))
+                .isInstanceOf(EventPublishException.class).hasMessageContaining("within");
+
+        assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void aBrokerThatIsDownFailsTheSendAsAnOutage() {
+        org.mockito.Mockito.doThrow(new org.springframework.amqp.AmqpConnectException(new java.net.ConnectException("refused")))
+                .when(rabbitTemplate).send(anyString(), anyString(), any(Message.class), any(CorrelationData.class));
+
+        assertThatThrownBy(() -> transport().send("dc.orders", null, "payload".getBytes(), Map.of()))
+                .isInstanceOfSatisfying(EventPublishException.class, e -> assertThat(e.rejected()).isFalse());
+    }
+
+    @Test
+    void aMandatoryExpressionFalseForThisMessageFailsTheSend() {
+        var transport = transport();
+        when(rabbitTemplate.isMandatoryFor(any(Message.class))).thenReturn(false);
+
+        assertThatThrownBy(() -> transport.send("dc.orders", null, "payload".getBytes(), Map.of()))
+                .isInstanceOf(EventPublishException.class).hasMessageContaining("not mandatory");
     }
 
     @Test

@@ -88,7 +88,7 @@ class OutboxTest {
     @Test
     void publishRefusesWithoutATransaction() {
         assertThatThrownBy(() -> publisher(OutboxContext.NONE).publish("dc.orders", EventEnvelope.of("hello").build()))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("active transaction");
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("uncommitted transaction");
     }
 
     @Test
@@ -104,8 +104,91 @@ class OutboxTest {
     }
 
     @Test
+    void aConnectionOnlySynchronizedUnderAnotherDatabasesTransactionIsRefused() {
+        // Reading through the outbox's database binds its connection, auto-committing, under the other transaction.
+        var other = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        var otherTransaction = new TransactionTemplate(new DataSourceTransactionManager(other));
+
+        assertThatThrownBy(() -> otherTransaction.executeWithoutResult(status -> {
+            jdbc.queryForObject("select count(*) from business", Integer.class);
+            publisher(OutboxContext.NONE).publish("dc.orders", EventEnvelope.of("hello").build());
+        })).isInstanceOf(IllegalStateException.class);
+        assertThat(rows()).isZero();
+    }
+
+    @Test
+    void aTransactionAwareProxyStillFindsTheTransactionsConnection() {
+        var proxied = new org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy(dataSource);
+        var publisher = new JdbcOutboxPublisher(proxied, OutboxTestSupport.TEXT, OutboxContext.NONE, clock);
+
+        transaction.executeWithoutResult(status -> publisher.publish("dc.orders", EventEnvelope.of("hello").build()));
+
+        assertThat(rows()).isEqualTo(1);
+    }
+
+    @Test
+    void publishRefusesInAnAfterCommitCallbackButAcceptsANewTransactionThere() {
+        var publisher = publisher(OutboxContext.NONE);
+        var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        var inNewTransaction = new java.util.concurrent.atomic.AtomicBoolean();
+        var newTransaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        newTransaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        transaction.executeWithoutResult(status -> {
+            jdbc.update("insert into business values ('b1')");
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            // Nothing commits this row: without the check it would vanish silently.
+                            assertThat(publisher.canPublish()).isFalse();
+                            try {
+                                publisher.publish("dc.orders", EventEnvelope.of("lost").build());
+                            } catch (IllegalStateException e) {
+                                failure.set(e);
+                            }
+                            newTransaction.executeWithoutResult(inner -> {
+                                inNewTransaction.set(publisher.canPublish());
+                                publisher.publish("dc.orders", EventEnvelope.of("kept").build());
+                            });
+                        }
+                    });
+        });
+
+        assertThat(failure.get()).isInstanceOf(IllegalStateException.class);
+        assertThat(inNewTransaction).isTrue();
+        assertThat(rows()).isEqualTo(1);
+    }
+
+    @Test
+    void anInjectedHeaderOtherThanTheTraceNeverReachesARow() {
+        OutboxContext propagating = new OutboxContext() {
+            @Override
+            public Map<String, String> traceHeaders() {
+                return Map.of("traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+                        "authorization", "Bearer secret", "baggage", "user=alice");
+            }
+
+            @Override
+            public String principal() {
+                return null;
+            }
+
+            @Override
+            public Scope restore(Map<String, String> headers) {
+                return () -> { };
+            }
+        };
+        transaction.executeWithoutResult(status ->
+                publisher(propagating).publish("dc.orders", EventEnvelope.of("hello").build()));
+
+        assertThat(jdbc.queryForObject("select headers from platform_outbox", String.class))
+                .contains("traceparent").doesNotContain("authorization").doesNotContain("baggage");
+    }
+
+    @Test
     void aCredentialNamedHeaderIsRefused() {
-        for (String name : List.of("Authorization", "x-auth-token", "db_password", "sessionCookie", "API_KEY")) {
+        for (String name : List.of("Authorization", "x-auth-token", "db_password", "pwd", "sessionCookie", "API_KEY")) {
             EventEnvelope<String> event = EventEnvelope.of("hello").header(name, "value").build();
             assertThatThrownBy(() -> transaction.executeWithoutResult(status ->
                     publisher(OutboxContext.NONE).publish("dc.orders", event)))
@@ -244,6 +327,148 @@ class OutboxTest {
     }
 
     @Test
+    void aRowWithUnreadableHeadersIsParkedAndDoesNotStopTheOthers() throws Exception {
+        EventEnvelope<String> corrupt = publishOne();
+        EventEnvelope<String> good = publishOne();
+        jdbc.update("update platform_outbox set headers = 'not json' where event_id = ?", corrupt.eventId());
+
+        drainer(OutboxTestSupport.settings(10, 3)).drainBatch();
+
+        assertThat(status(corrupt)).isEqualTo("PARKED");
+        assertThat(status(good)).isEqualTo("SENT");
+        assertThat(transport.sent).extracting(OutboxTestSupport.Sent::eventId).containsExactly(good.eventId());
+    }
+
+    @Test
+    void anErrorFromATransportRollsTheBatchBackAndTheDrainerSurvives() {
+        // A worker that dies leaves a service writing rows nobody delivers.
+        EventEnvelope<String> event = publishOne();
+        OutboxDrainer drainer = drainer(OutboxTestSupport.settings(10, 3));
+        var failures = new java.util.concurrent.atomic.AtomicInteger();
+        transport.onSend = destination -> {
+            if (failures.incrementAndGet() == 1) {
+                throw new AssertionError("a bug in a transport");
+            }
+        };
+
+        drainer.start();
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(status(event)).isEqualTo("SENT"));
+        drainer.stop();
+    }
+
+    @Test
+    void aStopEndsTheBatchAfterTheSendInFlightAndCommitsIt() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            publishOne();
+        }
+        OutboxDrainer drainer = drainer(OutboxTestSupport.settings(5, 3));
+        var sending = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        transport.onSend = destination -> {
+            sending.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+            }
+        };
+        drainer.start();
+        assertThat(sending.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+        Thread stopper = new Thread(drainer::stop);
+        stopper.start();
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !drainer.isRunning());
+        release.countDown();
+        stopper.join(10_000);
+
+        // One was in flight when the stop arrived: it is recorded; the other four stay due, unsent.
+        assertThat(transport.sent).hasSize(1);
+        assertThat(jdbc.queryForObject("select count(*) from platform_outbox where status = 'SENT'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from platform_outbox where status = 'PENDING'", Integer.class)).isEqualTo(4);
+    }
+
+    @Test
+    void aSecondStartDoesNotAddAWorkerAndARestartWorks() {
+        OutboxDrainer drainer = drainer(OutboxTestSupport.settings(10, 3));
+        drainer.start();
+        drainer.start();
+        drainer.stop();
+        EventEnvelope<String> event = publishOne();
+
+        drainer.start();
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(status(event)).isEqualTo("SENT"));
+        drainer.stop();
+
+        assertThat(transport.sent).hasSize(1);
+    }
+
+    @Test
+    void settingsThatWouldSilentlyRemoveABoundAreRefused() {
+        Duration ok = Duration.ofSeconds(1);
+        assertThatThrownBy(() -> new OutboxSettings(1, ok, 1, ok, ok, ok, Duration.ofMillis(500), ok, ok, ok))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("statement timeout");
+        assertThatThrownBy(() -> new OutboxSettings(1, ok, 1, ok, ok, ok, ok, ok, ok, Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("stop timeout");
+        assertThatThrownBy(() -> new OutboxSettings(1, Duration.ZERO, 1, ok, ok, ok, ok, ok, ok, ok))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("poll interval");
+        assertThatThrownBy(() -> new OutboxSettings(1, ok, 1, Duration.ofSeconds(-1), ok, ok, ok, ok, ok, ok))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("backoffs");
+    }
+
+    @Test
+    void retentionCommitsEvenOnAPoolThatDefaultsToNoAutoCommit() throws Exception {
+        EventEnvelope<String> old = publishOne();
+        OutboxDrainer drainer = drainer(OutboxTestSupport.settings(10, 3));
+        drainer.drainBatch();
+        jdbc.update("update platform_outbox set sent_at = ? where event_id = ?",
+                Timestamp.from(Instant.now().minus(Duration.ofDays(2))), old.eventId());
+        var noAutoCommit = new org.springframework.jdbc.datasource.DelegatingDataSource(dataSource) {
+            @Override
+            public java.sql.Connection getConnection() throws java.sql.SQLException {
+                java.sql.Connection connection = super.getConnection();
+                connection.setAutoCommit(false);
+                return connection;
+            }
+        };
+        var retention = new OutboxDrainer(noAutoCommit, transport, OutboxContext.NONE, OutboxTestSupport.settings(10, 3), clock, null);
+
+        assertThat(retention.deleteSent()).isEqualTo(1);
+
+        assertThat(rows()).isZero();
+    }
+
+    @Test
+    void parkingIsAnnouncedOnlyAfterItCommits() throws Exception {
+        // A commit that fails leaves the row pending: no parked metric may have fired.
+        publishOne();
+        var registry = new SimpleMeterRegistry();
+        var failingCommit = new org.springframework.jdbc.datasource.DelegatingDataSource(dataSource) {
+            @Override
+            public java.sql.Connection getConnection() throws java.sql.SQLException {
+                java.sql.Connection connection = super.getConnection();
+                return (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[] {java.sql.Connection.class}, (proxy, method, args) -> {
+                            if (method.getName().equals("commit")) {
+                                throw new java.sql.SQLException("connection lost");
+                            }
+                            return method.invoke(connection, args);
+                        });
+            }
+        };
+        var drainer = new OutboxDrainer(failingCommit, transport, OutboxContext.NONE, OutboxTestSupport.settings(10, 1), clock, registry);
+        transport.onSend = destination -> {
+            throw new EventPublishException("rejected", null, true);
+        };
+
+        assertThatThrownBy(drainer::drainBatch).isInstanceOf(java.sql.SQLException.class);
+
+        assertThat(registry.get("platform.outbox.parked.total").counter().count()).isZero();
+        assertThat(jdbc.queryForObject("select status from platform_outbox", String.class)).isEqualTo("PENDING");
+    }
+
+    @Test
     void aBatchIsBounded() throws Exception {
         for (int i = 0; i < 5; i++) {
             publishOne();
@@ -299,6 +524,7 @@ class OutboxTest {
         assertThat(registry.get("platform.outbox.parked.total").counter().count()).isEqualTo(1);
         // Bounded tags: no event ids, no destinations.
         assertThat(registry.getMeters()).allSatisfy(meter -> assertThat(meter.getId().getTags()).isEmpty());
+        assertThat(registry.get("platform.outbox.gauges.age").gauge().value()).isLessThan(60);
     }
 
     @Test

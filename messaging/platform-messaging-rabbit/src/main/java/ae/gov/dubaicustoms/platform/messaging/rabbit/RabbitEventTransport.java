@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -129,29 +130,53 @@ public final class RabbitEventTransport implements EventTransport {
         if (key != null) {
             properties.setHeader("key", key);
         }
+        Message message = new Message(value, properties);
+        // Evaluated per message: a mandatory expression can be true for the constructor's probe and false here.
+        if (!rabbitTemplate.isMandatoryFor(message)) {
+            throw new EventPublishException("not mandatory, so an unroutable message would be dropped: " + destination, null);
+        }
         CorrelationData correlation = new CorrelationData();
-        rabbitTemplate.send(dest.exchange(), dest.routingKey(), new Message(value, properties), correlation);
-        awaitConfirm(destination, correlation);
-    }
-
-    private void awaitConfirm(String destination, CorrelationData correlation) {
-        CorrelationData.Confirm confirm;
+        // The whole operation is bounded. A broker under a resource alarm blocks the publish itself, before any confirm
+        // can be awaited, so it runs apart from the caller. If it gets through after the timeout, that is a duplicate
+        // of the retry, which at-least-once delivery allows; the sender ends when the broker unblocks.
+        long deadline = System.nanoTime() + confirmTimeout.toNanos();
+        CompletableFuture<Void> publish = new CompletableFuture<>();
+        Thread sender = Thread.ofVirtual().name("platform-rabbit-send").start(() -> {
+            try {
+                rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation);
+                publish.complete(null);
+            } catch (RuntimeException e) {
+                publish.completeExceptionally(e);
+            }
+        });
         try {
-            confirm = correlation.getFuture().get(confirmTimeout.toMillis(), TimeUnit.MILLISECONDS);
+            publish.get(confirmTimeout.toNanos(), TimeUnit.NANOSECONDS);
+            awaitConfirm(destination, correlation, Math.max(0, deadline - System.nanoTime()));
         } catch (TimeoutException e) {
+            sender.interrupt();
             throw new EventPublishException("no broker confirm for " + destination + " within " + confirmTimeout, e);
         } catch (InterruptedException e) {
+            sender.interrupt();
             Thread.currentThread().interrupt();
             throw new EventPublishException("interrupted waiting for the broker's confirm for " + destination, e);
         } catch (ExecutionException e) {
-            throw new EventPublishException("failed waiting for the broker's confirm for " + destination, e);
+            throw new EventPublishException("failed to send to " + destination, e.getCause());
         }
+    }
+
+    private static void awaitConfirm(String destination, CorrelationData correlation, long nanos)
+            throws TimeoutException, InterruptedException, ExecutionException {
+        CorrelationData.Confirm confirm = correlation.getFuture().get(nanos, TimeUnit.NANOSECONDS);
         // The broker acks a mandatory message it could not route, after returning it.
         if (correlation.getReturned() != null) {
             throw new EventPublishException("unroutable: no queue is bound for " + destination, null, true);
         }
         if (!confirm.ack()) {
-            throw new EventPublishException("not confirmed by the broker: " + destination, null, true);
+            // Spring also synthesizes a nack when a connection or channel closes with confirms outstanding: that is an
+            // outage, and retrying is right. Only a broker's "no such exchange" is an answer about this message.
+            String reason = confirm.reason();
+            boolean rejected = reason != null && (reason.contains("reply-code=404") || reason.contains("NOT_FOUND"));
+            throw new EventPublishException("not confirmed by the broker: " + destination, null, rejected);
         }
     }
 

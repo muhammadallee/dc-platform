@@ -24,6 +24,7 @@ import org.springframework.validation.annotation.Validated;
  * @param gaugeInterval how often the backlog metrics are refreshed
  * @param retentionInterval how often sent rows are deleted
  * @param stopTimeout how long a shutdown waits for the batch in flight
+ * @param readTimeout the Oracle driver's read timeout on the drainer's connections, unless the application pool sets one
  * @since 1.0.0
  */
 @Validated
@@ -52,7 +53,9 @@ public record OutboxProperties(
         /** How often sent rows are deleted. */
         @DefaultValue("5m") Duration retentionInterval,
         /** How long a shutdown waits for the batch in flight. */
-        @DefaultValue("30s") Duration stopTimeout) {
+        @DefaultValue("30s") Duration stopTimeout,
+        /** The Oracle driver's read timeout on the drainer's connections, unless the application pool sets one. */
+        @DefaultValue("60s") Duration readTimeout) {
 
     /**
      * The drainer's settings.

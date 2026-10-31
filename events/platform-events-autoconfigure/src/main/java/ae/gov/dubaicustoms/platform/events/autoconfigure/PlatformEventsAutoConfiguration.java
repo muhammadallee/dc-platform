@@ -37,9 +37,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *   EventPublisher is on the classpath AND an EventPublisher bean actually exists
  *   (@ConditionalOnBean) AND dc.platform.events.relay.enabled=true: re-publishes
  *   @EventType-annotated domain events as integration events after commit; eventsCapabilityDescriptor.
- * Order: none required.
+ * Order: after messaging and the outbox, or the relay's bean condition is evaluated before EventPublisher exists and
+ * the relay is silently absent.
  */
-@AutoConfiguration
+@AutoConfiguration(afterName = {
+        "ae.gov.dubaicustoms.platform.messaging.autoconfigure.PlatformMessagingAutoConfiguration",
+        "ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.OutboxAutoConfiguration"})
 @ConditionalOnClass(DomainEvent.class)
 @ConditionalOnProperty(prefix = "dc.platform.events", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(EventsProperties.class)

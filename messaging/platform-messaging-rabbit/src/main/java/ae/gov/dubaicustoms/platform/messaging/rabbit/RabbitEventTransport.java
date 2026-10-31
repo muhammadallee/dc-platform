@@ -148,10 +148,10 @@ public final class RabbitEventTransport implements EventTransport {
         }
         // The broker acks a mandatory message it could not route, after returning it.
         if (correlation.getReturned() != null) {
-            throw new EventPublishException("unroutable: no queue is bound for " + destination, null);
+            throw new EventPublishException("unroutable: no queue is bound for " + destination, null, true);
         }
         if (!confirm.ack()) {
-            throw new EventPublishException("not confirmed by the broker: " + destination, null);
+            throw new EventPublishException("not confirmed by the broker: " + destination, null, true);
         }
     }
 

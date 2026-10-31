@@ -758,6 +758,32 @@ One line of context per decision; details live in the commit bodies referenced.
   fails on read with ORA-18716. The platform keeps Hibernate's standard mapping rather than overriding
   the `Instant` JDBC type for every service and database; Oracle migrations declare `Instant` columns
   `TIMESTAMP WITH TIME ZONE` (documented, tested across JVM and session zones).
+- **D115 — the outbox is a JDBC module inside the messaging capability (hardening phase 4, HD11).** Owner's choice over
+  the Spring Modulith event publication registry: every plan requirement (claiming, separate connection budget, parked
+  state, trace columns) is explicit and testable, and a service adds no external framework. It belongs to messaging
+  because the drainer sends through `EventTransport`, a messaging SPI, which another capability's autoconfigure may not
+  use (rule 5). A separate `OutboxPublisher` makes guaranteed publishes visible in review. Its auto-configuration is its
+  own module: the enforcer's fan-out ceiling refused it in `platform-messaging-autoconfigure`, and a service without the
+  outbox then carries none of it.
+- **D116 — lock while sending, not claim with a lease (hardening phase 4).** One transaction per batch: claim with
+  `FOR UPDATE SKIP LOCKED`, send, record, commit. The database releases a dead pod's locks, so no lease or recovery job
+  exists, and a kill repeats at most one batch. The cost is a drainer connection and row locks held across sends, which
+  the drainer's own pool isolates from requests. The batch limit stops the cursor fetch, because Oracle locks as it
+  fetches; `ROWNUM` or `FETCH FIRST` would limit before skipping locked rows. Only a rejection by the sink counts toward
+  parking, so a long outage parks nothing.
+- **D117 — the drainer's pool is not a bean (hardening phase 4).** A `DataSource` or `PlatformTransactionManager` bean
+  would make Boot back off from the service's pool or JPA transaction manager, and `@Transactional` would stop covering
+  JPA writes. The pool is held by `OutboxConnections`, copied from a Hikari application pool so it inherits the Phase 3
+  Oracle bounds; the drainer manages its own transactions and statement timeouts, so it does not inherit the 30 s
+  transaction default (D110).
+- **D118 — the outbox table is a copied migration (hardening phase 4).** A versioned migration in a platform jar collides
+  with the service's sequence and can trip the out-of-order guard (D112); runtime creation fails for a runtime user
+  without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
+  missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
+  collide with the service's next migration (scope amendment A2).
+- **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
+  on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
+  rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.
 - **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
   ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
   case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run

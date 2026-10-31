@@ -3,7 +3,7 @@
 | Item | Value |
 |---|---|
 | Phase start commit | `39e354d` (tag `hardening/phase-03-closed`) |
-| Capability under test | New `platform-messaging-outbox`, new `platform-starter-messaging-outbox`, outbox wiring in `platform-messaging-autoconfigure`, the `OutboxPublisher` API in `platform-messaging-api`, `EventEnvelope.eventId` |
+| Capability under test | New `platform-messaging-outbox`, `platform-messaging-outbox-autoconfigure` and `platform-starter-messaging-outbox`, the `OutboxPublisher` API in `platform-messaging-api`, `EventEnvelope.eventId` |
 | Owner decisions | HD11: platform JDBC module (2026-10-31). HC7: the platform has no users, so breaking changes need only a CHANGELOG entry (2026-10-31). HD3, HD13: Oracle only, prod 19c, certified on 23ai Free |
 | Certified dependencies | core, errors (Phase 1), logging, observability (Phase 2), data (Phase 3) |
 | Fixtures (not certified here) | RabbitMQ transport (certified in Phase 5; only its publisher confirms are hardened here, R7), security, openapi, validation |
@@ -14,7 +14,7 @@
 ### R1 Module layout (HD11)
 1. The outbox belongs to the **messaging capability**: the drainer sends through `EventTransport`, a messaging SPI, and CLAUDE.md rule 5 forbids an autoconfigure module depending on another capability's SPI.
 2. `platform-messaging-outbox` (Implementation): depends on messaging-api, messaging-spi, spring-jdbc, spring-tx, HikariCP. No dependency on JPA or data-jpa.
-3. `platform-starter-messaging-outbox` (POM only): messaging-autoconfigure + the outbox implementation. It names no transport; a service adds a transport starter as well. No transport bean → startup fails with a `FailureAnalyzer` message (a table nobody drains is silent data loss).
+3. `platform-starter-messaging-outbox` (POM only): messaging-autoconfigure, outbox-autoconfigure (its own module: the enforcer's fan-out ceiling refused it in messaging-autoconfigure) + the outbox implementation. It names no transport; a service adds a transport starter as well. No transport bean → startup fails with a `FailureAnalyzer` message (a table nobody drains is silent data loss).
 4. Listed in the platform BOM.
 
 ### R2 Write path (§7.4; plan "same transaction and DataSource")
@@ -24,7 +24,7 @@
 4. Works under `JpaTransactionManager` and `DataSourceTransactionManager`.
 
 ### R3 Stored row and redaction (§7.6, §7.8)
-1. Table `platform_outbox`, 19c-safe (no JSON column type, no `BOOLEAN`): `event_id` (PK), `event_type`, `event_version`, `destination`, `msg_key`, `payload` (BLOB), `content_type`, `headers` (CLOB, JSON text), `principal`, `created_at` (TSTZ), `next_attempt_at` (TSTZ), `attempts`, `status` (`PENDING` / `SENT` / `PARKED`), `sent_at` (TSTZ), `last_error`.
+1. Table `platform_outbox`, 19c-safe (no JSON column type, no `BOOLEAN`): `event_id` (PK), `event_type`, `event_version`, `destination`, `msg_key`, `payload` (BLOB), `content_type`, `headers` (CLOB, JSON text), `principal`, `created_at` (TSTZ), `next_attempt_at` (TSTZ), `attempts`, `rejections`, `status` (`PENDING` / `SENT` / `PARKED`), `sent_at` (TSTZ), `last_error`.
 2. Headers stored: the application's envelope headers with credential-named keys **refused at write** (exception, not silently dropped), plus `traceparent`/`tracestate` of the current span. `principal` is the subject id only, never a token.
 3. `last_error` holds the exception class name only (a transport message can carry hosts and credentials).
 4. The payload is the application's data and is not masked; `outbox.md` says so.
@@ -56,10 +56,10 @@
 When the outbox is active and a transaction is bound to its `DataSource`, `DomainEventRelay` writes through `OutboxPublisher` **inside** the transaction rather than after commit. Otherwise behaviour stays as today. `events.md` and the book's "precursor" passages are updated.
 
 ### R10 Schema delivery
-A versioned migration inside a platform jar would collide with the service's version sequence and can trip the Phase 3 out-of-order guard; runtime creation fails under a runtime user without DDL rights. So: the DDL ships as a **resource and documentation** that the service copies into its own migration sequence, with a grants line. The archetype feature `outbox` (requires `data` and `messaging`) generates it. At startup a metadata check fails with a `FailureAnalyzer` message naming the file when the table is missing.
+A versioned migration inside a platform jar would collide with the service's version sequence and can trip the Phase 3 out-of-order guard; runtime creation fails under a runtime user without DDL rights. So: the DDL ships as a **resource and documentation** that the service copies into its own migration sequence, with a grants line. No archetype feature (amendment A2). At startup a metadata check fails with a `FailureAnalyzer` message naming the file when the table is missing.
 
 ### R11 Consumer-visible changes
-CHANGELOG `Breaking`: `EventEnvelope` constructor, Rabbit publisher confirms (`spring.rabbitmq.publisher-confirm-type`, `publisher-returns` defaulted), and a publish to an unroutable destination now fails. `Added`: the starter, API, properties, archetype feature.
+CHANGELOG `Breaking`: `EventEnvelope` constructor, Rabbit publisher confirms (`spring.rabbitmq.publisher-confirm-type`, `publisher-returns` defaulted), and a publish to an unroutable destination now fails. `Added`: the starter, API, properties.
 
 ## 2. Exclusions (and where they are handled)
 
@@ -144,7 +144,18 @@ JDK 25, Maven 3.9, Docker. Oracle `gvenzl/oracle-free:23-slim-faststart`, Rabbit
 | ID | Date | Amendment | Reason |
 |---|---|---|---|
 | A1 | 2026-10-31 | The plan's "PostgreSQL and Oracle verified" is Oracle only. | HD3 amended: PostgreSQL is out for now. H2 is used for local runs and unit tests, as evidence for neither. |
+| A2 | 2026-10-31 | R10: no archetype `outbox` feature. A service adds the starter and copies the DDL. | The archetype can only render an unwanted file empty, and an empty `V2__…` would collide with the service's next migration. The startup failure names the file. |
 
 ## 11. HI-0071 (carried from Phase 3)
 
-Closure said Phase 4's outbox work would change the transaction layer. **With this design it does not:** the write path joins the caller's transaction and the drainer uses plain JDBC. HI-0071 stays open as its own item. Gate B spikes a `TransactionExecutionListener` for explicit commit evidence; if it is not clearly better, the choice goes back to the owner at closure.
+Closure said Phase 4's outbox work would change the transaction layer. **With this design it does not:** the write path joins the caller's transaction and the drainer uses plain JDBC. HI-0071 stays open as its own item.
+
+**Gate B spike (Spring 7, real `AbstractPlatformTransactionManager`):**
+
+| Failure | Listener calls | Failure object passed? |
+|---|---|---|
+| Runtime exception from `doCommit` (the lost-connection case) | `beforeCommit`, then `afterRollback` | **No** (`null`) |
+| `TransactionException` from `doCommit` | `beforeCommit`, then `afterCommit` | Yes |
+| Failure in a `beforeCommit` synchronization | `afterRollback` only (no `beforeCommit`) | No |
+
+So a listener cannot mark the failing exception in the case that matters. A thread-local "commit attempted" flag would fix the one over-veto (a `beforeCommit` callback's 503), at the cost of lifecycle state, but not the misses Codex named. Not clearly better, so the choice goes back to the owner at closure.

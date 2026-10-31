@@ -643,7 +643,15 @@ RFC-9457 problem responses with stable, machine-readable error codes: throw a
   (404), `ConflictException` (409); each carries an `ErrorCode` (`DC-<CAP>-<NNNN>`) that becomes
   the problem `type`/`title` and the `code` extension.
 - **Platform exception mapping** — any other `PlatformException` maps to 500 with its own code;
-  anything unmapped maps to 500 with `DC-CORE-0500`. **No 5xx body ever carries an exception
+  a data-access failure maps to 409/503 with a `DC-DATA-*` code (below); anything else unmapped maps
+  to 500 with `DC-CORE-0500`.
+- **Data-access failures** — recognised anywhere in the cause chain, whether Spring translated them
+  (`DataIntegrityViolationException`, `OptimisticLockingFailureException`, …) or not (raw
+  Hibernate/JPA/JDBC types from code that uses the `EntityManager` directly; SQLState `23`/`40`/`08`):
+  constraint violation → 409 `DC-DATA-0409`, concurrent update or lock → 409 `DC-DATA-0410`,
+  unavailable database or timeout → 503 `DC-DATA-0503` (`retryable: true`). The detail is fixed — the
+  database's message, which names SQL, tables and constraints, never reaches the caller; it is logged
+  at WARN on the request's trace. A SQL bug (bad grammar, unknown table) stays a 500. **No 5xx body ever carries an exception
   message** — every 5xx gets the generic detail `An unexpected error occurred.`; the full exception
   goes to the log with the trace ID. 4xx business exceptions keep their application-authored message.
 - **Framework errors get the same contract** — Spring MVC's own rejections (404, 405, 406, 415, …) keep
@@ -754,6 +762,9 @@ Customizers run last, in order, on every problem body the platform emits.
 | `DC-CORE-0410` | Request body unreadable or malformed (e.g. invalid JSON). |
 | `DC-CORE-0499` | Any other request the servlet stack rejected (404, 405, 406, 415, …); status preserved. |
 | `DC-CORE-0500` | Unhandled exception; generic body, full details in the log. |
+| `DC-DATA-0409` | 409 — the request conflicts with stored data (unique, foreign-key, NOT NULL or check constraint). |
+| `DC-DATA-0410` | 409 — the data was changed or is locked by another request; reload and retry. |
+| `DC-DATA-0503` | 503 — the database is unavailable: no pooled connection in time, statement/transaction timeout, lost connection. Retryable. |
 | `DC-SEC-0401` | Missing or unacceptable credentials (security entry point). |
 | `DC-SEC-0403` | Authenticated, but lacking the required authority (security denied handler). |
 
@@ -1618,6 +1629,14 @@ or RabbitMQ) via a starter.
 - **`/actuator/platform`** reports `messaging[ACTIVE <provider>]`, or `INACTIVE` when no single
   `EventTransport` bean is configured.
 
+For a publish tied to a database change, use the [transactional outbox](outbox.md): `EventPublisher` sends immediately,
+so a crash right after your commit loses the event.
+
+Delivery is at-least-once: every message carries a stable `eventId` header, generated once when the envelope is built, and
+consumers deduplicate by it. On RabbitMQ a send waits for the broker's publisher confirm; an unroutable message, a nack or
+no confirm within `dc.platform.messaging.rabbit.confirm-timeout` (default `5s`) throws `EventPublishException`, so **a
+destination needs a bound queue before you publish to it**.
+
 ## Starter coordinates
 
 Pick exactly one (each brings its own `EventTransport`):
@@ -1741,6 +1760,139 @@ against a running Docker daemon, or start `docker-compose.local.yml` for manual 
 
 ---
 
+<!-- source: modules/outbox.md -->
+
+# Transactional Outbox
+
+**Guaranteed publish alongside a database change.** The event is written to a table in the same transaction as your
+business write, so both commit or neither does. A separate drainer then delivers it, at least once. A crash between
+the commit and the send loses nothing.
+
+Use it for any publish tied to a database change. `EventPublisher` sends immediately and cannot give that guarantee.
+
+The outbox is a messaging-durability mechanism, not an audit mechanism.
+
+## Add it to a service
+
+1. **Add the starter**, next to a transport starter and your data starter:
+
+   ```xml
+   <dependency>
+     <groupId>ae.gov.dubaicustoms.platform</groupId>
+     <artifactId>platform-starter-messaging-outbox</artifactId>
+   </dependency>
+   <dependency>
+     <groupId>ae.gov.dubaicustoms.platform</groupId>
+     <artifactId>platform-starter-messaging-rabbit</artifactId>
+   </dependency>
+   ```
+
+2. **Add the table to your migrations.** Copy
+   `classpath:ae/gov/dubaicustoms/platform/messaging/outbox/platform_outbox.sql` (in `platform-messaging-outbox`) into
+   your own sequence, for example `V7__platform_outbox.sql`. With a separate runtime user, also grant it `select, insert,
+   update, delete` on the table. The platform never creates the table: a runtime user has no DDL rights, and a migration
+   inside a platform jar would collide with your version numbers. If the table is missing, startup fails and names this
+   file.
+
+3. **Publish inside your transaction:**
+
+   ```java
+   @Transactional
+   public void place(Order order) {
+       orders.save(order);
+       outbox.publish("dc.orders:order.placed", EventEnvelope.of(new OrderPlaced(order.id())).key(order.id()).build());
+   }
+   ```
+
+No dependency on JPA: it needs a `DataSource`, and joins your transaction under `JpaTransactionManager` or
+`DataSourceTransactionManager`.
+
+## What it guarantees, and what it does not
+
+| Guarantee | Detail |
+|---|---|
+| Atomic with the business write | A rollback leaves no row. `publish` **throws** if no transaction is active on the outbox's `DataSource`, because the row could not commit with your write |
+| At-least-once delivery | A kill between a send and its commit repeats the rows of that batch: at most `batch-size` duplicates per kill |
+| Stable event id | Generated once, when the envelope is built; the same on every retry, sent as header `eventId` |
+| Acknowledged sends | A row is marked sent only after the transport acknowledges it. On RabbitMQ that is a publisher confirm; unroutable or nacked messages fail |
+
+| Not offered | Consequence for you |
+|---|---|
+| Exactly-once | **Consumers must deduplicate by `eventId`** |
+| Ordering | Retries and `SKIP LOCKED` reorder events, even for one key. Consumers must tolerate a later event arriving first |
+
+Stored rows: headers named like a credential (`*token`, `*password`, `authorization`, `*cookie`…) are refused with an
+exception. The principal is the subject id only. `last_error` holds the exception class only. **The payload is your
+data and is stored as is**, so do not put tokens or personal data in an event you would not want in this table.
+
+## How it works
+
+The drainer runs on one thread, on **its own small connection pool** (`pool-size`, default 2), so a stuck or backlogged
+drainer cannot starve request threads. The pool is copied from your Hikari pool, so it has the same URL, credentials,
+Oracle driver bounds and `connection-init-sql`.
+
+Each batch is one transaction: claim due rows with `FOR UPDATE SKIP LOCKED`, send each, record each, commit. Row locks
+keep other instances off those rows, and the database releases them when a pod dies, so there is no lease and no recovery
+job. A long-running send holds its row locks and one drainer connection, not a request thread.
+
+| Failure | What happens |
+|---|---|
+| Sink down or slow (no confirm in time) | The row is retried with backoff and the drainer pauses (up to `max-backoff`). **It never parks**: recovery delivers the whole backlog |
+| Sink rejects the message (unroutable, nacked) | Counts toward `max-rejections`, then the row is `PARKED` with a WARN and a metric. Other rows keep flowing |
+| Database down | The batch rolls back and the drainer retries with the same pause |
+| Custom transport | Throw `EventPublishException` with `rejected=true` when the sink refuses a message; any other exception is treated as an outage and never parks |
+
+## Parked rows
+
+Parked rows are never deleted automatically. Find out why (`last_error`, the WARN line), fix the cause (usually a missing
+queue binding), then replay; the event keeps its id:
+
+```sql
+update platform_outbox
+   set status = 'PENDING', rejections = 0, next_attempt_at = current_timestamp
+ where status = 'PARKED'
+   and destination = :destination;
+```
+
+## Properties
+
+All under `dc.platform.messaging.outbox`.
+
+| Property | Default | Description |
+|---|---|---|
+| `enabled` | `true` | `false` publishes after commit, **no longer guaranteed**, and logs a startup WARN saying so |
+| `pool-size` | `2` | The most connections the drainer holds, on its own pool |
+| `batch-size` | `50` | The most rows per transaction, and so the most duplicates a kill can cause |
+| `poll-interval` | `1s` | The pause when nothing is due |
+| `max-rejections` | `10` | Rejections by the sink before a row is parked; outages do not count |
+| `initial-backoff` | `1s` | First per-row retry delay; doubles per attempt |
+| `max-backoff` | `5m` | Longest per-row retry delay and longest pause after a failure |
+| `sent-retention` | `24h` | How long a sent row is kept; deleted in bounded batches |
+| `statement-timeout` | `30s` | The timeout on each drainer statement |
+| `gauge-interval` | `5s` | How often the backlog metrics refresh (on the drainer's thread, never on scrape) |
+| `retention-interval` | `5m` | How often sent rows are deleted |
+| `stop-timeout` | `30s` | How long a shutdown waits for the batch in flight |
+
+## Metrics
+
+| Meter | Meaning |
+|---|---|
+| `platform.outbox.pending` | Rows waiting to be sent |
+| `platform.outbox.oldest.pending.age` | Age in seconds of the oldest waiting row: the drain lag. **Alert on this** |
+| `platform.outbox.parked` | Parked rows. **Alert on anything above 0** |
+| `platform.outbox.sent`, `.failed`, `.parked.total` | Counters. No tags, so no event ids or destinations in labels |
+| `hikaricp_*{pool="platform-outbox"}` | The drainer's own pool |
+
+## Replace / disable
+
+- Define your own `OutboxPublisher`, `OutboxContext`, `OutboxDrainer` or `outboxCapabilityDescriptor` bean to replace
+  the default.
+- `dc.platform.messaging.outbox.enabled=false` keeps application code working, with publishes after commit. A crash
+  between the commit and the send then loses the event.
+
+
+---
+
 <!-- source: modules/events.md -->
 
 # Events
@@ -1836,13 +1988,15 @@ class OrderNotifications {
 
 (Hand-written until the generated reference lands in phase 14.)
 
-## Relay: a lightweight outbox precursor
+## Relay, and when it is guaranteed
 
-The relay publishes the integration event on the same after-commit callback as
-`@DomainEventHandler` dispatch — a process crash between the local commit and the publish call
-still loses the integration event. This is intentional for phase 7: a true transactional outbox
-(durable staging row written in the same transaction, published by a separate process) is a
-documented future enhancement, not implemented here. See `docs/decisions/decision-log.md` (D32).
+With the [transactional outbox](outbox.md) on the classpath and a transaction on its database, the relay writes the
+integration event through the outbox **inside** the transaction, so it commits with the business write and survives a
+crash.
+
+Without the outbox, or outside such a transaction, the relay publishes on the same after-commit callback as
+`@DomainEventHandler` dispatch, and a process crash between the local commit and the publish call still loses the
+integration event (D32).
 
 To enable it, add a messaging starter (e.g. `platform-starter-messaging-inmemory`) alongside
 `platform-starter-events` and set `dc.platform.events.relay.enabled=true`.
@@ -1909,6 +2063,67 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   telling you to add the starter or set `dc.platform.data.jpa.require-migrations=false`. Spring Boot 4
   ships `FlywayAutoConfiguration` in `spring-boot-flyway`, so `flyway-core` alone is an engine nobody
   starts: the starter bundles both, and the guard checks both.
+- **Bounded waits (D110)** — in the same `platform-data-jpa-defaults` source:
+  - `spring.datasource.hikari.connection-timeout=5000`: a request behind an exhausted pool fails in 5 s
+    (Hikari's own 30 s lets request threads pile up) with a 503 `DC-DATA-0503`;
+  - `spring.transaction.default-timeout=30s`: every transaction, Spring Data repository methods
+    included; once it is spent the driver cancels the running statement (reliably for plain SQL; for SQL
+    running inside a PL/SQL function the cancel is best-effort, and was once missed in testing);
+  - `spring.jpa.properties.jakarta.persistence.query.timeout=30000` and
+    `spring.jdbc.template.query-timeout=30s`: a query that runs **outside** a transaction is bounded
+    too. A declared repository query (`@Query` or a derived `findBy…`) has no transaction of its own,
+    and neither has a service method without `@Transactional`. Inside a transaction the remaining
+    transaction time is used instead for repository queries and for queries created on the injected
+    `EntityManager` (or its unwrapped `Session`'s `createQuery`/`createNativeQuery`). Two paths bypass that
+    and take this default instead — past a shorter transaction's deadline, or cutting a longer one short:
+    Hibernate's `Session.createSelectionQuery(…)` and a query on the raw `getDelegate()`. On those, set the
+    timeout on the query yourself (`.setTimeout(seconds)`). `EntityManager.find` outside a transaction is
+    not a query; only the read timeout below bounds it;
+  - on a pool whose URL is `jdbc:oracle:`, the driver's `oracle.jdbc.ReadTimeout` (the backstop for what
+    a cancel cannot stop: a PL/SQL or lock wait, a dead network) and `oracle.net.CONNECT_TIMEOUT=10000` are
+    added to the pool's `data-source-properties`. The read timeout is
+    `dc.platform.data.jpa.oracle.read-timeout` (default `60s`). It bounds **each wait for the database's
+    answer**, so a statement the database takes longer than that to answer (a long update, an index build,
+    a lock wait) fails whatever its transaction timeout: a service with `@Transactional(timeout = 300)`
+    batch work raises it to match. Flyway's own connection, when migrations run as a separate user (see
+    *Schema owner and runtime user*), gets the connect timeout and
+    `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`), so a long migration statement (an
+    index build) can finish while a database that stops answering still fails startup. Migrations that run
+    through the pool (no separate Flyway user) get the pool's value. The connect timeout covers only the
+    TCP connect: a database that accepts the connection and then never answers is ended by the read timeout
+    (measured: a silent peer at startup failed after 610 s with a separate Flyway user, `ORA-17002 … Socket
+    read timed out`). A shorter startup probe restarts the service first, which also bounds it; lower
+    `flyway-read-timeout` if a faster, clearer failure matters more than long migration statements; A pool you build and start yourself (`new HikariDataSource(config)`) is sealed, so
+    nothing is added to it: set both properties on its config;
+  - `leak-detection-threshold=20000` (a stack trace for a connection held over 20 s) only under the
+    `local` profile, and never when `prod` is active as well.
+  Hikari's keepalive (2 min) and max lifetime (30 min) are its own defaults. Set any key yourself to
+  change it — a value you set always wins (for the driver timeouts: a `data-source-properties` entry or
+  a JVM system property).
+- **Data errors as problems (D111)** — handled by the errors capability: a unique, foreign-key, NOT
+  NULL or check violation is a 409 `DC-DATA-0409` (Hibernate's own null check included), a concurrent
+  update or lock a 409 `DC-DATA-0410`, an unavailable database or a timeout a retryable 503
+  `DC-DATA-0503` (a transaction whose deadline passed before a flush or commit included, and a rollback
+  that fails because the connection broke, e.g. after the driver read timeout). A connection lost while
+  **committing** is a non-retryable 500 whatever its cause, because the outcome is unknown (recognised for
+  Spring's imperative transaction managers such as `JpaTransactionManager`, not reactive ones; HI-0071). The body never names SQL, tables or
+  constraints; the platform logs the full exception once, at WARN on the request's trace. Hibernate logs the
+  failed statement's error code and driver message as two WARN lines of its own just before (logger
+  `org.hibernate.orm.jdbc.error`); they are the only record when application code catches the exception, so
+  the platform leaves them on — set `logging.level.org.hibernate.orm.jdbc.error=error` to drop them. This
+  also covers raw Hibernate/JPA exceptions from code that uses the `EntityManager` directly (Spring
+  translates only behind a repository).
+
+## Transactions
+
+- Put `@Transactional` on the service method that owns the unit of work, and
+  `@Transactional(readOnly = true)` on service methods that only read. Spring Data's inherited
+  repository methods (`findAll`, `save`, …) already run in a transaction (read-only for reads);
+  a declared query method does not, unless you annotate it or call it from a transactional service.
+- A runtime exception thrown out of a `@Transactional` method rolls the transaction back. A
+  **checked** exception does not: Spring commits by default. Declare
+  `@Transactional(rollbackFor = Exception.class)` where a checked exception must undo the work.
+  Both verified against Oracle (`OracleTransactionRulesIT`).
 
 ## Migrations
 
@@ -1917,7 +2132,72 @@ once Flyway is present (never set `spring.jpa.hibernate.ddl-auto=create/update` 
 service archetype's `data` feature ships `db/migration/V1__create_note.sql` for its `Note` sample and a
 `NoteRepositoryTest` that proves the migrated schema with CRUD across transactions, rollback, and a
 NOT NULL violation on H2. H2 covers local runs and tests only — the generated `prod` profile disables
-the embedded fallback, and PostgreSQL parity is the `@Tag("docker")` `PostgresParityIT`.
+the embedded fallback.
+
+Flyway's safe settings are pinned (D112), so an upgrade cannot loosen them: `clean-disabled=true`,
+`validate-on-migrate=true`, `out-of-order=false`, `validate-migration-naming=true`. In practice:
+- name every file `V<version>__<description>.sql` (two underscores) — a misnamed file fails startup
+  instead of being skipped;
+- never edit an applied migration — the checksum mismatch blocks startup; add `V<next>__…` instead;
+- out-of-order migrations are refused outside the `local` profile, with a startup diagnostic that
+  names the fix, however they were switched on (`spring.flyway.*`, `flyway.conf`, any customizer): the
+  check runs on Flyway's finished configuration, before anything migrates.
+
+### Schema owner and runtime user
+
+In production, migrations and the application connect as different database users:
+
+| User | Grants | Configured by |
+|---|---|---|
+| Schema owner (e.g. `APP_OWNER`) | owns the tables; `create table/sequence/view/procedure` | `spring.flyway.user` / `spring.flyway.password` — Flyway only |
+| Runtime user (e.g. `APP_RUNTIME`) | `create session` and `select/insert/update/delete` on the owner's tables, `select` on its sequences; **no** `alter`, `drop` or `create` | `spring.datasource.username` / `password` — the pool |
+
+The runtime user resolves the owner's unqualified table names either per session —
+`spring.datasource.hikari.connection-init-sql=ALTER SESSION SET CURRENT_SCHEMA=APP_OWNER` — or through
+synonyms the owner creates. Grants for tables added by a later migration go in that migration (or a
+repeatable `R__grants.sql`), so a deploy never needs a manual step.
+
+With `spring.flyway.user` set, Boot gives Flyway its own connection outside the pool; the platform adds
+the connect timeout and `flyway-read-timeout` (10 min) to it. One exception: a `{vendor}` placeholder in
+`spring.flyway.locations` makes Boot open one connection to detect the database **before** the platform
+can set them. Keep the default `db/migration` location, or set the driver properties on the JVM, e.g.
+`-Doracle.net.CONNECT_TIMEOUT=10000 -Doracle.jdbc.ReadTimeout=600000`. A JVM system property applies to
+every Oracle connection and wins over both platform values, so the pool then gets the same read timeout:
+choose it for the longest statement either side runs. The same JVM properties are the way for a `Flyway` bean you define yourself
+with a URL (`Flyway.configure().dataSource(url, user, password)`): Flyway then builds its own connection,
+which the platform does not touch.
+
+## Oracle
+
+Production runs Oracle 19c; Oracle is the only certified database (PostgreSQL is out for now). Use the
+Oracle starter — it brings the JDBC driver **and** `flyway-database-oracle` (Flyway 10+ refuses a
+database without its module: `Unsupported Database`):
+
+```xml
+<dependency>
+  <groupId>ae.gov.dubaicustoms.platform</groupId>
+  <artifactId>platform-starter-data-jpa-oracle</artifactId>
+</dependency>
+```
+
+Generate a new service with `-Dfeatures=data -Ddatabase=oracle`; H2 still backs its local runs and tests.
+
+Behaviour verified against Oracle with Hibernate in 19c mode (`@Tag("docker")` tests in
+`platform-data-jpa-autoconfigure`):
+
+| Topic | What to do |
+|---|---|
+| Names | Unquoted snake_case names are stored upper-case; identifiers are limited to 128 characters (ORA-00972 beyond). |
+| Keys | Sequences: `allocationSize` must equal the sequence's `INCREMENT BY`. Identity columns (`generated by default as identity`) work too. |
+| `boolean` | Stored as `NUMBER(1)`; 19c has no SQL `BOOLEAN` — never use it in a migration. |
+| `Instant` | Map to `TIMESTAMP WITH TIME ZONE` (D114). Hibernate reads `Instant` as an offset date-time; a plain `TIMESTAMP` column fails on read with ORA-18716. Values are unchanged across JVM and session time zones. |
+| Paging | `Pageable` becomes `OFFSET … FETCH`; always sort for stable pages. |
+| Empty strings | Oracle stores `''` as `NULL`: a `NOT NULL` column rejects an empty string (409 `DC-DATA-0409`). |
+| Migrations | Write them 19c-safe: no `BOOLEAN`, no `IF [NOT] EXISTS`, `FROM DUAL` in selects, end PL/SQL blocks with a `/` line. |
+
+The certification container is Oracle 23ai Free (no 19c image exists): Hibernate is pinned to 19 there,
+but hand-written SQL runs against 23ai, which accepts 19c-invalid syntax — review migrations for 19c.
+RAC failover (FCF/ONS, Application Continuity) is not covered.
 
 ## Starter coordinates
 
@@ -1957,8 +2237,11 @@ Money total = price.add(Money.of("1.00", "AED"));   // 20.99 AED
 
 ## Local dev notes
 
-`platform-data-api` has no datastore dependency at all. The JPA slice (below) tests against H2; no
-Docker or network is required for the default build.
+`platform-data-api` has no datastore dependency at all. The JPA slice tests against H2; no
+Docker or network is required for the default build. The Oracle tests run under `mvn -Pdocker verify`;
+a cold Oracle container copies about 3 GB of datafiles (minutes on a laptop disk), so set
+`testcontainers.reuse.enable=true` in `~/.testcontainers.properties` to keep the instance warm between
+runs (each run still gets a fresh schema user).
 
 
 ---
@@ -4411,6 +4694,105 @@ One line of context per decision; details live in the commit bodies referenced.
   written raw it would make the whole line invalid JSON, and undecoded escapes (`password`)
   would hide credential names from the masks. Simpler than accepting the bypass as a residual, and
   fail-closed.
+- **D110 — bounded data-access waits (hardening phase 3, Gate B).** Measured against Oracle before
+  choosing: a statement cancel (JDBC query timeout, the JPA hint, a Spring transaction timeout) stops
+  SQL work about a second after its limit, but not a PL/SQL or lock wait or a dead network. Defaults
+  (lowest precedence): Hikari `connection-timeout` 5 s (was 30 s; a request behind an exhausted pool
+  fails fast, 503); `spring.transaction.default-timeout` 30 s (bounds every transaction, repository
+  methods included; note: it also applies to every transaction manager Boot creates, so Phase 4's
+  outbox drainer inherits it unless it sets its own); on a `jdbc:oracle:` pool the driver's
+  `oracle.jdbc.ReadTimeout` 60 s (above the transaction timeout, so slow SQL hits that first) and
+  `oracle.net.CONNECT_TIMEOUT` 10 s, added by a BeanPostProcessor keyed on the pool's own URL (an
+  environment check missed URLs from later property sources); leak detection 20 s under `local` only
+  (never with `prod`). Hikari's keepalive and max lifetime stay its defaults. Round 1 (Gate C) added:
+  a 30 s default query timeout (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`),
+  because a declared repository query or a non-transactional service runs outside any transaction (measured:
+  unbounded before); inside a transaction Spring sets the remaining time per query, which wins. And the
+  Oracle driver bounds on Flyway's own `SimpleDriverDataSource` (`spring.flyway.user`/`url`), applied on
+  the `Flyway` bean; residual: a `{vendor}` location connects before that (system properties cover it).
+  Round 2 (Gate D): the remaining transaction time wins only for queries Spring creates as a
+  `jakarta.persistence.Query` (repositories, the injected `EntityManager`, the unwrapped `Session`'s
+  `createQuery`/`createNativeQuery`); Hibernate's `SelectionQuery` and raw-delegate queries take the query
+  default (measured both ways). Decision: keep the default and document `.setTimeout(…)` on those paths
+  rather than reaching into Spring's transaction or Hibernate's session internals — the statement stays
+  bounded, and the alternative only approximates the remaining time. A pool started by the application
+  (`new HikariDataSource(config)`, sealed) is now left alone instead of failing startup; a `Flyway` bean the
+  application builds from a URL gets no driver bounds (Flyway's own data source; system properties cover it).
+  Gate F (HI-0070, owner decision HD14): the read timeout bounds each wait for the database's answer, so a
+  migration statement over 60 s (observed: a `CREATE TABLE` on a slow disk) failed startup, and a transaction given
+  a longer `@Transactional(timeout)` was still cut at 60 s. Both are now properties:
+  `dc.platform.data.jpa.oracle.read-timeout` (pool, 60 s) and `dc.platform.data.jpa.oracle.flyway-read-timeout`
+  (Flyway's own connection, 10 min: an index build can finish, a silent database still fails startup). A
+  `data-source-properties` entry or a JVM system property still wins. Migrations through the pool (no separate
+  Flyway user) get the pool's value.
+- **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
+  Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
+  use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`
+  whose SQLState is the only sign of a constraint violation. The errors capability's catch-all
+  therefore classifies the whole cause chain by class name (no compile dependency) and SQLState
+  (`23` → 409 `DC-DATA-0409`, `40`/locking → 409 `DC-DATA-0410`, `08`/timeouts/no connection → 503
+  `DC-DATA-0503`, retryable), with a fixed detail; a SQL bug stays 500. Simpler than a separate advice
+  behind `@ConditionalOnClass`, which would miss the raw types and need ordering.
+  Round 1 (Gate C) added `org.hibernate.PropertyValueException` (Hibernate's null check, before any SQL)
+  as 409, and `org.hibernate.TransactionException` as 503 only with Hibernate's exact message
+  `Transaction timeout expired` (a deadline passed before a flush or commit; pinned by an Oracle test).
+  Gate F (consumer run, HI-0068): when the driver read timeout closes a connection mid-transaction, Spring rethrows
+  the failed rollback in place of the 08006 cause, and Hikari's closed-connection `SQLException` has no SQLState.
+  Hibernate's `Unable to rollback against JDBC Connection` over that closed-connection exception is a 503 (nothing
+  was committed); over any other cause the cause classifies as usual. Codex verification added a veto: below
+  Hibernate's `Unable to commit against JDBC Connection` nothing is classified, because a failed commit's outcome
+  is unknown and a retry could apply the change twice (before, an 08006 cause made it a retryable 503). A second
+  verification found Spring's translator drops that Hibernate exception (a recoverable SQLException cause becomes
+  `RecoverableDataAccessException`), so a lost connection is also vetoed when it was raised inside Spring's
+  `AbstractPlatformTransactionManager.processCommit` (by stack frame); a commit-time-flush conflict stays a 409 and
+  Hibernate's deadline expiry stays a 503.
+  HI-0069: Hibernate logs each failed statement's error code and driver message at WARN before the handler's WARN
+  (three lines per violation, against scope R4 "logged once"). A default of `error` for that logger was tried and
+  reverted on Codex verification: it also silences failures that application code catches, and batch or async
+  paths without a handler. Decision: keep Hibernate's lines; the platform logs the exception once (scope
+  amendment A2); `data.md` names the logger for services that want only the platform's line.
+- **D112 — Flyway posture pinned; out-of-order refused outside `local` (hardening phase 3, Gate B).**
+  `clean-disabled`, `validate-on-migrate`, `out-of-order=false`, `validate-migration-naming` are
+  contributed explicitly so a Flyway upgrade cannot loosen them. The out-of-order guard is a
+  bean post-processor on the `Flyway` bean: it checks the finished configuration (after every property and
+  customizer, whatever its order) before Boot's migration initializer runs, with a `FailureAnalyzer`.
+  Round 1 (Gate C) replaced a lowest-precedence customizer, which an equally ordered customizer could follow.
+- **D113 — per-database starters; archetype `database` property (hardening phase 3, HD12).** One
+  POM-only starter per certified database carries the JDBC driver and Flyway's database module, so the
+  pair never travels apart (HI-0041). Only `platform-starter-data-jpa-oracle` exists (owner: other
+  databases later). The archetype takes `-Ddatabase=h2|oracle` (default `h2`, unchanged output apart
+  from a corrected comment); `oracle` requires the `data` feature and is validated like `features`.
+- **D114 — `Instant` on Oracle is `TIMESTAMP WITH TIME ZONE` (hardening phase 3, Gate B).** Hibernate
+  maps `Instant` to its UTC timestamp type and reads an offset date-time; a plain `TIMESTAMP` column
+  fails on read with ORA-18716. The platform keeps Hibernate's standard mapping rather than overriding
+  the `Instant` JDBC type for every service and database; Oracle migrations declare `Instant` columns
+  `TIMESTAMP WITH TIME ZONE` (documented, tested across JVM and session zones).
+- **D115 — the outbox is a JDBC module inside the messaging capability (hardening phase 4, HD11).** Owner's choice over
+  the Spring Modulith event publication registry: every plan requirement (claiming, separate connection budget, parked
+  state, trace columns) is explicit and testable, and a service adds no external framework. It belongs to messaging
+  because the drainer sends through `EventTransport`, a messaging SPI, which another capability's autoconfigure may not
+  use (rule 5). A separate `OutboxPublisher` makes guaranteed publishes visible in review. Its auto-configuration is its
+  own module: the enforcer's fan-out ceiling refused it in `platform-messaging-autoconfigure`, and a service without the
+  outbox then carries none of it.
+- **D116 — lock while sending, not claim with a lease (hardening phase 4).** One transaction per batch: claim with
+  `FOR UPDATE SKIP LOCKED`, send, record, commit. The database releases a dead pod's locks, so no lease or recovery job
+  exists, and a kill repeats at most one batch. The cost is a drainer connection and row locks held across sends, which
+  the drainer's own pool isolates from requests. The batch limit stops the cursor fetch, because Oracle locks as it
+  fetches; `ROWNUM` or `FETCH FIRST` would limit before skipping locked rows. Only a rejection by the sink counts toward
+  parking, so a long outage parks nothing.
+- **D117 — the drainer's pool is not a bean (hardening phase 4).** A `DataSource` or `PlatformTransactionManager` bean
+  would make Boot back off from the service's pool or JPA transaction manager, and `@Transactional` would stop covering
+  JPA writes. The pool is held by `OutboxConnections`, copied from a Hikari application pool so it inherits the Phase 3
+  Oracle bounds; the drainer manages its own transactions and statement timeouts, so it does not inherit the 30 s
+  transaction default (D110).
+- **D118 — the outbox table is a copied migration (hardening phase 4).** A versioned migration in a platform jar collides
+  with the service's sequence and can trip the out-of-order guard (D112); runtime creation fails for a runtime user
+  without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
+  missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
+  collide with the service's next migration (scope amendment A2).
+- **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
+  on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
+  rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.
 - **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
   ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
   case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run

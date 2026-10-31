@@ -69,6 +69,17 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - JSON mode switches Boot's startup banner off (`spring.main.banner-mode=off`, overridable) so every
   stdout line is JSON (D108).
 
+### Breaking (capability hardening, phase 4 — transactional outbox)
+- **`EventEnvelope` has a required `eventId`** (a new first record component): a UUID generated once when the envelope
+  is built, settable with `Builder.eventId(…)` for a republish, sent as header `eventId` (HC7: no users yet).
+- **A RabbitMQ send now waits for the broker's publisher confirm** and throws `EventPublishException` on a nack, a
+  returned (unroutable) message or no confirm within `dc.platform.messaging.rabbit.confirm-timeout` (default `5s`). A
+  publish to a destination with no bound queue, previously dropped silently, now fails. The platform defaults
+  `spring.rabbitmq.publisher-confirm-type=correlated`, `publisher-returns=true`, `template.mandatory=true` and
+  `connection-timeout=5s` (source `platform-messaging-defaults`); `RabbitEventTransport` refuses to start with confirms,
+  returns or `mandatory` off, and its constructor takes the timeout (D119).
+- `OutboxPublisher` is new, and `DomainEventRelay` writes through it inside the transaction when the outbox is present.
+
 ### Breaking (capability hardening, phase 3 — data access, Oracle)
 - **Data-access failures are no longer a generic 500.** A unique, foreign-key, NOT NULL or check
   violation is **409 `DC-DATA-0409`**; an optimistic or pessimistic locking failure is
@@ -104,6 +115,11 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   `validate-on-migrate` and `out-of-order=false` are pinned (D112).
 
 ### Added
+- Messaging: **transactional outbox** (`platform-starter-messaging-outbox`, HD11). `OutboxPublisher` writes in your
+  transaction; a bounded drainer on its own connection pool delivers at least once with `FOR UPDATE SKIP LOCKED`, parks
+  what the sink rejects, retains sent rows for a day, and reports lag and parked metrics. Copy
+  `platform_outbox.sql` into your migrations. See `docs/modules/outbox.md`.
+- Messaging: `EventPublishException.rejected()`, so a transport can tell a refused message from an outage.
 - Data: `dc.platform.data.jpa.oracle.read-timeout` (default `60s`) and
   `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`): the Oracle driver read timeout on the pool
   and on Flyway's own connection (HI-0070, HD14). Zero switches the bound off; negative values fail startup.

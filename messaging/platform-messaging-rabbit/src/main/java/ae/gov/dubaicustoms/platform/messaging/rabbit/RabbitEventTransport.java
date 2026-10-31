@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.messaging.rabbit;
 
+import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import java.time.Duration;
 import java.util.HashMap;
@@ -7,6 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -17,6 +21,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
@@ -41,11 +46,18 @@ import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
  * is in addition to, not instead of, {@code platform-messaging-autoconfigure}'s transport-agnostic
  * republish-to-{@code dlq.suffix} fallback (which every provider gets for free).
  *
+ * <p>{@link #send} honours the SPI's "blocks until acknowledged": it waits for the broker's publisher
+ * confirm, and a nack, a returned (unroutable) message or no confirm within the timeout is an
+ * {@link EventPublishException}. The connection factory and template must have publisher confirms, returns
+ * and {@code mandatory} on; the platform defaults them and the constructor refuses anything else.
+ *
  * <p>Thread-safe.
  *
  * @since 0.2.0
  */
 public final class RabbitEventTransport implements EventTransport {
+
+    private static final String UNACKNOWLEDGED = "A send could be lost without anyone knowing. Set ";
 
     private final RabbitTemplate rabbitTemplate;
     private final ConnectionFactory connectionFactory;
@@ -53,6 +65,7 @@ public final class RabbitEventTransport implements EventTransport {
     private final int maxAttempts;
     private final Duration backoff;
     private final boolean quorumQueues;
+    private final Duration confirmTimeout;
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
 
     /**
@@ -65,22 +78,39 @@ public final class RabbitEventTransport implements EventTransport {
      * @param backoff pause between redelivery attempts; never {@code null}
      * @param quorumQueues declare quorum queues ({@code x-queue-type=quorum}) instead of classic
      *     queues; opt-in for production clusters
+     * @param confirmTimeout how long a send waits for the broker's confirm; never {@code null}
+     * @throws IllegalStateException if publisher confirms, returns or {@code mandatory} are off
      */
     public RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, int maxAttempts,
-            Duration backoff, boolean quorumQueues) {
-        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), maxAttempts, backoff, quorumQueues);
+            Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
+        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), maxAttempts, backoff, quorumQueues,
+                confirmTimeout);
     }
 
     // Package-private: lets docker-free unit tests inject a mocked RabbitAdmin instead of one
     // backed by a real broker channel.
     RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, RabbitAdmin rabbitAdmin,
-            int maxAttempts, Duration backoff, boolean quorumQueues) {
+            int maxAttempts, Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
         this.rabbitTemplate = Objects.requireNonNull(rabbitTemplate, "rabbitTemplate must not be null");
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connectionFactory must not be null");
         this.rabbitAdmin = Objects.requireNonNull(rabbitAdmin, "rabbitAdmin must not be null");
         this.maxAttempts = maxAttempts;
         this.backoff = Objects.requireNonNull(backoff, "backoff must not be null");
         this.quorumQueues = quorumQueues;
+        this.confirmTimeout = Objects.requireNonNull(confirmTimeout, "confirmTimeout must not be null");
+        requireAcknowledgedPublishing(rabbitTemplate, connectionFactory);
+    }
+
+    private static void requireAcknowledgedPublishing(RabbitTemplate template, ConnectionFactory factory) {
+        if (!factory.isPublisherConfirms()) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.publisher-confirm-type=correlated");
+        }
+        if (!factory.isPublisherReturns()) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.publisher-returns=true");
+        }
+        if (!template.isMandatoryFor(new Message(new byte[0]))) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.template.mandatory=true");
+        }
     }
 
     @Override
@@ -99,7 +129,30 @@ public final class RabbitEventTransport implements EventTransport {
         if (key != null) {
             properties.setHeader("key", key);
         }
-        rabbitTemplate.send(dest.exchange(), dest.routingKey(), new Message(value, properties));
+        CorrelationData correlation = new CorrelationData();
+        rabbitTemplate.send(dest.exchange(), dest.routingKey(), new Message(value, properties), correlation);
+        awaitConfirm(destination, correlation);
+    }
+
+    private void awaitConfirm(String destination, CorrelationData correlation) {
+        CorrelationData.Confirm confirm;
+        try {
+            confirm = correlation.getFuture().get(confirmTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            throw new EventPublishException("no broker confirm for " + destination + " within " + confirmTimeout, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new EventPublishException("interrupted waiting for the broker's confirm for " + destination, e);
+        } catch (ExecutionException e) {
+            throw new EventPublishException("failed waiting for the broker's confirm for " + destination, e);
+        }
+        // The broker acks a mandatory message it could not route, after returning it.
+        if (correlation.getReturned() != null) {
+            throw new EventPublishException("unroutable: no queue is bound for " + destination, null);
+        }
+        if (!confirm.ack()) {
+            throw new EventPublishException("not confirmed by the broker: " + destination, null);
+        }
     }
 
     @Override

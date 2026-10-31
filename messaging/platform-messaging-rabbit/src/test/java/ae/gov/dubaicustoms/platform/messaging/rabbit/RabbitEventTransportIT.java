@@ -1,8 +1,10 @@
 package ae.gov.dubaicustoms.platform.messaging.rabbit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -37,14 +39,39 @@ class RabbitEventTransportIT {
         }
     }
 
-    @Test
-    void publishesAndDeliversARoundTrip() {
+    private void startTransport() {
         connectionFactory = new CachingConnectionFactory(RABBIT.getHost(), RABBIT.getAmqpPort());
         connectionFactory.setUsername(RABBIT.getAdminUsername());
         connectionFactory.setPassword(RABBIT.getAdminPassword());
+        connectionFactory.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
+        connectionFactory.setPublisherReturns(true);
         var rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setMandatory(true);
+        transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(100), false,
+                Duration.ofSeconds(5));
+    }
 
-        transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(100), false);
+    @Test
+    void aMessageNoQueueIsBoundForFailsInsteadOfBeingDropped() {
+        startTransport();
+        // Declares the exchange and binds the queue to another routing key.
+        transport.subscribe("dc.unrouted:bound.key", "test-group", (key, value, headers) -> { });
+
+        assertThatThrownBy(() -> transport.send("dc.unrouted:other.key", null, "hello".getBytes(StandardCharsets.UTF_8), Map.of()))
+                .isInstanceOf(EventPublishException.class).hasMessageContaining("unroutable");
+    }
+
+    @Test
+    void aMissingExchangeFailsTheSend() {
+        startTransport();
+
+        assertThatThrownBy(() -> transport.send("dc.no-such-exchange", null, "hello".getBytes(StandardCharsets.UTF_8), Map.of()))
+                .isInstanceOf(EventPublishException.class);
+    }
+
+    @Test
+    void publishesAndDeliversARoundTrip() {
+        startTransport();
 
         var received = new CopyOnWriteArrayList<String>();
         transport.subscribe("dc.orders:order.placed", "test-group",

@@ -934,6 +934,8 @@ StreamingDownloads.write(store, bucket, key);
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/platform | jq                       # storage[ACTIVE] (fs|s3)?
 curl -s localhost:8080/actuator/metrics/dc.platform.storage | jq '.availableTags'
 curl -s localhost:8080/actuator/env/dc.platform.storage.fs.root | jq

@@ -1,0 +1,75 @@
+PASS	app ready in 19s
+PASS	ac9-env-anon status 401
+PASS	ac9-env-token status 404
+PASS	ac9-beans-anon status 401
+PASS	ac9-beans-token status 404
+PASS	ac9-heapdump-anon status 401
+PASS	ac9-heapdump-token status 404
+PASS	ac9-metrics-anon status 401
+PASS	ac9-metrics-token status 404
+PASS	ac9-configprops-anon status 401
+PASS	ac9-configprops-token status 404
+PASS	ac9-loggers-anon status 401
+PASS	ac9-loggers-token status 404
+PASS	ac9-threaddump-anon status 401
+PASS	ac9-threaddump-token status 404
+PASS	ac9-platform-anon status 401
+PASS	ac9-platform-token status 200
+PASS	ac9-platform-token: capability report names observability ACTIVE
+PASS	ac9-info-anon status 200
+PASS	ac1-error status 500
+PASS	ac1-error: error body on the inbound trace
+PASS	ac2-message status 200
+PASS	ac2-exception status 500
+PASS	ac3-default status 200
+PASS	ac5-secrets status 200
+PASS	ac5-exception status 500
+PASS	ac7-anon status 401
+PASS	ac7-scrape status 200
+PASS	ac7-scrape {"check": "scrape", "series": 215, "problems": [], "examples": []}
+PASS	ac8-fanout status 200
+PASS	ac8-scrape status 200
+PASS	ac8-uri-series {"check": "uri-series", "client_uri_values": 100, "echo_uri_values": 100, "max": 100, "server_unmatched_leaked": []}
+PASS	AC8 exactly one uri-cap WARN
+PASS	ac4-correlated {"check": "correlated", "requests": 600, "wrong_bodies": 0, "lines_checked": 1200, "mismatched": 0, "requests_without_two_lines": 0, "examples": []}
+PASS	ac11-outbound status 200
+PASS	ac11-outbound: downstream on the same trace
+PASS	ac11-collector {"check": "collector", "spans": 5703, "metrics": 1436, "service_names": ["hardening-obs"], "spans_on_trace": 11, "client_spans_on_trace": 1}
+PASS	ac10-readiness-down status 200
+PASS	ac10-liveness-down status 200
+PASS	ac10-dependencies-down status 503
+PASS	ac10-dependencies-down: dependencies DOWN
+PASS	ac10-db-down status 503
+PASS	ac10-db-down: problem body DC-DATA-0503 on the trace, no SQL/JDBC internals
+PASS	ac10-context-down status 200
+PASS	AC10 dependencies UP again after the database returned
+PASS	ac10-db-back status 200
+PASS	ac12-baseline {"check": "latency", "n": 200, "statuses": {"200": 200}, "p50_ms": 6.5, "p99_ms": 11.8, "max_ms": 73.0}
+PASS	ac12-collector-down {"check": "latency", "n": 300, "statuses": {"200": 300}, "p50_ms": 5.8, "p99_ms": 8.4, "max_ms": 70.6}
+PASS	ac12-collector-down-2 {"check": "latency", "n": 300, "statuses": {"200": 300}, "p50_ms": 5.7, "p99_ms": 7.5, "max_ms": 71.9}
+PASS	ac12-collector-slow {"check": "latency", "n": 300, "statuses": {"200": 300}, "p50_ms": 5.7, "p99_ms": 7.6, "max_ms": 73.2}
+PASS	ac12-collector-slow-2 {"check": "latency", "n": 300, "statuses": {"200": 300}, "p50_ms": 5.8, "p99_ms": 7.5, "max_ms": 70.8}
+PASS	AC12 container memory growth < 200 MiB (583 → 608 → 639)
+PASS	AC12 export warnings bounded (down 9, slow 3)
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	ac14-json-lines {"check": "json-lines", "events": 1280, "non_json": 0, "unparseable": 0, "examples": []}
+PASS	AC14 'Graceful shutdown complete' is a JSON line near the end of stdout
+PASS	ac1-line-shape {"check": "line-shape", "lines": 1, "errors": 1, "problems": []}
+PASS	ac2-message {"check": "one-event", "events": 1, "raw_lines": 1, "forged_events": 0}
+PASS	ac2-exception {"check": "one-event", "events": 1, "raw_lines": 1, "forged_events": 0}
+PASS	ac3-default {"check": "mdc", "mode": "default", "problems": []}
+PASS	ac5-absent {"check": "absent", "values": 13, "found": [], "masks": 35}
+PASS	ac5-negatives {"check": "present", "values": 5, "missing": []}
+PASS	app ready in 17s
+PASS	ac3-strict status 200
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	ac3-strict {"check": "mdc", "mode": "strict", "problems": []}
+PASS	app ready in 16s
+PASS	ac12-nocollector status 200
+PASS	app exited on SIGTERM (code 143) in 11s
+PASS	graceful shutdown completed (logged)
+PASS	AC12 startup without a collector 16s (healthy 19s)
+PASS	no bearer token in any app log
+PASS	cleanup: no containers left for dch-20261030152239-63067

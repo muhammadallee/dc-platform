@@ -3,12 +3,14 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import ae.gov.dubaicustoms.platform.core.PlatformException;
 import ae.gov.dubaicustoms.platform.errors.BusinessException;
+import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -27,10 +29,18 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * Platform {@code @RestControllerAdvice}: maps {@link PlatformException}s, request-body
  * validation failures, and unexpected exceptions to RFC-9457 {@link ProblemDetail} responses
- * with {@code code}, {@code correlationId}, and {@code timestamp} extensions.
+ * with {@code code}, {@code traceId}, {@code timestamp} and {@code retryable} extensions.
  *
  * <p>Extends {@link ResponseEntityExceptionHandler} so the servlet stack's own exceptions
- * (404/405/406/415, …) keep their proper statuses instead of falling into the 500 catch-all.
+ * (404/405/406/415, …) keep their proper statuses instead of falling into the 500 catch-all; their
+ * bodies get the same platform extensions ({@code DC-CORE-0410} for an unreadable request body,
+ * {@code DC-CORE-0499} for any other rejected request). No 5xx body ever carries an exception
+ * message: the full exception is logged with the trace ID instead.
+ * Data-access failures — Spring's translated types and the raw JPA/Hibernate/JDBC ones a service using
+ * the {@code EntityManager} directly lets through — become 409 {@code DC-DATA-0409} (constraint
+ * violation), 409 {@code DC-DATA-0410} (concurrent update or lock) or 503 {@code DC-DATA-0503}
+ * (no connection, timeout, lost connection), with a fixed detail that never names SQL, tables or
+ * constraints.
  * Ordered at {@link Ordered#LOWEST_PRECEDENCE} so application advice beans win first.
  *
  * <p>Registered by {@code PlatformErrorHandlingAutoConfiguration}; define your own bean named
@@ -47,6 +57,15 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
 
     /** Code for request-body validation failures mapped to 400 with {@code errors[]}. */
     static final ErrorCode VALIDATION_FAILED = new ErrorCode("DC-CORE-0400");
+
+    /** Code for a request body that could not be read or parsed (e.g. malformed JSON). */
+    static final ErrorCode MALFORMED_REQUEST = new ErrorCode("DC-CORE-0410");
+
+    /** Code for every other request the servlet stack rejected (404, 405, 406, 415, …). */
+    static final ErrorCode REQUEST_REJECTED = new ErrorCode("DC-CORE-0499");
+
+    /** Detail for an unreadable body: the parser's own message names classes and offsets. */
+    private static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or unreadable.";
 
     private static final Logger log = LoggerFactory.getLogger(PlatformExceptionHandler.class);
 
@@ -66,8 +85,9 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * Maps platform exceptions: business exceptions take their {@code statusHint}, all other
-     * platform exceptions are infrastructure failures and map to 500. The exception message is
-     * platform/application-authored and treated as safe for the response body.
+     * platform exceptions are infrastructure failures and map to 500. For 4xx the exception message
+     * is application-authored and becomes the {@code detail}; for 5xx the body carries only the
+     * generic detail (infrastructure messages name hosts, clients and statuses).
      *
      * @param exception the platform exception; never {@code null}
      * @param request the current request; never {@code null}
@@ -89,7 +109,8 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Fallback: anything unmapped is a 500 with code {@code DC-CORE-0500}. The exception message
+     * Fallback: a data-access failure (anywhere in the cause chain) is a 409/503 data problem;
+     * anything else unmapped is a 500 with code {@code DC-CORE-0500}. The exception message
      * is NOT leaked — unexpected messages routinely carry internals (SQL, hosts, file paths); the
      * full exception goes to the log, correlated via MDC.
      *
@@ -98,7 +119,25 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
      * @return the generic 500 problem response
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request)
+            throws Exception {
+        // Spring Security's authentication/authorization failures (e.g. a method-security denial in a
+        // controller) must reach its ExceptionTranslationFilter, which renders the platform 401/403;
+        // swallowing them here would turn every denial into a 500.
+        if (isSecurityException(exception)) {
+            throw exception;
+        }
+        // Data-access failures (D111): 409 for a conflict with stored data, 503 for an unavailable
+        // database, with a fixed detail — their messages carry SQL and constraint names. The full
+        // exception is logged once on the request's trace.
+        Optional<DataAccessFailure> dataFailure = DataAccessFailure.classify(exception);
+        if (dataFailure.isPresent()) {
+            DataAccessFailure failure = dataFailure.get();
+            log.warn("data access failure [{}]", failure.code().value(), exception);
+            ProblemDetail problem = factory.create(failure.status(), failure.code(), failure.detail(),
+                    request.getRequestURI(), exception);
+            return ResponseEntity.status(failure.status()).body(problem);
+        }
         log.error("unhandled exception [{}]", UNEXPECTED_ERROR.value(), exception);
         ProblemDetail problem = factory.create(
                 500, UNEXPECTED_ERROR, "An unexpected error occurred.", request.getRequestURI(), exception);
@@ -116,20 +155,111 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("field", fieldError.getField());
             entry.put("message", fieldError.getDefaultMessage());
-            entry.put("rejectedValue", factory.redact(fieldError.getField(), fieldError.getRejectedValue()));
+            factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
             errors.add(entry);
         });
         exception.getBindingResult().getGlobalErrors().forEach(globalError -> {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("field", globalError.getObjectName());
             entry.put("message", globalError.getDefaultMessage());
-            entry.put("rejectedValue", null);
             errors.add(entry);
         });
         ProblemDetail problem = factory.create(
                 400, VALIDATION_FAILED, "Validation failed.", instancePathOf(request), exception);
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    /**
+     * Every body Spring MVC builds for its own exceptions passes here: it gets the platform extensions
+     * (with the originating exception as the customizer {@code source}), and an unreadable body never
+     * exposes the parser's message.
+     */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
+            HttpStatusCode statusCode, WebRequest request) {
+        if (statusCode.value() >= 500) {
+            // Framework 5xx (async timeout, conversion failure, …) reach only this hook: log them here,
+            // once, while the request context (trace ID) is still open.
+            log.error("framework exception [{}] status {}", UNEXPECTED_ERROR.value(), statusCode.value(), exception);
+        }
+        ResponseEntity<Object> entity = super.handleExceptionInternal(exception, body, headers, statusCode, request);
+        if (entity != null && entity.getBody() instanceof ProblemDetail problem
+                && (problem.getProperties() == null || !problem.getProperties().containsKey("code"))) {
+            ErrorCode code = statusCode.value() >= 500 ? UNEXPECTED_ERROR : REQUEST_REJECTED;
+            if (problem.getInstance() == null && instancePathOf(request) != null) {
+                problem.setInstance(java.net.URI.create(instancePathOf(request)));
+            }
+            factory.decorate(problem, code, exception);
+        }
+        return entity;
+    }
+
+    /**
+     * Spring MVC's native method validation (constraints on {@code @RequestParam}/{@code @PathVariable}
+     * or on {@code @Valid} arguments of a controller without class-level {@code @Validated}) maps to the
+     * same 400 {@code errors[]} shape as body validation. Return-value validation is a server bug and
+     * keeps its 500 with the generic body.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(
+            org.springframework.web.method.annotation.HandlerMethodValidationException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        if (!properties.mapValidation() || status.value() >= 500) {
+            return super.handleHandlerMethodValidationException(exception, headers, status, request);
+        }
+        List<Map<String, Object>> errors = new ArrayList<>();
+        for (org.springframework.validation.method.ParameterValidationResult result
+                : exception.getParameterValidationResults()) {
+            String parameter = result.getMethodParameter().getParameterName();
+            if (result instanceof org.springframework.validation.method.ParameterErrors parameterErrors) {
+                parameterErrors.getFieldErrors().forEach(fieldError -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", fieldError.getField());
+                    entry.put("message", fieldError.getDefaultMessage());
+                    factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
+                    errors.add(entry);
+                });
+                parameterErrors.getGlobalErrors().forEach(globalError -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", parameter);
+                    entry.put("message", globalError.getDefaultMessage());
+                    errors.add(entry);
+                });
+            } else {
+                result.getResolvableErrors().forEach(error -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("field", parameter);
+                    entry.put("message", error.getDefaultMessage());
+                    factory.putRejectedValue(entry, parameter, result.getArgument());
+                    errors.add(entry);
+                });
+            }
+        }
+        ProblemDetail problem = factory.create(400, VALIDATION_FAILED, "Validation failed.", instancePathOf(request), exception);
+        problem.setProperty("errors", errors);
+        return ResponseEntity.badRequest().headers(headers).body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException exception, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        log.debug("unreadable request body [{}]", MALFORMED_REQUEST.value(), exception);
+        ProblemDetail problem = factory.create(400, MALFORMED_REQUEST, MALFORMED_REQUEST_DETAIL,
+                instancePathOf(request), exception);
+        return ResponseEntity.badRequest().headers(headers).body(problem);
+    }
+
+    private static boolean isSecurityException(Throwable exception) {
+        for (Class<?> type = exception.getClass(); type != null; type = type.getSuperclass()) {
+            String name = type.getName();
+            if (name.equals("org.springframework.security.access.AccessDeniedException")
+                    || name.equals("org.springframework.security.core.AuthenticationException")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String instancePathOf(WebRequest request) {

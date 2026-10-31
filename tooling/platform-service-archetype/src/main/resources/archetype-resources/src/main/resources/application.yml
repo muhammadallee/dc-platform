@@ -9,6 +9,15 @@ spring:
   application:
     name: ${artifactId}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Platform default is health,info,prometheus; this service also exposes the platform
+        # capability report (/actuator/platform). Who may read it is decided by dc.platform.security
+        # permit-paths below (open outside prod, authenticated in prod).
+        include: health,info,prometheus,platform
+
 # Profiles: local (developer laptop, human-readable logs), test (CI slices), prod (real infrastructure).
 ---
 # Every profile EXCEPT prod (including no profile at all): offline-friendly development defaults. None of

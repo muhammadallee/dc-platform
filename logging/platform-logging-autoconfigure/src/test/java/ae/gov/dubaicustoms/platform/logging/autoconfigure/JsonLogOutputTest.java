@@ -5,6 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.Appender;
+import ch.qos.logback.core.AsyncAppenderBase;
+import ch.qos.logback.core.ConsoleAppender;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -59,13 +65,17 @@ class JsonLogOutputTest {
                 .orElseThrow(() -> new AssertionError("no probe line captured"));
 
         assertThat(jsonLine).startsWith("{");
+        // R1.1: every stdout line is JSON — the banner is off in JSON mode (D108).
+        assertThat(output.getOut().lines().filter(line -> !line.isBlank()))
+                .allSatisfy(line -> assertThat(line).startsWith("{"));
         assertThat(jsonLine)
                 .contains("\"@timestamp\":")
                 .contains("\"level\":\"INFO\"")
                 .contains("\"logger\":\"json.probe\"")
                 .contains("\"message\":\"probe message\"")
                 .contains("\"service\":\"orders\"")
-                .contains("\"correlationId\":\"0123456789abcdef0123456789abcdef\"");
+                .contains("\"traceId\":\"0123456789abcdef0123456789abcdef\"")
+                .doesNotContain("\"correlationId\"");
         // Renamed/dropped by fieldNames config; their presence would mean the resource drifted.
         assertThat(jsonLine).doesNotContain("\"logger_name\"").doesNotContain("\"level_value\"");
     }
@@ -80,6 +90,30 @@ class JsonLogOutputTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no error line captured"));
         assertThat(jsonLine).contains("\"stack_trace\":").contains("IllegalStateException");
+    }
+
+    @Test
+    void theOnlyRootAppenderIsASynchronousConsoleAppenderWithThePlatformEncoder() {
+        // AC14: nothing is buffered in an async appender, so shutdown cannot drop the last lines.
+        try (ConfigurableApplicationContext context = boot()) {
+            Logger root = ((LoggerContext) LoggerFactory.getILoggerFactory()).getLogger(Logger.ROOT_LOGGER_NAME);
+            List<Appender<ILoggingEvent>> appenders = new ArrayList<>();
+            ((ch.qos.logback.classic.Logger) root).iteratorForAppenders().forEachRemaining(appenders::add);
+            assertThat(appenders).singleElement()
+                    .isInstanceOfSatisfying(ConsoleAppender.class, console ->
+                            assertThat(console.getEncoder()).isInstanceOf(PlatformJsonEncoder.class))
+                    .isNotInstanceOf(AsyncAppenderBase.class);
+        }
+    }
+
+    @Test
+    void killSwitchRestoresBootsOwnLogging(CapturedOutput output) {
+        try (ConfigurableApplicationContext context = boot("--dc.platform.logging.enabled=false")) {
+            LoggerFactory.getLogger("off.probe").info("kill switch probe");
+        }
+        String line = output.getOut().lines().filter(l -> l.contains("kill switch probe")).findFirst()
+                .orElseThrow(() -> new AssertionError("no line captured"));
+        assertThat(line).doesNotStartWith("{");
     }
 
     @Test

@@ -1,0 +1,1 @@
+GET /actuator/health/readiness -> 200

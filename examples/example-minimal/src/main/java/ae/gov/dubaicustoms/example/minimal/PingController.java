@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Two endpoints that together demonstrate the floor:
  * <ul>
- *   <li>{@code GET /ping} — a healthy response; the correlation ID is on the log line and the
- *       {@code X-Correlation-Id} response header without any code here doing it;</li>
+ *   <li>{@code GET /ping} — a healthy response; the request's W3C trace ID is on the log line
+ *       ({@code traceId}) without any code here doing it;</li>
  *   <li>{@code GET /widgets/{id}} — always absent, so it throws {@link NotFoundException}. The
  *       platform (not this class) maps it to a 404 {@code application/problem+json} body carrying the
  *       {@link ErrorCode}. There is deliberately no {@code @RestControllerAdvice} in this service.</li>

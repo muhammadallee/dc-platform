@@ -45,7 +45,7 @@ public record MessagingProperties(
         handler = handler != null ? handler : new Handler(null);
         dlq = dlq != null ? dlq : new Dlq(null);
         correlation = correlation != null ? correlation : new Correlation(true);
-        rabbit = rabbit != null ? rabbit : new Rabbit(false);
+        rabbit = rabbit != null ? rabbit : new Rabbit(false, null);
     }
 
     /**
@@ -117,10 +117,18 @@ public record MessagingProperties(
      *
      * @param quorumQueues declare quorum queues instead of classic queues; opt-in for production
      *     clusters
+     * @param confirmTimeout how long a send waits for the broker's publisher confirm before it fails
      * @since 0.2.0
      */
     public record Rabbit(
             /** Declare quorum queues instead of classic queues; opt-in for production clusters. */
-            @DefaultValue("false") boolean quorumQueues) {
+            @DefaultValue("false") boolean quorumQueues,
+            /** How long a send waits for the broker's publisher confirm before it fails. */
+            @DefaultValue("5s") Duration confirmTimeout) {
+
+        /** Fills in the default timeout when unset (used when constructed programmatically). */
+        public Rabbit {
+            confirmTimeout = confirmTimeout != null ? confirmTimeout : Duration.ofSeconds(5);
+        }
     }
 }

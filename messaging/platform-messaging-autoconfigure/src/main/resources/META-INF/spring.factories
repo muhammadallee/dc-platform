@@ -1,3 +1,5 @@
 # FailureAnalyzer (phase-16 A.2): teaches the "messaging on, no transport starter" startup failure.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+ae.gov.dubaicustoms.platform.messaging.autoconfigure.PlatformMessagingEnvironmentPostProcessor
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MessagingNoTransportFailureAnalyzer

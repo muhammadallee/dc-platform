@@ -289,12 +289,13 @@ record that it was ever meant to exist.
 ```
 
 A true transactional outbox writes the event to a table *inside* the same transaction and relays it
-separately, so the event is as durable as the data. That is recorded as future work.
+separately, so the event is as durable as the data. The platform now ships one: see
+[the outbox module page](../../modules/outbox.md). With it on the classpath, the relay writes through it inside the
+transaction, and the gap above closes.
 
-!!! warning "Do not build a financial or regulatory flow on the relay"
-    If losing an event on a crash is unacceptable, the relay is not the mechanism. Write your own
-    outbox table inside the transaction, or accept the gap deliberately and reconcile. The platform
-    states this limitation plainly precisely so nobody assumes a guarantee that is not there.
+!!! warning "Do not build a financial or regulatory flow on the relay alone"
+    If losing an event on a crash is unacceptable, add `platform-starter-messaging-outbox`. Without it the relay keeps
+    the gap shown above.
 
 ---
 
@@ -1019,6 +1020,8 @@ void on(InvoiceIssued event) { }          // exact runtime type — not assignab
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/platform | jq            # messaging[ACTIVE] (provider)?
 curl -s localhost:8080/actuator/metrics/platform.messaging.handled | jq '.availableTags'
 curl -s localhost:8080/actuator/metrics/platform.messaging.published | jq

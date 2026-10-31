@@ -134,7 +134,7 @@ public class PlatformMessagingAutoConfiguration {
                 RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, MessagingProperties properties) {
             return new RabbitEventTransport(rabbitTemplate, connectionFactory,
                     properties.handler().retry().maxAttempts(), properties.handler().retry().backoff(),
-                    properties.rabbit().quorumQueues());
+                    properties.rabbit().quorumQueues(), properties.rabbit().confirmTimeout());
         }
     }
 }

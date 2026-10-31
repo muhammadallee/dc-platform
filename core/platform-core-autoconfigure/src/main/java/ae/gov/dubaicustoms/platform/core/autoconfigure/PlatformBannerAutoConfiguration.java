@@ -1,12 +1,8 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.autoconfigure.internal.PlatformBanner;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,7 +12,9 @@ import org.springframework.context.annotation.Bean;
 
 /*
  * Activates when: platform-core-api on the classpath AND dc.platform.core.enabled != false
- * Backs off when: user defines an ApplicationRunner bean named platformBannerRunner
+ * Backs off when: user defines a PlatformBannerRunner bean (by type); user defines a bean named
+ *                 coreCapabilityDescriptor (by name — CapabilityDescriptor is a one-per-capability
+ *                 type, overridden like Boot's health indicators, D93/D97)
  * Beans: coreCapabilityDescriptor — reports core[ACTIVE] into the banner (present even when the
  *                                   banner itself is switched off, for other report consumers);
  *        platformBannerRunner — logs one INFO line listing all active capabilities, sorted by
@@ -30,18 +28,17 @@ import org.springframework.context.annotation.Bean;
 @EnableConfigurationProperties(CoreProperties.class)
 public class PlatformBannerAutoConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
-
     @Bean
+    @ConditionalOnMissingBean(name = "coreCapabilityDescriptor")
     CapabilityDescriptor coreCapabilityDescriptor() {
         return new CapabilityDescriptor("core", "ACTIVE", "");
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "platformBannerRunner")
+    @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "dc.platform.core", name = "banner-enabled",
                            havingValue = "true", matchIfMissing = true)
-    ApplicationRunner platformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors) {
-        return args -> log.info("{}", PlatformBanner.format(descriptors.orderedStream().toList()));
+    PlatformBannerRunner platformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors) {
+        return new PlatformBannerRunner(descriptors);
     }
 }

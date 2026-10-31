@@ -1,0 +1,9 @@
+PASS	app ready in 9s
+PASS	readiness status 200
+PASS	readiness: readiness UP
+PASS	liveness status 200
+PASS	unauthenticated status 401
+FAIL	unauthenticated status: expected 418, got 401 (body: {"status":401,"title":"Unauthorized","detail":"Full authentication is required to access this resource"})
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown phase logged
+PASS	cleanup: no containers left for dch-20261026063608-20324

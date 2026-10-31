@@ -5,7 +5,140 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Breaking (capability hardening, phase 1 — core + errors)
+- **Correlation is the W3C trace ID.** `X-Correlation-Id` is no longer read, generated, echoed, sent by
+  the REST client, or mirrored into tracing baggage; a caller's `X-Correlation-Id` is ignored. Send
+  `traceparent` instead (OpenTelemetry/W3C clients do). `CorrelationId` / `RequestContext.correlationId()`
+  keep their API and now return the current trace ID. The core filter runs after Boot's observation
+  filter (`HIGHEST_PRECEDENCE + 10`) so a span exists, and before Spring Security.
+- MDC / JSON log field `correlationId` → `traceId` (+ `spanId`).
+- ProblemDetail extension `correlationId` → `traceId`; new `retryable` (true for 429/502/503/504).
+- No 5xx problem body carries an exception message (5xx `PlatformException`s included); full detail is
+  logged with the trace ID.
+- Validation errors omit `rejectedValue` by default (`dc.platform.errors.include-rejected-values`, new,
+  default `false`).
+- Removed properties (deprecation metadata, level `error`): `dc.platform.core.correlation.header-name`,
+  `dc.platform.core.correlation.generate-if-missing`, `dc.platform.restclient.propagate-correlation`.
+- `CorrelationIdFilter`'s constructor takes a Micrometer `Tracer`; `RemoteCallException.remoteCorrelationId()`
+  is deprecated (always empty for platform-created exceptions).
+- Problem `type` default is now `urn:dc:problem:<code>` (was `https://errors.dc.com/<code>`, a host the
+  platform does not own), for 401/403 bodies too. Clients matching on `type` must update, or set
+  `dc.platform.errors.type-base-uri` (D99).
+- Core overrides are by type (D98): the platform no longer defines a `correlationIdFilter` bean (the
+  filter is created inside `platformCorrelationFilterRegistration`), and backs off for any
+  `CorrelationIdFilter` bean or `FilterRegistrationBean<CorrelationIdFilter>` under any name. A
+  consumer `CorrelationIdFilter` bean is registered by Boot (it is `Ordered` at `FILTER_ORDER` and runs on
+  every dispatch type) instead of being wrapped by the platform registration. The banner is a public
+  `PlatformBannerRunner`; an `ApplicationRunner` named `platformBannerRunner` no longer replaces it —
+  define a `PlatformBannerRunner` bean, or set `dc.platform.core.banner-enabled=false`. The banner keeps
+  its `PlatformBannerAutoConfiguration` log category. A consumer registration whose factory method took
+  the platform's `CorrelationIdFilter` as a parameter must now create the filter itself (there is no
+  default filter bean to inject), and a bean that reused a reserved name with another type now collides
+  instead of silently replacing the platform bean. A bare consumer `CorrelationIdFilter` bean is mapped by
+  Boot to every dispatch type (FORWARD and INCLUDE too); `OncePerRequestFilter` skips nested dispatches
+  within one dispatch, while the ASYNC and ERROR dispatches run it again, as before.
+
+### Breaking (capability hardening, phase 2 — logging + observability)
+- **Readiness is pod-local.** `/actuator/health/readiness` no longer includes `db`, `rabbit` or
+  `redis`; they move to the new `/actuator/health/dependencies` group. Point dashboards and alerts at
+  `dependencies`; keep probes on `readiness`/`liveness` (D104).
+- **Minimal actuator exposure.** The platform default is `health,info,prometheus`; `metrics` and
+  `platform` are no longer exposed unless added to `management.endpoints.web.exposure.include`.
+  Generated services opt in `platform` in their `application.yml` (D105).
+- **JSON logs are masked.** Credentials, credential-named fields, Emirates IDs, card numbers, e-mail
+  addresses and phone numbers become `****` (D102). Turn off with `dc.platform.logging.redaction.enabled=false`.
+- `LogSanitizer` beans are now applied to MDC values and structured arguments, as documented: strings,
+  numbers, maps, collections and arrays, in the JSON field and in the formatted `message` alike.
+  Credential-keyed arguments read `password=****` in `message`; values nested deeper than 64 levels,
+  or cyclic, read `****` there. A value whose `toString()` throws reads `[unrenderable]`, and its
+  exception is no longer reported to stderr or the Logback status manager. A `Kv` nested in a
+  structured value is written `{"<key>": value}` (was `{"key": …, "value": …}`; also with redaction
+  off), so credential names mask it; `fields(kv)` writes its one field. `raw(...)` JSON is now masked:
+  it is read as one JSON value (member order, duplicates and exact numbers kept) and written back
+  through the masks, so its JSON field is re-serialized (whitespace and escapes normalized) when
+  redaction is on, and `message` shows it decoded (`{name=value}`); raw text that is not exactly one
+  JSON value is written as a JSON string, escapes decoded, under the pattern masks (was: raw, which
+  made the line invalid JSON; D109). Integral `double`/`float` card numbers are masked. A
+  `jsonGeneratorDecorator` set on `PlatformJsonEncoder` in your Logback file is kept (inside the
+  masking) instead of replaced, and restarting the encoder keeps one masking layer.
+- `platform.capability.active` is now registered when Boot creates the meter registry (the
+  auto-configuration was evaluated before Boot's registry existed and backed off).
+- The observability starter now brings `opentelemetry-exporter-otlp`: `dc.platform.observability.otlp.enabled=true`
+  previously exported metrics but never traces.
+- `LoggingProperties` gains `mdc` and `redaction` components (canonical constructor changed).
+- JSON mode switches Boot's startup banner off (`spring.main.banner-mode=off`, overridable) so every
+  stdout line is JSON (D108).
+
+### Breaking (capability hardening, phase 4 — transactional outbox)
+- **`EventEnvelope` has a required `eventId`** (a new first record component): a UUID generated once when the envelope
+  is built, settable with `Builder.eventId(…)` for a republish, sent as header `eventId` (HC7: no users yet).
+- **A RabbitMQ send now waits for the broker's publisher confirm** and throws `EventPublishException` on a nack, a
+  returned (unroutable) message or no confirm within `dc.platform.messaging.rabbit.confirm-timeout` (default `5s`). A
+  publish to a destination with no bound queue, previously dropped silently, now fails. The platform defaults
+  `spring.rabbitmq.publisher-confirm-type=correlated`, `publisher-returns=true`, `template.mandatory=true` and
+  `connection-timeout=5s` (source `platform-messaging-defaults`); `RabbitEventTransport` refuses to start with confirms,
+  returns or `mandatory` off, and its constructor takes the timeout (D119).
+- `OutboxPublisher` is new, and `DomainEventRelay` writes through it inside the transaction when the outbox is present.
+
+### Breaking (capability hardening, phase 3 — data access, Oracle)
+- **Data-access failures are no longer a generic 500.** A unique, foreign-key, NOT NULL or check
+  violation is **409 `DC-DATA-0409`**; an optimistic or pessimistic locking failure is
+  **409 `DC-DATA-0410`**; no connection within the pool timeout, a statement or transaction timeout,
+  or a lost connection is **503 `DC-DATA-0503`** (`retryable: true`). The detail is fixed (never SQL,
+  table or constraint names); the full exception is logged at WARN on the request's trace. Raw
+  JPA/Hibernate/JDBC exceptions from code that uses the `EntityManager` directly are classified too
+  (by cause chain and SQLState), including Hibernate's own null check (409), a transaction whose
+  deadline passed before a flush or commit (503), and a rollback that fails because the pool already
+  closed the broken connection (503: Spring rethrows it in place of the lost-connection cause). A connection lost
+  while committing is never retryable, whatever the cause or its translation: the outcome is unknown (500). An application
+  `@ExceptionHandler` for these types still wins (D111). Hibernate also logs each failed statement's error
+  code and driver message at WARN (logger `org.hibernate.orm.jdbc.error`) before the platform's WARN; set
+  that logger to `error` to keep only the platform's line.
+- **Bounded data-access waits** (D110, lowest-precedence defaults): Hikari `connection-timeout` 5 s
+  (was Hikari's 30 s); `spring.transaction.default-timeout` 30 s (was unbounded) — a longer batch
+  transaction needs an explicit `@Transactional(timeout = …)`; a query outside any transaction (a
+  declared repository query, a non-transactional service, `JdbcTemplate`) is cancelled after 30 s
+  (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`; was unbounded) — a query
+  built with Hibernate's `Session.createSelectionQuery` or on the raw `getDelegate()` takes this 30 s even
+  inside a transaction, so give it `.setTimeout(…)` where that matters; Oracle pools get the driver's
+  `oracle.jdbc.ReadTimeout` 60 s (`dc.platform.data.jpa.oracle.read-timeout`) and `oracle.net.CONNECT_TIMEOUT`
+  10 s, and a separate Flyway migration connection the same connect timeout with a 10 min read timeout
+  (`dc.platform.data.jpa.oracle.flyway-read-timeout`, HD14) — not a pool the application started itself, nor
+  a `Flyway` bean of its own built from a URL: set them there; leak detection (20 s) under `local`, never
+  with `prod`. The read timeout bounds each wait for the database's answer, so a statement the database
+  takes longer than 60 s to answer fails whatever its transaction timeout: raise the pool's value for such
+  transactions. A database that accepts connections but never answers was measured to fail startup after
+  610 s with a separate Flyway user (its 10 min read timeout).
+- **Flyway naming is validated**: `spring.flyway.validate-migration-naming=true`, so a migration file not
+  named `V<version>__<description>.sql` now fails startup instead of being silently skipped. Out-of-order
+  migrations outside the `local` profile fail startup with a diagnostic, however they were enabled; `clean-disabled`,
+  `validate-on-migrate` and `out-of-order=false` are pinned (D112).
+
 ### Added
+- Messaging: **transactional outbox** (`platform-starter-messaging-outbox`, HD11). `OutboxPublisher` writes in your
+  transaction; a bounded drainer on its own connection pool delivers at least once with `FOR UPDATE SKIP LOCKED`, parks
+  what the sink rejects, retains sent rows for a day, and reports lag and parked metrics. Copy
+  `platform_outbox.sql` into your migrations. See `docs/modules/outbox.md`.
+- Messaging: `EventPublishException.rejected()`, so a transport can tell a refused message from an outage.
+- Data: `dc.platform.data.jpa.oracle.read-timeout` (default `60s`) and
+  `dc.platform.data.jpa.oracle.flyway-read-timeout` (default `10m`): the Oracle driver read timeout on the pool
+  and on Flyway's own connection (HI-0070, HD14). Zero switches the bound off; negative values fail startup.
+- Data: `platform-starter-data-jpa-oracle` — the data-jpa stack plus the Oracle JDBC driver and
+  `flyway-database-oracle` (HD12). Archetype: `-Ddatabase=oracle` (with the `data` feature) generates a
+  service on it; `-Ddatabase` defaults to `h2` (D113).
+- Logging: `dc.platform.logging.mdc.include` (strict MDC mode), `dc.platform.logging.redaction.enabled`,
+  `dc.platform.logging.redaction.patterns`.
+- Observability: `dependencies` health group; docs for collector tail sampling of errored requests.
+- Errors: `PlatformErrorController` — the servlet error page (`sendError`, exceptions escaping the
+  filter chain) renders the platform problem body; replaces Boot's `BasicErrorController`.
+- Core starter brings the Micrometer Tracing OTel bridge + Boot tracing auto-configuration (no
+  exporter), so services without the observability starter still correlate by trace ID.
+- Core: context propagation to `@Async` and Boot-built executors (platform default
+  `spring.task.execution.propagate-context=true` + a `ThreadLocalAccessor` for `RequestContext`).
+- Errors: Spring MVC's own error bodies (404/405/415/unreadable…) get the platform extensions;
+  new codes `DC-CORE-0410` (malformed/unreadable body) and `DC-CORE-0499` (other rejected requests).
+- Security: 401/403 bodies carry `code` (`DC-SEC-0401`/`DC-SEC-0403`), `traceId`, `timestamp`, `retryable`.
+- Build-time error-code uniqueness across every platform module's sources (`ErrorCodeSourceUniquenessTest`).
 - `TestJwtIssuer` (`platform-test-api`, `test.security`, EXPERIMENTAL): a loopback JWKS endpoint that
   mints RS256 tokens (valid, expired, untrusted-key), so tests can exercise real bearer-token
   validation over HTTP — `TestTokens` bypasses the decoder.
@@ -60,6 +193,16 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   it deliberately.
 
 ### Fixed
+- Security: rejected bearer tokens (malformed/expired/untrusted) now get the platform 401 body (the
+  resource server's own entry point bypassed it); the challenge carries no error description; the
+  servlet ERROR dispatch is no longer re-authorized (a filter's 409 or a filter-chain 500 became 401).
+- Errors: method-security denials thrown in controllers are no longer swallowed into a 500;
+  `ProblemDetailCustomizer`s always receive a non-null `source`, including for framework errors.
+- Core: a consumer `platformCorrelationFilterRegistration` no longer leaves a second, auto-registered
+  platform filter; applying a context snapshot replaces (not merges with) the executing thread's context.
+- Golden-path gate: the platform install is `clean install`, so a stale local `jacoco.exec` no longer
+  fails the JaCoCo check of a skipped-tests install on a developer tree.
+- Core: an invalid inbound correlation/trace value is never echoed into a log line or exception message.
 - CI: `StartupBudgetTest` (example-golden-path) runs in its own serial step instead of inside the
   parallel `-T1C` reactor, where contention with other modules' test contexts made the wall-clock
   budget fail at 19-25 s (D88). Local `mvn verify` still runs it.

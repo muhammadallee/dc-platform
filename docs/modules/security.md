@@ -13,7 +13,15 @@ exposes the authenticated principal without coupling application code to JWT/cla
   properties (issuer-uri or jwk-set-uri); no platform-specific JWT configuration.
 - **RFC-9457 401/403 bodies** — the security filter chain runs before the `DispatcherServlet`, so
   the errors capability's `@RestControllerAdvice` cannot shape these; a small internal
-  entry-point/denied-handler pair writes the problem body directly.
+  entry-point/denied-handler pair writes the problem body directly, with the full platform contract
+  (`type` = `dc.platform.errors.type-base-uri` + code, `title`, `status`, `detail`, `instance`,
+  `code` `DC-SEC-0401`/`DC-SEC-0403`, `traceId`, `timestamp`, `retryable`). The same body is used
+  for missing credentials **and** for rejected bearer tokens (malformed, expired, untrusted key):
+  the resource server's own entry point is replaced too. The challenge is `WWW-Authenticate: Bearer`
+  without an error description, so the reason a token was rejected is never disclosed.
+- **Error page not re-authorized** — the servlet ERROR dispatch is permitted, so a filter's
+  `sendError(409)` or an exception escaping the filter chain keeps its real status for anonymous
+  callers instead of turning into a 401.
 - **`CurrentUser` / `CurrentUserAccessor`** — token-format-neutral principal (subject, tenant,
   roles, claims), independent of the underlying JWT shape.
 - **`SecurityCustomizer` extension point** — ordered beans that extend the baseline chain (e.g.
@@ -45,7 +53,10 @@ spring:
 Anonymous requests to anything not in `permit-paths` get:
 
 ```json
-{"status":401,"title":"Unauthorized","detail":"Full authentication is required to access this resource"}
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,
+ "detail":"Full authentication is required to access this resource","instance":"/orders",
+ "code":"DC-SEC-0401","traceId":"0af7651916cd43dd8448eb211c80319c",
+ "timestamp":"2026-01-01T00:00:00Z","retryable":false}
 ```
 
 A valid bearer JWT authenticates the request; `CurrentUserAccessor.currentUser()` returns the

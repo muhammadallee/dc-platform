@@ -32,11 +32,10 @@ public record EventsProperties(
      * as integration events after commit, via the messaging capability's {@code EventPublisher}
      * (only active when that bean actually exists).
      *
-     * <p>This is a lightweight outbox precursor, not a true transactional outbox: the relay
-     * publishes on the same after-commit callback as {@code @DomainEventHandler}, so a crash
-     * between commit and publish still loses the integration event. A true outbox (durable
-     * staging table + separate publisher process) is a documented future enhancement — see
-     * {@code docs/decisions/decision-log.md}.
+     * <p>With {@code platform-starter-messaging-outbox} and a transaction on its database, the relay writes through
+     * the outbox inside that transaction. Otherwise it publishes on the same after-commit callback as
+     * {@code @DomainEventHandler}, so a crash between commit and publish loses the integration event; see
+     * {@code docs/decisions/decision-log.md} (D32).
      *
      * @param enabled opt-in switch; the relay is inactive by default even when an
      *     {@code EventPublisher} bean exists

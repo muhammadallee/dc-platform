@@ -1,0 +1,21 @@
+alter table HH_OWNER.hh_parcel add (hh_extra number)
+*
+ERROR at line 1:
+ORA-01031: insufficient privileges
+Help: https://docs.oracle.com/error-help/db/ora-01031/
+
+
+drop table HH_OWNER.hh_parcel
+                    *
+ERROR at line 1:
+ORA-01031: insufficient privileges
+Help: https://docs.oracle.com/error-help/db/ora-01031/
+
+
+create table hh_own_table (id number)
+*
+ERROR at line 1:
+ORA-01031: insufficient privileges
+Help: https://docs.oracle.com/error-help/db/ora-01031/
+
+

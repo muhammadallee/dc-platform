@@ -72,4 +72,31 @@ class PlatformInfoEndpointAutoConfigurationTest {
                 .run(ctx -> assertThat(ctx.getBean(CapabilityDescriptor.class).detail())
                         .isEqualTo("prometheus+otlp"));
     }
+
+    @Test
+    void configurationDefaultsSnapshot() {
+        // Plan §7.2: a changed default fails here until the snapshot is consciously updated.
+        runner.run(ctx -> {
+            ObservabilityProperties p = ctx.getBean(ObservabilityProperties.class);
+            assertThat(java.util.Map.of("enabled", p.enabled(), "common-tags.enabled", p.commonTags().enabled(),
+                    "otlp.enabled", p.otlp().enabled(), "health.groups.enabled", p.health().groups().enabled(),
+                    "platform-endpoint.enabled", p.platformEndpoint().enabled()))
+                    .isEqualTo(java.util.Map.of("enabled", true, "common-tags.enabled", true, "otlp.enabled", false,
+                            "health.groups.enabled", true, "platform-endpoint.enabled", true));
+        });
+    }
+
+    @Test
+    void descriptorBacksOffWhenUserDescriptorPresentUnderItsName() {
+        CapabilityDescriptor mine = new CapabilityDescriptor("observability", "ACTIVE", "custom");
+        runner.withBean("observabilityCapabilityDescriptor", CapabilityDescriptor.class, () -> mine)
+                .run(ctx -> assertThat(ctx.getBean(CapabilityDescriptor.class)).isSameAs(mine));
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheObservabilityOne() {
+        runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("other", "ACTIVE", ""))
+                .run(ctx -> assertThat(ctx).hasBean("observabilityCapabilityDescriptor"));
+    }
 }

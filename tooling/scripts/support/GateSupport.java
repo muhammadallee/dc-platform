@@ -17,12 +17,12 @@ import java.util.Map;
  * <pre>
  *   java -cp classes:platform-test-api.jar GateSupport idp DIR   # loopback JWKS + tokens until DIR/stop exists
  *   java -cp ... GateSupport freeport                            # prints a free loopback TCP port
- *   java -cp ... GateSupport logcheck LOG SERVICE [CORRELATION_ID] [FORBIDDEN...]
+ *   java -cp ... GateSupport logcheck LOG SERVICE [TRACE_ID] [FORBIDDEN...]
  * </pre>
  *
  * logcheck parses every stdout line that starts with '{' as a JSON object and requires the structured
  * log contract (@timestamp, level, logger, message, service=SERVICE). Non-JSON lines (the Boot banner, JVM
- * warnings) are counted and reported, not parsed. With CORRELATION_ID, at least one event must carry it;
+ * warnings) are counted and reported, not parsed. With TRACE_ID, at least one event must carry it as {@code traceId} (no event may carry {@code correlationId});
  * any FORBIDDEN string (e.g. a bearer token) appearing anywhere in the log fails the check.
  */
 public final class GateSupport {
@@ -33,7 +33,7 @@ public final class GateSupport {
             case "freeport" -> System.out.println(freePort());
             case "logcheck" -> System.exit(logcheck(args));
             default -> {
-                System.err.println("usage: GateSupport idp DIR | freeport | logcheck LOG SERVICE [CORRELATION_ID] [FORBIDDEN...]");
+                System.err.println("usage: GateSupport idp DIR | freeport | logcheck LOG SERVICE [TRACE_ID] [FORBIDDEN...]");
                 System.exit(2);
             }
         }
@@ -92,7 +92,10 @@ public final class GateSupport {
             if (!service.equals(event.get("service"))) {
                 problems.add("event with service=" + event.get("service") + " (expected " + service + ")");
             }
-            if (correlationId != null && correlationId.equals(event.get("correlationId"))) {
+            if (event.containsKey("correlationId")) {
+                problems.add("event carries the removed correlationId field: " + abbreviate(line));
+            }
+            if (correlationId != null && correlationId.equals(event.get("traceId"))) {
                 correlated = true;
             }
         }
@@ -100,7 +103,7 @@ public final class GateSupport {
             problems.add("no JSON log events found");
         }
         if (!correlated) {
-            problems.add("no event carries correlationId " + correlationId);
+            problems.add("no event carries traceId " + correlationId);
         }
         for (String secret : forbidden) {
             if (!secret.isEmpty() && content.contains(secret)) {

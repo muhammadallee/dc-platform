@@ -3,8 +3,14 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManagerFactory;
+import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -47,6 +53,90 @@ class PlatformDataJpaAutoConfigurationTest {
         AuditorAware<String> mine = () -> Optional.of("tester");
         runner.withBean("platformAuditorAware", AuditorAware.class, () -> mine)
                 .run(context -> assertThat(context.getBean(AuditorAware.class)).isSameAs(mine));
+    }
+
+    @Test
+    void descriptorBacksOffWhenUserDescriptorPresentUnderItsName() {
+        CapabilityDescriptor mine = new CapabilityDescriptor("data-jpa", "ACTIVE", "custom");
+        runner.withBean("dataJpaCapabilityDescriptor", CapabilityDescriptor.class, () -> mine)
+                .run(context -> assertThat(context.getBean(CapabilityDescriptor.class)).isSameAs(mine));
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheDataJpaOne() {
+        runner.withBean("otherCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("other", "ACTIVE", ""))
+                .run(context -> assertThat(context).hasBean("dataJpaCapabilityDescriptor"));
+    }
+
+    @Test
+    void oracleConnectionDefaultsAreRegisteredAndReplaceableByName() {
+        runner.run(context -> assertThat(context).hasSingleBean(OracleConnectionDefaults.class));
+        Object mine = new Object();
+        runner.withBean("platformOracleConnectionDefaults", Object.class, () -> mine)
+                .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
+        runner.withClassLoader(new FilteredClassLoader("com.zaxxer.hikari"))
+                .run(context -> assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class));
+    }
+
+    @Test
+    void anOraclePoolTheApplicationStartedItselfDoesNotFailStartup() {
+        // R2-F1: new HikariDataSource(config) is sealed; the defaults back off instead of throwing.
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:oracle:thin:@//127.0.0.1:9/APP");
+        config.setMinimumIdle(0);
+        config.setInitializationFailTimeout(-1);
+        config.addDataSourceProperty("oracle.jdbc.ReadTimeout", "120000");
+        runner.withBean("dataSource", HikariDataSource.class, () -> new HikariDataSource(config),
+                        bean -> bean.setDestroyMethodName("close"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(HikariDataSource.class).getDataSourceProperties())
+                            .containsOnlyKeys("oracle.jdbc.ReadTimeout");
+                });
+    }
+
+    @Test
+    void flywayChecksAreRegisteredReplaceableByNameAndAbsentWithoutFlyway() {
+        runner.run(context -> {
+            assertThat(context).hasSingleBean(FlywayOutOfOrderGuard.class);
+            assertThat(context).hasSingleBean(OracleFlywayConnectionDefaults.class);
+        });
+        runner.withBean("platformFlywayOutOfOrderGuard", Object.class, Object::new)
+                .withBean("platformOracleFlywayConnectionDefaults", Object.class, Object::new)
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+                    assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+                });
+        runner.withClassLoader(new FilteredClassLoader("org.springframework.boot.flyway"))
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+                    assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+                });
+    }
+
+    @Test
+    void killSwitchRemovesThePostProcessors() {
+        runner.withPropertyValues("dc.platform.data.jpa.enabled=false").run(context -> {
+            assertThat(context).doesNotHaveBean(OracleConnectionDefaults.class);
+            assertThat(context).doesNotHaveBean(FlywayOutOfOrderGuard.class);
+            assertThat(context).doesNotHaveBean(OracleFlywayConnectionDefaults.class);
+        });
+    }
+
+    @Test
+    void propertiesDefaultSnapshot() {
+        // §7.2: a changed default fails here until the snapshot is consciously updated (CHANGELOG).
+        runner.run(context -> assertThat(context.getBean(DataJpaProperties.class))
+                .isEqualTo(new DataJpaProperties(true, true,
+                        new DataJpaProperties.Oracle(Duration.ofSeconds(60), Duration.ofMinutes(10)))));
+    }
+
+    @Test
+    void aNegativeOracleReadTimeoutFailsStartup() {
+        runner.withPropertyValues("dc.platform.data.jpa.oracle.read-timeout=-1s")
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessageContaining("must not be negative"));
     }
 
     @Test

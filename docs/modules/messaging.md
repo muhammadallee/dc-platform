@@ -28,6 +28,14 @@ or RabbitMQ) via a starter.
 - **`/actuator/platform`** reports `messaging[ACTIVE <provider>]`, or `INACTIVE` when no single
   `EventTransport` bean is configured.
 
+For a publish tied to a database change, use the [transactional outbox](outbox.md): `EventPublisher` sends immediately,
+so a crash right after your commit loses the event.
+
+Delivery is at-least-once: every message carries a stable `eventId` header, generated once when the envelope is built, and
+consumers deduplicate by it. On RabbitMQ a send waits for the broker's publisher confirm; an unroutable message, a nack or
+no confirm within `dc.platform.messaging.rabbit.confirm-timeout` (default `5s`) throws `EventPublishException`, so **a
+destination needs a bound queue before you publish to it**.
+
 ## Starter coordinates
 
 Pick exactly one (each brings its own `EventTransport`):

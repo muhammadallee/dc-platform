@@ -17,7 +17,7 @@
 | `dc.platform.errors.enabled` | Boolean | `true` |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` |
 | `dc.platform.errors.map-validation` | Boolean | `true` |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` |
 | `dc.platform.events.enabled` | Boolean | `true` |
 | `dc.platform.events.relay.destination-prefix` | String | `dc.` |
 | `dc.platform.events.relay.enabled` | Boolean | `false` |
@@ -35,6 +35,9 @@
 | `dc.platform.logging.enabled` | Boolean | `true` |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` |
 | `dc.platform.logging.include-mdc` | Boolean | `true` |
+| `dc.platform.logging.mdc.include` | List<String> | `[]` |
+| `dc.platform.logging.redaction.enabled` | Boolean | `true` |
+| `dc.platform.logging.redaction.patterns` | List<String> | `[]` |
 | `dc.platform.logging.service-name` | String | `` |
 | `dc.platform.messaging.correlation.propagate` | Boolean | `true` |
 | `dc.platform.messaging.default-destination-prefix` | String | `dc.` |

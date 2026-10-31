@@ -19,16 +19,18 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
         assertThat(environment.getPropertySources()
                 .contains(PlatformObservabilityEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isTrue();
         assertThat(environment.getProperty("management.endpoints.web.exposure.include"))
-                .isEqualTo("health,info,platform,metrics,prometheus");
+                .isEqualTo("health,info,prometheus");
         assertThat(environment.getProperty("management.endpoint.health.probes.enabled")).isEqualTo("true");
         assertThat(environment.getProperty("management.endpoint.health.group.liveness.include"))
                 .isEqualTo("livenessState");
         assertThat(environment.getProperty("management.endpoint.health.group.readiness.include"))
-                .isEqualTo("readinessState,db,rabbit,redis");
+                .isEqualTo("readinessState");
+        assertThat(environment.getProperty("management.endpoint.health.group.dependencies.include"))
+                .isEqualTo("db,rabbit,redis");
         assertThat(environment.getProperty("management.endpoint.health.validate-group-membership"))
                 .isEqualTo("false");
-        assertThat(environment.getProperty("management.tracing.baggage.remote-fields"))
-                .isEqualTo("X-Correlation-Id");
+        // HD5: no custom correlation header is mirrored into baggage; traceparent is the only carrier.
+        assertThat(environment.getProperty("management.tracing.baggage.remote-fields")).isNull();
         assertThat(environment.getProperty("management.otlp.metrics.export.enabled")).isEqualTo("false");
         assertThat(environment.getProperty("management.tracing.export.otlp.enabled")).isEqualTo("false");
     }
@@ -50,9 +52,10 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
         postProcessor.postProcessEnvironment(environment, null);
 
         assertThat(environment.getProperty("management.endpoint.health.group.liveness.include")).isNull();
+        assertThat(environment.getProperty("management.endpoint.health.group.dependencies.include")).isNull();
         assertThat(environment.getProperty("management.endpoint.health.probes.enabled")).isNull();
         assertThat(environment.getProperty("management.endpoints.web.exposure.include"))
-                .isEqualTo("health,info,platform,metrics,prometheus");
+                .isEqualTo("health,info,prometheus");
     }
 
     @Test

@@ -14,7 +14,7 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Feature sample (features=restclient): an outbound HTTP client built from
- * {@link PlatformRestClientFactory}. The platform pre-wires correlation-id propagation, bearer-token
+ * {@link PlatformRestClientFactory}. The platform pre-wires W3C trace (traceparent) propagation, bearer-token
  * relay for authenticated requests, per-client timeouts ({@code dc.platform.restclient.clients.greeting.*})
  * and maps non-2xx responses to {@code RemoteCallException} — never build a raw {@code RestTemplate}
  * or {@code WebClient}.

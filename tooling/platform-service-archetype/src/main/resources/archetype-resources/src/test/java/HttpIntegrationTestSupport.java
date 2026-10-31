@@ -35,23 +35,38 @@ public abstract class HttpIntegrationTestSupport {
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", ISSUER::jwkSetUri);
     }
 
-    /** GET {@code path}; {@code bearer} and {@code correlationId} are optional (null = header omitted). */
-    protected HttpResponse<String> get(String path, String bearer, String correlationId)
+    /**
+     * GET {@code path}; {@code bearer} and {@code traceId} are optional (null = header omitted). A
+     * {@code traceId} is sent the standard way, as a W3C {@code traceparent}: the platform continues
+     * that trace, and its trace ID is the request's correlation id in logs and error bodies.
+     */
+    protected HttpResponse<String> get(String path, String bearer, String traceId)
             throws IOException, InterruptedException {
-        return HTTP.send(request(path, bearer, correlationId), HttpResponse.BodyHandlers.ofString());
+        return HTTP.send(request(path, bearer, traceId), HttpResponse.BodyHandlers.ofString());
     }
 
-    protected HttpRequest request(String path, String bearer, String correlationId) {
+    protected HttpRequest request(String path, String bearer, String traceId) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(Duration.ofSeconds(10))
                 .GET();
         if (bearer != null) {
             builder.header("Authorization", "Bearer " + bearer);
         }
-        if (correlationId != null) {
-            builder.header("X-Correlation-Id", correlationId);
+        if (traceId != null) {
+            builder.header("traceparent", traceparent(traceId));
         }
         return builder.build();
+    }
+
+    /** A fresh random 128-bit W3C trace ID (32 lowercase hex). */
+    protected static String randomTraceId() {
+        return java.util.UUID.randomUUID().toString().replace("-", "");
+    }
+
+    /** {@code traceparent} for {@code traceId}, sampled, with a random parent span id. */
+    protected static String traceparent(String traceId) {
+        String spanId = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        return "00-" + traceId + "-" + spanId + "-01";
     }
 
     protected static HttpClient http() {

@@ -74,13 +74,30 @@ class EventEnvelopeTest {
 
     @Test
     void constructorRejectsNulls() {
-        assertThatThrownBy(() -> new EventEnvelope<>(null, 1, null, "p", java.util.Map.of(), Instant.now()))
+        assertThatThrownBy(() -> new EventEnvelope<>(null, "t", 1, null, "p", java.util.Map.of(), Instant.now()))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new EventEnvelope<>("t", 1, null, null, java.util.Map.of(), Instant.now()))
+        assertThatThrownBy(() -> new EventEnvelope<>("id", null, 1, null, "p", java.util.Map.of(), Instant.now()))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new EventEnvelope<>("t", 1, null, "p", null, Instant.now()))
+        assertThatThrownBy(() -> new EventEnvelope<>("id", "t", 1, null, null, java.util.Map.of(), Instant.now()))
                 .isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new EventEnvelope<>("t", 1, null, "p", java.util.Map.of(), null))
+        assertThatThrownBy(() -> new EventEnvelope<>("id", "t", 1, null, "p", null, Instant.now()))
                 .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new EventEnvelope<>("id", "t", 1, null, "p", java.util.Map.of(), null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void eachBuildGeneratesAStableUniqueEventId() {
+        EventEnvelope<String> first = EventEnvelope.of("p").build();
+        EventEnvelope<String> second = EventEnvelope.of("p").build();
+
+        assertThat(java.util.UUID.fromString(first.eventId()).toString()).isEqualTo(first.eventId());
+        assertThat(first.eventId()).isNotEqualTo(second.eventId());
+    }
+
+    @Test
+    void anExplicitEventIdIsKept() {
+        // A republish of the same logical event (replay, DLQ) keeps its id, so consumers can deduplicate.
+        assertThat(EventEnvelope.of("p").eventId("evt-1").build().eventId()).isEqualTo("evt-1");
     }
 }

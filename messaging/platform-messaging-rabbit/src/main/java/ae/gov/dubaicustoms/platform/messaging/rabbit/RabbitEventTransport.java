@@ -1,12 +1,20 @@
 package ae.gov.dubaicustoms.platform.messaging.rabbit;
 
+import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -16,7 +24,9 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.connection.AbstractRoutingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
@@ -41,11 +51,19 @@ import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
  * is in addition to, not instead of, {@code platform-messaging-autoconfigure}'s transport-agnostic
  * republish-to-{@code dlq.suffix} fallback (which every provider gets for free).
  *
+ * <p>{@link #send} honours the SPI's "blocks until acknowledged": it waits for the broker's publisher
+ * confirm, and a nack, a returned (unroutable) message or no confirm within the timeout is an
+ * {@link EventPublishException}. The connection factory and template must have publisher confirms, returns
+ * and {@code mandatory} on; the platform defaults them and the constructor refuses anything else.
+ *
  * <p>Thread-safe.
  *
  * @since 0.2.0
  */
 public final class RabbitEventTransport implements EventTransport {
+
+    private static final String UNACKNOWLEDGED = "A send could be lost without anyone knowing. Set ";
+    private static final int MAX_SENDERS_IN_FLIGHT = 64;
 
     private final RabbitTemplate rabbitTemplate;
     private final ConnectionFactory connectionFactory;
@@ -53,7 +71,10 @@ public final class RabbitEventTransport implements EventTransport {
     private final int maxAttempts;
     private final Duration backoff;
     private final boolean quorumQueues;
+    private final Duration confirmTimeout;
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
+    private final Semaphore sendersInFlight = new Semaphore(MAX_SENDERS_IN_FLIGHT);
+    private final Set<Thread> senders = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates the transport.
@@ -65,22 +86,44 @@ public final class RabbitEventTransport implements EventTransport {
      * @param backoff pause between redelivery attempts; never {@code null}
      * @param quorumQueues declare quorum queues ({@code x-queue-type=quorum}) instead of classic
      *     queues; opt-in for production clusters
+     * @param confirmTimeout how long a send waits for the broker's confirm; never {@code null}
+     * @throws IllegalStateException if publisher confirms, returns or {@code mandatory} are off
      */
     public RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, int maxAttempts,
-            Duration backoff, boolean quorumQueues) {
-        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), maxAttempts, backoff, quorumQueues);
+            Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
+        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), maxAttempts, backoff, quorumQueues,
+                confirmTimeout);
     }
 
     // Package-private: lets docker-free unit tests inject a mocked RabbitAdmin instead of one
     // backed by a real broker channel.
     RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, RabbitAdmin rabbitAdmin,
-            int maxAttempts, Duration backoff, boolean quorumQueues) {
+            int maxAttempts, Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
         this.rabbitTemplate = Objects.requireNonNull(rabbitTemplate, "rabbitTemplate must not be null");
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connectionFactory must not be null");
         this.rabbitAdmin = Objects.requireNonNull(rabbitAdmin, "rabbitAdmin must not be null");
         this.maxAttempts = maxAttempts;
         this.backoff = Objects.requireNonNull(backoff, "backoff must not be null");
         this.quorumQueues = quorumQueues;
+        this.confirmTimeout = Objects.requireNonNull(confirmTimeout, "confirmTimeout must not be null");
+        requireAcknowledgedPublishing(rabbitTemplate, connectionFactory);
+    }
+
+    private static void requireAcknowledgedPublishing(RabbitTemplate template, ConnectionFactory factory) {
+        // A send runs on its own thread, so a routing key bound to the caller's thread would not be seen there, and the
+        // message could reach the default broker.
+        if (factory instanceof AbstractRoutingConnectionFactory) {
+            throw new IllegalStateException("A routing ConnectionFactory is not supported by this transport");
+        }
+        if (!factory.isPublisherConfirms()) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.publisher-confirm-type=correlated");
+        }
+        if (!factory.isPublisherReturns()) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.publisher-returns=true");
+        }
+        if (!template.isMandatoryFor(new Message(new byte[0]))) {
+            throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.template.mandatory=true");
+        }
     }
 
     @Override
@@ -99,7 +142,63 @@ public final class RabbitEventTransport implements EventTransport {
         if (key != null) {
             properties.setHeader("key", key);
         }
-        rabbitTemplate.send(dest.exchange(), dest.routingKey(), new Message(value, properties));
+        Message message = new Message(value, properties);
+        // Evaluated per message: a mandatory expression can be true for the constructor's probe and false here.
+        if (!rabbitTemplate.isMandatoryFor(message)) {
+            throw new EventPublishException("not mandatory, so an unroutable message would be dropped: " + destination, null);
+        }
+        CorrelationData correlation = new CorrelationData();
+        // The whole operation is bounded. A broker under a resource alarm blocks the publish itself, before any confirm
+        // can be awaited, so it runs apart from the caller. If it gets through after the timeout, that is a duplicate
+        // of the retry, which at-least-once delivery allows. Senders the broker is holding are capped: past the cap a
+        // send fails at once, as an outage, rather than piling up threads and channels during a long alarm.
+        if (!sendersInFlight.tryAcquire()) {
+            throw new EventPublishException("too many sends waiting on the broker: " + destination, null);
+        }
+        long deadline = System.nanoTime() + confirmTimeout.toNanos();
+        CompletableFuture<Void> publish = new CompletableFuture<>();
+        Thread sender = Thread.ofVirtual().name("platform-rabbit-send").unstarted(() -> {
+            try {
+                rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation);
+                publish.complete(null);
+            } catch (RuntimeException e) {
+                publish.completeExceptionally(e);
+            } finally {
+                sendersInFlight.release();
+                senders.remove(Thread.currentThread());
+            }
+        });
+        senders.add(sender);
+        sender.start();
+        try {
+            publish.get(confirmTimeout.toNanos(), TimeUnit.NANOSECONDS);
+            awaitConfirm(destination, correlation, Math.max(0, deadline - System.nanoTime()));
+        } catch (TimeoutException e) {
+            sender.interrupt();
+            throw new EventPublishException("no broker confirm for " + destination + " within " + confirmTimeout, e);
+        } catch (InterruptedException e) {
+            sender.interrupt();
+            Thread.currentThread().interrupt();
+            throw new EventPublishException("interrupted waiting for the broker's confirm for " + destination, e);
+        } catch (ExecutionException e) {
+            throw new EventPublishException("failed to send to " + destination, e.getCause());
+        }
+    }
+
+    private static void awaitConfirm(String destination, CorrelationData correlation, long nanos)
+            throws TimeoutException, InterruptedException, ExecutionException {
+        CorrelationData.Confirm confirm = correlation.getFuture().get(nanos, TimeUnit.NANOSECONDS);
+        // The broker acks a mandatory message it could not route, after returning it.
+        if (correlation.getReturned() != null) {
+            throw new EventPublishException("unroutable: no queue is bound for " + destination, null, true);
+        }
+        if (!confirm.ack()) {
+            // Spring also synthesizes a nack when a connection or channel closes with confirms outstanding: that is an
+            // outage, and retrying is right. Only a broker's "no such exchange" is an answer about this message.
+            String reason = confirm.reason();
+            boolean rejected = reason != null && (reason.contains("reply-code=404") || reason.contains("NOT_FOUND"));
+            throw new EventPublishException("not confirmed by the broker: " + destination, null, rejected);
+        }
     }
 
     @Override

@@ -30,8 +30,8 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.core.banner-enabled` | Boolean | `true` | whether the startup capability banner is logged |  |
-| `dc.platform.core.correlation.generate-if-missing` | Boolean | `true` | generate a fresh id when the incoming request carries none |  |
-| `dc.platform.core.correlation.header-name` | String | `X-Correlation-Id` | HTTP header carrying the correlation id |  |
+| `dc.platform.core.correlation.generate-if-missing` | Boolean |  | Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id. | error (The tracing bridge always starts a new trace when traceparent is missing or invalid.) |
+| `dc.platform.core.correlation.header-name` | String |  | Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure. | error (Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written.) |
 | `dc.platform.core.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 
 ## dc.platform.data
@@ -46,9 +46,10 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.errors.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
+| `dc.platform.errors.include-rejected-values` | Boolean | `false` | echo each invalid value as rejectedValue (off by default: rejected values are raw user input and may be personal data; credential-shaped fields stay redacted even when on) |  |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | add a stacktrace extension to problem bodies (debugging aid; never enable in production) |  |
 | `dc.platform.errors.map-validation` | Boolean | `true` | map Bean Validation failures to 400 problem responses with errors[] |  |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` | base URI prepended to the error code to form the problem type |  |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | base URI prepended to the error code to form the problem type |  |
 
 ## dc.platform.events
 
@@ -95,7 +96,10 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 |-----|------|---------|-------------|-------------|
 | `dc.platform.logging.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` | log output format; json in every deployed environment, console for humans (auto-selected when the local profile is active) |  |
-| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (correlationId, …) into JSON log fields |  |
+| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (traceId, spanId, …) into JSON log fields |  |
+| `dc.platform.logging.mdc.include` | List<String> |  | MDC keys written besides traceId and spanId; empty (the default) writes every MDC key, a non-empty list switches to strict mode and drops unlisted keys |  |
+| `dc.platform.logging.redaction.enabled` | Boolean | `true` | mask values (on by default) |  |
+| `dc.platform.logging.redaction.patterns` | List<String> |  | additional regular expressions whose matches are masked |  |
 | `dc.platform.logging.service-name` | String |  | service name stamped on every JSON log line; defaults to name |  |
 
 ## dc.platform.messaging
@@ -157,11 +161,11 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) |  |
+| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
 | `dc.platform.restclient.defaults.connect-timeout` | Duration | `2s` | connection timeout |  |
 | `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | read timeout |  |
 | `dc.platform.restclient.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.restclient.propagate-correlation` | Boolean | `true` | propagate the current RequestContext correlation id as an outbound header |  |
+| `dc.platform.restclient.propagate-correlation` | Boolean |  | Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent. | error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.) |
 
 ## dc.platform.scheduling
 

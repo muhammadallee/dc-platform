@@ -1,5 +1,12 @@
 # Chapter 2 — Errors and Validation: The Failure Contract
 
+> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
+> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
+> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
+> validation errors omit `rejectedValue` by default. Where this chapter still describes the
+> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
+> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+
 > **Capabilities covered:** `errors`, `validation`
 >
 > One machine-readable shape for every failure a service can return, and the bean-validation wiring
@@ -41,7 +48,7 @@ media type, five standard members, and an open extension mechanism:
 
 ```json
 {
-  "type": "https://errors.dc.com/DC-ORDER-0404",
+  "type": "urn:dc:problem:DC-ORDER-0404",
   "title": "DC-ORDER-0404",
   "status": 404,
   "detail": "order 8812 not found",
@@ -301,7 +308,7 @@ all four support `groups()` and `payload()` like any standard constraint.
 
 | Member | Source | Notes |
 |---|---|---|
-| `type` | `type-base-uri` + code | e.g. `https://errors.dc.com/DC-ORDER-0404` |
+| `type` | `type-base-uri` + code | e.g. `urn:dc:problem:DC-ORDER-0404` |
 | `title` | The error code | Deliberately the code, not prose — prose is not stable |
 | `status` | `HttpStatusHint`, or 500 | |
 | `detail` | The exception message | **Only for mapped exceptions.** Unmapped ones get a fixed generic string |
@@ -319,7 +326,7 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 | Key | Type | Default | Meaning | When you would change it |
 |---|---|---|---|---|
 | `dc.platform.errors.enabled` | Boolean | `true` | Kill switch | During an incident caused by a customizer, to fall back to Spring's defaults |
-| `dc.platform.errors.type-base-uri` | String | `https://errors.dc.com/` | Prefix for the problem `type` URI | When your organisation publishes error documentation at another host |
+| `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | Prefix for the problem `type` URI | When your organisation publishes error documentation at another host |
 | `dc.platform.errors.map-validation` | Boolean | `true` | Map validation failures to 400 with `errors[]` | When a legacy client depends on Spring's default validation response shape |
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | Add a `stacktrace` extension to problem bodies | **Local debugging only.** See the warning below |
 | `dc.platform.validation.enabled` | Boolean | `true` | Kill switch | Essentially never |
@@ -436,7 +443,7 @@ HTTP/1.1 404
 Content-Type: application/problem+json
 X-Correlation-Id: 9f2c7a1e4b8d40f6a3c5e7d9b1f3a5c7
 
-{"type":"https://errors.dc.com/DC-ORDER-0404","title":"DC-ORDER-0404","status":404,
+{"type":"urn:dc:problem:DC-ORDER-0404","title":"DC-ORDER-0404","status":404,
  "detail":"order 8812 not found","instance":"/orders/8812","code":"DC-ORDER-0404",
  "correlationId":"9f2c7a1e4b8d40f6a3c5e7d9b1f3a5c7","timestamp":"2026-08-04T10:15:30.123Z"}
 ```
@@ -469,7 +476,7 @@ A bad request produces a 400 with per-field detail:
 
 ```json
 {
-  "type": "https://errors.dc.com/DC-CORE-0400",
+  "type": "urn:dc:problem:DC-CORE-0400",
   "title": "DC-CORE-0400",
   "status": 400,
   "detail": "Validation failed.",
@@ -941,7 +948,7 @@ the literal secret you posted — checked against the whole serialised body, not
 | Key | Default |
 |---|---|
 | `dc.platform.errors.enabled` | `true` |
-| `dc.platform.errors.type-base-uri` | `https://errors.dc.com/` |
+| `dc.platform.errors.type-base-uri` | `urn:dc:problem:` |
 | `dc.platform.errors.map-validation` | `true` |
 | `dc.platform.errors.include-stacktrace` | `false` — **keep it that way outside `local`** |
 | `dc.platform.validation.enabled` | `true` |

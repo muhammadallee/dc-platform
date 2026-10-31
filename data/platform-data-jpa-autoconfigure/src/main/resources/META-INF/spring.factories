@@ -3,6 +3,8 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
 ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaEnvironmentPostProcessor
 
-# FailureAnalyzer (phase-16 A.2): teaches the "JPA on, Flyway missing" startup failure.
+# FailureAnalyzers: the "JPA on, Flyway missing" startup failure (phase-16 A.2) and out-of-order
+# migrations outside the local profile (D112).
 org.springframework.boot.diagnostics.FailureAnalyzer=\
-ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MissingFlywayFailureAnalyzer
+ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MissingFlywayFailureAnalyzer,\
+ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OutOfOrderMigrationsFailureAnalyzer

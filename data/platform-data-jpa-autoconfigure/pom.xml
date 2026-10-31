@@ -76,24 +76,37 @@
       <artifactId>spring-boot-data-jpa-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Pool and repository meters (scope R8, AC11): Boot's own metrics auto-configurations, which
+         need Micrometer; a service gets them from the observability starter. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-metrics</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- H2: the default local database for the @DataJpaTest auditing/naming/converter slice. -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Flyway engine + Boot 4's Flyway integration on the test classpath (the same pair the starter
-         ships), so the presence guard's happy path and a real migration run are exercised; the absent
-         branches are tested with a FilteredClassLoader. -->
+    <!-- Flyway engine + Boot 4's Flyway integration (the same pair the starter ships). Optional: the
+         Flyway checks (D110, D112) are post-processors on the Flyway bean, registered only when Flyway
+         is present (@ConditionalOnClass); the presence guard's absent branches are tested with a
+         FilteredClassLoader. -->
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
-      <scope>test</scope>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-flyway</artifactId>
-      <scope>test</scope>
+      <optional>true</optional>
     </dependency>
     <!-- @Tag("docker") Postgres parity test only: a real Postgres via Testcontainers. -->
     <dependency>
@@ -109,6 +122,23 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- @Tag("docker") Oracle tests (HD3, HD13): the same driver + Flyway module pair the Oracle
+         starter ships, and an Oracle Free container. -->
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc11</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-oracle</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-oracle-free</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

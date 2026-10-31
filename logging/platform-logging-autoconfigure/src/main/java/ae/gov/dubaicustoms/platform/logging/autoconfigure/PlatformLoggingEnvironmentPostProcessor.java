@@ -2,9 +2,12 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -33,6 +36,12 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     static final String CONFIG_LOCATION =
             "classpath:ae/gov/dubaicustoms/platform/logging/logback-platform.xml";
 
+    /** Flattened {@code dc.platform.logging.mdc.include}, read by logback-platform.xml. */
+    static final String MDC_INCLUDE_RESOLVED = "dc.platform.logging.internal.mdc-include";
+
+    /** Flattened {@code dc.platform.logging.redaction.patterns}, read by logback-platform.xml. */
+    static final String REDACTION_PATTERNS_RESOLVED = "dc.platform.logging.internal.redaction-patterns";
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)) {
@@ -44,10 +53,20 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("logging.config", CONFIG_LOCATION);
+        // The ASCII banner goes to stdout outside logging: in JSON mode it would put non-JSON lines in
+        // the stream a log shipper parses line by line (D108).
+        defaults.put("spring.main.banner-mode", "off");
         // Resolved here (not in logback XML) because springProperty supports a single source:
         // explicit dc.platform.logging.service-name > spring.application.name > "application".
         defaults.put("dc.platform.logging.service-name",
                 environment.getProperty("spring.application.name", "application"));
+        // List properties flattened for springProperty, which reads one scalar key: the strict MDC
+        // keys comma-separated, the extra redaction patterns one per line (regexes may hold commas).
+        Binder binder = Binder.get(environment);
+        defaults.put(MDC_INCLUDE_RESOLVED, String.join(",",
+                binder.bind("dc.platform.logging.mdc.include", Bindable.listOf(String.class)).orElse(List.of())));
+        defaults.put(REDACTION_PATTERNS_RESOLVED, String.join("\n",
+                binder.bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())));
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }
 

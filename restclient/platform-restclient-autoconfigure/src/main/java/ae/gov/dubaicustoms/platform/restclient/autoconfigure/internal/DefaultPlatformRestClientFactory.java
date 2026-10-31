@@ -1,6 +1,5 @@
 package ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientCustomizer;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
@@ -25,9 +24,6 @@ import org.springframework.web.client.RestClient;
  * including {@code http.client.requests} observations tagged {@code client.name=<clientName>}.
  */
 public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory {
-
-    /** Matches the default header name in {@code platform-core-autoconfigure}'s CoreProperties. */
-    private static final String CORRELATION_HEADER = "X-Correlation-Id";
 
     private final RestClientProperties properties;
     private final List<PlatformRestClientCustomizer> customizers;
@@ -61,16 +57,11 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
                 .requestFactory(requestFactory)
                 .observationRegistry(observationRegistry.get())
                 .observationConvention(new ClientNameConvention(clientName));
-        if (properties.propagateCorrelation()) {
-            builder.requestInterceptor((request, body, execution) -> {
-                RequestContext.correlationId().ifPresent(id -> request.getHeaders().set(CORRELATION_HEADER, id.value()));
-                return execution.execute(request, body);
-            });
-        }
+        // No correlation interceptor: the observation registry above propagates traceparent, the
+        // platform's only correlation id. No custom correlation header is sent or read.
         builder.defaultStatusHandler(org.springframework.http.HttpStatusCode::isError, (request, response) -> {
             String body = readBody(response.getBody());
-            String remoteCorrelationId = response.getHeaders().getFirst(CORRELATION_HEADER);
-            throw new RemoteCallException(clientName, response.getStatusCode().value(), body, remoteCorrelationId, null);
+            throw new RemoteCallException(clientName, response.getStatusCode().value(), body, null, null);
         });
         for (PlatformRestClientCustomizer customizer : customizers) {
             customizer.customize(clientName, builder);

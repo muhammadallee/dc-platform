@@ -47,7 +47,11 @@ class PlatformExceptionHandlerTest {
     }
 
     private static ErrorsProperties defaults() {
-        return new ErrorsProperties(true, false, "https://errors.dc.com/", true);
+        return new ErrorsProperties(true, false, "urn:dc:problem:", true, false);
+    }
+
+    private static ErrorsProperties withRejectedValues() {
+        return new ErrorsProperties(true, false, "urn:dc:problem:", true, true);
     }
 
     @Test
@@ -61,14 +65,15 @@ class PlatformExceptionHandlerTest {
             // The one strict full-shape assertion (spec: assert full JSON shape once with JSONAssert).
             JSONAssert.assertEquals("""
                     {
-                      "type": "https://errors.dc.com/DC-TEST-0404",
+                      "type": "urn:dc:problem:DC-TEST-0404",
                       "title": "DC-TEST-0404",
                       "status": 404,
                       "detail": "order 42 not found",
                       "instance": "/missing",
                       "code": "DC-TEST-0404",
-                      "correlationId": "%s",
-                      "timestamp": "2026-01-01T00:00:00Z"
+                      "traceId": "%s",
+                      "timestamp": "2026-01-01T00:00:00Z",
+                      "retryable": false
                     }""".formatted(CORRELATION),
                     result.getResponse().getContentAsString(), JSONCompareMode.STRICT);
             assertThat(result.getResponse().getContentType())
@@ -84,11 +89,39 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void infrastructurePlatformExceptionMapsTo500WithItsCode() throws Exception {
-        mockMvc(defaults(), List.of()).perform(get("/infra"))
+    void infrastructurePlatformExceptionMapsTo500WithItsCodeButNotItsMessage() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/infra"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("DC-TEST-0500"))
-                .andExpect(jsonPath("$.detail").value("transport down"));
+                .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("transport down");
+    }
+
+    @Test
+    void malformedJsonMapsTo400WithoutParserInternals() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of())
+                .perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content("{\"name\": [oops"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0410"))
+                .andExpect(jsonPath("$.detail").value("The request body is malformed or unreadable."))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContainIgnoringCase("jackson").doesNotContain("NewOrder", "line:", "column:");
+    }
+
+    @Test
+    void frameworkRejectionsGetThePlatformExtensions() throws Exception {
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            mockMvc(defaults(), List.of()).perform(post("/missing"))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(jsonPath("$.code").value("DC-CORE-0499"))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION))
+                    .andExpect(jsonPath("$.retryable").value(false))
+                    .andExpect(jsonPath("$.timestamp").exists());
+        }
     }
 
     @Test
@@ -102,8 +135,68 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void requestBodyValidationMapsTo400WithRedactedErrors() throws Exception {
-        mockMvc(defaults(), List.of())
+    void constraintViolationMapsTo409WithAFixedDetailAndNoSql() throws Exception {
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            MvcResult result = mockMvc(defaults(), List.of()).perform(get("/duplicate"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("DC-DATA-0409"))
+                    .andExpect(jsonPath("$.type").value("urn:dc:problem:DC-DATA-0409"))
+                    .andExpect(jsonPath("$.detail").value("The request conflicts with existing data."))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION))
+                    .andExpect(jsonPath("$.retryable").value(false))
+                    .andReturn();
+            assertThat(result.getResponse().getContentAsString())
+                    .doesNotContain("ORA-").doesNotContain("ORDERS_REF_UK").doesNotContainIgnoringCase("insert into");
+        }
+    }
+
+    @Test
+    void concurrentUpdateMapsTo409WithItsOwnCode() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/stale"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DC-DATA-0410"))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("ORDERS#42");
+    }
+
+    @Test
+    void unavailableDatabaseMapsTo503RetryableWithoutConnectionDetails() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/db-down"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DC-DATA-0503"))
+                .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.retryable").value(true))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain("db-secret-host").doesNotContain("HikariPool").doesNotContain("jdbc:");
+    }
+
+    @Test
+    void aSqlBugIsStillAGeneric500() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/bad-sql"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0500"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("secret_column");
+    }
+
+    @Test
+    void requestBodyValidationOmitsRejectedValuesByDefault() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of())
+                .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[?(@.field=='name')].message").exists())
+                .andExpect(jsonPath("$.errors[0].rejectedValue").doesNotExist())
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("hunter2!");
+    }
+
+    @Test
+    void requestBodyValidationMapsTo400WithRedactedErrorsWhenRejectedValuesAreOn() throws Exception {
+        mockMvc(withRejectedValues(), List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
                 .andExpect(status().isBadRequest())
@@ -115,7 +208,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void mapValidationOffFallsBackToDefaultSpringBody() throws Exception {
-        ErrorsProperties off = new ErrorsProperties(true, false, "https://errors.dc.com/", false);
+        ErrorsProperties off = new ErrorsProperties(true, false, "urn:dc:problem:", false, false);
         mockMvc(off, List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\",\"password\":\"hunter2!\"}"))
@@ -125,7 +218,7 @@ class PlatformExceptionHandlerTest {
 
     @Test
     void includeStacktraceAddsTheExtension() throws Exception {
-        ErrorsProperties withTrace = new ErrorsProperties(true, true, "https://errors.dc.com/", true);
+        ErrorsProperties withTrace = new ErrorsProperties(true, true, "urn:dc:problem:", true, false);
         mockMvc(withTrace, List.of()).perform(get("/boom"))
                 .andExpect(jsonPath("$.stacktrace").exists());
     }
@@ -140,8 +233,9 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
-    void correlationExtensionIsOmittedOutsideAnOpenContext() throws Exception {
+    void traceIdExtensionIsOmittedOutsideAnOpenContextAndCorrelationIdIsGone() throws Exception {
         mockMvc(defaults(), List.of()).perform(get("/missing"))
+                .andExpect(jsonPath("$.traceId").doesNotExist())
                 .andExpect(jsonPath("$.correlationId").doesNotExist());
     }
 
@@ -166,9 +260,66 @@ class PlatformExceptionHandlerTest {
             throw new TestInfraException();
         }
 
+        // Constraints on handler parameters: Spring MVC's native method validation applies to the
+        // whole method, so even the @Valid body failure surfaces as HandlerMethodValidationException.
+        @GetMapping("/quantity")
+        String quantity(@org.springframework.web.bind.annotation.RequestParam @jakarta.validation.constraints.Min(1)
+                int quantity) {
+            return "ok";
+        }
+
+        @PostMapping("/copies")
+        String copies(@jakarta.validation.Valid @RequestBody NewOrder order,
+                @org.springframework.web.bind.annotation.RequestParam @jakarta.validation.constraints.Min(1) int copies) {
+            return "ok";
+        }
+
+        @GetMapping("/unwritable")
+        Unwritable unwritable() {
+            return new Unwritable(); // the JSON converter fails while writing → framework 500
+        }
+
+        @GetMapping("/denied")
+        String denied() {
+            throw new org.springframework.security.access.AccessDeniedException("method security says no");
+        }
+
         @GetMapping("/boom")
         String boom() {
             throw new IllegalStateException("cannot reach jdbc://secret-host:5432");
+        }
+
+        // The chains observed on Oracle (OracleExceptionPathsIT), with Oracle's message text.
+        @GetMapping("/duplicate")
+        String duplicate() {
+            throw new org.springframework.dao.DataIntegrityViolationException(
+                    "could not execute batch [ORA-00001: unique constraint (APP.ORDERS_REF_UK) violated] "
+                            + "[insert into orders (reference_code,id) values (?,?)]",
+                    new org.hibernate.exception.ConstraintViolationException("could not execute batch",
+                            new java.sql.BatchUpdateException("ORA-00001: unique constraint (APP.ORDERS_REF_UK) violated",
+                                    "23000", 1, new int[0]), "APP.ORDERS_REF_UK"));
+        }
+
+        @GetMapping("/stale")
+        String stale() {
+            throw new org.springframework.dao.OptimisticLockingFailureException(
+                    "Row was updated or deleted by another transaction: [ORDERS#42]");
+        }
+
+        @GetMapping("/db-down")
+        String dbDown() {
+            throw new org.springframework.transaction.CannotCreateTransactionException(
+                    "Could not open JPA EntityManager for transaction",
+                    new org.hibernate.exception.JDBCConnectionException("Unable to acquire JDBC Connection",
+                            new java.sql.SQLTransientConnectionException(
+                                    "HikariPool-1 - Connection is not available, request timed out after 5000ms "
+                                            + "(jdbc:oracle:thin:@db-secret-host:1521/APP)")));
+        }
+
+        @GetMapping("/bad-sql")
+        String badSql() {
+            throw new org.springframework.jdbc.BadSqlGrammarException("select",
+                    "select secret_column from orders", new java.sql.SQLException("ORA-00942", "42000"));
         }
 
         @PostMapping("/orders")
@@ -177,9 +328,92 @@ class PlatformExceptionHandlerTest {
         }
     }
 
+    public static final class Unwritable {
+        public String getValue() {
+            throw new IllegalStateException("serializer reached db-secret-host");
+        }
+    }
+
     static final class TestInfraException extends PlatformException {
         TestInfraException() {
             super(new ErrorCode("DC-TEST-0500"), "transport down");
         }
+    }
+
+    @Test
+    void securityDenialsPassThroughToSpringSecurityInsteadOfBecoming500() {
+        // A method-security denial inside a controller must reach ExceptionTranslationFilter (which
+        // renders the platform 403); the catch-all would otherwise turn it into a 500.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> mockMvc(defaults(), List.of()).perform(get("/denied")))
+                .rootCause().isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    @Test
+    void twoHundredConcurrentErrorsEachCarryTheirOwnTraceId() throws Exception {
+        MockMvc mvc = mockMvc(defaults(), List.of());
+        // Plan §3.11: three consecutive rounds in-test. MockMvc runs on the calling thread, so each
+        // caller's RequestContext is that request's context.
+        for (int round = 0; round < 3; round++) {
+            try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(50)) {
+                List<java.util.concurrent.Future<String[]>> results = new java.util.ArrayList<>();
+                for (int i = 0; i < 200; i++) {
+                    results.add(pool.submit(() -> {
+                        String traceId = java.util.UUID.randomUUID().toString().replace("-", "");
+                        try (AutoCloseable scope = RequestContext.open(new CorrelationId(traceId), Map.of())) {
+                            String body = mvc.perform(get("/boom")).andReturn().getResponse().getContentAsString();
+                            return new String[] {traceId, com.jayway.jsonpath.JsonPath.read(body, "$.traceId")};
+                        }
+                    }));
+                }
+                for (java.util.concurrent.Future<String[]> result : results) {
+                    String[] sentAndSeen = result.get();
+                    assertThat(sentAndSeen[1]).as("round %d", round).isEqualTo(sentAndSeen[0]);
+                }
+            }
+        }
+    }
+
+    @Test
+    void nativeMethodValidationOfAQueryParameterMapsToTheErrorsShape() throws Exception {
+        mockMvc(defaults(), List.of()).perform(get("/quantity").param("quantity", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[0].field").value("quantity"))
+                .andExpect(jsonPath("$.errors[0].message").exists())
+                .andExpect(jsonPath("$.errors[0].rejectedValue").doesNotExist());
+    }
+
+    @Test
+    void nativeMethodValidationOfANestedArgumentListsItsFieldPaths() throws Exception {
+        mockMvc(defaults(), List.of())
+                .perform(post("/copies").param("copies", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"password\":\"0123456789abcdef\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DC-CORE-0400"))
+                .andExpect(jsonPath("$.errors[?(@.field=='name')].message").exists());
+    }
+
+    @Test
+    void frameworkServerErrorsAreLoggedOnceWithTheThrowableAndTheTrace() throws Exception {
+        ch.qos.logback.classic.Logger handlerLog =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(PlatformExceptionHandler.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        handlerLog.addAppender(appender);
+        try (AutoCloseable scope = RequestContext.open(new CorrelationId(CORRELATION), Map.of())) {
+            mockMvc(defaults(), List.of()).perform(get("/unwritable"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value("DC-CORE-0500"))
+                    .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
+                    .andExpect(jsonPath("$.traceId").value(CORRELATION));
+        } finally {
+            handlerLog.detachAppender(appender);
+        }
+        assertThat(appender.list).filteredOn(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+                .singleElement().satisfies(event -> {
+                    assertThat(event.getThrowableProxy()).isNotNull();
+                    assertThat(event.getMDCPropertyMap()).containsEntry("traceId", CORRELATION);
+                });
     }
 }

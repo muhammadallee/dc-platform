@@ -605,3 +605,207 @@ One line of context per decision; details live in the commit bodies referenced.
   boots in the same time as `main` when measured alone. CI now skips it in the parallel `verify`
   (`-Dplatform.startup-budget.skip=true`) and runs it serially in its own step. Raising the baseline
   was rejected: it would hide the regressions the guard exists to catch.
+- **D89 — correlation is the W3C trace ID (hardening HD5).** The platform-minted `X-Correlation-Id`
+  is removed everywhere (core filter, REST client, tracing baggage, MDC key, ProblemDetail property).
+  `CorrelationId`/`RequestContext` keep their API and carry the trace ID; inbound `traceparent`
+  handling is left to Boot's observation filter and the OpenTelemetry W3C propagator. The platform
+  filter moves to `HIGHEST_PRECEDENCE + 10` (after the observation filter, before security).
+  Without a tracer the platform establishes no correlation context rather than inventing an id.
+- **D90 — no exception message in any 5xx body.** Including `PlatformException`s with status >= 500 and
+  Spring MVC's own 5xx bodies; 4xx business messages stay (application-authored). Simpler and safer
+  than classifying messages as safe.
+- **D91 — `rejectedValue` off by default.** Field-name redaction cannot recognise personal data
+  (national ID, email, phone); omitting the value by default is the allow-list default, opt-in via
+  `dc.platform.errors.include-rejected-values`.
+- **D92 — error-code uniqueness read from sources.** The classpath registry only sees the errors
+  module's dependencies; a source scan over every platform module's `src/main/java` covers modules no
+  single test classpath contains. Examples and the archetype are excluded (separate services).
+- **D93 — overrides by type and by name; descriptors by name only.** Platform advice beans back off
+  for a consumer bean of their type under any name, or any bean of their documented name.
+  `CapabilityDescriptor` is one shared type with one bean per capability, so each descriptor backs off
+  by name only.
+- **D94 — the platform owns the servlet error page.** A `PlatformErrorController` replaces Boot's
+  `BasicErrorController` (ordered before `ErrorMvcAutoConfiguration`), and the security chain permits
+  the ERROR dispatch, so every error path — MVC, security, filters, the container — renders one
+  problem contract. Spring Security's own guidance for error pages; the original request was already
+  authorized or rejected on its REQUEST dispatch.
+- **D95 — trace rejection judged by the propagator's outcome.** The core filter does not re-implement
+  W3C validation: a present `traceparent` counts as rejected exactly when the current trace is not the
+  one it names, and the marker carries the header length only.
+- **D96 — shared-type infrastructure beans override by name.** *Superseded by D98.* The banner
+  `ApplicationRunner` and the correlation filter's `FilterRegistrationBean` backed off by name only:
+  consumers routinely define other beans of those Spring types, and type-based back-off would silently
+  drop the platform's.
+- **D97 — capability descriptors override by name, like Boot's health indicators (hardening A3).**
+  `CapabilityDescriptor` is collected one-bean-per-capability, so type-based back-off would let any
+  consumer descriptor remove every platform one. Spring Boot 4.1 makes the same choice for its collected
+  health indicators (`@ConditionalOnMissingBean(name = "diskSpaceHealthIndicator")`, likewise
+  `livenessStateHealthIndicator`, `readinessStateHealthIndicator`, `sslHealthIndicator`) while its
+  single beans (`SslInfo`) back off by type. The capability kill switch `dc.platform.<cap>.enabled`
+  removes the descriptor with the capability. Each remaining capability's descriptor gets the same
+  guard and a real-override test in its own hardening phase.
+- **D98 — single infrastructure beans override by type (supersedes D96).** The correlation filter is
+  registered the way Boot registers its own `ServerHttpObservationFilter`: one
+  `FilterRegistrationBean<CorrelationIdFilter>` with the filter created inline, guarded by
+  `@ConditionalOnMissingFilterBean(CorrelationIdFilter.class)`, so a consumer `CorrelationIdFilter` bean
+  or `FilterRegistrationBean<CorrelationIdFilter>` under any name replaces it, and unrelated filter
+  registrations do not. `CorrelationIdFilter` is `Ordered` at `FILTER_ORDER`, so a consumer filter bean
+  that Boot registers keeps the platform's position and dispatch types. The banner is a public
+  `PlatformBannerRunner` class backing off by type; unrelated `ApplicationRunner` beans no longer matter.
+- **D99 — neutral problem `type` default `urn:dc:problem:` (hardening HI-0010).** Supersedes the
+  `type-base-uri="https://errors.dc.com/"` default in `specs/phase-04-errors-logging-validation.md`: that
+  host is not owned by the platform. RFC 9457 allows a non-dereferenceable `type`; `dc` is not an
+  IANA-registered URN namespace, so the value is an opaque identifier that services replace with an
+  `https://` documentation base once one exists. 401/403 bodies read the same key and default.
+- **D100 — no `replacement` for the removed correlation properties (hardening A1).** The
+  `dc.platform.core.correlation.*` and `dc.platform.restclient.propagate-correlation` keys are
+  deprecated at level `error` with a reason only: the correlation ID is now the W3C trace ID and has no
+  successor property, so naming one would mislead.
+- **D101 — the platform's own MDC emission is an allow-list; consumer MDC passes through (hardening
+  phase 2).** Platform code writes only `traceId` and `spanId` (source-scan test). Consumer MDC keys keep
+  reaching JSON logs, masked like every other value; dropping them by default would silently break
+  services. Strict mode is opt-in: `dc.platform.logging.mdc.include` (non-empty: only `traceId`,
+  `spanId` and the listed keys).
+- **D102 — default log redaction set.** JWTs, `Bearer`/`Basic` credentials, values after credential keys
+  (`password`, `secret`, `token`, `authorization`, `cookie`, `api-key`, …), whole values of
+  credential-named MDC entries and structured arguments, Emirates ID, Luhn-valid 13–19 digit card
+  numbers starting 2–6 (the issuer digit keeps epoch millis out), e-mail addresses and phone numbers
+  (international with `+`/`00`, UAE mobiles in local form; owner request 2026-10-26) become `****`. Extendable with
+  `dc.platform.logging.redaction.patterns`; `LogSanitizer` beans run first, the platform patterns last.
+  Implemented as a logstash `ValueMasker`, so it covers message, MDC, arguments and stack traces alike.
+- **D108 — no startup banner in JSON mode (hardening phase 2, Gate F trial).** The ASCII banner is
+  written to stdout outside logging, so a log shipper parsing stdout line by line saw non-JSON lines.
+  The logging EPP defaults `spring.main.banner-mode=off` whenever the JSON format is resolved
+  (lowest precedence; `console` or `log` set by the service wins). Console format keeps Boot's banner.
+- **D109 — `raw(...)` JSON is masked; unparseable raw text becomes a string (hardening phase 2, Gate D).**
+  Logstash's masking generator forwards `writeRawValue` unread, so `raw("payload", "{\"password\":…}")`
+  reached the log in clear. The platform reads the raw text as exactly one JSON value (member order,
+  duplicates and exact numbers kept, escapes decoded) and writes it back through the masks. Text that
+  is not one JSON value is written as a JSON **string**, escapes decoded, under the pattern masks:
+  written raw it would make the whole line invalid JSON, and undecoded escapes (`password`)
+  would hide credential names from the masks. Simpler than accepting the bypass as a residual, and
+  fail-closed.
+- **D110 — bounded data-access waits (hardening phase 3, Gate B).** Measured against Oracle before
+  choosing: a statement cancel (JDBC query timeout, the JPA hint, a Spring transaction timeout) stops
+  SQL work about a second after its limit, but not a PL/SQL or lock wait or a dead network. Defaults
+  (lowest precedence): Hikari `connection-timeout` 5 s (was 30 s; a request behind an exhausted pool
+  fails fast, 503); `spring.transaction.default-timeout` 30 s (bounds every transaction, repository
+  methods included; note: it also applies to every transaction manager Boot creates, so Phase 4's
+  outbox drainer inherits it unless it sets its own); on a `jdbc:oracle:` pool the driver's
+  `oracle.jdbc.ReadTimeout` 60 s (above the transaction timeout, so slow SQL hits that first) and
+  `oracle.net.CONNECT_TIMEOUT` 10 s, added by a BeanPostProcessor keyed on the pool's own URL (an
+  environment check missed URLs from later property sources); leak detection 20 s under `local` only
+  (never with `prod`). Hikari's keepalive and max lifetime stay its defaults. Round 1 (Gate C) added:
+  a 30 s default query timeout (`jakarta.persistence.query.timeout`, `spring.jdbc.template.query-timeout`),
+  because a declared repository query or a non-transactional service runs outside any transaction (measured:
+  unbounded before); inside a transaction Spring sets the remaining time per query, which wins. And the
+  Oracle driver bounds on Flyway's own `SimpleDriverDataSource` (`spring.flyway.user`/`url`), applied on
+  the `Flyway` bean; residual: a `{vendor}` location connects before that (system properties cover it).
+  Round 2 (Gate D): the remaining transaction time wins only for queries Spring creates as a
+  `jakarta.persistence.Query` (repositories, the injected `EntityManager`, the unwrapped `Session`'s
+  `createQuery`/`createNativeQuery`); Hibernate's `SelectionQuery` and raw-delegate queries take the query
+  default (measured both ways). Decision: keep the default and document `.setTimeout(…)` on those paths
+  rather than reaching into Spring's transaction or Hibernate's session internals — the statement stays
+  bounded, and the alternative only approximates the remaining time. A pool started by the application
+  (`new HikariDataSource(config)`, sealed) is now left alone instead of failing startup; a `Flyway` bean the
+  application builds from a URL gets no driver bounds (Flyway's own data source; system properties cover it).
+  Gate F (HI-0070, owner decision HD14): the read timeout bounds each wait for the database's answer, so a
+  migration statement over 60 s (observed: a `CREATE TABLE` on a slow disk) failed startup, and a transaction given
+  a longer `@Transactional(timeout)` was still cut at 60 s. Both are now properties:
+  `dc.platform.data.jpa.oracle.read-timeout` (pool, 60 s) and `dc.platform.data.jpa.oracle.flyway-read-timeout`
+  (Flyway's own connection, 10 min: an index build can finish, a silent database still fails startup). A
+  `data-source-properties` entry or a JVM system property still wins. Migrations through the pool (no separate
+  Flyway user) get the pool's value.
+- **D111 — data-access failures are problems, classified by cause chain (hardening phase 3, Gate B).**
+  Observed on Oracle: Spring translates only behind a repository proxy or at commit; `EntityManager`
+  use lets raw Hibernate/JPA types through, and a batched insert reports a `BatchUpdateException`
+  whose SQLState is the only sign of a constraint violation. The errors capability's catch-all
+  therefore classifies the whole cause chain by class name (no compile dependency) and SQLState
+  (`23` → 409 `DC-DATA-0409`, `40`/locking → 409 `DC-DATA-0410`, `08`/timeouts/no connection → 503
+  `DC-DATA-0503`, retryable), with a fixed detail; a SQL bug stays 500. Simpler than a separate advice
+  behind `@ConditionalOnClass`, which would miss the raw types and need ordering.
+  Round 1 (Gate C) added `org.hibernate.PropertyValueException` (Hibernate's null check, before any SQL)
+  as 409, and `org.hibernate.TransactionException` as 503 only with Hibernate's exact message
+  `Transaction timeout expired` (a deadline passed before a flush or commit; pinned by an Oracle test).
+  Gate F (consumer run, HI-0068): when the driver read timeout closes a connection mid-transaction, Spring rethrows
+  the failed rollback in place of the 08006 cause, and Hikari's closed-connection `SQLException` has no SQLState.
+  Hibernate's `Unable to rollback against JDBC Connection` over that closed-connection exception is a 503 (nothing
+  was committed); over any other cause the cause classifies as usual. Codex verification added a veto: below
+  Hibernate's `Unable to commit against JDBC Connection` nothing is classified, because a failed commit's outcome
+  is unknown and a retry could apply the change twice (before, an 08006 cause made it a retryable 503). A second
+  verification found Spring's translator drops that Hibernate exception (a recoverable SQLException cause becomes
+  `RecoverableDataAccessException`), so a lost connection is also vetoed when it was raised inside Spring's
+  `AbstractPlatformTransactionManager.processCommit` (by stack frame); a commit-time-flush conflict stays a 409 and
+  Hibernate's deadline expiry stays a 503.
+  HI-0069: Hibernate logs each failed statement's error code and driver message at WARN before the handler's WARN
+  (three lines per violation, against scope R4 "logged once"). A default of `error` for that logger was tried and
+  reverted on Codex verification: it also silences failures that application code catches, and batch or async
+  paths without a handler. Decision: keep Hibernate's lines; the platform logs the exception once (scope
+  amendment A2); `data.md` names the logger for services that want only the platform's line.
+- **D112 — Flyway posture pinned; out-of-order refused outside `local` (hardening phase 3, Gate B).**
+  `clean-disabled`, `validate-on-migrate`, `out-of-order=false`, `validate-migration-naming` are
+  contributed explicitly so a Flyway upgrade cannot loosen them. The out-of-order guard is a
+  bean post-processor on the `Flyway` bean: it checks the finished configuration (after every property and
+  customizer, whatever its order) before Boot's migration initializer runs, with a `FailureAnalyzer`.
+  Round 1 (Gate C) replaced a lowest-precedence customizer, which an equally ordered customizer could follow.
+- **D113 — per-database starters; archetype `database` property (hardening phase 3, HD12).** One
+  POM-only starter per certified database carries the JDBC driver and Flyway's database module, so the
+  pair never travels apart (HI-0041). Only `platform-starter-data-jpa-oracle` exists (owner: other
+  databases later). The archetype takes `-Ddatabase=h2|oracle` (default `h2`, unchanged output apart
+  from a corrected comment); `oracle` requires the `data` feature and is validated like `features`.
+- **D114 — `Instant` on Oracle is `TIMESTAMP WITH TIME ZONE` (hardening phase 3, Gate B).** Hibernate
+  maps `Instant` to its UTC timestamp type and reads an offset date-time; a plain `TIMESTAMP` column
+  fails on read with ORA-18716. The platform keeps Hibernate's standard mapping rather than overriding
+  the `Instant` JDBC type for every service and database; Oracle migrations declare `Instant` columns
+  `TIMESTAMP WITH TIME ZONE` (documented, tested across JVM and session zones).
+- **D115 — the outbox is a JDBC module inside the messaging capability (hardening phase 4, HD11).** Owner's choice over
+  the Spring Modulith event publication registry: every plan requirement (claiming, separate connection budget, parked
+  state, trace columns) is explicit and testable, and a service adds no external framework. It belongs to messaging
+  because the drainer sends through `EventTransport`, a messaging SPI, which another capability's autoconfigure may not
+  use (rule 5). A separate `OutboxPublisher` makes guaranteed publishes visible in review. Its auto-configuration is its
+  own module: the enforcer's fan-out ceiling refused it in `platform-messaging-autoconfigure`, and a service without the
+  outbox then carries none of it.
+- **D116 — lock while sending, not claim with a lease (hardening phase 4).** One transaction per batch: claim with
+  `FOR UPDATE SKIP LOCKED`, send, record, commit. The database releases a dead pod's locks, so no lease or recovery job
+  exists, and a kill repeats at most one batch. The cost is a drainer connection and row locks held across sends, which
+  the drainer's own pool isolates from requests. The batch limit stops the cursor fetch, because Oracle locks as it
+  fetches; `ROWNUM` or `FETCH FIRST` would limit before skipping locked rows. Only a rejection by the sink counts toward
+  parking, so a long outage parks nothing.
+- **D117 — the drainer's pool is not a bean (hardening phase 4).** A `DataSource` or `PlatformTransactionManager` bean
+  would make Boot back off from the service's pool or JPA transaction manager, and `@Transactional` would stop covering
+  JPA writes. The pool is held by `OutboxConnections`, copied from a Hikari application pool so it inherits the Phase 3
+  Oracle bounds; the drainer manages its own transactions and statement timeouts, so it does not inherit the 30 s
+  transaction default (D110).
+- **D118 — the outbox table is a copied migration (hardening phase 4).** A versioned migration in a platform jar collides
+  with the service's sequence and can trip the out-of-order guard (D112); runtime creation fails for a runtime user
+  without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
+  missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
+  collide with the service's next migration (scope amendment A2).
+- **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
+  on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
+  rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.
+- **D102 addendum — compound credential names (hardening phase 2, Gate F trial).** A field or text key
+  ending in `password`, `passwd`, `secret`, `token`, `apikey`, `authorization` or `cookie` (ignoring
+  case, `-`, `_`) is a credential too: `sessionToken`, `x-auth-token`, `db_password`. The consumer run
+  showed an MDC key `session-token` written in clear; over-masking a `…Token` field is the safer error.
+  In text, `sessionCookie=…` masks its value like any credential key; only the exact `Cookie:` /
+  `Set-Cookie:` header masks to the end of the line. The message view traverses structured values to
+  64 levels and masks anything deeper or cyclic (fail closed): deep enough that ordinary payloads stay
+  readable, bounded so a hostile value cannot exhaust the stack (verification pass 2).
+- **D107 — console log format stays Boot's (hardening phase 2, A1, owner accepted 2026-10-26).** The
+  `console` format (the `local` profile) is human-only: it is not masked and a CR/LF in a message can
+  split a line. Overriding Boot's console pattern would fork its styling; JSON, used in every deployed
+  environment, is masked and injection-safe.
+- **D103 — sampling posture.** Head sampling stays Boot's (`management.tracing.sampling.probability`,
+  default `0.1`). Keeping every errored request's trace is delivered by collector tail sampling
+  (documented snippet); the platform position is OPEN as a deployment responsibility, as plan §9 Phase 2
+  allows. Trace IDs in logs and problem bodies are independent of sampling.
+- **D104 — readiness is pod-local (implements D6).** `readiness` = `readinessState`, `liveness` =
+  `livenessState`; `db`, `rabbit`, `redis` move to a `dependencies` group for dashboards.
+- **D105 — minimal actuator exposure.** Chassis default `health,info,prometheus`; `metrics` and
+  `platform` are opt-ins. The archetype opts in `platform` because the generated docs, the golden path
+  and the smoke matrix read it; access stays governed by security. Prometheus scraping is authenticated
+  until the security phase decides between token, management port and permit rule.
+- **D106 — uri tag cardinality is Boot's.** Boot 4.1 caps `uri` values for server and client HTTP
+  meters (`management.metrics.web.{server,client}.max-uri-tags`, 100, deny + log once). The platform adds
+  no `uri` filter of its own and keeps a test that fails if the cap is lifted.

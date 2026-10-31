@@ -22,10 +22,8 @@ import org.springframework.context.annotation.Bean;
  * Proves the relay end to end: a domain event annotated {@code @EventType} is re-published as an
  * integration event over the real in-memory transport once {@code dc.platform.events.relay.enabled=true}.
  *
- * <p>Wires a hand-rolled {@code EventPublisher} directly over {@link InMemoryEventTransport}
- * rather than pulling in {@code platform-messaging-autoconfigure} — that module's optional
- * micrometer dependency isn't on this module's test classpath, and this is a relay test, not a
- * messaging-autoconfigure test.
+ * <p>Wires a hand-rolled {@code EventPublisher} directly over {@link InMemoryEventTransport}: this is a relay test, not
+ * a messaging-autoconfigure test. {@code RelayOrderingTest} covers the two auto-configurations together.
  */
 @SpringBootTest(classes = RelayIntegrationTest.App.class,
         properties = "dc.platform.events.relay.enabled=true")

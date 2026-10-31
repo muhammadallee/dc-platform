@@ -230,7 +230,7 @@
   }, {
     "name" : "dc.platform.errors.type-base-uri",
     "type" : "String",
-    "default" : "https://errors.dc.com/",
+    "default" : "urn:dc:problem:",
     "description" : "base URI prepended to the error code to form the problem {@code type}",
     "deprecation" : "",
     "capability" : "errors"

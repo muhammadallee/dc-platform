@@ -2,7 +2,10 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.AuditorAwareProvider;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
+import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
@@ -17,13 +20,15 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /*
  * Activates when: JPA (jakarta.persistence.EntityManagerFactory + Spring Data AuditorAware) on the
  *                 classpath AND dc.platform.data.jpa.enabled != false.
- * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway check) or
+ * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway checks /
+ *                 the Oracle defaults / dataJpaCapabilityDescriptor) or
  *                 already enables JPA auditing themselves (jpaAuditingHandler present).
  * Beans: platformAuditorAware — AuditorAware<String>; resolves the current user's subject when the
  *                 security capability is present and a request is authenticated, otherwise "system".
@@ -32,7 +37,13 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  *                 consumer never loads a security type;
  *        platformFlywayPresenceCheck — fails startup when require-migrations is on but Flyway is
  *                 absent, with an actionable message;
- *        dataJpaCapabilityDescriptor — one line in the startup capability banner.
+ *        dataJpaCapabilityDescriptor — one line in the startup capability banner;
+ *        platformOracleConnectionDefaults — adds the Oracle driver read/connect timeouts to a Hikari
+ *                 pool whose URL is jdbc:oracle: (only when HikariCP is present; D110);
+ *        platformFlywayOutOfOrderGuard — fails startup when the finished Flyway configuration has
+ *                 out-of-order migrations on outside the local profile (only when Flyway is present; D112);
+ *        platformOracleFlywayConnectionDefaults — adds the same Oracle timeouts to a separate Flyway
+ *                 data source (spring.flyway.user/url) with a jdbc:oracle: URL (only when Flyway is present).
  * Nested JpaAuditingConfiguration enables @EnableJpaAuditing only once a real EntityManagerFactory
  *        exists (@ConditionalOnBean) — this is why the class is ordered after HibernateJpa
  *        AutoConfiguration — so a context without JPA infrastructure still starts cleanly.
@@ -50,7 +61,9 @@ public class PlatformDataJpaAutoConfiguration {
         return new FlywayPresenceCheck(properties.requireMigrations(), getClass().getClassLoader());
     }
 
+    // CapabilityDescriptor is a shared type (one per capability), so the override is by name (D97).
     @Bean
+    @ConditionalOnMissingBean(name = "dataJpaCapabilityDescriptor")
     CapabilityDescriptor dataJpaCapabilityDescriptor() {
         return new CapabilityDescriptor("data-jpa", "ACTIVE", "");
     }
@@ -77,6 +90,44 @@ public class PlatformDataJpaAutoConfiguration {
     @ConditionalOnMissingBean(name = "jpaAuditingHandler")
     @EnableJpaAuditing(auditorAwareRef = "platformAuditorAware")
     static class JpaAuditingConfiguration {
+    }
+
+    /*
+     * Oracle driver read/connect timeouts on a Hikari pool with a jdbc:oracle: URL (D110). Static: a
+     * BeanPostProcessor must not pull the enclosing configuration in early.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "com.zaxxer.hikari.HikariDataSource")
+    static class OracleConnectionDefaultsConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformOracleConnectionDefaults")
+        static OracleConnectionDefaults platformOracleConnectionDefaults(Environment environment) {
+            return new OracleConnectionDefaults(environment);
+        }
+    }
+
+    /*
+     * Checks and bounds on the finished Flyway bean: out-of-order migrations only under the local profile
+     * (D112) and the Oracle network bounds on a separate migration data source (D110). Nested so Flyway
+     * types are only touched when Flyway is on the classpath; static bean methods, as a BeanPostProcessor
+     * must not pull the enclosing configuration in early.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration")
+    static class FlywayChecksConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformFlywayOutOfOrderGuard")
+        static FlywayOutOfOrderGuard platformFlywayOutOfOrderGuard(Environment environment) {
+            return new FlywayOutOfOrderGuard(environment);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(name = "platformOracleFlywayConnectionDefaults")
+        static OracleFlywayConnectionDefaults platformOracleFlywayConnectionDefaults(Environment environment) {
+            return new OracleFlywayConnectionDefaults(environment);
+        }
     }
 
     /*

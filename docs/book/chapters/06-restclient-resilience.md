@@ -1,5 +1,12 @@
 # Chapter 6 — Outbound Calls: REST Client and Resilience
 
+> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
+> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
+> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
+> validation errors omit `rejectedValue` by default. Where this chapter still describes the
+> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
+> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+
 > **Capabilities covered:** `restclient`, `resilience`
 >
 > Calling other services with propagation, timeouts, retries, and circuit breakers you did not have
@@ -860,7 +867,7 @@ each made three recorded attempts (§6.3). Step 7 turns a failure into a degrade
 
 **Hints.**
 
-- `curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq`
+- `curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq` (expose `metrics` first: it is not exposed by default)
 - The fallback signature must be the guarded method's parameters plus a `Throwable`. A mismatch fails
   silently at runtime, not at compile time.
 
@@ -965,6 +972,8 @@ catch (RemoteCallException e) {
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/metrics/resilience4j.circuitbreaker.state | jq
 curl -s localhost:8080/actuator/metrics/http.client.requests | jq '.availableTags'
 curl -s localhost:8080/actuator/configprops | jq '.. | .restclient? // empty'

@@ -6,13 +6,13 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
-| Current phase | 3 closed (PASS); next: 4 — Messaging / transactional outbox (HD11 asked at Gate A) |
-| Current gate | Phase 3 H done (`phase-03-data-access/closure.md`, PASS 2026-10-31: owner accepted A2, HI-0064, HI-0065, HI-0066; HI-0071 OPEN for Phase 4). Gate F: Oracle consumer 3× 92/92 on `29c6ed2`, Phase 1 92/92, Phase 2 75/75, golden path 9/9, downstream 12 modules |
+| Current phase | 4 — Transactional Outbox (HD11: platform JDBC module) |
+| Current gate | A done (`phase-04-outbox/scope.md`, baseline green). Phase 3 closed PASS |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
-| Pending human decisions | HD11 outbox approach (asked at Phase 4 Gate A); HI-0071 explicit commit-outcome evidence (Phase 4); HD7 chart-tool details (asked at Phase 8 step 7) |
+| Pending human decisions | HI-0071 commit evidence (at Phase 4 closure, after a Gate B spike); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 4 Gate A (scope + baseline; ask HD11; carry HI-0071 and the D110 note that the outbox drainer inherits the 30 s transaction default). Reusable test Oracle `nice_galileo` is stopped (start it before Oracle container tests; its PDB takes a few minutes to register). |
+| Next action | Gate B: event id and Rabbit confirms first, then `platform-messaging-outbox`, starter, autoconfigure, relay, archetype feature, Oracle container tests. `nice_galileo` is stopped; start it before Oracle container tests (its PDB takes minutes to register). |
 
 ## Phase log
 
@@ -22,6 +22,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
 | 3 | `60afe86` | **PASS** (final code `29c6ed2`; Oracle consumer 3× 92/92, Phase 1 92/92, Phase 2 75/75, golden path 9/9, CI green; residuals accepted, HI-0071 → Phase 4) | `hardening/phase-03-closed` | 2026-10-31 |
+| 4 | `39e354d` | in progress (Gate A done) | — | — |
 
 ## Environment notes for resumption
 

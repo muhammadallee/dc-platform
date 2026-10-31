@@ -5,7 +5,7 @@
 | 1 | Core + Error Handling | 1 | PASS (2026-10-26, `76cfcc7`) | SLICE + CONSUMER | No backing dependency; ENVIRONMENT in Phase 8 |
 | 2 | Logging + Observability | 2 | PASS (2026-10-28, `5b8e820`) | SLICE + CONSUMER | Prometheus scrape token-authenticated until Phase 7; tail sampling is a deployment responsibility (D103) |
 | 3 | Database / Data Access (Oracle; PostgreSQL out for now, HD3) | 3 | PASS (2026-10-31, `29c6ed2`) | SLICE + CONTAINER + CONSUMER | Prod Oracle 19c, certified on 23ai Free in 19c mode (HD13); RAC failover `BLOCKED` (HD4); commit-outcome evidence revisited in Phase 4 (HI-0071) |
-| 4 | Transactional Outbox | 4 | NOT STARTED | — | No implementation at baseline; approach decided at Gate A (HD11) |
+| 4 | Transactional Outbox | 4 | IN PROGRESS (Gate A) | — | Platform JDBC module (HD11) |
 | 5 | RabbitMQ Messaging | 5 | NOT STARTED | — | Composition checkpoint C1 |
 | 6 | REST Client + Resilience | 6 | NOT STARTED | — | |
 | 7 | Security | 7 | NOT STARTED | — | Composition checkpoint C2 |

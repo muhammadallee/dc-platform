@@ -13,6 +13,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTransientConnectionException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -158,14 +161,24 @@ public final class OutboxDrainer implements SmartLifecycle {
         return PHASE;
     }
 
+    // Only a database that answers and refuses means the table is missing. An unreachable one is an outage: the
+    // service may still start (Flyway, when present, has already reported it) and the drainer keeps trying.
     private void probeTable() {
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement(PROBE);
                 ResultSet ignored = statement.executeQuery()) {
             log.debug("outbox table present");
         } catch (SQLException e) {
-            throw new OutboxTableMissingException(e);
+            if (!isConnectionFailure(e)) {
+                throw new OutboxTableMissingException(e);
+            }
+            log.warn("Could not check the outbox table, the database is unreachable: {}", e.getClass().getName());
         }
+    }
+
+    private static boolean isConnectionFailure(SQLException e) {
+        return e instanceof SQLTransientConnectionException || e instanceof SQLNonTransientConnectionException
+                || e instanceof SQLRecoverableException || (e.getSQLState() != null && e.getSQLState().startsWith("08"));
     }
 
     private void run() {

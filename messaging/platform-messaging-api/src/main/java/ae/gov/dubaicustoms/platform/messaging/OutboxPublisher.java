@@ -35,4 +35,12 @@ public interface OutboxPublisher {
      * @throws IllegalArgumentException if a header is named like a credential: stored rows must not hold one
      */
     void publish(String destination, EventEnvelope<?> event);
+
+    /**
+     * Whether {@link #publish} would accept an event right now, for code that may run outside a transaction and has a
+     * fallback.
+     *
+     * @return {@code true} if the current thread can publish through the outbox
+     */
+    boolean canPublish();
 }

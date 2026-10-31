@@ -10,6 +10,8 @@ import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.DomainEventRel
 import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.ImmediateDispatcher;
 import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.TransactionalDispatcher;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
+import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -97,8 +99,10 @@ public class PlatformEventsAutoConfiguration {
         @ConditionalOnBean(EventPublisher.class)
         @ConditionalOnMissingBean
         DomainEventRelay domainEventRelay(
-                EventPublisher eventPublisher, AfterCommitDispatcher dispatcher, EventsProperties properties) {
-            return new DomainEventRelay(eventPublisher, dispatcher, properties.relay().destinationPrefix());
+                EventPublisher eventPublisher, AfterCommitDispatcher dispatcher, EventsProperties properties,
+                ObjectProvider<OutboxPublisher> outbox) {
+            return new DomainEventRelay(eventPublisher, dispatcher, properties.relay().destinationPrefix(),
+                    outbox.getIfAvailable());
         }
     }
 }

@@ -66,8 +66,7 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
     public void publish(String destination, EventEnvelope<?> event) {
         Objects.requireNonNull(destination, "destination must not be null");
         Objects.requireNonNull(event, "event must not be null");
-        if (!TransactionSynchronizationManager.isActualTransactionActive()
-                || !TransactionSynchronizationManager.hasResource(dataSource)) {
+        if (!canPublish()) {
             throw new IllegalStateException("OutboxPublisher.publish needs an active transaction on the outbox's "
                     + "DataSource, or the event cannot commit with the business write: make the calling method "
                     + "@Transactional under a transaction manager for that DataSource");
@@ -79,6 +78,12 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
         jdbc.update(INSERT, event.eventId(), event.eventType(), event.eventVersion(), destination, event.key(),
                 serializer.serialize(event.payload()), serializer.contentType(), toJson(headers), context.principal(),
                 now, now);
+    }
+
+    @Override
+    public boolean canPublish() {
+        return TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.hasResource(dataSource);
     }
 
     private static void refuseCredentialName(String name) {

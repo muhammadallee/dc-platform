@@ -30,12 +30,13 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-messaging-outbox</artifactId>
+      <artifactId>platform-messaging-outbox-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
     <dependency>
-      <groupId>com.zaxxer</groupId>
-      <artifactId>HikariCP</artifactId>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-messaging-outbox</artifactId>
+      <version>${revision}</version>
     </dependency>
   </dependencies>
 </project>

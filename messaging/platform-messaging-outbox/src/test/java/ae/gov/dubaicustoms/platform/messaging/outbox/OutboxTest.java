@@ -310,6 +310,29 @@ class OutboxTest {
     }
 
     @Test
+    void anUnreachableDatabaseAtStartIsAnOutageNotAMissingTable() {
+        // The drainer keeps trying; "table missing" would send an operator looking in the wrong place.
+        var unreachable = new org.springframework.jdbc.datasource.AbstractDataSource() {
+            @Override
+            public java.sql.Connection getConnection() throws java.sql.SQLException {
+                throw new java.sql.SQLTransientConnectionException("pool timed out");
+            }
+
+            @Override
+            public java.sql.Connection getConnection(String username, String password) throws java.sql.SQLException {
+                return getConnection();
+            }
+        };
+        var drainer = new OutboxDrainer(unreachable, transport, OutboxContext.NONE, OutboxTestSupport.settings(10, 3), clock,
+                null);
+
+        drainer.start();
+
+        assertThat(drainer.isRunning()).isTrue();
+        drainer.stop();
+    }
+
+    @Test
     void theLifecycleDrainsAndStops() {
         EventEnvelope<String> event = publishOne();
         OutboxDrainer drainer = drainer(OutboxTestSupport.settings(10, 3));

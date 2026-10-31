@@ -46,9 +46,11 @@ class DefaultEventPublisherTest {
         EventTransport transport = fakeTransport((destination, key, value, headers) -> capturedHeaders.set(headers));
         var publisher = new DefaultEventPublisher(transport, serializer, properties, ObservationRegistry.NOOP, null);
 
-        publisher.publish("dc.orders", EventEnvelope.of(new OrderPlaced("o-1")).build());
+        EventEnvelope<OrderPlaced> event = EventEnvelope.of(new OrderPlaced("o-1")).build();
+        publisher.publish("dc.orders", event);
 
-        assertThat(capturedHeaders.get()).containsEntry("eventType", "OrderPlaced").containsEntry("eventVersion", "1");
+        assertThat(capturedHeaders.get()).containsEntry("eventType", "OrderPlaced").containsEntry("eventVersion", "1")
+                .containsEntry("eventId", event.eventId());
     }
 
     @Test

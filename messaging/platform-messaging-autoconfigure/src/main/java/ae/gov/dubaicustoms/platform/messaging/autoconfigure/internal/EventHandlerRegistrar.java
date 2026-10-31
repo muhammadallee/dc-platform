@@ -13,6 +13,7 @@ import java.lang.reflect.Type;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,7 +128,9 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
         Class<?> payloadType = envelopePayloadType(method);
         Object payload = serializer.deserialize(value, payloadType);
         int eventVersion = parseVersion(headers.get("eventVersion"));
-        return new EventEnvelope<>(eventType, eventVersion, null, payload, headers, Instant.now());
+        // A message from a non-platform producer has no id; it still gets one, though a redelivery will differ.
+        String eventId = headers.getOrDefault(EventEnvelope.EVENT_ID_HEADER, UUID.randomUUID().toString());
+        return new EventEnvelope<>(eventId, eventType, eventVersion, null, payload, headers, Instant.now());
     }
 
     private static Class<?> envelopePayloadType(Method method) {

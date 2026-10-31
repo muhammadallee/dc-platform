@@ -17,7 +17,7 @@ import java.util.Objects;
 
 /**
  * Default {@link EventPublisher}: wraps the single configured {@link EventTransport}, adding
- * {@code correlationId}/{@code eventType}/{@code eventVersion} headers and instrumenting the send
+ * {@code eventId}/{@code correlationId}/{@code eventType}/{@code eventVersion} headers and instrumenting the send
  * with a Micrometer {@link Observation}.
  */
 public final class DefaultEventPublisher implements EventPublisher {
@@ -53,6 +53,7 @@ public final class DefaultEventPublisher implements EventPublisher {
 
     private void doPublish(String destination, EventEnvelope<?> event) {
         Map<String, String> headers = new LinkedHashMap<>(event.headers());
+        headers.put(EventEnvelope.EVENT_ID_HEADER, event.eventId());
         headers.put(EVENT_TYPE_HEADER, event.eventType());
         headers.put(EVENT_VERSION_HEADER, String.valueOf(event.eventVersion()));
         if (properties.correlation().propagate()) {

@@ -111,11 +111,12 @@ class EventHandlerRegistrarTest {
 
         registrar.postProcessAfterInitialization(handler, "handler");
         transport.send("dc.orders", null, "hello".getBytes(StandardCharsets.UTF_8),
-                Map.of("eventType", "Order", "eventVersion", "2"));
+                Map.of("eventType", "Order", "eventVersion", "2", "eventId", "evt-7"));
 
         assertThat(handler.received).hasSize(1);
         assertThat(handler.received.get(0).payload()).isEqualTo("hello");
         assertThat(handler.received.get(0).eventVersion()).isEqualTo(2);
+        assertThat(handler.received.get(0).eventId()).isEqualTo("evt-7");
     }
 
     static final class FilteredHandler {

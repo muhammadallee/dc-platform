@@ -105,7 +105,9 @@ until [ "$(docker logs "$ORA" 2>&1 | grep -c 'DATABASE IS READY TO USE')" -gt 0 
 done
 echo "oracle_ready_seconds=$(( $(date +%s) - ORACLE_STARTED ))" >> "$HH_EVIDENCE/run-identity.txt"
 hh_infra rabbitmq "$RABBIT_IMAGE" -e RABBITMQ_DEFAULT_USER=hh -e "RABBITMQ_DEFAULT_PASS=$RABBIT_PW"
-for _ in $(seq 1 90); do docker exec "$HH_RUN_ID-rabbitmq" rabbitmq-diagnostics -q ping >/dev/null 2>&1 && break; sleep 2; done
+# Its own log line, not rabbitmq-diagnostics: an exec during boot creates the Erlang cookie as root and crashes the broker.
+for _ in $(seq 1 90); do [ "$(docker logs "$HH_RUN_ID-rabbitmq" 2>&1 | grep -c 'Server startup complete')" -gt 0 ] && break; sleep 2; done
+[ "$(docker logs "$HH_RUN_ID-rabbitmq" 2>&1 | grep -c 'Server startup complete')" -gt 0 ] || hh_abort "RabbitMQ not ready within 3 minutes"
 hh_infra toxiproxy "$TOXIPROXY_IMAGE" -p 127.0.0.1::8474
 TOXI_API="http://127.0.0.1:$(docker port "$HH_RUN_ID-toxiproxy" 8474/tcp | head -1 | sed 's/.*://')"
 for _ in $(seq 1 60); do [ "$(toxi GET /version)" = 200 ] && break; sleep 0.5; done
@@ -238,8 +240,15 @@ sys.exit(0 if ok else 1)
 EOF
 sleep 6
 DRAINER_ACTIVE=$(metric hikaricp_connections_active 'pool="platform-outbox"'); DRAINER_MAX=$(metric hikaricp_connections_max 'pool="platform-outbox"')
-MAIN_PENDING=$(metric hikaricp_connections_pending 'pool="HikariPool-1"')
+curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" > "$HH_EVIDENCE/ac10-scrape.txt"
+{ grep -E '^hikaricp_connections_(max|pending)' "$HH_EVIDENCE/ac10-scrape.txt" || true; } > "$HH_EVIDENCE/ac10-pools.txt"
+MAIN_PENDING=$({ grep -E '^hikaricp_connections_pending' "$HH_EVIDENCE/ac10-scrape.txt" || true; } | { grep -v 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)
 echo "ac10 drainer_active=$DRAINER_ACTIVE drainer_max=$DRAINER_MAX main_pending=$MAIN_PENDING" >> "$HH_EVIDENCE/run-identity.txt"
+# A messaging service keeps its meters: an early MeterRegistry once cost it all of these (HI-0084).
+for METER in 'jvm_threads_live_threads' 'hikaricp_connections_max' 'platform_outbox_pending'; do
+  if grep -qE "^$METER\{.*service=\"hardening-outbox\"" "$HH_EVIDENCE/ac10-scrape.txt"; then hh_pass "AC11 $METER is present with the common tags"
+  else hh_fail "AC11 $METER missing or without the common tags"; fi
+done
 [ "${DRAINER_MAX:-0}" = 2 ] && hh_pass "AC10 the drainer's pool is capped at 2" || hh_fail "AC10 drainer pool max: ${DRAINER_MAX:-none}"
 [ "${MAIN_PENDING:-1}" = 0 ] && hh_pass "AC10 no request waits on the application pool" || hh_fail "AC10 main pool pending: ${MAIN_PENDING:-none}"
 toxi DELETE /proxies/rabbit/toxics/slow >/dev/null

@@ -76,10 +76,14 @@ public class PlatformMessagingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnSingleCandidate(EventTransport.class)
-    EventHandlerRegistrar eventHandlerRegistrar(EventTransport transport, EventSerializer serializer,
-            MessagingProperties properties, Environment environment, ObjectProvider<MeterRegistry> meterRegistry) {
+    static EventHandlerRegistrar eventHandlerRegistrar(ObjectProvider<EventTransport> transport,
+            ObjectProvider<EventSerializer> serializer, ObjectProvider<MessagingProperties> properties,
+            Environment environment, ObjectProvider<MeterRegistry> meterRegistry) {
+        // Static and lazy: a BeanPostProcessor must not pull anything in while post-processors are being registered, or
+        // what it obtains skips post-processing. An early MeterRegistry costs the service its meters and common tags.
         String group = environment.getProperty("spring.application.name", "application");
-        return new EventHandlerRegistrar(transport, serializer, properties, group, meterRegistry.getIfAvailable());
+        return new EventHandlerRegistrar(transport::getObject, serializer::getObject, properties::getObject, group,
+                meterRegistry::getIfAvailable);
     }
 
     @Bean

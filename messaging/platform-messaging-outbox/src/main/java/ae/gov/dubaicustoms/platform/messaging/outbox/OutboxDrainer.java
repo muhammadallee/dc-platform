@@ -121,7 +121,8 @@ public final class OutboxDrainer implements SmartLifecycle {
         this.registry = registry;
         this.sentCounter = registry != null ? registry.counter("platform.outbox.sent") : null;
         this.failedCounter = registry != null ? registry.counter("platform.outbox.failed") : null;
-        this.parkedCounter = registry != null ? registry.counter("platform.outbox.parked.total") : null;
+        // Not "platform.outbox.parked.total": Prometheus maps it to the same family as the parked gauge, and drops one.
+        this.parkedCounter = registry != null ? registry.counter("platform.outbox.parkings") : null;
         registerGauges();
     }
 

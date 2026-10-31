@@ -15,11 +15,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.util.function.SingletonSupplier;
 
 /**
  * {@link BeanPostProcessor} scanning every bean for {@code @EventHandler}-annotated methods and
@@ -44,20 +46,39 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
     private static final Logger log = LoggerFactory.getLogger(EventHandlerRegistrar.class);
     private static final String METRIC_NAME = "platform.messaging.handled";
 
-    private final EventTransport transport;
-    private final EventSerializer serializer;
-    private final MessagingProperties properties;
+    private final Supplier<EventTransport> transport;
+    private final Supplier<EventSerializer> serializer;
+    private final Supplier<MessagingProperties> properties;
     private final String group;
-    private final MeterRegistry meterRegistry;
+    private final Supplier<MeterRegistry> meterRegistry;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
             String group, MeterRegistry meterRegistry) {
-        this.transport = Objects.requireNonNull(transport, "transport must not be null");
-        this.serializer = Objects.requireNonNull(serializer, "serializer must not be null");
-        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this(() -> Objects.requireNonNull(transport, "transport must not be null"),
+                () -> Objects.requireNonNull(serializer, "serializer must not be null"),
+                () -> Objects.requireNonNull(properties, "properties must not be null"), group, () -> meterRegistry);
+    }
+
+    /**
+     * Resolves its collaborators on first use, never at construction. This is a {@code BeanPostProcessor}, created while
+     * post-processors are being registered: a bean it obtains then skips post-processing. That is how a messaging service
+     * lost its JVM, pool and repository meters and its common tags: the {@code MeterRegistry} was created too early for
+     * Boot to configure it.
+     *
+     * @param transport supplies the transport; never {@code null}
+     * @param serializer supplies the serializer; never {@code null}
+     * @param properties supplies the properties; never {@code null}
+     * @param group the consumer group; never {@code null}
+     * @param meterRegistry supplies the registry, which may supply {@code null}; never {@code null}
+     */
+    public EventHandlerRegistrar(Supplier<EventTransport> transport, Supplier<EventSerializer> serializer,
+            Supplier<MessagingProperties> properties, String group, Supplier<MeterRegistry> meterRegistry) {
+        this.transport = SingletonSupplier.of(Objects.requireNonNull(transport, "transport must not be null"));
+        this.serializer = SingletonSupplier.of(Objects.requireNonNull(serializer, "serializer must not be null"));
+        this.properties = SingletonSupplier.of(Objects.requireNonNull(properties, "properties must not be null"));
         this.group = Objects.requireNonNull(group, "group must not be null");
-        this.meterRegistry = meterRegistry;
+        this.meterRegistry = SingletonSupplier.of(Objects.requireNonNull(meterRegistry, "meterRegistry must not be null"));
     }
 
     @Override
@@ -75,7 +96,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
         }
         EventHandler annotation = method.getAnnotation(EventHandler.class);
         method.setAccessible(true);
-        EventTransport.Subscription subscription = transport.subscribe(annotation.destination(), group,
+        EventTransport.Subscription subscription = transport.get().subscribe(annotation.destination(), group,
                 (key, value, headers) -> handle(bean, method, annotation, value, headers));
         subscriptions.add(subscription);
     }
@@ -85,7 +106,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
         if (!annotation.eventType().isEmpty() && !annotation.eventType().equals(eventType)) {
             return;
         }
-        int maxAttempts = properties.handler().retry().maxAttempts();
+        int maxAttempts = properties.get().handler().retry().maxAttempts();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 invoke(bean, method, value, headers, eventType);
@@ -122,11 +143,11 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
     private Object resolveArgument(Method method, byte[] value, Map<String, String> headers, String eventType) {
         Class<?> paramType = method.getParameterTypes()[0];
         if (!EventEnvelope.class.isAssignableFrom(paramType)) {
-            return serializer.deserialize(value, paramType);
+            return serializer.get().deserialize(value, paramType);
         }
         // Generic erasure: EventEnvelope<T>'s T is only visible via the method's generic signature.
         Class<?> payloadType = envelopePayloadType(method);
-        Object payload = serializer.deserialize(value, payloadType);
+        Object payload = serializer.get().deserialize(value, payloadType);
         int eventVersion = parseVersion(headers.get("eventVersion"));
         // A message from a non-platform producer has no id; it still gets one, though a redelivery will differ.
         String eventId = headers.getOrDefault(EventEnvelope.EVENT_ID_HEADER, UUID.randomUUID().toString());
@@ -153,21 +174,22 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, Disposabl
     }
 
     private void republishToDlq(String destination, byte[] value, Map<String, String> headers) {
-        String dlqDestination = destination + properties.dlq().suffix();
-        transport.send(dlqDestination, null, value, headers);
+        String dlqDestination = destination + properties.get().dlq().suffix();
+        transport.get().send(dlqDestination, null, value, headers);
     }
 
     private void sleepBackoff() {
         try {
-            Thread.sleep(properties.handler().retry().backoff());
+            Thread.sleep(properties.get().handler().retry().backoff());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 
     private void count(String outcome) {
-        if (meterRegistry != null) {
-            meterRegistry.counter(METRIC_NAME, "outcome", outcome).increment();
+        MeterRegistry registry = meterRegistry.get();
+        if (registry != null) {
+            registry.counter(METRIC_NAME, "outcome", outcome).increment();
         }
     }
 

@@ -493,7 +493,7 @@ class OutboxTest {
 
         assertThatThrownBy(drainer::drainBatch).isInstanceOf(java.sql.SQLException.class);
 
-        assertThat(registry.get("platform.outbox.parked.total").counter().count()).isZero();
+        assertThat(registry.get("platform.outbox.parkings").counter().count()).isZero();
         assertThat(jdbc.queryForObject("select status from platform_outbox", String.class)).isEqualTo("PENDING");
     }
 
@@ -550,7 +550,7 @@ class OutboxTest {
         assertThat(registry.get("platform.outbox.oldest.pending.age").gauge().value()).isGreaterThan(3000);
         assertThat(registry.get("platform.outbox.sent").counter().count()).isEqualTo(1);
         assertThat(registry.get("platform.outbox.failed").counter().count()).isEqualTo(1);
-        assertThat(registry.get("platform.outbox.parked.total").counter().count()).isEqualTo(1);
+        assertThat(registry.get("platform.outbox.parkings").counter().count()).isEqualTo(1);
         // Bounded tags: no event ids, no destinations.
         assertThat(registry.getMeters()).allSatisfy(meter -> assertThat(meter.getId().getTags()).isEmpty());
         assertThat(registry.get("platform.outbox.gauges.age").gauge().value()).isLessThan(60);

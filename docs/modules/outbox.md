@@ -124,7 +124,7 @@ All under `dc.platform.messaging.outbox`.
 | `platform.outbox.parked` | Parked rows. **Alert on anything above 0** |
 | `platform.outbox.drainer.running` | 1 while the drainer's thread is alive. **Alert on 0** |
 | `platform.outbox.gauges.age` | Seconds since the backlog figures last refreshed; high means they are stale, typically a database outage |
-| `platform.outbox.sent`, `.failed`, `.parked.total` | Counters. No tags, so no event ids or destinations in labels |
+| `platform.outbox.sent`, `.failed`, `.parkings` | Counters. No tags, so no event ids or destinations in labels |
 | `hikaricp_*{pool="platform-outbox"}` | The drainer's own pool |
 
 ## Replace / disable

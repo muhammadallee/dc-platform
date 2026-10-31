@@ -127,12 +127,10 @@ class OutboxTest {
     }
 
     @Test
-    void publishRefusesInAnAfterCommitCallbackButAcceptsANewTransactionThere() {
+    void publishRefusesAnywhereUnderAnAfterCommitCallback() {
         var publisher = publisher(OutboxContext.NONE);
         var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
-        var inNewTransaction = new java.util.concurrent.atomic.AtomicBoolean();
-        var newTransaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-        newTransaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        var inJoined = new java.util.concurrent.atomic.AtomicBoolean(true);
 
         transaction.executeWithoutResult(status -> {
             jdbc.update("insert into business values ('b1')");
@@ -147,17 +145,15 @@ class OutboxTest {
                             } catch (IllegalStateException e) {
                                 failure.set(e);
                             }
-                            newTransaction.executeWithoutResult(inner -> {
-                                inNewTransaction.set(publisher.canPublish());
-                                publisher.publish("dc.orders", EventEnvelope.of("kept").build());
-                            });
+                            // A REQUIRED method here joins the finished transaction: it must not look like a new one.
+                            transaction.executeWithoutResult(inner -> inJoined.set(publisher.canPublish()));
                         }
                     });
         });
 
         assertThat(failure.get()).isInstanceOf(IllegalStateException.class);
-        assertThat(inNewTransaction).isTrue();
-        assertThat(rows()).isEqualTo(1);
+        assertThat(inJoined).isFalse();
+        assertThat(rows()).isZero();
     }
 
     @Test
@@ -402,6 +398,39 @@ class OutboxTest {
         drainer.stop();
 
         assertThat(transport.sent).hasSize(1);
+    }
+
+    @Test
+    void aRestartWaitsForABatchThatIgnoredTheStop() throws Exception {
+        publishOne();
+        var settings = new OutboxSettings(5, Duration.ofMillis(20), 3, Duration.ZERO, Duration.ZERO, Duration.ofHours(24),
+                Duration.ofSeconds(30), Duration.ofDays(1), Duration.ofDays(1), Duration.ofMillis(50));
+        OutboxDrainer drainer = drainer(settings);
+        var sending = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        transport.onSend = destination -> {
+            sending.countDown();
+            while (true) {
+                try {
+                    release.await();
+                    return;
+                } catch (InterruptedException e) {
+                    // A send that ignores interruption, like a blocked socket write.
+                }
+            }
+        };
+        drainer.start();
+        assertThat(sending.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        drainer.stop();
+
+        assertThatThrownBy(drainer::start).isInstanceOf(IllegalStateException.class).hasMessageContaining("not finished");
+
+        release.countDown();
+        org.awaitility.Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            drainer.start();
+            assertThat(drainer.isRunning()).isTrue();
+        });
+        drainer.stop();
     }
 
     @Test

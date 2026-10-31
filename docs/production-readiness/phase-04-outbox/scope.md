@@ -30,7 +30,7 @@
 4. The payload is the application's data and is not masked; `outbox.md` says so.
 
 ### R4 Drainer (§7.4, §7.10)
-1. `SmartLifecycle`; stops before the transport and pool close; a stop lets the current batch finish.
+1. `SmartLifecycle`; stops before the transport and pool close; a stop ends the batch after the send in flight and commits what was sent (agreed in round 2).
 2. **Lock while sending (D116):** one transaction per batch: claim up to `batch-size` due rows with `FOR UPDATE SKIP LOCKED`, send each, update each, commit. A killed pod's locks are released by the database, so no lease or recovery job exists. Duplicates after a kill are bounded by one batch. The first transport failure ends the batch.
 3. Backoff: exponential with a cap, per row (`next_attempt_at`); after `max-attempts` the row becomes `PARKED`, with a WARN and a metric. Parked rows are never deleted automatically and are replayed by a documented SQL statement.
 4. **Own bounded connections:** a small Hikari pool (default 2) built from `spring.datasource.*`. It is **not** a `DataSource` bean and there is **no** `PlatformTransactionManager` bean: either would make Boot back off and take `@Transactional` away from the service's JPA writes (context test required). The drainer applies, itself: the Oracle read and connect bounds (Phase 3 post-processors do not see a non-bean pool), Hikari meters, and its own statement timeouts. It does not inherit the 30 s transaction default.
@@ -98,7 +98,7 @@ CHANGELOG `Breaking`: `EventEnvelope` constructor, Rabbit publisher confirms (`s
 | AC5 | Sink down: rows accumulate, lag metric rises, requests unaffected; drain on recovery; event count and ids complete | CONSUMER |
 | AC6 | Sink slow and sink nacking/unroutable: bounded, no request impact, nothing marked sent that was not acknowledged | CONTAINER + CONSUMER |
 | AC7 | Pod killed (`SIGKILL`) mid-drain: no event lost, duplicates ≤ one batch per kill, each dedupable by id | CONSUMER |
-| AC8 | Two app instances: no event sent twice absent a crash, none lost | CONSUMER |
+| AC8 | Two app instances: no event sent twice absent a crash or a timed-out send (a send past its confirm timeout may yet arrive, then repeats), none lost | CONSUMER |
 | AC9 | Backoff and parking: after `max-attempts` a row is `PARKED`, metric and WARN; replay statement resends it with the same id | CONTAINER + CONSUMER |
 | AC10 | Drainer exhausts its own pool, or the DB is slow: request threads and the main pool unaffected | CONSUMER |
 | AC11 | Retention deletes `SENT` rows in bounded batches and never `PENDING` or `PARKED` | CONTAINER |

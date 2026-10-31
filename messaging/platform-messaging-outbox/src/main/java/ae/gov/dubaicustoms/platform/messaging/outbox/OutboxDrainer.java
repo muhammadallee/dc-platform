@@ -95,6 +95,7 @@ public final class OutboxDrainer implements SmartLifecycle {
 
     private volatile Thread worker;
     private volatile Thread maintenance;
+    private Thread lastWorker;
     private volatile boolean stopping;
     private volatile boolean inBatch;
     private volatile Instant lastGaugeRefresh;
@@ -154,10 +155,15 @@ public final class OutboxDrainer implements SmartLifecycle {
         if (worker != null) {
             return;
         }
+        // A send that ignored the stop may still own its batch; a new worker must not run beside it.
+        if (lastWorker != null && lastWorker.isAlive()) {
+            throw new IllegalStateException("The previous outbox batch has not finished; try again when it has");
+        }
         probeTable();
         registerGauges();
         stopping = false;
         worker = daemon(this::runWorker, "platform-outbox-drainer");
+        lastWorker = worker;
         maintenance = daemon(this::runMaintenance, "platform-outbox-maintenance");
         worker.start();
         maintenance.start();
@@ -182,6 +188,7 @@ public final class OutboxDrainer implements SmartLifecycle {
         if (drainer != null) {
             await(drainer);
         }
+        joinBriefly(housekeeper);
         if (registry != null) {
             gauges.forEach(registry::remove);
             gauges.clear();
@@ -202,6 +209,17 @@ public final class OutboxDrainer implements SmartLifecycle {
                 drainer.interrupt();
                 drainer.join(1000);
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void joinBriefly(Thread thread) {
+        if (thread == null) {
+            return;
+        }
+        try {
+            thread.join(1000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -372,7 +390,7 @@ public final class OutboxDrainer implements SmartLifecycle {
         try {
             stored = parseHeaders(row.headers());
         } catch (JsonProcessingException e) {
-            markFailed(connection, row, e.getClass().getName(), row.rejections(), true, afterCommit);
+            markFailed(connection, row, Map.of(), e.getClass().getName(), row.rejections(), true, afterCommit);
             return true;
         }
         try (OutboxContext.Scope ignored = context.restore(stored)) {
@@ -382,8 +400,8 @@ public final class OutboxDrainer implements SmartLifecycle {
             } catch (RuntimeException e) {
                 boolean rejected = e instanceof EventPublishException publish && publish.rejected();
                 int rejections = row.rejections() + (rejected ? 1 : 0);
-                markFailed(connection, row, e.getClass().getName(), rejections, rejections >= settings.maxRejections(),
-                        afterCommit);
+                markFailed(connection, row, stored, e.getClass().getName(), rejections,
+                        rejections >= settings.maxRejections(), afterCommit);
                 return false;
             }
             markSent(connection, row);
@@ -423,8 +441,8 @@ public final class OutboxDrainer implements SmartLifecycle {
         }
     }
 
-    private void markFailed(Connection connection, Row row, String error, int rejections, boolean park,
-            List<Runnable> afterCommit) throws SQLException {
+    private void markFailed(Connection connection, Row row, Map<String, String> stored, String error, int rejections,
+            boolean park, List<Runnable> afterCommit) throws SQLException {
         int attempts = row.attempts() + 1;
         try (PreparedStatement statement = connection.prepareStatement(MARK_FAILED)) {
             statement.setQueryTimeout(timeoutSeconds());
@@ -442,8 +460,10 @@ public final class OutboxDrainer implements SmartLifecycle {
         if (park) {
             afterCommit.add(() -> {
                 increment(parkedCounter);
-                log.warn("Outbox event {} of type {} parked ({} rejections): {}", row.eventId(), row.eventType(),
-                        rejections, error);
+                try (OutboxContext.Scope ignored = context.restore(stored)) {
+                    log.warn("Outbox event {} of type {} parked ({} rejections): {}", row.eventId(), row.eventType(),
+                            rejections, error);
+                }
             });
         }
     }

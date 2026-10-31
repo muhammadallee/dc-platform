@@ -47,7 +47,7 @@ No dependency on JPA: it needs a `DataSource`, and joins your transaction under 
 
 | Guarantee | Detail |
 |---|---|
-| Atomic with the business write | A rollback leaves no row. `publish` **throws** if no transaction owns a connection of the outbox's `DataSource`, or in an `afterCommit` callback (nothing would commit the row, unless the callback opens a new transaction) |
+| Atomic with the business write | A rollback leaves no row. `publish` **throws** if no transaction owns a connection of the outbox's `DataSource`, or anywhere under an `afterCommit` callback, where nothing would commit the row. Use one transaction manager per outbox database: with a second one, a pool set to `auto-commit=false` and a read through the outbox's `DataSource` inside the other manager's transaction, the check cannot tell |
 | At-least-once delivery | A kill between a send and its commit repeats the rows of that batch: at most `batch-size` duplicates per kill |
 | Stable event id | Generated once, when the envelope is built; the same on every retry, sent as header `eventId` |
 | Acknowledged sends | A row is marked sent only after the transport acknowledges it. On RabbitMQ that is a publisher confirm; unroutable or nacked messages fail |
@@ -64,10 +64,11 @@ data and is stored as is**, so do not put tokens or personal data in an event yo
 ## How it works
 
 The drainer runs on **its own small connection pool** (`pool-size`, default 2), so a stuck or backlogged drainer cannot
-starve request threads. It takes the URL, credentials, driver properties and `connection-init-sql` of your Hikari pool
-(not its size, timeouts or auto-commit) and adds the Oracle read and connect bounds itself. Those credentials are read
-once: rotating them on your pool needs a restart. If your `DataSource` is neither Hikari nor plainly unpooled, startup
-fails rather than risk wrapping a pool: define an `OutboxConnections` bean with a small pool of its own.
+starve request threads. It takes the URL, credentials, driver properties and `connection-init-sql` of your URL-configured
+pool (not its size, timeouts or auto-commit) and adds the Oracle read and connect bounds itself. Those credentials are read
+once: rotating them on your pool needs a restart. If your `DataSource` is anything else, including a Hikari pool configured
+with `dataSource` or `dataSourceClassName`, startup fails rather than risk wrapping a pool or reading another database:
+define an `OutboxConnections` bean with a small pool of its own. A routing RabbitMQ `ConnectionFactory` is not supported.
 
 Each batch is one transaction: claim due rows with `FOR UPDATE SKIP LOCKED`, send each, record each, commit. Row locks
 keep other instances off those rows, and the database releases them when a pod dies, so there is no lease and no recovery
@@ -101,7 +102,7 @@ All under `dc.platform.messaging.outbox`.
 | Property | Default | Description |
 |---|---|---|
 | `enabled` | `true` | `false` publishes after commit, **no longer guaranteed**, and logs a startup WARN saying so |
-| `pool-size` | `2` | The most connections the drainer holds, on its own pool |
+| `pool-size` | `2` | The most connections the drainer holds, on its own pool. At least 2: one for batches, one for metrics and retention |
 | `batch-size` | `50` | The most rows per transaction, and so the most duplicates a kill can cause |
 | `poll-interval` | `1s` | The pause when nothing is due |
 | `max-rejections` | `10` | Rejections by the sink before a row is parked; outages do not count |

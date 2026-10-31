@@ -16,11 +16,13 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
  * The drainer's own bounded connections, so a stuck or backlogged drainer can never starve request threads. Holds the
  * pool instead of being a {@code DataSource} bean: such a bean would make Boot back off from the service's own pool.
  *
- * <p>Built from an allow-list of a Hikari application pool's connection settings (URL, credentials, driver properties,
- * connection-init SQL), never its pool behaviour: not its size, auto-commit, metrics or timeouts. On Oracle it adds the
- * driver's read and connect bounds itself, because a service without the data-jpa starter or with a pool it started
- * itself has none. An unpooled source is wrapped. A source of any other kind may be a pool in disguise, and wrapping one
- * would let the drainer hold request capacity, so it is refused: define an {@code OutboxConnections} bean instead.
+ * <p>Built from an allow-list of a URL-configured application source's connection settings (URL, credentials, driver
+ * properties, connection-init SQL), never its pool behaviour: not its size, auto-commit, metrics or timeouts. On Oracle it
+ * adds the driver's read and connect bounds itself, because a service without the data-jpa starter or with a pool it
+ * started itself has none. An embedded database is wrapped. Anything else is refused, because it may be a pool in
+ * disguise, which would let the drainer hold request capacity, or a Hikari pool whose {@code dataSource} or
+ * {@code dataSourceClassName} takes precedence over its URL, which could mean another database: define an
+ * {@code OutboxConnections} bean instead.
  * Credentials are read once: rotating them on the application pool needs a restart. Thread-safe.
  */
 public final class OutboxConnections implements AutoCloseable {
@@ -58,7 +60,8 @@ public final class OutboxConnections implements AutoCloseable {
     public static OutboxConnections of(DataSource application, int poolSize, Duration readTimeout, MeterRegistry registry) {
         HikariConfig config = new HikariConfig();
         HikariDataSource hikari = unwrapHikari(application);
-        if (hikari != null && hikari.getJdbcUrl() != null) {
+        if (hikari != null && hikari.getJdbcUrl() != null && hikari.getDataSource() == null
+                && hikari.getDataSourceClassName() == null) {
             config.setJdbcUrl(hikari.getJdbcUrl());
             config.setUsername(hikari.getUsername());
             config.setPassword(hikari.getPassword());
@@ -70,7 +73,15 @@ public final class OutboxConnections implements AutoCloseable {
             config.setSchema(hikari.getSchema());
             config.setCatalog(hikari.getCatalog());
             addOracleBounds(config, readTimeout);
-        } else if (application instanceof EmbeddedDatabase || application instanceof AbstractDriverBasedDataSource) {
+        } else if (application instanceof AbstractDriverBasedDataSource driver && driver.getUrl() != null) {
+            config.setJdbcUrl(driver.getUrl());
+            config.setUsername(driver.getUsername());
+            config.setPassword(driver.getPassword());
+            if (driver.getConnectionProperties() != null) {
+                config.setDataSourceProperties(copy(driver.getConnectionProperties()));
+            }
+            addOracleBounds(config, readTimeout);
+        } else if (application instanceof EmbeddedDatabase) {
             config.setDataSource(application);
         } else {
             throw new IllegalStateException("The outbox drainer needs its own connections, and cannot derive them from a "

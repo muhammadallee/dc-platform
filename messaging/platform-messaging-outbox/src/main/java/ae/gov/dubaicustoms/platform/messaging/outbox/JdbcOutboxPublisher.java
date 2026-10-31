@@ -23,9 +23,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * Writes the outbox row through the application's {@link DataSource}, inside the caller's transaction, so it
  * commits or rolls back with the business write. It refuses unless a transaction really owns a connection of that
  * {@code DataSource}: bound, and not auto-committing. A connection merely synchronized under another database's
- * transaction would auto-commit on its own and silently lose atomicity. It also refuses once the transaction has
- * committed (an {@code afterCommit} callback still sees its flags and connection, but nothing commits again), unless
- * that callback started a new transaction. Serializes now: a later class change cannot alter a stored event.
+ * transaction would auto-commit on its own and silently lose atomicity. (Spring exposes no way to verify ownership
+ * further: a pool with {@code auto-commit=false}, a second transaction manager, and a read through this data source
+ * inside that manager's transaction is not detected; use one transaction manager per outbox database.) It also
+ * refuses anywhere under an {@code afterCommit} or {@code afterCompletion} callback: that thread still sees the
+ * transaction's flags and connection, nothing commits again, and a {@code REQUIRED} method there joins the finished
+ * transaction, so a frame cannot prove a new one. Serializes now: a later class change cannot alter a stored event.
  *
  * <p>Thread-safe.
  *
@@ -113,25 +116,17 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
     }
 
     /**
-     * Whether the current thread is in a transaction's after-commit or after-completion callback, with no newer
-     * transaction opened inside it. Spring offers no flag for this phase, so the nearest frame decides.
+     * Whether the current thread is anywhere under a transaction's after-commit or after-completion callback. Spring
+     * offers no flag for this phase, so the stack decides, and it fails closed: a {@code REQUIRES_NEW} transaction opened
+     * in such a callback is refused too, because a {@code REQUIRED} one looks the same and would lose the row.
      *
-     * @return {@code true} if nothing written now would be committed by the transaction it appears to join
+     * @return {@code true} if a row written now may never be committed
      */
     public static boolean afterCommitPhase() {
-        return StackWalker.getInstance().walk(frames -> frames.map(frame -> {
-            String type = frame.getClassName();
-            String method = frame.getMethodName();
-            if ("org.springframework.transaction.support.TransactionSynchronizationUtils".equals(type)
-                    && (method.equals("invokeAfterCommit") || method.equals("invokeAfterCompletion"))) {
-                return Boolean.TRUE;
-            }
-            boolean newTransaction = ("org.springframework.transaction.support.TransactionTemplate".equals(type)
-                    && "execute".equals(method))
-                    || ("org.springframework.transaction.interceptor.TransactionAspectSupport".equals(type)
-                    && "invokeWithinTransaction".equals(method));
-            return newTransaction ? Boolean.FALSE : null;
-        }).filter(Objects::nonNull).findFirst().orElse(Boolean.FALSE));
+        return StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
+                "org.springframework.transaction.support.TransactionSynchronizationUtils".equals(frame.getClassName())
+                        && (frame.getMethodName().equals("invokeAfterCommit")
+                                || frame.getMethodName().equals("invokeAfterCompletion"))));
     }
 
     private static void refuseCredentialName(String name) {

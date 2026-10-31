@@ -13,7 +13,7 @@ import org.springframework.validation.annotation.Validated;
  * {@code @EnableConfigurationProperties} (never scanned).
  *
  * @param enabled {@code false} publishes after commit, no longer guaranteed, and logs a WARN saying so
- * @param poolSize the most database connections the drainer holds, on its own pool
+ * @param poolSize the most database connections the drainer holds, on its own pool; at least 2
  * @param batchSize the most rows claimed in one transaction, and so the most duplicates a killed instance can cause
  * @param pollInterval the pause when nothing is due
  * @param maxRejections how many times the sink may reject a row before it is parked; outages do not count
@@ -56,6 +56,17 @@ public record OutboxProperties(
         @DefaultValue("30s") Duration stopTimeout,
         /** The Oracle driver's read timeout on the drainer's connections, unless the application pool sets one. */
         @DefaultValue("60s") Duration readTimeout) {
+
+    /** Refuses a pool too small to run a batch and the metrics beside it, and a read timeout of none. */
+    public OutboxProperties {
+        if (poolSize < 2) {
+            throw new IllegalArgumentException("dc.platform.messaging.outbox.pool-size must be at least 2: one for batches, "
+                    + "one for metrics and retention, so a slow batch cannot stop them");
+        }
+        if (readTimeout.isZero() || readTimeout.isNegative()) {
+            throw new IllegalArgumentException("dc.platform.messaging.outbox.read-timeout must be positive");
+        }
+    }
 
     /**
      * The drainer's settings.

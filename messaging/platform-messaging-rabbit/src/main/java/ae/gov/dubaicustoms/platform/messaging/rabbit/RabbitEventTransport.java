@@ -7,9 +7,12 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.aopalliance.intercept.MethodInterceptor;
@@ -21,6 +24,7 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.connection.AbstractRoutingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -59,6 +63,7 @@ import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 public final class RabbitEventTransport implements EventTransport {
 
     private static final String UNACKNOWLEDGED = "A send could be lost without anyone knowing. Set ";
+    private static final int MAX_SENDERS_IN_FLIGHT = 64;
 
     private final RabbitTemplate rabbitTemplate;
     private final ConnectionFactory connectionFactory;
@@ -68,6 +73,8 @@ public final class RabbitEventTransport implements EventTransport {
     private final boolean quorumQueues;
     private final Duration confirmTimeout;
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
+    private final Semaphore sendersInFlight = new Semaphore(MAX_SENDERS_IN_FLIGHT);
+    private final Set<Thread> senders = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates the transport.
@@ -103,6 +110,11 @@ public final class RabbitEventTransport implements EventTransport {
     }
 
     private static void requireAcknowledgedPublishing(RabbitTemplate template, ConnectionFactory factory) {
+        // A send runs on its own thread, so a routing key bound to the caller's thread would not be seen there, and the
+        // message could reach the default broker.
+        if (factory instanceof AbstractRoutingConnectionFactory) {
+            throw new IllegalStateException("A routing ConnectionFactory is not supported by this transport");
+        }
         if (!factory.isPublisherConfirms()) {
             throw new IllegalStateException(UNACKNOWLEDGED + "spring.rabbitmq.publisher-confirm-type=correlated");
         }
@@ -138,17 +150,26 @@ public final class RabbitEventTransport implements EventTransport {
         CorrelationData correlation = new CorrelationData();
         // The whole operation is bounded. A broker under a resource alarm blocks the publish itself, before any confirm
         // can be awaited, so it runs apart from the caller. If it gets through after the timeout, that is a duplicate
-        // of the retry, which at-least-once delivery allows; the sender ends when the broker unblocks.
+        // of the retry, which at-least-once delivery allows. Senders the broker is holding are capped: past the cap a
+        // send fails at once, as an outage, rather than piling up threads and channels during a long alarm.
+        if (!sendersInFlight.tryAcquire()) {
+            throw new EventPublishException("too many sends waiting on the broker: " + destination, null);
+        }
         long deadline = System.nanoTime() + confirmTimeout.toNanos();
         CompletableFuture<Void> publish = new CompletableFuture<>();
-        Thread sender = Thread.ofVirtual().name("platform-rabbit-send").start(() -> {
+        Thread sender = Thread.ofVirtual().name("platform-rabbit-send").unstarted(() -> {
             try {
                 rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation);
                 publish.complete(null);
             } catch (RuntimeException e) {
                 publish.completeExceptionally(e);
+            } finally {
+                sendersInFlight.release();
+                senders.remove(Thread.currentThread());
             }
         });
+        senders.add(sender);
+        sender.start();
         try {
             publish.get(confirmTimeout.toNanos(), TimeUnit.NANOSECONDS);
             awaitConfirm(destination, correlation, Math.max(0, deadline - System.nanoTime()));

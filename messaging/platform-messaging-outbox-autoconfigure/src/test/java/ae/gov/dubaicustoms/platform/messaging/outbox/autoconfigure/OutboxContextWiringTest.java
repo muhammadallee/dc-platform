@@ -106,6 +106,28 @@ class OutboxContextWiringTest {
     }
 
     @Test
+    void aHikariPoolWhoseUrlIsNotWhatItConnectsToIsRefused() throws Exception {
+        // Hikari prefers dataSource over jdbcUrl: copying the URL could read another database's outbox.
+        var config = new com.zaxxer.hikari.HikariConfig();
+        config.setJdbcUrl("jdbc:h2:mem:other");
+        config.setDataSource(new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1"));
+        try (var application = new com.zaxxer.hikari.HikariDataSource(config)) {
+            assertThatThrownBy(() -> OutboxConnections.of(application, 2, java.time.Duration.ofSeconds(60), null))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("OutboxConnections bean");
+        }
+    }
+
+    @Test
+    void anUnpooledOracleSourceGetsTheDriverBoundsToo() throws Exception {
+        try (var connections = OutboxConnections.of(new DriverManagerDataSource("jdbc:oracle:thin:@//127.0.0.1:9/APP"), 2,
+                java.time.Duration.ofSeconds(60), null)) {
+            assertThat(((com.zaxxer.hikari.HikariDataSource) connections.dataSource()).getDataSourceProperties())
+                    .containsEntry("oracle.jdbc.ReadTimeout", "60000")
+                    .containsEntry("oracle.net.CONNECT_TIMEOUT", "10000");
+        }
+    }
+
+    @Test
     void aMeteredApplicationPoolCanBeTheSource() throws Exception {
         // Copying a pool's whole state carried its metrics factory across, and Hikari refused the copy.
         var config = new com.zaxxer.hikari.HikariConfig();
@@ -194,8 +216,9 @@ class OutboxContextWiringTest {
     }
 
     @Test
-    void aNonHikariDataSourceIsWrappedInABoundedPool() throws Exception {
-        DataSource embedded = new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+    void anEmbeddedDatabaseIsWrappedInABoundedPool() throws Exception {
+        DataSource embedded = new org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder().generateUniqueName(true)
+                .setType(org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType.H2).build();
 
         try (OutboxConnections connections = OutboxConnections.of(embedded, 1, java.time.Duration.ofSeconds(60), new SimpleMeterRegistry());
                 var connection = connections.dataSource().getConnection()) {

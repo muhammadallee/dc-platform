@@ -25,9 +25,21 @@ public final class TransactionalDispatcher implements AfterCommitDispatcher {
         });
     }
 
+    // Spring offers no flag for this phase, so the nearest frame decides. A transaction opened inside the callback
+    // has its own callbacks, and a handler must wait for it: it may yet roll back.
     private static boolean afterCommitPhase() {
-        return StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
-                "org.springframework.transaction.support.TransactionSynchronizationUtils".equals(frame.getClassName())
-                        && frame.getMethodName().equals("invokeAfterCommit")));
+        return StackWalker.getInstance().walk(frames -> frames.map(frame -> {
+            String type = frame.getClassName();
+            String method = frame.getMethodName();
+            if ("org.springframework.transaction.support.TransactionSynchronizationUtils".equals(type)
+                    && method.equals("invokeAfterCommit")) {
+                return Boolean.TRUE;
+            }
+            boolean inner = ("org.springframework.transaction.support.TransactionTemplate".equals(type)
+                    && "execute".equals(method))
+                    || ("org.springframework.transaction.interceptor.TransactionAspectSupport".equals(type)
+                    && "invokeWithinTransaction".equals(method));
+            return inner ? Boolean.FALSE : null;
+        }).filter(java.util.Objects::nonNull).findFirst().orElse(Boolean.FALSE));
     }
 }

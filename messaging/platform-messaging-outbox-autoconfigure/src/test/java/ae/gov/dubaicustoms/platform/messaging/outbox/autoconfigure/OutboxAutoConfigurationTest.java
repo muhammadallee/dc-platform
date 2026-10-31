@@ -170,6 +170,12 @@ class OutboxAutoConfigurationTest {
     }
 
     @Test
+    void aPoolTooSmallForBatchesAndMaintenanceFailsStartup() {
+        runner.withPropertyValues("dc.platform.messaging.outbox.pool-size=1").run(context ->
+                assertThat(context).hasFailed().getFailure().rootCause().hasMessageContaining("at least 2"));
+    }
+
+    @Test
     void anApplicationPublisherAndDrainerWin() {
         OutboxPublisher mine = new OutboxPublisher() {
             @Override

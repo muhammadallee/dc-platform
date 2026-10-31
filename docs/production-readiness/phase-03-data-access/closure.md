@@ -1,6 +1,7 @@
 # Phase 3 — Database / Data Access (Oracle): closure
 
-**Verdict: PENDING owner acceptance** of the items in *Owner acceptance* below. Earlier owner decisions:
+**Verdict: PASS** (2026-10-31). The owner accepted the residuals below on 2026-10-31 and set HI-0071 for
+Phase 4. Earlier owner decisions:
 Oracle only (HD3 amended), per-database starters (HD12, 2026-10-28), prod on 19c (HD13, 2026-10-28),
 configurable read timeouts (HD14, 2026-10-30).
 
@@ -13,7 +14,7 @@ configurable read timeouts (HD14, 2026-10-30).
 
 | Gate | Result | Evidence |
 |---|---|---|
-| A scope + baseline | done; owner decisions HD3 (Oracle only), HD12, HD13; amendments A1 (AC10), A2 (R4 logging, pending) | [`scope.md`](scope.md) |
+| A scope + baseline | done; owner decisions HD3 (Oracle only), HD12, HD13; amendments A1 (AC10), A2 (R4 logging, accepted 2026-10-31) | [`scope.md`](scope.md) |
 | B implement + targeted tests | Oracle starter, archetype `database`, data errors 409/503 (D111), bounded waits (D110), Flyway pins + out-of-order guard (D112), `Instant` = TSTZ (D114) | `evidence-raw/gateB-errors-data-verify.log` |
 | C round 1 | 6 findings, all fixed (F4 at Medium, F2 with the `{vendor}` residual); AC8 conceded and fixed | [`review-round-1.md`](review-round-1.md) |
 | D round 2 | R2-F1 fixed (started and suspended pools); R2-F2, R2-F3 Medium residuals | [`review-round-2.md`](review-round-2.md) |
@@ -52,7 +53,7 @@ See CHANGELOG `## [Unreleased]`, phase 3:
 - Flyway naming is validated and out-of-order migrations fail outside `local`;
 - `platform-starter-data-jpa-oracle` and the archetype's `-Ddatabase=oracle`.
 
-## Owner acceptance (PENDING)
+## Owner acceptance (ACCEPTED 2026-10-31)
 
 1. **Scope amendment A2** (HI-0069): "logged once on the request's trace" means the platform's own WARN;
    Hibernate's two statement lines stay on by default.
@@ -61,11 +62,14 @@ See CHANGELOG `## [Unreleased]`, phase 3:
 3. **HI-0065**: Hibernate `SelectionQuery` and raw-delegate queries take the 30 s query default instead of the
    remaining transaction time (`.setTimeout(…)` is the workaround).
 4. **HI-0066**: the PL/SQL transaction-cancel miss (seen once, not reproduced); the read timeout bounds it.
-5. **HI-0071**: the commit veto recognises the commit by a stack frame (Codex rejects); the supported
-   `JpaTransactionManager` path is covered; alternative: explicit outcome evidence through a
-   transaction-manager hook, possibly with Phase 4's outbox work.
+5. **HI-0071** (not accepted as final; kept OPEN): the commit veto recognises the commit by a stack frame
+   (Codex rejects); the supported `JpaTransactionManager` path is covered and tested. Owner: keep it for
+   Phase 3 and revisit in Phase 4, where the outbox work changes the transaction layer (explicit
+   commit-outcome evidence through a transaction-manager hook).
 
 ## Open (non-blocking)
+
+- HI-0071: explicit commit-outcome evidence (Phase 4).
 
 - HI-0057: Oracle RAC failover `BLOCKED` (HD4).
 - HD13: certified on 23ai Free in 19 mode, not on 19c itself.

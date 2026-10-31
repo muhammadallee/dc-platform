@@ -122,14 +122,20 @@ class LoggingAutoConfigurationTest {
     void platformCodeWritesOnlyTraceAndSpanIdsToTheMdc() throws IOException {
         // Phase-02 R2.1 (D101): the platform's own MDC emission is an allow-list. Every MDC.put in
         // platform main code is in RequestContext (key traceId plus the caller's extras), and the only
-        // caller that opens a context is the correlation filter, whose extras are spanId.
+        // callers that open a context are the correlation filter, whose extras are spanId, and the outbox
+        // drainer restoring a stored trace, with no extras.
         Path root = Path.of("../..").toAbsolutePath().normalize();
         List<Path> writers = mainSourcesContaining(root, "MDC.put(");
         assertThat(writers).extracting(f -> f.getFileName().toString()).containsExactly("RequestContext.java");
         assertThat(read(writers.get(0))).contains("CORRELATION_ID_KEY = \"traceId\"");
         List<Path> openers = mainSourcesContaining(root, "RequestContext.open(");
-        assertThat(openers).extracting(f -> f.getFileName().toString()).containsExactly("CorrelationIdFilter.java");
-        assertThat(read(openers.get(0))).contains("Map.of(\"spanId\", trace.spanId())");
+        assertThat(openers).extracting(f -> f.getFileName().toString())
+                .containsExactlyInAnyOrder("CorrelationIdFilter.java", "PlatformOutboxContext.java");
+        for (Path opener : openers) {
+            String expectedExtras = opener.endsWith("CorrelationIdFilter.java")
+                    ? "Map.of(\"spanId\", trace.spanId())" : "RequestContext.open(new CorrelationId(traceId), Map.of())";
+            assertThat(read(opener)).contains(expectedExtras);
+        }
     }
 
     private static List<Path> mainSourcesContaining(Path root, String needle) throws IOException {

@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 4 — Transactional Outbox (HD11: platform JDBC module) |
-| Current gate | A done (`phase-04-outbox/scope.md`, baseline green). Phase 3 closed PASS |
+| Current gate | B done on `de67f30`, CI green: event id (G5-01), Rabbit publisher confirms (G5-02), `platform-messaging-outbox`, `-outbox-autoconfigure`, `platform-starter-messaging-outbox`, relay through the outbox, module page, D115-D119, amendments A1 (Oracle only), A2 (no archetype feature), 6 Oracle container tests, HI-0071 spike recorded. Gate C (Codex round 1) running. Gate A: done |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | HI-0071 commit evidence (at Phase 4 closure, after a Gate B spike); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Gate B: event id and Rabbit confirms first, then `platform-messaging-outbox`, starter, autoconfigure, relay, archetype feature, Oracle container tests. `nice_galileo` is stopped; start it before Oracle container tests (its PDB takes minutes to register). |
+| Next action | Gate C: read `phase-04-outbox/codex/r1-review.out.md`, respond, fix. Then Gate D, Gate E (register from HI-0072; include: japicmp is inert with no released baseline), Gate F (consumer: Oracle, RabbitMQ, Toxiproxy, 2 app instances, SIGKILL; service adds the starter and copies the DDL), golden path, Phases 1-3 reruns, Gate H. `nice_galileo` is stopped. |
 
 ## Phase log
 
@@ -22,7 +22,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
 | 3 | `60afe86` | **PASS** (final code `29c6ed2`; Oracle consumer 3× 92/92, Phase 1 92/92, Phase 2 75/75, golden path 9/9, CI green; residuals accepted, HI-0071 → Phase 4) | `hardening/phase-03-closed` | 2026-10-31 |
-| 4 | `39e354d` | in progress (Gate A done) | — | — |
+| 4 | `39e354d` | in progress (Gates A-B done) | — | — |
 
 ## Environment notes for resumption
 

@@ -45,6 +45,15 @@ public interface OutboxContext {
     String principal();
 
     /**
+     * The service publishing, stored as the {@code producer} header.
+     *
+     * @return the name, or {@code null} to send none
+     */
+    default String producer() {
+        return null;
+    }
+
+    /**
      * Restores the stored trace on the current thread while a row is sent, so log lines carry it.
      *
      * @param headers the row's stored headers; never {@code null}

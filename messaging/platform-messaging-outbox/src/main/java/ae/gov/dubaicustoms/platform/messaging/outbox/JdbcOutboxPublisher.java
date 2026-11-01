@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.messaging.outbox;
 
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
+import ae.gov.dubaicustoms.platform.messaging.EventHeaders;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -9,7 +10,6 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -45,8 +45,6 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
             """;
 
     // The names the logging capability masks (D102): ending in one of these, ignoring case, '-' and '_'.
-    private static final Set<String> CREDENTIAL_SUFFIXES =
-            Set.of("password", "passwd", "pwd", "secret", "token", "apikey", "authorization", "cookie");
     // Only these leave the propagator: baggage or any other injected header must not reach a row.
     private static final Set<String> TRACE_HEADERS = Set.of("traceparent", "tracestate");
 
@@ -91,6 +89,9 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
             }
         });
         headers.keySet().forEach(JdbcOutboxPublisher::refuseCredentialName);
+        if (context.producer() != null) {
+            headers.put(EventHeaders.PRODUCER, context.producer());
+        }
         OffsetDateTime now = OffsetDateTime.now(clock);
         jdbc.update(INSERT, event.eventId(), event.eventType(), event.eventVersion(), destination, event.key(),
                 serializer.serialize(event.payload()), serializer.contentType(), toJson(headers), context.principal(),
@@ -130,8 +131,7 @@ public final class JdbcOutboxPublisher implements OutboxPublisher {
     }
 
     private static void refuseCredentialName(String name) {
-        String normalized = name.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "");
-        if (CREDENTIAL_SUFFIXES.stream().anyMatch(normalized::endsWith)) {
+        if (EventHeaders.isCredentialName(name)) {
             throw new IllegalArgumentException("Outbox rows must not hold credentials; refused header: " + name);
         }
     }

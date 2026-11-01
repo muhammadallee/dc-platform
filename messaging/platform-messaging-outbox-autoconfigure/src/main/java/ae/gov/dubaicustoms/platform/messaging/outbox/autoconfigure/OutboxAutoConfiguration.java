@@ -29,6 +29,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 /*
  * Transactional outbox (HD11). Activation: platform-messaging-outbox on the classpath, a DataSource bean, and
@@ -60,9 +61,10 @@ public class OutboxAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         OutboxContext outboxContext(ObjectProvider<PlatformOutboxContext.TraceSource> trace,
-                ObjectProvider<PlatformOutboxContext.PrincipalSource> principal) {
+                ObjectProvider<PlatformOutboxContext.PrincipalSource> principal, Environment environment) {
             return new PlatformOutboxContext(trace.getIfAvailable(() -> java.util.Map::of),
-                    principal.getIfAvailable(() -> () -> null));
+                    principal.getIfAvailable(() -> () -> null),
+                    environment.getProperty("spring.application.name", "application"));
         }
 
         @Bean

@@ -2,10 +2,10 @@ package ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal;
 
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.EventHandler;
+import ae.gov.dubaicustoms.platform.messaging.EventType;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.MessagingProperties;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -55,7 +55,8 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     private final Supplier<EventSerializer> serializer;
     private final Supplier<MessagingProperties> properties;
     private final String group;
-    private final Supplier<MeterRegistry> meterRegistry;
+    private final Supplier<MessagingInstrumentation> instrumentation;
+    private final Supplier<MessageTrace> trace;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Runnable> pending = new CopyOnWriteArrayList<>();
     private volatile boolean running;
@@ -63,10 +64,11 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     private volatile boolean singletonsReady;
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
-            String group, MeterRegistry meterRegistry) {
+            String group, MessagingInstrumentation instrumentation) {
         this(() -> Objects.requireNonNull(transport, "transport must not be null"),
                 () -> Objects.requireNonNull(serializer, "serializer must not be null"),
-                () -> Objects.requireNonNull(properties, "properties must not be null"), group, () -> meterRegistry);
+                () -> Objects.requireNonNull(properties, "properties must not be null"), group,
+                () -> instrumentation != null ? instrumentation : MessagingInstrumentation.NOOP, () -> MessageTrace.NONE);
     }
 
     /**
@@ -79,15 +81,18 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
      * @param serializer supplies the serializer; never {@code null}
      * @param properties supplies the properties; never {@code null}
      * @param group the consumer group; never {@code null}
-     * @param meterRegistry supplies the registry, which may supply {@code null}; never {@code null}
+     * @param instrumentation supplies what records the outcomes; never {@code null}
+     * @param trace supplies what continues a message's trace; never {@code null}
      */
     public EventHandlerRegistrar(Supplier<EventTransport> transport, Supplier<EventSerializer> serializer,
-            Supplier<MessagingProperties> properties, String group, Supplier<MeterRegistry> meterRegistry) {
+            Supplier<MessagingProperties> properties, String group, Supplier<MessagingInstrumentation> instrumentation,
+            Supplier<MessageTrace> trace) {
         this.transport = SingletonSupplier.of(Objects.requireNonNull(transport, "transport must not be null"));
         this.serializer = SingletonSupplier.of(Objects.requireNonNull(serializer, "serializer must not be null"));
         this.properties = SingletonSupplier.of(Objects.requireNonNull(properties, "properties must not be null"));
         this.group = Objects.requireNonNull(group, "group must not be null");
-        this.meterRegistry = SingletonSupplier.of(Objects.requireNonNull(meterRegistry, "meterRegistry must not be null"));
+        this.instrumentation = SingletonSupplier.of(Objects.requireNonNull(instrumentation, "instrumentation must not be null"));
+        this.trace = SingletonSupplier.of(Objects.requireNonNull(trace, "trace must not be null"));
     }
 
     @Override
@@ -125,7 +130,8 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         }
         serializer.get();
         properties.get();
-        meterRegistry.get();
+        instrumentation.get();
+        trace.get();
         pending.forEach(Runnable::run);
         pending.clear();
     }
@@ -133,6 +139,22 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     private void handle(Object bean, Method method, EventHandler annotation, byte[] value, Map<String, String> headers) {
         String eventType = headers.getOrDefault("eventType", "");
         if (!annotation.eventType().isEmpty() && !annotation.eventType().equals(eventType)) {
+            return;
+        }
+        try (MessageTrace.Scope scope = trace.get().continueFrom(headers)) {
+            handleInTrace(bean, method, annotation, value, headers, eventType);
+        }
+    }
+
+    private void handleInTrace(Object bean, Method method, EventHandler annotation, byte[] value,
+            Map<String, String> headers, String eventType) {
+        EventType declared = payloadType(method).getAnnotation(EventType.class);
+        int version = parseVersion(headers.get("eventVersion"));
+        if (declared != null && version > declared.version()) {
+            // Not retried, not dropped: a replay delivers it once this service understands the version.
+            log.warn("@EventHandler {} understands up to version {} of {} and received version {}: dead-lettered",
+                    method, declared.version(), declared.value(), version);
+            deadLetter(annotation.destination(), value, headers, new IllegalArgumentException("event version too new"));
             return;
         }
         Object argument;
@@ -201,6 +223,11 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         return new EventEnvelope<>(eventId, eventType, eventVersion, null, payload, headers, Instant.now());
     }
 
+    private static Class<?> payloadType(Method method) {
+        Class<?> paramType = method.getParameterTypes()[0];
+        return EventEnvelope.class.isAssignableFrom(paramType) ? envelopePayloadType(method) : paramType;
+    }
+
     private static Class<?> envelopePayloadType(Method method) {
         Type genericParamType = method.getGenericParameterTypes()[0];
         if (genericParamType instanceof ParameterizedType parameterized) {
@@ -237,10 +264,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     }
 
     private void count(String outcome) {
-        MeterRegistry registry = meterRegistry.get();
-        if (registry != null) {
-            registry.counter(METRIC_NAME, "outcome", outcome).increment();
-        }
+        instrumentation.get().count(METRIC_NAME, "outcome", outcome);
     }
 
     /** Subscriptions start in {@link #afterSingletonsInstantiated}; the lifecycle is here to stop them in order. */

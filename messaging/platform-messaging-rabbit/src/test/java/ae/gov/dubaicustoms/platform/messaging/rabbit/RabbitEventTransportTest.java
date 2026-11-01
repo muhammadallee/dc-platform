@@ -255,4 +255,33 @@ class RabbitEventTransportTest {
         var subscription = transport.subscribe("dc.orders", "test-group", (key, value, headers) -> { });
         subscription.close();
     }
+
+    @Test
+    void inboundHeadersSummariseDeathsAndDropSpringsOwn() {
+        var properties = new org.springframework.amqp.core.MessageProperties();
+        properties.setHeader("x-death", java.util.List.of(Map.of("count", 2L), Map.of("count", 1L)));
+        properties.setHeader("spring_listener_return_correlation", "internal");
+        properties.setHeader("eventId", "e-1");
+
+        var headers = RabbitEventTransport.fromRabbitHeaders(new org.springframework.amqp.core.Message(new byte[0], properties));
+
+        assertThat(headers).containsEntry("x-death-count", "3").containsEntry("eventId", "e-1")
+                .doesNotContainKeys("x-death", "spring_listener_return_correlation");
+    }
+
+    @Test
+    void itDeadLettersNativelyAndCarriesContextToTheSendThread() {
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
+        var carried = new java.util.concurrent.atomic.AtomicBoolean();
+        transport.carryContextWith(action -> () -> {
+            carried.set(true);
+            action.run();
+        });
+        confirmEverySend(rabbitTemplate, new CorrelationData.Confirm(true, null), null);
+
+        transport.send("dc.orders:placed", null, new byte[0], Map.of());
+
+        assertThat(transport.deadLettersNatively()).isTrue();
+        assertThat(carried).isTrue();
+    }
 }

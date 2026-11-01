@@ -28,7 +28,7 @@ class EventHandlerRegistrarLazinessTest {
     @Test
     void itResolvesNothingUntilABeanHasAHandler() {
         var registrar = new EventHandlerRegistrar(OutboundFail::transport, OutboundFail::serializer, OutboundFail::properties,
-                "group", OutboundFail::registry);
+                "group", OutboundFail::instrumentation, () -> MessageTrace.NONE);
 
         assertThat(registrar.postProcessAfterInitialization(new Object(), "noHandlers")).isNotNull();
     }
@@ -37,7 +37,7 @@ class EventHandlerRegistrarLazinessTest {
     void aBeanWithAHandlerDoesNotResolveTheTransportDuringItsOwnPostProcessing() {
         // The transport may need that very bean: a template customizer that also handles events.
         var registrar = new EventHandlerRegistrar(OutboundFail::transport, OutboundFail::serializer, OutboundFail::properties,
-                "group", OutboundFail::registry);
+                "group", OutboundFail::instrumentation, () -> MessageTrace.NONE);
 
         assertThat(registrar.postProcessAfterInitialization(new Handler(), "handler")).isNotNull();
     }
@@ -61,7 +61,7 @@ class EventHandlerRegistrarLazinessTest {
             return fail();
         }
 
-        static io.micrometer.core.instrument.MeterRegistry registry() {
+        static MessagingInstrumentation instrumentation() {
             return fail();
         }
     }

@@ -5,6 +5,7 @@ import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -15,6 +16,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.AmqpConnectException;
@@ -78,6 +80,7 @@ public final class RabbitEventTransport implements EventTransport {
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
     private final Semaphore sendersInFlight = new Semaphore(MAX_SENDERS_IN_FLIGHT);
     private final Set<Thread> senders = ConcurrentHashMap.newKeySet();
+    private volatile UnaryOperator<Runnable> contextCarrier = UnaryOperator.identity();
 
     /**
      * Creates the transport.
@@ -113,6 +116,16 @@ public final class RabbitEventTransport implements EventTransport {
         this.deliveryLimit = deliveryLimit;
         requireAcknowledgedPublishing(rabbitTemplate, connectionFactory);
         connectionFactory.addConnectionListener(connection -> redeclareTopologies());
+    }
+
+    /**
+     * Sets what carries the caller's context, such as its trace, to the thread a send runs on. Without it, template
+     * observation would start a new root trace there.
+     *
+     * @param carrier wraps the send for the other thread; never {@code null}
+     */
+    public void carryContextWith(UnaryOperator<Runnable> carrier) {
+        this.contextCarrier = Objects.requireNonNull(carrier, "carrier must not be null");
     }
 
     private static void requireAcknowledgedPublishing(RabbitTemplate template, ConnectionFactory factory) {
@@ -163,9 +176,11 @@ public final class RabbitEventTransport implements EventTransport {
         }
         long deadline = System.nanoTime() + confirmTimeout.toNanos();
         CompletableFuture<Void> publish = new CompletableFuture<>();
+        Runnable carriedSend = contextCarrier.apply(
+                () -> rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation));
         Thread sender = Thread.ofVirtual().name("platform-rabbit-send").unstarted(() -> {
             try {
-                rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation);
+                carriedSend.run();
                 publish.complete(null);
             } catch (RuntimeException e) {
                 publish.completeExceptionally(e);
@@ -266,11 +281,21 @@ public final class RabbitEventTransport implements EventTransport {
     static Map<String, String> fromRabbitHeaders(Message message) {
         Map<String, String> headers = new LinkedHashMap<>();
         message.getMessageProperties().getHeaders().forEach((name, value) -> {
-            if (!"key".equals(name)) {
+            if ("x-death".equals(name) && value instanceof List<?> deaths) {
+                headers.put("x-death-count", String.valueOf(deathCount(deaths)));
+            } else if (!"key".equals(name) && !name.startsWith("spring_")) {
                 headers.put(name, String.valueOf(value));
             }
         });
         return headers;
+    }
+
+    private static long deathCount(List<?> deaths) {
+        return deaths.stream().filter(Map.class::isInstance)
+                .map(death -> ((Map<?, ?>) death).get("count"))
+                .filter(Number.class::isInstance)
+                .mapToLong(count -> ((Number) count).longValue())
+                .sum();
     }
 
     private static String queueName(RabbitDestination dest, String group) {

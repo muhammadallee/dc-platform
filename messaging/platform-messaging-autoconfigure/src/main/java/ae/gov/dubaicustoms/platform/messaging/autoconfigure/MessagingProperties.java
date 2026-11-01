@@ -16,7 +16,6 @@ import org.springframework.validation.annotation.Validated;
  *     destinations (not enforced; a naming convention only)
  * @param handler handler-side retry policy applied by {@code EventHandlerRegistrar}
  * @param dlq dead-letter destination naming
- * @param correlation correlation-header propagation on publish
  * @param rabbit rabbit-provider-specific settings, read only by the kafka/rabbit nested transport
  *     configurations in {@code PlatformMessagingAutoConfiguration}
  * @since 0.2.0
@@ -32,8 +31,6 @@ public record MessagingProperties(
         Handler handler,
         /** Dead-letter destination naming. */
         Dlq dlq,
-        /** Correlation-header propagation on publish. */
-        Correlation correlation,
         /** Rabbit-provider-specific settings. */
         Rabbit rabbit) {
 
@@ -44,7 +41,6 @@ public record MessagingProperties(
     public MessagingProperties {
         handler = handler != null ? handler : new Handler(null);
         dlq = dlq != null ? dlq : new Dlq(null);
-        correlation = correlation != null ? correlation : new Correlation(true);
         rabbit = rabbit != null ? rabbit : new Rabbit(true, null, 0, null, 0);
     }
 
@@ -102,18 +98,6 @@ public record MessagingProperties(
         public Dlq {
             suffix = suffix != null ? suffix : ".dlq";
         }
-    }
-
-    /**
-     * Correlation-header propagation on publish.
-     *
-     * @param propagate publish the current {@code RequestContext} correlation id as the
-     *     {@code correlationId} header
-     * @since 0.2.0
-     */
-    public record Correlation(
-            /** Publish the current RequestContext correlation id as the correlationId header. */
-            @DefaultValue("true") boolean propagate) {
     }
 
     /**

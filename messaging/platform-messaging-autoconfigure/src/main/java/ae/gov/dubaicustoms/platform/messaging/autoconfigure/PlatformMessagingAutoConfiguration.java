@@ -5,6 +5,10 @@ import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.DefaultEventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.EventHandlerRegistrar;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.JacksonEventSerializer;
+import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MessageTrace;
+import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MessagingInstrumentation;
+import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MicrometerMessagingInstrumentation;
+import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.TracingMessageTrace;
 import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.rabbit.RabbitEventTransport;
@@ -13,10 +17,13 @@ import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -57,20 +64,52 @@ import org.springframework.kafka.core.KafkaTemplate;
 @EnableConfigurationProperties(MessagingProperties.class)
 public class PlatformMessagingAutoConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
+    /** Jackson, when present. A nested class: its type in a method signature of the outer one breaks reflection without it. */
+    @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(ObjectMapper.class)
-    EventSerializer platformEventSerializer(ObjectProvider<ObjectMapper> objectMapper) {
-        return new JacksonEventSerializer(objectMapper.getIfAvailable(ObjectMapper::new));
+    static class SerializerConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        EventSerializer platformEventSerializer(ObjectProvider<ObjectMapper> objectMapper) {
+            return new JacksonEventSerializer(objectMapper.getIfAvailable(ObjectMapper::new));
+        }
+    }
+
+    /** Micrometer, when present. */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass({MeterRegistry.class, ObservationRegistry.class})
+    static class InstrumentationConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        MessagingInstrumentation messagingInstrumentation(ObjectProvider<MeterRegistry> meters,
+                ObjectProvider<ObservationRegistry> observations) {
+            return new MicrometerMessagingInstrumentation(meters::getIfAvailable, observations::getIfAvailable);
+        }
+    }
+
+    /** Micrometer Tracing, when present. */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass({Tracer.class, Propagator.class})
+    static class TraceConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        MessageTrace messageTrace(ObjectProvider<Tracer> tracer, ObjectProvider<Propagator> propagator) {
+            return new TracingMessageTrace(tracer::getIfUnique, propagator::getIfUnique);
+        }
     }
 
     @Bean
     @ConditionalOnMissingBean(EventPublisher.class)
     @ConditionalOnSingleCandidate(EventTransport.class)
-    EventPublisher eventPublisher(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
-            ObjectProvider<ObservationRegistry> observationRegistry, ObjectProvider<MeterRegistry> meterRegistry) {
-        return new DefaultEventPublisher(transport, serializer, properties,
-                observationRegistry.getIfAvailable(() -> ObservationRegistry.NOOP), meterRegistry.getIfAvailable());
+    @ConditionalOnBean(EventSerializer.class)
+    EventPublisher eventPublisher(EventTransport transport, EventSerializer serializer,
+            ObjectProvider<MessagingInstrumentation> instrumentation, ObjectProvider<MessageTrace> trace,
+            Environment environment) {
+        return new DefaultEventPublisher(transport, serializer, instrumentation.getIfAvailable(() -> MessagingInstrumentation.NOOP),
+                trace.getIfAvailable(() -> MessageTrace.NONE), environment.getProperty("spring.application.name", "application"));
     }
 
     @Bean
@@ -78,12 +117,14 @@ public class PlatformMessagingAutoConfiguration {
     @ConditionalOnSingleCandidate(EventTransport.class)
     static EventHandlerRegistrar eventHandlerRegistrar(ObjectProvider<EventTransport> transport,
             ObjectProvider<EventSerializer> serializer, ObjectProvider<MessagingProperties> properties,
-            Environment environment, ObjectProvider<MeterRegistry> meterRegistry) {
+            Environment environment, ObjectProvider<MessagingInstrumentation> instrumentation,
+            ObjectProvider<MessageTrace> trace) {
         // Static and lazy: a BeanPostProcessor must not pull anything in while post-processors are being registered, or
         // what it obtains skips post-processing. An early MeterRegistry costs the service its meters and common tags.
         String group = environment.getProperty("spring.application.name", "application");
         return new EventHandlerRegistrar(transport::getObject, serializer::getObject, properties::getObject, group,
-                meterRegistry::getIfAvailable);
+                () -> instrumentation.getIfAvailable(() -> MessagingInstrumentation.NOOP),
+                () -> trace.getIfAvailable(() -> MessageTrace.NONE));
     }
 
     @Bean
@@ -135,10 +176,13 @@ public class PlatformMessagingAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(EventTransport.class)
         EventTransport rabbitEventTransport(
-                RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, MessagingProperties properties) {
+                RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, MessagingProperties properties,
+                ObjectProvider<MessageTrace> trace) {
             MessagingProperties.Rabbit rabbit = properties.rabbit();
-            return new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbit.quorumQueues(),
+            var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbit.quorumQueues(),
                     rabbit.confirmTimeout(), rabbit.prefetch(), rabbit.shutdownTimeout(), rabbit.deliveryLimit());
+            transport.carryContextWith(action -> trace.getIfAvailable(() -> MessageTrace.NONE).carry(action));
+            return transport;
         }
     }
 }

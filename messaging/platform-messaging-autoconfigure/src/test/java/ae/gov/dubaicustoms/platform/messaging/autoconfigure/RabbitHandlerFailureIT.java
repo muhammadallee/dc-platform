@@ -66,7 +66,7 @@ class RabbitHandlerFailureIT {
         template.setMandatory(true);
         transport = new RabbitEventTransport(template, connections, true, Duration.ofSeconds(5), 10, Duration.ofSeconds(5), 5);
         var properties = new MessagingProperties(true, "dc.", new MessagingProperties.Handler(
-                new MessagingProperties.Retry(3, Duration.ofMillis(50), Duration.ofMillis(200))), null, null, null);
+                new MessagingProperties.Retry(3, Duration.ofMillis(50), Duration.ofMillis(200))), null, null);
         registrar = new EventHandlerRegistrar(transport, new JacksonEventSerializer(new ObjectMapper()), properties, "app", null);
         registrar.postProcessAfterInitialization(new FailingHandler(), "failing");
         registrar.afterSingletonsInstantiated();

@@ -17,12 +17,30 @@ public final class PlatformOutboxContext implements OutboxContext {
     private static final Logger log = LoggerFactory.getLogger(PlatformOutboxContext.class);
     private static final String TRACEPARENT = "traceparent";
 
+    private final String producer;
     private final TraceSource trace;
     private final PrincipalSource principal;
 
     public PlatformOutboxContext(TraceSource trace, PrincipalSource principal) {
+        this(trace, principal, null);
+    }
+
+    /**
+     * Creates the context.
+     *
+     * @param trace supplies the trace; never {@code null}
+     * @param principal supplies the principal; never {@code null}
+     * @param producer this service's name, or {@code null} to send none
+     */
+    public PlatformOutboxContext(TraceSource trace, PrincipalSource principal, String producer) {
         this.trace = trace;
         this.principal = principal;
+        this.producer = producer;
+    }
+
+    @Override
+    public String producer() {
+        return producer;
     }
 
     /** Supplies the current trace as W3C headers; empty without one. */

@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal;
 import ae.gov.dubaicustoms.platform.messaging.EventSerializationException;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.Objects;
@@ -13,7 +14,9 @@ public final class JacksonEventSerializer implements EventSerializer {
     private final ObjectMapper objectMapper;
 
     public JacksonEventSerializer(ObjectMapper objectMapper) {
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        // A copy: a new field in a later event version must not fail an older consumer, whatever the application's mapper says.
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null").copy()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     @Override

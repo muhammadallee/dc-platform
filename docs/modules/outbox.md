@@ -129,14 +129,10 @@ All under `dc.platform.messaging.outbox`.
 
 ## Limits worth knowing
 
-- **Outbox off or absent, inside a transaction callback.** Directly in an `afterCommit` callback, a publish goes out at
-  once. In a `@Transactional` `REQUIRES_NEW` method there, it waits for that transaction. It **throws** where it could go out
-  too early or never: an `afterCompletion` callback, a `REQUIRED` transaction that joined the finished one, or any
-  `TransactionTemplate` transaction there, which cannot be proven new. The outbox itself refuses anywhere under such a callback.
-- **One transaction manager per outbox database.** With several, startup fails: a publish under the wrong one may not be
-  atomic, and Spring offers no check that would catch every case. `allow-multiple-transaction-managers=true` accepts that risk.
-- **Commit failures.** A connection lost during the commit is never reported as retryable. The platform's JPA transaction
-  manager marks it explicitly; a service's own manager falls back to recognising the commit by a stack frame.
+- **Outbox off or absent, inside an `afterCommit` callback.** Without a guarantee to protect, the fallback paths are best
+  effort there. With the outbox off, a publish in an `afterCommit` callback goes out at once, even if a `REQUIRES_NEW`
+  transaction around it later rolls back. In the relay's fallback, a `REQUIRED` transaction opened in such a callback joins
+  the finished one, as Spring warns, and its dispatch never runs. The outbox itself refuses in all these shapes.
 
 ## Replace / disable
 

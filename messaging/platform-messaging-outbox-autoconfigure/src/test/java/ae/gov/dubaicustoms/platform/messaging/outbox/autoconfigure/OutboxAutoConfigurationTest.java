@@ -103,36 +103,6 @@ class OutboxAutoConfigurationTest {
     }
 
     @Test
-    void aSecondTransactionManagerFailsStartupNamingBothAndTheOptOut() {
-        // Two of the service's own: with only one, Boot's backs off and one manager remains.
-        runner.withBean("first", PlatformTransactionManager.class, SecondManager::new)
-                .withBean("second", PlatformTransactionManager.class, SecondManager::new).run(context -> {
-            assertThat(context).hasFailed();
-            assertThat(context.getStartupFailure())
-                    .hasMessageContaining("2 transaction managers")
-                    .hasMessageContaining("second")
-                    .hasMessageContaining("allow-multiple-transaction-managers=true");
-        });
-    }
-
-    @Test
-    void theOptOutAcceptsASecondTransactionManager() {
-        runner.withBean("second", PlatformTransactionManager.class, SecondManager::new)
-                .withBean("first", PlatformTransactionManager.class, SecondManager::new)
-                .withPropertyValues("dc.platform.messaging.outbox.allow-multiple-transaction-managers=true")
-                .run(context -> assertThat(context).hasNotFailed());
-    }
-
-    @Test
-    void theCheckBacksOffByName() {
-        runner.withBean("first", PlatformTransactionManager.class, SecondManager::new)
-                .withBean("second", PlatformTransactionManager.class, SecondManager::new)
-                .withBean("outboxSingleTransactionManagerCheck", org.springframework.beans.factory.SmartInitializingSingleton.class,
-                        () -> () -> { })
-                .run(context -> assertThat(context).hasNotFailed());
-    }
-
-    @Test
     void propertiesDefaultSnapshot() {
         // §7.2: a changed default fails here until the snapshot is consciously updated (CHANGELOG).
         runner.run(context -> {
@@ -150,7 +120,6 @@ class OutboxAutoConfigurationTest {
             assertThat(outbox.retentionInterval()).isEqualTo(Duration.ofMinutes(5));
             assertThat(outbox.stopTimeout()).isEqualTo(Duration.ofSeconds(30));
             assertThat(outbox.readTimeout()).isEqualTo(Duration.ofSeconds(60));
-            assertThat(outbox.allowMultipleTransactionManagers()).isFalse();
         });
     }
 
@@ -234,28 +203,6 @@ class OutboxAutoConfigurationTest {
 
         try (OutboxContext.Scope ignored = context.restore(Map.of("traceparent", "garbage"))) {
             assertThat(MDC.get("traceId")).isNull();
-        }
-    }
-
-    private static final class SecondManager extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
-
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        protected Object doGetTransaction() {
-            return new Object();
-        }
-
-        @Override
-        protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {
-        }
-
-        @Override
-        protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
-        }
-
-        @Override
-        protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {
         }
     }
 }

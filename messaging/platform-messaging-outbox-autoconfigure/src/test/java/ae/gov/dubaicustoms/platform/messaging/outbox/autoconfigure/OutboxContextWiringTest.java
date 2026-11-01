@@ -195,34 +195,6 @@ class OutboxContextWiringTest {
     }
 
     @Test
-    void afterCommitRefusesATransactionInTheCallbackThatCannotBeProvenNew() {
-        List<EventEnvelope<?>> published = new ArrayList<>();
-        var outbox = new AfterCommitOutboxPublisher((destination, event) -> published.add(event));
-        var manager = new DataSourceTransactionManager(
-                new DriverManagerDataSource("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1"));
-        var inner = new TransactionTemplate(manager);
-        inner.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        List<Throwable> refused = new ArrayList<>();
-
-        new TransactionTemplate(manager).executeWithoutResult(status ->
-                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                        new org.springframework.transaction.support.TransactionSynchronization() {
-                            @Override
-                            public void afterCommit() {
-                                try {
-                                    inner.executeWithoutResult(nested ->
-                                            outbox.publish("dc.orders", EventEnvelope.of("early").build()));
-                                } catch (IllegalStateException e) {
-                                    refused.add(e);
-                                }
-                            }
-                        }));
-
-        assertThat(refused).hasSize(1);
-        assertThat(published).isEmpty();
-    }
-
-    @Test
     void withoutTracingOrSecurityTheContextIsEmpty() {
         runner.run(context -> {
             OutboxContext outbox = context.getBean(OutboxContext.class);

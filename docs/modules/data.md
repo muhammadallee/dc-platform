@@ -78,7 +78,7 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
   `DC-DATA-0503` (a transaction whose deadline passed before a flush or commit included, and a rollback
   that fails because the connection broke, e.g. after the driver read timeout). A connection lost while
   **committing** is a non-retryable 500 whatever its cause, because the outcome is unknown (recognised for
-  the platform's `JpaTransactionManager` by explicit evidence, a service's own imperative manager by a stack frame, not reactive ones; HI-0071). The body never names SQL, tables or
+  Spring's imperative transaction managers such as `JpaTransactionManager`, not reactive ones; HI-0071). The body never names SQL, tables or
   constraints; the platform logs the full exception once, at WARN on the request's trace. Hibernate logs the
   failed statement's error code and driver message as two WARN lines of its own just before (logger
   `org.hibernate.orm.jdbc.error`); they are the only record when application code catches the exception, so

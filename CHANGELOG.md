@@ -70,14 +70,6 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
   stdout line is JSON (D108).
 
 ### Breaking (capability hardening, phase 4 — transactional outbox)
-- **Several transaction managers with the outbox fail startup.** A publish under the wrong one may not be atomic, and Spring
-  offers no complete check. `dc.platform.messaging.outbox.allow-multiple-transaction-managers=true` accepts the risk.
-- **Dispatch and fallback publish refuse unsafe callback shapes.** `TransactionalDispatcher` and the disabled-mode
-  `OutboxPublisher` now throw in an `afterCompletion` callback, in a `REQUIRED` transaction that joined a finished one, and in
-  a `TransactionTemplate` transaction inside an `afterCommit` callback. A `@Transactional` `REQUIRES_NEW` method there still
-  waits for its own commit.
-- **The default JPA transaction manager is a platform subclass** of `JpaTransactionManager`, under Boot's bean name and with
-  Boot's customizers, so a lost connection during the commit is marked explicitly. A service's own manager still wins.
 - **`EventEnvelope` has a required `eventId`** (a new first record component): a UUID generated once when the envelope
   is built, settable with `Builder.eventId(…)` for a republish, sent as header `eventId` (HC7: no users yet).
 - **A RabbitMQ send now waits for the broker's publisher confirm** and throws `EventPublishException` on a nack, a

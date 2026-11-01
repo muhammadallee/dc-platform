@@ -1,6 +1,6 @@
 # Phase 4 — Transactional Outbox: closure
 
-**Verdict: PENDING owner decisions** (see below). Earlier owner decisions: platform JDBC module (HD11), no platform users so
+**Verdict: PASS with parked issues** (2026-11-01; see Owner decisions). Tag pending CI on the closure commit. Earlier owner decisions: platform JDBC module (HD11), no platform users so
 breaking changes need only a CHANGELOG entry (HC7), Oracle only (HD3), prod on 19c (HD13).
 
 | Item | Value |
@@ -48,7 +48,13 @@ See CHANGELOG `## [Unreleased]`, phase 4: the `EventEnvelope` constructor gains 
 
 ## Owner decisions
 
-To be recorded here at closure: HI-0071 with HI-0086, HI-0078, HI-0079. Amendments A1-A3 for information.
+1. **HI-0078: accepted.** Production does not rotate database credentials without a restart for now.
+2. **HI-0071, HI-0079, HI-0086: parked, to be fixed later** (owner, 2026-11-01). The owner first chose to fix them. The attempt
+   (`4ef7bfc`) failed verification (Codex `codex/v2-verify.out.md`, REJECT, 7 findings; not yet individually checked, one
+   confirmed in part by a test: `afterCompletion` runs after Spring clears synchronizations). It was reverted, so the final
+   code stays `03dee13`, the code all the evidence covers. Any later fix must answer those findings. **These limits are
+   open, not accepted:** they should be resolved before production use.
+3. Amendments A1-A3: for information.
 
 ## Open (non-blocking)
 

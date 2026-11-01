@@ -301,6 +301,8 @@ public final class RabbitEventTransport implements EventTransport {
         errors.setDiscardFatalsWithXDeath(false);
         container.setErrorHandler(errors);
         container.setShutdownTimeout(shutdownTimeout.toMillis());
+        // Finish the handler in flight and give back what is buffered, rather than work through it during shutdown.
+        container.setForceStop(true);
         container.setMessageListener((MessageListener) message -> {
             try {
                 deliver(message, listener);

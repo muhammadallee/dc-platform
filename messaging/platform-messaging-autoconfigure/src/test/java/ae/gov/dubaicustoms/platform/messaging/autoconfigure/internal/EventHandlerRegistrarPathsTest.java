@@ -245,6 +245,61 @@ class EventHandlerRegistrarPathsTest {
         }
     }
 
+    /** Two handlers on a destination nobody has subscribed to yet. */
+    public class LateTwo {
+
+        @EventHandler(destination = "dc.late", eventType = "a")
+        public void onA(String payload) {
+            attempts.incrementAndGet();
+        }
+
+        @EventHandler(destination = "dc.late", eventType = "b")
+        public void onB(String payload) {
+            attempts.addAndGet(100);
+        }
+    }
+
+    @Test
+    void aLateBeanIsFullyScannedBeforeItsConsumerStarts() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+        var subscribedBefore = listener;
+
+        registrar.postProcessAfterInitialization(new LateTwo(), "late");
+        assertThat(listener).isNotSameAs(subscribedBefore);
+
+        // Whichever method was scanned first, the one consumer knows both.
+        listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "b", "eventVersion", "1"));
+        assertThat(attempts).hasValue(100);
+    }
+
+    @Test
+    void aSecondInstanceOfTheSameBeanIsNotASecondHandler() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+
+        registrar.postProcessAfterInitialization(new Handler(false), "again");
+
+        deliver("{\"ref\":\"a\"}", "2");
+        assertThat(attempts).hasValue(1);
+    }
+
+    @Test
+    void consumersStartBeforeTheOutboxDrainerAndStopAfterIt() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+
+        assertThat(registrar.getPhase()).isLessThan(org.springframework.context.SmartLifecycle.DEFAULT_PHASE - 4096);
+    }
+
+    @Test
+    void aFailureAfterARestartReadsTheOldSubscriptionsStop() throws Exception {
+        var registrar = registrar(true, true, Duration.ofMinutes(5));
+        var old = listener;
+        registrar.stop();
+        registrar.start();
+
+        assertThatThrownBy(() -> old.onMessage(null, "{\"ref\":\"a\"}".getBytes(), Map.of("eventType", "order", "eventVersion", "2")))
+                .isInstanceOf(EventTransport.TransportListener.RequeueException.class);
+    }
+
     /** Two handlers that could receive the same message. */
     public class Clashing {
 

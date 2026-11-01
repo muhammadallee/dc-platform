@@ -12,16 +12,17 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,14 +50,15 @@ import org.springframework.util.function.SingletonSupplier;
  * declaring that type, else to one declaring none. Two handlers that could receive the same message fail startup. A message
  * no handler wants is acknowledged and counted as {@code outcome=ignored}.
  *
- * <p>Consumers start and stop with the context's lifecycle, so no handler runs ahead of what it depends on, and all close
- * before the connection pools a handler uses are destroyed. A stop cuts a backoff short and puts the message back: nothing
- * is wrong with it.
+ * <p>Consumers start and stop with the context's lifecycle, and close before the connection pools a handler uses are
+ * destroyed. A stop cuts a backoff short and puts the message back: nothing is wrong with it. A handler on a lazy bean
+ * receives only once that bean exists, so handlers belong on singletons created at startup.
  */
 public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLifecycle, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(EventHandlerRegistrar.class);
     private static final String METRIC_NAME = "platform.messaging.handled";
+    private static final int PHASE = SmartLifecycle.DEFAULT_PHASE - 8192;
 
     private final Supplier<EventTransport> transport;
     private final Supplier<EventSerializer> serializer;
@@ -66,7 +68,8 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     private final Supplier<MessageTrace> trace;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
     private final Map<String, List<Registered>> routes = new ConcurrentHashMap<>();
-    private final AtomicReference<CountDownLatch> stopping = new AtomicReference<>(new CountDownLatch(1));
+    private final Object lifecycle = new Object();
+    private volatile CountDownLatch stopping = new CountDownLatch(1);
     private volatile boolean running;
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
@@ -104,12 +107,19 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) {
         Class<?> targetClass = bean.getClass();
-        ReflectionUtils.doWithMethods(targetClass, method -> registerHandler(bean, method),
+        Set<String> newDestinations = new LinkedHashSet<>();
+        ReflectionUtils.doWithMethods(targetClass, method -> registerHandler(bean, method, newDestinations),
                 method -> method.isAnnotationPresent(EventHandler.class));
+        // After the whole bean is scanned: a consumer started on its first handler could receive what its second should.
+        synchronized (lifecycle) {
+            if (running) {
+                newDestinations.forEach(this::subscribe);
+            }
+        }
         return bean;
     }
 
-    private void registerHandler(Object bean, Method method) {
+    private void registerHandler(Object bean, Method method, Set<String> newDestinations) {
         if (method.getParameterCount() != 1) {
             throw new IllegalStateException(
                     "@EventHandler method " + method + " must declare exactly one parameter");
@@ -117,20 +127,24 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
         EventHandler annotation = method.getAnnotation(EventHandler.class);
         method.setAccessible(true);
         Registered handler = new Registered(bean, method, annotation.destination(), annotation.eventType());
-        // Not subscribed here, during this bean's own post-processing: the transport may need this very bean (a template
-        // customizer that also handles events). Subscribing waits for start().
-        boolean firstOnDestination;
-        synchronized (routes) {
+        // Not subscribed during this bean's own post-processing before start(): the transport may need this very bean (a
+        // template customizer that also handles events).
+        synchronized (lifecycle) {
             List<Registered> route = routes.computeIfAbsent(annotation.destination(), each -> new CopyOnWriteArrayList<>());
-            route.stream().filter(other -> other.eventType().equals(handler.eventType())).findFirst().ifPresent(other -> {
+            Registered other = route.stream().filter(each -> each.eventType().equals(handler.eventType())).findFirst().orElse(null);
+            if (other != null && other.method().equals(method)) {
+                // A second instance of a non-singleton bean is not a second handler: the first keeps receiving.
+                log.warn("@EventHandler {} is on a bean created more than once: only the first instance receives", method);
+                return;
+            }
+            if (other != null) {
                 throw new IllegalStateException("@EventHandler methods " + other.method() + " and " + method + " both handle "
                         + describe(handler) + ": exactly one handler receives each message");
-            });
-            firstOnDestination = route.isEmpty();
+            }
+            if (route.isEmpty()) {
+                newDestinations.add(annotation.destination());
+            }
             route.add(handler);
-        }
-        if (running && firstOnDestination) {
-            subscribe(annotation.destination());
         }
     }
 
@@ -140,11 +154,14 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     }
 
     private void subscribe(String destination) {
-        subscriptions.add(transport.get().subscribe(destination, group, (key, value, headers) -> route(destination, value, headers)));
+        // This subscription's own stop signal: a handler outliving its consumer must not read a later restart's.
+        CountDownLatch cancelled = stopping;
+        subscriptions.add(transport.get().subscribe(destination, group,
+                (key, value, headers) -> route(destination, value, headers, cancelled)));
     }
 
     /** Handlers on one destination share one queue, so one subscription receives for all of them and routes by type. */
-    private void route(String destination, byte[] value, Map<String, String> headers) {
+    private void route(String destination, byte[] value, Map<String, String> headers, CountDownLatch cancelled) {
         String eventType = headers.getOrDefault("eventType", "");
         List<Registered> candidates = routes.get(destination);
         Registered handler = candidates.stream().filter(each -> each.eventType().equals(eventType)).findFirst()
@@ -155,11 +172,12 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
             return;
         }
         try (MessageTrace.Scope scope = trace.get().continueFrom(headers)) {
-            handle(handler, value, headers, eventType);
+            handle(handler, value, headers, eventType, cancelled);
         }
     }
 
-    private void handle(Registered handler, byte[] value, Map<String, String> headers, String eventType) {
+    private void handle(Registered handler, byte[] value, Map<String, String> headers, String eventType,
+            CountDownLatch cancelled) {
         Method method = handler.method();
         String destination = handler.destination();
         EventType declared = payloadType(method).getAnnotation(EventType.class);
@@ -197,13 +215,16 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
                 return;
             } catch (RuntimeException e) {
                 if (attempt >= retry.maxAttempts()) {
-                    log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: dead-lettered",
-                            method, attempt, destination, e);
+                    // The class and where it was thrown: its message can quote the payload. The whole of it at DEBUG.
+                    StackTraceElement[] frames = e.getStackTrace();
+                    log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: dead-lettered. {} at {}",
+                            method, attempt, destination, e.getClass().getName(), frames.length > 0 ? frames[0] : "unknown");
+                    log.debug("@EventHandler {} failure", method, e);
                     deadLetter(destination, value, headers, "retries exhausted");
                     return;
                 }
                 count("retry");
-                pause(backoff);
+                pause(backoff, cancelled);
                 backoff = shorter(backoff.multipliedBy(2), retry.maxBackoff());
             }
         }
@@ -281,9 +302,9 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
         transport.get().send(dlqDestination, null, value, headers);
     }
 
-    private void pause(Duration backoff) {
+    private void pause(Duration backoff, CountDownLatch cancelled) {
         try {
-            if (stopping.get().await(backoff.toMillis(), TimeUnit.MILLISECONDS)) {
+            if (cancelled.await(backoff.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new EventTransport.TransportListener.RequeueException("the consumer is stopping");
             }
         } catch (InterruptedException e) {
@@ -296,31 +317,45 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
         instrumentation.get().count(METRIC_NAME, "outcome", outcome);
     }
 
-    /** Runs once the context's other beans have started, so no handler runs ahead of what it depends on. */
     @Override
     public void start() {
-        synchronized (routes) {
+        synchronized (lifecycle) {
             if (running) {
                 return;
             }
             running = true;
-            stopping.set(new CountDownLatch(1));
+            stopping = new CountDownLatch(1);
+            if (routes.isEmpty()) {
+                return;
+            }
+            serializer.get();
+            properties.get();
+            instrumentation.get();
+            trace.get();
+            routes.keySet().forEach(this::subscribe);
         }
-        if (routes.isEmpty()) {
-            return;
-        }
-        serializer.get();
-        properties.get();
-        instrumentation.get();
-        trace.get();
-        routes.keySet().forEach(this::subscribe);
     }
 
     @Override
     public void stop() {
-        running = false;
-        stopping.get().countDown();
-        closeSubscriptions();
+        List<EventTransport.Subscription> closing;
+        synchronized (lifecycle) {
+            running = false;
+            stopping.countDown();
+            closing = List.copyOf(subscriptions);
+            subscriptions.clear();
+        }
+        close(closing);
+    }
+
+    /**
+     * Before the outbox drainer ({@code DEFAULT_PHASE - 4096}), so a drained event finds its consumers; on the in-memory
+     * transport it would otherwise vanish. And so stops after the drainer and the web server, with handlers still able to
+     * use the pools, which are destroyed later. A lifecycle bean a handler depends on needs a lower phase than this.
+     */
+    @Override
+    public int getPhase() {
+        return PHASE;
     }
 
     @Override
@@ -334,16 +369,15 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     }
 
     // Together: one after another would let the last run for each one's timeout, redelivering what the others put back.
-    private void closeSubscriptions() {
-        List<Thread> closing = subscriptions.stream().map(subscription -> Thread.ofVirtual().start(() -> {
+    private static void close(List<EventTransport.Subscription> closing) {
+        List<Thread> threads = closing.stream().map(subscription -> Thread.ofVirtual().start(() -> {
             try {
                 subscription.close();
             } catch (Exception e) {
                 log.warn("failed to close messaging subscription", e);
             }
         })).toList();
-        subscriptions.clear();
-        for (Thread thread : closing) {
+        for (Thread thread : threads) {
             try {
                 thread.join();
             } catch (InterruptedException e) {

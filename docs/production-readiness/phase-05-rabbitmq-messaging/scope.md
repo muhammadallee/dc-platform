@@ -89,6 +89,13 @@ table with a unique constraint, in the same transaction as the business write, s
 - HI-0082: send on the caller's thread when possible, or carry the trace to the send thread, so template observation does not
   start a new root trace; a thread-context mandatory expression is refused or documented.
 
+### Amendments
+
+| ID | Date | Amendment | Reason |
+|---|---|---|---|
+| A1 | 2026-11-01 | R2.2: the bound covers backoff, not the handler's own execution. | A consumer thread cannot safely interrupt arbitrary handler code. The handler's own timeouts, such as the data capability's, bound it; documented. Codex round 2 raised it. |
+| A2 | 2026-11-01 | AC4 at CONTAINER level uses a repeated requeue as the stand-in for a killed consumer. | The broker counts both as returns. A real kill loop would add minutes per run for the same broker path. |
+
 ## 3. Exclusions
 
 | Item | Where |

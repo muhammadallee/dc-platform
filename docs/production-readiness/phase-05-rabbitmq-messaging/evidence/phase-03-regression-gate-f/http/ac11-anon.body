@@ -1,0 +1,1 @@
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,"detail":"Full authentication is required to access this resource","instance":"/actuator/prometheus","code":"DC-SEC-0401","traceId":"62e52aebbfd004d38b2c2506426341d2","timestamp":"2026-11-01T21:29:37.434912353Z","retryable":false}

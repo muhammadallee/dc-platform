@@ -6,13 +6,13 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
-| Current phase | 5 — RabbitMQ Messaging |
-| Current gate | C: review round 1. Gate B done: consumer trial 63/63 on the Gate B code |
+| Current phase | 5 closed in substance; 6 — REST Client + Resilience is next |
+| Current gate | Phase 5 closure: residuals awaiting the owner, tag after CI |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
-| Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7) |
+| Pending human decisions | Accept HI-0087, HI-0088, HI-0093 (Phase 5); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Review round 1 and 2, then three closing runs of `phase-05-rabbit.sh`, Phases 1-4 consumers (the Phase 4 run is C1's fault scenarios), downstream compile, golden path, samples. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Consumer runs go in the foreground. `nice_galileo` is stopped. |
+| Next action | Phase 6 Gate A. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Consumer runs go in the foreground. `nice_galileo` is stopped. Disk: D: under 1 GB free, not from this work; golden path dependencies copied to `~/gp-p5-m2`, use `GP_MAVEN_REPO`, `GP_WORKDIR`, `GP_EVIDENCE` on C:. |
 
 ## Phase log
 
@@ -23,7 +23,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
 | 3 | `60afe86` | **PASS** (final code `29c6ed2`; Oracle consumer 3× 92/92, Phase 1 92/92, Phase 2 75/75, golden path 9/9, CI green; residuals accepted, HI-0071 → Phase 4) | `hardening/phase-03-closed` | 2026-10-31 |
 | 4 | `39e354d` | **PASS with parked issues** (final code `03dee13`; consumer 3× 106/106, Phases 1-3 92/75/92, golden path 9/9; HI-0078 accepted; HI-0071, HI-0079, HI-0086 parked) | `hardening/phase-04-closed` | 2026-11-01 |
-| 5 | `dfb3524` | in progress | — | — |
+| 5 | `dfb3524` | **PASS** (final code `5cafcf3`; consumer 3× 63/63, Phases 1-4 92/75/92/106, C1, golden path 9/9, CI green; HI-0087, HI-0088, HI-0093 awaiting acceptance) | `hardening/phase-05-closed` | 2026-11-02 |
 
 ## Environment notes for resumption
 

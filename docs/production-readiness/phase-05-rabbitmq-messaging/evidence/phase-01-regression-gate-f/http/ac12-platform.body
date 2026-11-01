@@ -1,0 +1,1 @@
+{"detail":"An unexpected error occurred.","instance":"/probe/platform-failure","status":500,"title":"DC-PROBE-0500","type":"urn:dc:problem:DC-PROBE-0500","code":"DC-PROBE-0500","traceId":"bf5d4a90fb35df761853434e4d7fdac4","timestamp":"2026-11-01T21:12:47.925448512Z","retryable":false}

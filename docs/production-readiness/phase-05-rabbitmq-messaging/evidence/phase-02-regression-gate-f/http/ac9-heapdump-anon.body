@@ -1,0 +1,1 @@
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,"detail":"Full authentication is required to access this resource","instance":"/actuator/heapdump","code":"DC-SEC-0401","traceId":"3dca875941331dacc14dcfe92a8b1ac6","timestamp":"2026-11-01T21:16:10.041920949Z","retryable":false}

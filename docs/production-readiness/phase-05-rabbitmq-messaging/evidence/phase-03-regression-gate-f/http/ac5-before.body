@@ -1,0 +1,472 @@
+# HELP application_ready_time_seconds Time taken for the application to be ready to service requests
+# TYPE application_ready_time_seconds gauge
+application_ready_time_seconds{env="prod",main_application_class="ae.gov.dubaicustoms.hardening.Application",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 67.331
+# HELP application_started_time_seconds Time taken to start the application
+# TYPE application_started_time_seconds gauge
+application_started_time_seconds{env="prod",main_application_class="ae.gov.dubaicustoms.hardening.Application",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 67.314
+# HELP disk_free_bytes Usable space for path
+# TYPE disk_free_bytes gauge
+disk_free_bytes{env="prod",path="/app/.",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 9.7992720384E11
+# HELP disk_total_bytes Total space for path
+# TYPE disk_total_bytes gauge
+disk_total_bytes{env="prod",path="/app/.",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.081101176832E12
+# HELP executor_active_threads The approximate number of threads that are actively executing tasks
+# TYPE executor_active_threads gauge
+executor_active_threads{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP executor_completed_tasks_total The approximate total number of tasks that have completed execution
+# TYPE executor_completed_tasks_total counter
+executor_completed_tasks_total{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP executor_pool_core_threads The core number of threads for the pool
+# TYPE executor_pool_core_threads gauge
+executor_pool_core_threads{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 8.0
+# HELP executor_pool_max_threads The maximum allowed number of threads in the pool
+# TYPE executor_pool_max_threads gauge
+executor_pool_max_threads{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2.147483647E9
+# HELP executor_pool_size_threads The current number of threads in the pool
+# TYPE executor_pool_size_threads gauge
+executor_pool_size_threads{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP executor_queue_remaining_tasks The number of additional elements that this queue can ideally accept without blocking
+# TYPE executor_queue_remaining_tasks gauge
+executor_queue_remaining_tasks{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2.147483647E9
+# HELP executor_queued_tasks The approximate number of tasks that are queued for execution
+# TYPE executor_queued_tasks gauge
+executor_queued_tasks{env="prod",name="applicationTaskExecutor",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP hikaricp_connections Total connections
+# TYPE hikaricp_connections gauge
+hikaricp_connections{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 3.0
+# HELP hikaricp_connections_acquire_seconds Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds summary
+hikaricp_connections_acquire_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 42
+hikaricp_connections_acquire_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 61.365564994
+# HELP hikaricp_connections_acquire_seconds_max Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds_max gauge
+hikaricp_connections_acquire_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 5.001020728
+# HELP hikaricp_connections_active Active connections
+# TYPE hikaricp_connections_active gauge
+hikaricp_connections_active{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 0.0
+# HELP hikaricp_connections_creation_seconds Connection creation time
+# TYPE hikaricp_connections_creation_seconds summary
+hikaricp_connections_creation_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 25
+hikaricp_connections_creation_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 2.577
+# HELP hikaricp_connections_creation_seconds_max Connection creation time
+# TYPE hikaricp_connections_creation_seconds_max gauge
+hikaricp_connections_creation_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 1.02
+# HELP hikaricp_connections_idle Idle connections
+# TYPE hikaricp_connections_idle gauge
+hikaricp_connections_idle{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 3.0
+# HELP hikaricp_connections_max Max connections
+# TYPE hikaricp_connections_max gauge
+hikaricp_connections_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 10.0
+# HELP hikaricp_connections_min Min connections
+# TYPE hikaricp_connections_min gauge
+hikaricp_connections_min{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 10.0
+# HELP hikaricp_connections_pending Pending threads
+# TYPE hikaricp_connections_pending gauge
+hikaricp_connections_pending{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 0.0
+# HELP hikaricp_connections_timeout_total Connection timeout total count
+# TYPE hikaricp_connections_timeout_total counter
+hikaricp_connections_timeout_total{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 12.0
+# HELP hikaricp_connections_usage_seconds Connection usage time
+# TYPE hikaricp_connections_usage_seconds summary
+hikaricp_connections_usage_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 29
+hikaricp_connections_usage_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 83.466
+# HELP hikaricp_connections_usage_seconds_max Connection usage time
+# TYPE hikaricp_connections_usage_seconds_max gauge
+hikaricp_connections_usage_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-data"} 8.071
+# HELP http_server_requests_active_seconds  
+# TYPE http_server_requests_active_seconds summary
+http_server_requests_active_seconds_count{env="prod",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 1
+http_server_requests_active_seconds_sum{env="prod",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 0.005615688
+http_server_requests_active_seconds_count{env="prod",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 0
+http_server_requests_active_seconds_sum{env="prod",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 0.0
+# HELP http_server_requests_active_seconds_max  
+# TYPE http_server_requests_active_seconds_max gauge
+http_server_requests_active_seconds_max{env="prod",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 0.005621388
+http_server_requests_active_seconds_max{env="prod",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="UNKNOWN"} 0.0
+# HELP http_server_requests_seconds  
+# TYPE http_server_requests_seconds summary
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="401",uri="UNKNOWN"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="401",uri="UNKNOWN"} 0.010177362
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/actuator/health/**"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/actuator/health/**"} 5.017199976
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/db"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/db"} 5.020779511
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/health/**"} 4
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/health/**"} 1.508541655
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/prometheus"} 2
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/prometheus"} 1.70421608
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/context"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/context"} 0.004633666
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/db"} 4
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/db"} 0.651597716
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/identity"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/identity"} 0.032464259
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels/count"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels/count"} 0.152311399
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="POST",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="409",uri="/probe/parcels"} 10
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="POST",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="409",uri="/probe/parcels"} 2.549433999
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="POST",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/hold"} 11
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="POST",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/hold"} 113.646737276
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/hold"} 10
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/hold"} 80.525101384
+http_server_requests_seconds_count{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels"} 1
+http_server_requests_seconds_sum{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels"} 0.179991371
+# HELP http_server_requests_seconds_max  
+# TYPE http_server_requests_seconds_max gauge
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="401",uri="UNKNOWN"} 0.010177362
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/actuator/health/**"} 5.017199976
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/db"} 5.020779511
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/health/**"} 1.33340527
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/actuator/prometheus"} 1.683195794
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/context"} 0.004633666
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/db"} 0.614610005
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/identity"} 0.032464259
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="GET",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels/count"} 0.152311399
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="POST",outcome="CLIENT_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="409",uri="/probe/parcels"} 1.40640185
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="POST",outcome="SERVER_ERROR",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="503",uri="/probe/hold"} 63.466845683
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/hold"} 8.076136501
+http_server_requests_seconds_max{env="prod",error="none",exception="none",method="POST",outcome="SUCCESS",platform_version="1.0.0-SNAPSHOT",service="hardening-data",status="200",uri="/probe/parcels"} 0.179991371
+# HELP jdbc_connections_active Current number of active connections that have been allocated from the data source.
+# TYPE jdbc_connections_active gauge
+jdbc_connections_active{env="prod",name="dataSource",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jdbc_connections_idle Number of established but idle connections.
+# TYPE jdbc_connections_idle gauge
+jdbc_connections_idle{env="prod",name="dataSource",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 3.0
+# HELP jdbc_connections_max Maximum number of active connections that can be allocated at the same time.
+# TYPE jdbc_connections_max gauge
+jdbc_connections_max{env="prod",name="dataSource",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 10.0
+# HELP jdbc_connections_min Minimum number of idle connections in the pool.
+# TYPE jdbc_connections_min gauge
+jdbc_connections_min{env="prod",name="dataSource",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 10.0
+# HELP jvm_info JVM version info
+# TYPE jvm_info gauge
+jvm_info{env="prod",platform_version="1.0.0-SNAPSHOT",runtime="OpenJDK Runtime Environment",service="hardening-data",vendor="Eclipse Adoptium",version="25.0.4.1+1-LTS"} 1
+# HELP jvm_buffer_count_buffers An estimate of the number of buffers in the pool
+# TYPE jvm_buffer_count_buffers gauge
+jvm_buffer_count_buffers{env="prod",id="direct",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+jvm_buffer_count_buffers{env="prod",id="mapped",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+jvm_buffer_count_buffers{env="prod",id="mapped - 'non-volatile memory'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jvm_buffer_memory_used_bytes An estimate of the memory that the Java virtual machine is using for this buffer pool
+# TYPE jvm_buffer_memory_used_bytes gauge
+jvm_buffer_memory_used_bytes{env="prod",id="direct",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 10240.0
+jvm_buffer_memory_used_bytes{env="prod",id="mapped",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+jvm_buffer_memory_used_bytes{env="prod",id="mapped - 'non-volatile memory'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jvm_buffer_total_capacity_bytes An estimate of the total capacity of the buffers in this pool
+# TYPE jvm_buffer_total_capacity_bytes gauge
+jvm_buffer_total_capacity_bytes{env="prod",id="direct",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 10240.0
+jvm_buffer_total_capacity_bytes{env="prod",id="mapped",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+jvm_buffer_total_capacity_bytes{env="prod",id="mapped - 'non-volatile memory'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jvm_classes_loaded_classes The number of classes that are currently loaded in the Java virtual machine
+# TYPE jvm_classes_loaded_classes gauge
+jvm_classes_loaded_classes{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 23756.0
+# HELP jvm_classes_loaded_count_classes_total The number of classes loaded in the Java virtual machine
+# TYPE jvm_classes_loaded_count_classes_total counter
+jvm_classes_loaded_count_classes_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 23756.0
+# HELP jvm_classes_unloaded_classes_total The number of classes unloaded in the Java virtual machine
+# TYPE jvm_classes_unloaded_classes_total counter
+jvm_classes_unloaded_classes_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jvm_compilation_time_ms_total The approximate accumulated elapsed time spent in compilation
+# TYPE jvm_compilation_time_ms_total counter
+jvm_compilation_time_ms_total{compiler="HotSpot 64-Bit Tiered Compilers",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 23812.0
+# HELP jvm_gc_live_data_size_bytes Size of long-lived heap memory pool after reclamation
+# TYPE jvm_gc_live_data_size_bytes gauge
+jvm_gc_live_data_size_bytes{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP jvm_gc_max_data_size_bytes Max size of long-lived heap memory pool
+# TYPE jvm_gc_max_data_size_bytes gauge
+jvm_gc_max_data_size_bytes{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2.069889024E9
+# HELP jvm_gc_memory_allocated_bytes_total Incremented for an increase in the size of the (young) heap memory pool after one GC to before the next
+# TYPE jvm_gc_memory_allocated_bytes_total counter
+jvm_gc_memory_allocated_bytes_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 3.48127232E8
+# HELP jvm_gc_memory_promoted_bytes_total Count of positive increases in the size of the old generation memory pool before GC to after GC
+# TYPE jvm_gc_memory_promoted_bytes_total counter
+jvm_gc_memory_promoted_bytes_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 5843080.0
+# HELP jvm_gc_overhead An approximation of the percent of CPU time used by GC activities over the last lookback period or since monitoring began, whichever is shorter, in the range [0..1]
+# TYPE jvm_gc_overhead gauge
+jvm_gc_overhead{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2.407084572171983E-4
+# HELP jvm_gc_pause_seconds Time spent in GC pause
+# TYPE jvm_gc_pause_seconds summary
+jvm_gc_pause_seconds_count{action="end of minor GC",cause="G1 Evacuation Pause",env="prod",gc="G1 Young Generation",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 4
+jvm_gc_pause_seconds_sum{action="end of minor GC",cause="G1 Evacuation Pause",env="prod",gc="G1 Young Generation",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.033
+# HELP jvm_gc_pause_seconds_max Time spent in GC pause
+# TYPE jvm_gc_pause_seconds_max gauge
+jvm_gc_pause_seconds_max{action="end of minor GC",cause="G1 Evacuation Pause",env="prod",gc="G1 Young Generation",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.009
+# HELP jvm_memory_committed_bytes The amount of memory in bytes that is committed for the Java virtual machine to use
+# TYPE jvm_memory_committed_bytes gauge
+jvm_memory_committed_bytes{area="heap",env="prod",id="G1 Eden Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 8.4934656E7
+jvm_memory_committed_bytes{area="heap",env="prod",id="G1 Old Gen",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 6.5011712E7
+jvm_memory_committed_bytes{area="heap",env="prod",id="G1 Survivor Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.1534336E7
+jvm_memory_committed_bytes{area="nonheap",env="prod",id="CodeHeap 'non-nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2555904.0
+jvm_memory_committed_bytes{area="nonheap",env="prod",id="CodeHeap 'non-profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 5111808.0
+jvm_memory_committed_bytes{area="nonheap",env="prod",id="CodeHeap 'profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.409024E7
+jvm_memory_committed_bytes{area="nonheap",env="prod",id="Compressed Class Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.7956864E7
+jvm_memory_committed_bytes{area="nonheap",env="prod",id="Metaspace",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.20717312E8
+# HELP jvm_memory_max_bytes The maximum amount of memory in bytes that can be used for memory management
+# TYPE jvm_memory_max_bytes gauge
+jvm_memory_max_bytes{area="heap",env="prod",id="G1 Eden Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} -1.0
+jvm_memory_max_bytes{area="heap",env="prod",id="G1 Old Gen",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2.069889024E9
+jvm_memory_max_bytes{area="heap",env="prod",id="G1 Survivor Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} -1.0
+jvm_memory_max_bytes{area="nonheap",env="prod",id="CodeHeap 'non-nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 5840896.0
+jvm_memory_max_bytes{area="nonheap",env="prod",id="CodeHeap 'non-profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.22912768E8
+jvm_memory_max_bytes{area="nonheap",env="prod",id="CodeHeap 'profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.22912768E8
+jvm_memory_max_bytes{area="nonheap",env="prod",id="Compressed Class Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.073741824E9
+jvm_memory_max_bytes{area="nonheap",env="prod",id="Metaspace",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} -1.0
+# HELP jvm_memory_usage_after_gc The percentage of long-lived heap pool used after the last GC event, in the range [0..1]
+# TYPE jvm_memory_usage_after_gc gauge
+jvm_memory_usage_after_gc{area="heap",env="prod",platform_version="1.0.0-SNAPSHOT",pool="long-lived",service="hardening-data"} 0.021688192690276328
+# HELP jvm_memory_used_bytes The amount of used memory
+# TYPE jvm_memory_used_bytes gauge
+jvm_memory_used_bytes{area="heap",env="prod",id="G1 Eden Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.1534336E7
+jvm_memory_used_bytes{area="heap",env="prod",id="G1 Old Gen",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 4.4892152E7
+jvm_memory_used_bytes{area="heap",env="prod",id="G1 Survivor Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.121616E7
+jvm_memory_used_bytes{area="nonheap",env="prod",id="CodeHeap 'non-nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 2013056.0
+jvm_memory_used_bytes{area="nonheap",env="prod",id="CodeHeap 'non-profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 5072256.0
+jvm_memory_used_bytes{area="nonheap",env="prod",id="CodeHeap 'profiled nmethods'",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.4004736E7
+jvm_memory_used_bytes{area="nonheap",env="prod",id="Compressed Class Space",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.755932E7
+jvm_memory_used_bytes{area="nonheap",env="prod",id="Metaspace",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.1978092E8
+# HELP jvm_threads_daemon_threads The current number of live daemon threads
+# TYPE jvm_threads_daemon_threads gauge
+jvm_threads_daemon_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 28.0
+# HELP jvm_threads_live_threads The current number of live threads including both daemon and non-daemon threads
+# TYPE jvm_threads_live_threads gauge
+jvm_threads_live_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 32.0
+# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
+# TYPE jvm_threads_peak_threads gauge
+jvm_threads_peak_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 42.0
+# HELP jvm_threads_started_threads_total The total number of application threads started in the JVM
+# TYPE jvm_threads_started_threads_total counter
+jvm_threads_started_threads_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 52.0
+# HELP jvm_threads_states_threads The current number of threads
+# TYPE jvm_threads_states_threads gauge
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="blocked"} 0.0
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="new"} 0.0
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="runnable"} 8.0
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="terminated"} 0.0
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="timed-waiting"} 13.0
+jvm_threads_states_threads{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",state="waiting"} 11.0
+# HELP logback_events_total Number of log events that were enabled by the effective log level
+# TYPE logback_events_total counter
+logback_events_total{env="prod",level="debug",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+logback_events_total{env="prod",level="error",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+logback_events_total{env="prod",level="info",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 28.0
+logback_events_total{env="prod",level="trace",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+logback_events_total{env="prod",level="warn",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 91.0
+# HELP platform_capability_active 1 when the platform capability is active, else 0
+# TYPE platform_capability_active gauge
+platform_capability_active{capability="core",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="data-jpa",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="errors",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="logging",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="observability",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="openapi",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="security",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+platform_capability_active{capability="validation",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.0
+# HELP process_cpu_time_ns_total The "cpu time" used by the Java Virtual Machine process
+# TYPE process_cpu_time_ns_total counter
+process_cpu_time_ns_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 4.279E10
+# HELP process_cpu_usage The "recent cpu usage" for the Java Virtual Machine process
+# TYPE process_cpu_usage gauge
+process_cpu_usage{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.002130607744684655
+# HELP process_files_max_files The maximum file descriptor count
+# TYPE process_files_max_files gauge
+process_files_max_files{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1048576.0
+# HELP process_files_open_files The open file descriptor count
+# TYPE process_files_open_files gauge
+process_files_open_files{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 16.0
+# HELP process_start_time_seconds Start time of the process since unix epoch.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.793568469226E9
+# HELP process_uptime_seconds The uptime of the Java virtual machine
+# TYPE process_uptime_seconds gauge
+process_uptime_seconds{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 208.218
+# HELP spring_data_repository_invocations_seconds Duration of repository invocations
+# TYPE spring_data_repository_invocations_seconds summary
+spring_data_repository_invocations_seconds_count{env="prod",exception="ConstraintViolationException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 5
+spring_data_repository_invocations_seconds_sum{env="prod",exception="ConstraintViolationException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 1.360266301
+spring_data_repository_invocations_seconds_count{env="prod",exception="JDBCConnectionException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 1
+spring_data_repository_invocations_seconds_sum{env="prod",exception="JDBCConnectionException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 60.435480056
+spring_data_repository_invocations_seconds_count{env="prod",exception="None",method="count",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 15
+spring_data_repository_invocations_seconds_sum{env="prod",exception="None",method="count",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.592475328
+spring_data_repository_invocations_seconds_count{env="prod",exception="None",method="countByRefCode",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 1
+spring_data_repository_invocations_seconds_sum{env="prod",exception="None",method="countByRefCode",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.145793618
+spring_data_repository_invocations_seconds_count{env="prod",exception="None",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 11
+spring_data_repository_invocations_seconds_sum{env="prod",exception="None",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.193038598
+# HELP spring_data_repository_invocations_seconds_max Duration of repository invocations
+# TYPE spring_data_repository_invocations_seconds_max gauge
+spring_data_repository_invocations_seconds_max{env="prod",exception="ConstraintViolationException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 1.323724459
+spring_data_repository_invocations_seconds_max{env="prod",exception="JDBCConnectionException",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="ERROR"} 60.435480056
+spring_data_repository_invocations_seconds_max{env="prod",exception="None",method="count",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.5557904
+spring_data_repository_invocations_seconds_max{env="prod",exception="None",method="countByRefCode",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.145793618
+spring_data_repository_invocations_seconds_max{env="prod",exception="None",method="saveAndFlush",platform_version="1.0.0-SNAPSHOT",repository="HhParcelRepository",service="hardening-data",state="SUCCESS"} 0.123148764
+# HELP spring_security_authentications_active_seconds  
+# TYPE spring_security_authentications_active_seconds summary
+spring_security_authentications_active_seconds_count{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="n/a",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0
+spring_security_authentications_active_seconds_sum{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="n/a",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP spring_security_authentications_active_seconds_max  
+# TYPE spring_security_authentications_active_seconds_max gauge
+spring_security_authentications_active_seconds_max{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="n/a",env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP spring_security_authentications_seconds  
+# TYPE spring_security_authentications_seconds summary
+spring_security_authentications_seconds_count{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="JwtAuthenticationToken",env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 3
+spring_security_authentications_seconds_sum{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="JwtAuthenticationToken",env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.638261289
+# HELP spring_security_authentications_seconds_max  
+# TYPE spring_security_authentications_seconds_max gauge
+spring_security_authentications_seconds_max{authentication_failure_type="n/a",authentication_method="ProviderManager",authentication_request_type="BearerTokenAuthenticationToken",authentication_result_type="JwtAuthenticationToken",env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1.633525909
+# HELP spring_security_authorizations_active_seconds  
+# TYPE spring_security_authorizations_active_seconds summary
+spring_security_authorizations_active_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="unknown",spring_security_object="request"} 0
+spring_security_authorizations_active_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="unknown",spring_security_object="request"} 0.0
+# HELP spring_security_authorizations_active_seconds_max  
+# TYPE spring_security_authorizations_active_seconds_max gauge
+spring_security_authorizations_active_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="unknown",spring_security_object="request"} 0.0
+# HELP spring_security_authorizations_seconds  
+# TYPE spring_security_authorizations_seconds summary
+spring_security_authorizations_seconds_count{env="prod",error="AccessDeniedException",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="AnonymousAuthenticationToken",spring_security_authorization_decision="false",spring_security_object="request"} 1
+spring_security_authorizations_seconds_sum{env="prod",error="AccessDeniedException",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="AnonymousAuthenticationToken",spring_security_authorization_decision="false",spring_security_object="request"} 0.004060924
+spring_security_authorizations_seconds_count{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="JwtAuthenticationToken",spring_security_authorization_decision="true",spring_security_object="request"} 3
+spring_security_authorizations_seconds_sum{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="JwtAuthenticationToken",spring_security_authorization_decision="true",spring_security_object="request"} 0.001039907
+spring_security_authorizations_seconds_count{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="true",spring_security_object="request"} 45
+spring_security_authorizations_seconds_sum{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="true",spring_security_object="request"} 0.013095928
+# HELP spring_security_authorizations_seconds_max  
+# TYPE spring_security_authorizations_seconds_max gauge
+spring_security_authorizations_seconds_max{env="prod",error="AccessDeniedException",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="AnonymousAuthenticationToken",spring_security_authorization_decision="false",spring_security_object="request"} 0.004060924
+spring_security_authorizations_seconds_max{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="JwtAuthenticationToken",spring_security_authorization_decision="true",spring_security_object="request"} 6.26165E-4
+spring_security_authorizations_seconds_max{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_authentication_type="n/a",spring_security_authorization_decision="true",spring_security_object="request"} 0.003166418
+# HELP spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_after_total  
+# TYPE spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_after_total counter
+spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_before_total  
+# TYPE spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_before_total counter
+spring_security_filterchains_OAuth2ProtectedResourceMetadataFilter_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_access_exceptions_after_total  
+# TYPE spring_security_filterchains_access_exceptions_after_total counter
+spring_security_filterchains_access_exceptions_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_access_exceptions_before_total  
+# TYPE spring_security_filterchains_access_exceptions_before_total counter
+spring_security_filterchains_access_exceptions_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_active_seconds  
+# TYPE spring_security_filterchains_active_seconds summary
+spring_security_filterchains_active_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 0
+spring_security_filterchains_active_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 0.0
+spring_security_filterchains_active_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 0
+spring_security_filterchains_active_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 0.0
+# HELP spring_security_filterchains_active_seconds_max  
+# TYPE spring_security_filterchains_active_seconds_max gauge
+spring_security_filterchains_active_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 0.0
+spring_security_filterchains_active_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 0.0
+# HELP spring_security_filterchains_authentication_anonymous_after_total  
+# TYPE spring_security_filterchains_authentication_anonymous_after_total counter
+spring_security_filterchains_authentication_anonymous_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_authentication_anonymous_before_total  
+# TYPE spring_security_filterchains_authentication_anonymous_before_total counter
+spring_security_filterchains_authentication_anonymous_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_authentication_bearer_after_total  
+# TYPE spring_security_filterchains_authentication_bearer_after_total counter
+spring_security_filterchains_authentication_bearer_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_authentication_bearer_before_total  
+# TYPE spring_security_filterchains_authentication_bearer_before_total counter
+spring_security_filterchains_authentication_bearer_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_authorization_after_total  
+# TYPE spring_security_filterchains_authorization_after_total counter
+spring_security_filterchains_authorization_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 47.0
+# HELP spring_security_filterchains_authorization_before_total  
+# TYPE spring_security_filterchains_authorization_before_total counter
+spring_security_filterchains_authorization_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_context_async_after_total  
+# TYPE spring_security_filterchains_context_async_after_total counter
+spring_security_filterchains_context_async_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_context_async_before_total  
+# TYPE spring_security_filterchains_context_async_before_total counter
+spring_security_filterchains_context_async_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_context_holder_after_total  
+# TYPE spring_security_filterchains_context_holder_after_total counter
+spring_security_filterchains_context_holder_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_context_holder_before_total  
+# TYPE spring_security_filterchains_context_holder_before_total counter
+spring_security_filterchains_context_holder_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_context_servlet_after_total  
+# TYPE spring_security_filterchains_context_servlet_after_total counter
+spring_security_filterchains_context_servlet_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_context_servlet_before_total  
+# TYPE spring_security_filterchains_context_servlet_before_total counter
+spring_security_filterchains_context_servlet_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_header_after_total  
+# TYPE spring_security_filterchains_header_after_total counter
+spring_security_filterchains_header_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_header_before_total  
+# TYPE spring_security_filterchains_header_before_total counter
+spring_security_filterchains_header_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_logout_after_total  
+# TYPE spring_security_filterchains_logout_after_total counter
+spring_security_filterchains_logout_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_logout_before_total  
+# TYPE spring_security_filterchains_logout_before_total counter
+spring_security_filterchains_logout_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_requestcache_after_total  
+# TYPE spring_security_filterchains_requestcache_after_total counter
+spring_security_filterchains_requestcache_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_requestcache_before_total  
+# TYPE spring_security_filterchains_requestcache_before_total counter
+spring_security_filterchains_requestcache_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_seconds  
+# TYPE spring_security_filterchains_seconds summary
+spring_security_filterchains_seconds_count{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="AuthorizationFilter",spring_security_reached_filter_section="before"} 49
+spring_security_filterchains_seconds_sum{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="AuthorizationFilter",spring_security_reached_filter_section="before"} 1.750335461
+spring_security_filterchains_seconds_count{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="DisableEncodeUrlFilter",spring_security_reached_filter_section="after"} 48
+spring_security_filterchains_seconds_sum{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="DisableEncodeUrlFilter",spring_security_reached_filter_section="after"} 0.026164093
+# HELP spring_security_filterchains_seconds_max  
+# TYPE spring_security_filterchains_seconds_max gauge
+spring_security_filterchains_seconds_max{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="AuthorizationFilter",spring_security_reached_filter_section="before"} 1.637889164
+spring_security_filterchains_seconds_max{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="13",spring_security_filterchain_size="13",spring_security_reached_filter_name="DisableEncodeUrlFilter",spring_security_reached_filter_section="after"} 0.002206822
+# HELP spring_security_filterchains_session_management_after_total  
+# TYPE spring_security_filterchains_session_management_after_total counter
+spring_security_filterchains_session_management_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_session_management_before_total  
+# TYPE spring_security_filterchains_session_management_before_total counter
+spring_security_filterchains_session_management_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_filterchains_session_urlencoding_after_total  
+# TYPE spring_security_filterchains_session_urlencoding_after_total counter
+spring_security_filterchains_session_urlencoding_after_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="after"} 48.0
+# HELP spring_security_filterchains_session_urlencoding_before_total  
+# TYPE spring_security_filterchains_session_urlencoding_before_total counter
+spring_security_filterchains_session_urlencoding_before_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data",spring_security_filterchain_position="0",spring_security_filterchain_size="0",spring_security_reached_filter_name="none",spring_security_reached_filter_section="before"} 49.0
+# HELP spring_security_http_secured_requests_active_seconds  
+# TYPE spring_security_http_secured_requests_active_seconds summary
+spring_security_http_secured_requests_active_seconds_count{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 1
+spring_security_http_secured_requests_active_seconds_sum{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.001649472
+# HELP spring_security_http_secured_requests_active_seconds_max  
+# TYPE spring_security_http_secured_requests_active_seconds_max gauge
+spring_security_http_secured_requests_active_seconds_max{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.001658873
+# HELP spring_security_http_secured_requests_seconds  
+# TYPE spring_security_http_secured_requests_seconds summary
+spring_security_http_secured_requests_seconds_count{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 47
+spring_security_http_secured_requests_seconds_sum{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 209.142563754
+# HELP spring_security_http_secured_requests_seconds_max  
+# TYPE spring_security_http_secured_requests_seconds_max gauge
+spring_security_http_secured_requests_seconds_max{env="prod",error="none",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 63.464659855
+# HELP system_cpu_count The number of processors available to the Java virtual machine
+# TYPE system_cpu_count gauge
+system_cpu_count{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 8.0
+# HELP system_cpu_usage The "recent cpu usage" of the system the application is running in
+# TYPE system_cpu_usage gauge
+system_cpu_usage{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.012409259880181073
+# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
+# TYPE system_load_average_1m gauge
+system_load_average_1m{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.54541015625
+# HELP tomcat_sessions_active_current_sessions  
+# TYPE tomcat_sessions_active_current_sessions gauge
+tomcat_sessions_active_current_sessions{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP tomcat_sessions_active_max_sessions  
+# TYPE tomcat_sessions_active_max_sessions gauge
+tomcat_sessions_active_max_sessions{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP tomcat_sessions_alive_max_seconds  
+# TYPE tomcat_sessions_alive_max_seconds gauge
+tomcat_sessions_alive_max_seconds{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP tomcat_sessions_created_sessions_total  
+# TYPE tomcat_sessions_created_sessions_total counter
+tomcat_sessions_created_sessions_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP tomcat_sessions_expired_sessions_total  
+# TYPE tomcat_sessions_expired_sessions_total counter
+tomcat_sessions_expired_sessions_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0
+# HELP tomcat_sessions_rejected_sessions_total  
+# TYPE tomcat_sessions_rejected_sessions_total counter
+tomcat_sessions_rejected_sessions_total{env="prod",platform_version="1.0.0-SNAPSHOT",service="hardening-data"} 0.0

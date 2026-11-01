@@ -1,0 +1,63 @@
+PASS	dependency tree has platform-starter-messaging-outbox
+PASS	dependency tree has platform-messaging-outbox-autoconfigure
+PASS	dependency tree has platform-messaging-outbox:
+PASS	dependency tree has platform-messaging-rabbit
+PASS	app ready in 96s
+PASS	AC15 the copied DDL migrated (V2) as the owner
+PASS	AC15 the runtime user cannot drop the outbox table
+PASS	AC15 the main queue is quorum
+PASS	AC15 the dead-letter queue is quorum
+PASS	ac1-outbox status 200
+PASS	AC1 the handler ran on the request's trace, through the outbox
+PASS	AC1 the outbox message names its producer
+PASS	ac1-direct status 200
+PASS	AC1 the handler ran on the request's trace, on a direct publish
+PASS	AC1 the direct message names its producer
+PASS	ac2 status 200
+PASS	AC2 the message reached the DLQ
+PASS	AC2 exactly 3 attempts
+PASS	AC2 the main queue is empty
+PASS	AC2 the dlq outcome is counted
+PASS	AC12 inspect shows the event id
+PASS	AC12 inspect leaves the message in place
+PASS	ac12-fix status 200
+PASS	AC12 the replayed message was handled
+PASS	AC12 under the same event id
+PASS	AC12 the DLQ is empty
+PASS	AC3 the unreadable message reached the DLQ
+PASS	ac3-next status 200
+PASS	AC3 other messages keep flowing
+PASS	AC13 the newer version reached the DLQ
+PASS	AC13 it was not handled
+PASS	AC13 an unknown field is tolerated
+PASS	AC10 unroutable surfaced (500)
+PASS	AC14 a credential header is refused (500)
+PASS	AC14 nothing was sent
+PASS	ac9-naive status 200
+PASS	ac9-deduped status 200
+PASS	AC9 the naive consumer applied it twice (the documented risk)
+PASS	AC9 the pattern applied it once
+PASS	AC5 a direct publish fails, as documented (500)
+PASS	ac5-1 status 200
+PASS	ac5-2 status 200
+PASS	ac5-3 status 200
+PASS	ac5-4 status 200
+PASS	ac5-5 status 200
+PASS	AC5 the consumer reconnected and everything arrived
+PASS	ac11 status 200
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	AC11 the handler in flight finished (2)
+PASS	AC11 the stop dead-lettered nothing
+PASS	app ready in 23s
+PASS	AC7 ready with the broker down
+PASS	ac7-live status 200
+PASS	ac7-held status 200
+PASS	AC7 it consumes once the broker arrives
+PASS	AC11: all 6 events delivered
+PASS	AC11: 0 duplicates (at most 1)
+PASS	app exited on SIGTERM (code 143) in 4s
+PASS	graceful shutdown completed (logged)
+PASS	AC3 the payload is in no log
+PASS	no password in the evidence
+PASS	cleanup: no containers left for dch-20261101234919-50205

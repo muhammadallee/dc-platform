@@ -39,3 +39,12 @@
 | AC4 uses a requeue as a stand-in for a killed consumer | Amendment A2 |
 | AC6 (slow broker) is not in this scenario | Carried by the Phase 4 consumer, rerun on this code as C1 |
 | AC13's replay after an upgrade | Not exercised end to end: the version rule is tested, and replay is tested. Noted in `consumer-run.md` |
+
+## Verification passes
+
+| Pass | Reviewed | Verdict | Outcome |
+|---|---|---|---|
+| 1 ([out](codex/v1-verify.out.md)) | `7f347db` | REJECT, 6 | Race scanning a late bean, a lock cycle with bean creation, and two distinct beans of one class silently merged. **Answered by removal:** routes freeze at start, and a handler created later fails loudly (`69721ae`). DEBUG payload logging removed. Consumer phase accepted as HI-0093 |
+| 2 ([out](codex/v2-verify.out.md)) | `69721ae` | REJECT, 1 | Findings 1, 2, 4, 6 confirmed right. The one remaining defect: an in-memory retry on a full queue dropped silently. Fixed in one line, not re-reviewed |
+
+Each round found real defects on paths the consumer run did not exercise. Codex's final verdict is REJECT on that one in-memory line, now fixed; it reported nothing further against the Rabbit transport or the registrar.

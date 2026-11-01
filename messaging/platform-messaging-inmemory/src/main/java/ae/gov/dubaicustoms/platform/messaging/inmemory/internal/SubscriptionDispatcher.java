@@ -106,7 +106,7 @@ public final class SubscriptionDispatcher implements AutoCloseable {
                 return;
             }
             sleepBackoff();
-            queue.offer(message.withAttemptIncremented());
+            requeue(message.withAttemptIncremented());
         }
     }
 

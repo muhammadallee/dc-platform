@@ -1,0 +1,6 @@
+hikaricp_connections_active{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-outbox"} 0.0
+hikaricp_connections_active{env="prod",platform_version="1.0.0-SNAPSHOT",pool="platform-outbox",service="hardening-outbox"} 2.0
+hikaricp_connections_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-outbox"} 10.0
+hikaricp_connections_max{env="prod",platform_version="1.0.0-SNAPSHOT",pool="platform-outbox",service="hardening-outbox"} 2.0
+hikaricp_connections_pending{env="prod",platform_version="1.0.0-SNAPSHOT",pool="HikariPool-1",service="hardening-outbox"} 0.0
+hikaricp_connections_pending{env="prod",platform_version="1.0.0-SNAPSHOT",pool="platform-outbox",service="hardening-outbox"} 0.0

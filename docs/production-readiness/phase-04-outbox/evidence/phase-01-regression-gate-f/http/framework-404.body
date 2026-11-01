@@ -1,0 +1,1 @@
+{"detail":"No static resource probe/does-not-exist.","instance":"/probe/does-not-exist","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"467101c5bd46624af7dc48be00e56781","timestamp":"2026-10-31T21:28:37.939921009Z","retryable":false}

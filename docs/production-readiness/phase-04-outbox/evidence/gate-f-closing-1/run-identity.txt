@@ -1,0 +1,41 @@
+run_id=dch-20261101065534-14785
+phase=phase-04 scenario=outbox
+platform_commit=03dee1388d69893d1e4eef6b8d2dabc45f9ba328
+platform_tree_dirty_paths=6
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-04
+jre_image=eclipse-temurin:25-jre
+started=2026-11-01T06:55:39+04:00
+oracle_ready_seconds=352
+oracle_image=gvenzl/oracle-free@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+rabbit_image=rabbitmq@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
+toxiproxy_image=ghcr.io/shopify/toxiproxy@sha256:b44c283298cea49e2defaba1b3028783798346f2a926684e3a345fd8441af3b8
+ready_seconds=74
+ac5 pending=30 oldest_age=27
+AC5 distinct=30 total=30
+ac10 drainer_active=1 drainer_max=2 main_pending=0
+AC6 distinct=20 total=21
+ready_seconds=15
+AC8 distinct=500 total=500
+ac8 sent_first=250 sent_second=250
+AC7-one-killed distinct=300 total=320
+ready_seconds=16
+AC7-all-killed distinct=200 total=223
+shutdown_seconds=3 exit_code=143
+ready_seconds=16
+AC14 distinct=150 total=150
+shutdown_seconds=3 exit_code=143
+ready_seconds=16
+ready_seconds=15
+dblost gauges_age=34
+DB-lost distinct=200 total=219
+dbslow request_seconds=3 drainer_active=1 main_pending=0
+DB-slow distinct=100 total=100
+shutdown_seconds=4 exit_code=143
+shutdown_seconds=4 exit_code=143
+ready_seconds=17
+shutdown_seconds=3 exit_code=143
+notable exit_code=1 exit_seconds=76
+finished=2026-11-01T07:17:30+04:00
+assertions_passed=106 assertions_failed=0 script_rc=0
+verdict=PASS

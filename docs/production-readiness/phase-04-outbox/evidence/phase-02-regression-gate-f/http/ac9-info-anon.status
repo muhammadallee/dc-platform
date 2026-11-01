@@ -1,0 +1,1 @@
+GET /actuator/info -> 200

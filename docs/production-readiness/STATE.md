@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 4 — Transactional Outbox (HD11: platform JDBC module) |
-| Current gate | E done: HI-0072 to HI-0082 registered. Gate D: round 2 fixed, `review-round-2.md`. Gate C: 23 findings, `review-round-1.md` |
+| Current gate | F and H done: consumer 3x 106/106 on `03dee13`, Phases 1-3 92/75/92, golden path 9/9, samples written. Closure pending owner decisions |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
-| Pending human decisions | HI-0071 commit evidence (at Phase 4 closure, after a Gate B spike); HD7 chart-tool details (asked at Phase 8 step 7) |
+| Pending human decisions | HI-0071 with HI-0086, HI-0078, HI-0079 (Phase 4 closure); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Gate F: consumer `phase-04-outbox.sh`: Oracle, RabbitMQ, Toxiproxy on both, 2 app instances, SIGKILL; the service adds `platform-starter-messaging-outbox` and copies the DDL; rerun Oracle and Rabbit container tests on final code. Then Phases 1-3 consumers, golden path, Gate H, owner acceptances: HI-0071, HI-0078, HI-0079. Phase repo module list must add the outbox modules. `nice_galileo` is stopped. Disk C: filled up on 2026-10-31: owner approved deleting old `~/dc-hardening-runs`; keep an eye on it during consumer runs. |
+| Next action | Record the owner's decisions in `phase-04-outbox/closure.md`, confirm CI on the closure commit, tag `hardening/phase-04-closed`. Then Phase 5 (RabbitMQ, C1). `nice_galileo` is stopped. Consumer runs go in the foreground: background runs were stopped twice by the host-memory check. |
 
 ## Phase log
 
@@ -22,7 +22,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
 | 3 | `60afe86` | **PASS** (final code `29c6ed2`; Oracle consumer 3× 92/92, Phase 1 92/92, Phase 2 75/75, golden path 9/9, CI green; residuals accepted, HI-0071 → Phase 4) | `hardening/phase-03-closed` | 2026-10-31 |
-| 4 | `39e354d` | in progress (Gates A-E done) | — | — |
+| 4 | `39e354d` | Gates A-F, H done (final code `03dee13`); owner decisions pending | — | — |
 
 ## Environment notes for resumption
 

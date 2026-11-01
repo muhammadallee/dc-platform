@@ -102,7 +102,7 @@ class OrdersEventHandlers {
 | `dc.platform.messaging.rabbit.quorum-queues` | `true` | Declare quorum queues, main and dead-letter; `false` for classic. An existing queue of the other type fails its declaration: RabbitMQ does not convert queues. |
 | `dc.platform.messaging.rabbit.confirm-timeout` | `5s` | How long a send waits for the broker's confirm. |
 | `dc.platform.messaging.rabbit.prefetch` | `10` | Messages a consumer holds at once, and so how many a retrying handler can delay. |
-| `dc.platform.messaging.rabbit.shutdown-timeout` | `30s` | How long a stopping consumer waits for the handler in flight. Shutdown phases run in turn, so keep the pod's grace period above the web drain plus the outbox's `stop-timeout` plus this. |
+| `dc.platform.messaging.rabbit.shutdown-timeout` | `30s` | How long a stopping consumer waits for the handler in flight. Shutdown phases run in turn: with the defaults, keep the pod's grace period above about 95 s (web drain 30 s, outbox `stop-timeout` 30 s and its joins, this). |
 | `dc.platform.messaging.rabbit.delivery-limit` | `20` | Returns a quorum queue allows before dead-lettering a message that keeps killing its consumer. A message merely held by a stopping consumer counts too, hence well above what rolling restarts reach. |
 
 (Hand-written until the generated reference lands in phase 14.)
@@ -145,8 +145,11 @@ The container acks after the handler returns, including any transaction the hand
 Quorum queues dead-letter at-least-once (RabbitMQ 3.10 or later); classic queues do so at-most-once.
 
 Handler time is yours to bound: a handler that blocks holds its consumer and the messages it has buffered. Give it timeouts, as the
-data capability's transaction default does. Handlers belong on singletons created at startup: one on a lazy bean receives only
-once that bean exists, and only the first instance of a non-singleton bean receives.
+data capability's transaction default does. Handlers belong on singletons created at startup: a bean with a handler created once
+consumers have started fails with an error, since a running consumer could already have acknowledged what it should receive.
+
+Consumers start before the outbox's drainer and stop after it, so a drained event finds its consumers. So a lifecycle bean a handler
+depends on needs a lower phase than `DEFAULT_PHASE - 8192`, or the handler can run before it starts and after it stops.
 
 Handlers on one destination share a queue: each message goes to the handler declaring its `eventType`, else to one declaring none.
 Two handlers that could receive the same message fail startup. A message no handler wants is acknowledged and counted as

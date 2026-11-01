@@ -84,7 +84,7 @@ public final class SubscriptionDispatcher implements AutoCloseable {
             // throwing: re-check, and leave a message that arrived after close() for the group's other
             // consumers instead of delivering it to an unsubscribed listener.
             if (stopped) {
-                queue.offer(message);
+                requeue(message);
                 return;
             }
             deliver(message);
@@ -97,11 +97,7 @@ public final class SubscriptionDispatcher implements AutoCloseable {
             inFlight.decrementAndGet();
         } catch (TransportListener.RequeueException e) {
             // Nothing is wrong with the message: it does not use up an attempt.
-            if (!queue.offer(message)) {
-                log.error("[DC-MSG-0500] dropping message on destination={} group={}: the queue is full and it cannot go back",
-                        destination, group);
-                inFlight.decrementAndGet();
-            }
+            requeue(message);
         } catch (RuntimeException e) {
             if (message.attempts() + 1 >= maxAttempts) {
                 log.error("[DC-MSG-0500] dropping message on destination={} group={} after {} attempt(s): {}",
@@ -111,6 +107,15 @@ public final class SubscriptionDispatcher implements AutoCloseable {
             }
             sleepBackoff();
             queue.offer(message.withAttemptIncremented());
+        }
+    }
+
+    // This transport is for tests and local runs, and durable nowhere: a full queue loses the message, and says so.
+    private void requeue(QueuedMessage message) {
+        if (!queue.offer(message)) {
+            log.error("[DC-MSG-0500] dropping message on destination={} group={}: the queue is full and it cannot go back",
+                    destination, group);
+            inFlight.decrementAndGet();
         }
     }
 

@@ -53,7 +53,7 @@ class EventHandlerRegistrarPathsTest {
         }
     }
 
-    private EventHandlerRegistrar registrar(boolean nativeDeadLetters, boolean fails, Duration backoff) {
+    private EventHandlerRegistrar registrar(boolean nativeDeadLetters, boolean fails, Duration backoff, Object... more) {
         EventTransport transport = new EventTransport() {
             @Override
             public String name() {
@@ -103,6 +103,9 @@ class EventHandlerRegistrarPathsTest {
                 () -> new JacksonEventSerializer(new ObjectMapper()), () -> properties, "app",
                 () -> MessagingInstrumentation.NOOP, () -> trace);
         registrar.postProcessAfterInitialization(new Handler(fails), "handler");
+        for (Object bean : more) {
+            registrar.postProcessAfterInitialization(bean, bean.getClass().getSimpleName());
+        }
         registrar.start();
         return registrar;
     }
@@ -260,29 +263,6 @@ class EventHandlerRegistrarPathsTest {
     }
 
     @Test
-    void aLateBeanIsFullyScannedBeforeItsConsumerStarts() {
-        var registrar = registrar(true, false, Duration.ofMillis(1));
-        var subscribedBefore = listener;
-
-        registrar.postProcessAfterInitialization(new LateTwo(), "late");
-        assertThat(listener).isNotSameAs(subscribedBefore);
-
-        // Whichever method was scanned first, the one consumer knows both.
-        listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "b", "eventVersion", "1"));
-        assertThat(attempts).hasValue(100);
-    }
-
-    @Test
-    void aSecondInstanceOfTheSameBeanIsNotASecondHandler() {
-        var registrar = registrar(true, false, Duration.ofMillis(1));
-
-        registrar.postProcessAfterInitialization(new Handler(false), "again");
-
-        deliver("{\"ref\":\"a\"}", "2");
-        assertThat(attempts).hasValue(1);
-    }
-
-    @Test
     void consumersStartBeforeTheOutboxDrainerAndStopAfterIt() {
         var registrar = registrar(true, false, Duration.ofMillis(1));
 
@@ -312,10 +292,10 @@ class EventHandlerRegistrarPathsTest {
         }
     }
 
+
     @Test
     void handlersOnOneDestinationShareASubscriptionAndAreRoutedByType() {
-        var registrar = registrar(true, false, Duration.ofMillis(1));
-        registrar.postProcessAfterInitialization(new Routed(), "routed");
+        registrar(true, false, Duration.ofMillis(1), new Routed());
 
         listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "refund", "eventVersion", "1"));
         assertThat(attempts).hasValue(100);
@@ -323,8 +303,7 @@ class EventHandlerRegistrarPathsTest {
 
     @Test
     void aMessageNoHandlerWantsIsAcknowledged() {
-        var registrar = registrar(true, false, Duration.ofMillis(1));
-        registrar.postProcessAfterInitialization(new FilteredOnly(), "filtered");
+        var registrar = registrar(true, false, Duration.ofMillis(1), new FilteredOnly());
 
         listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "other", "eventVersion", "1"));
 
@@ -334,9 +313,21 @@ class EventHandlerRegistrarPathsTest {
 
     @Test
     void twoHandlersForTheSameMessageFailStartup() {
+        assertThatThrownBy(() -> registrar(true, false, Duration.ofMillis(1), new Clashing()))
+                .hasMessageContaining("both handle");
+    }
+
+    @Test
+    void twoBeansOfOneHandlerClassFailStartup() {
+        assertThatThrownBy(() -> registrar(true, false, Duration.ofMillis(1), new Handler(false)))
+                .hasMessageContaining("both handle");
+    }
+
+    @Test
+    void aHandlerOnABeanCreatedAfterConsumersStartedFailsLoudly() {
         var registrar = registrar(true, false, Duration.ofMillis(1));
 
-        assertThatThrownBy(() -> registrar.postProcessAfterInitialization(new Clashing(), "clashing"))
-                .hasMessageContaining("both handle");
+        assertThatThrownBy(() -> registrar.postProcessAfterInitialization(new FilteredOnly(), "late"))
+                .hasMessageContaining("created after consumers started");
     }
 }

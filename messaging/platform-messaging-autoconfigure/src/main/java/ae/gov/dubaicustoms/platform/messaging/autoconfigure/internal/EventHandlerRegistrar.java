@@ -12,12 +12,11 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -51,8 +50,9 @@ import org.springframework.util.function.SingletonSupplier;
  * no handler wants is acknowledged and counted as {@code outcome=ignored}.
  *
  * <p>Consumers start and stop with the context's lifecycle, and close before the connection pools a handler uses are
- * destroyed. A stop cuts a backoff short and puts the message back: nothing is wrong with it. A handler on a lazy bean
- * receives only once that bean exists, so handlers belong on singletons created at startup.
+ * destroyed. A stop cuts a backoff short and puts the message back: nothing is wrong with it. Handlers belong on singletons
+ * created at startup: a bean with a handler created once consumers have started fails, loudly, because a running consumer
+ * could already have acknowledged what it should receive.
  */
 public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLifecycle, DisposableBean {
 
@@ -68,6 +68,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     private final Supplier<MessageTrace> trace;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
     private final Map<String, List<Registered>> routes = new ConcurrentHashMap<>();
+    private boolean frozen;
     private final Object lifecycle = new Object();
     private volatile CountDownLatch stopping = new CountDownLatch(1);
     private volatile boolean running;
@@ -107,19 +108,12 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) {
         Class<?> targetClass = bean.getClass();
-        Set<String> newDestinations = new LinkedHashSet<>();
-        ReflectionUtils.doWithMethods(targetClass, method -> registerHandler(bean, method, newDestinations),
+        ReflectionUtils.doWithMethods(targetClass, method -> registerHandler(bean, method),
                 method -> method.isAnnotationPresent(EventHandler.class));
-        // After the whole bean is scanned: a consumer started on its first handler could receive what its second should.
-        synchronized (lifecycle) {
-            if (running) {
-                newDestinations.forEach(this::subscribe);
-            }
-        }
         return bean;
     }
 
-    private void registerHandler(Object bean, Method method, Set<String> newDestinations) {
+    private void registerHandler(Object bean, Method method) {
         if (method.getParameterCount() != 1) {
             throw new IllegalStateException(
                     "@EventHandler method " + method + " must declare exactly one parameter");
@@ -127,23 +121,19 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
         EventHandler annotation = method.getAnnotation(EventHandler.class);
         method.setAccessible(true);
         Registered handler = new Registered(bean, method, annotation.destination(), annotation.eventType());
-        // Not subscribed during this bean's own post-processing before start(): the transport may need this very bean (a
-        // template customizer that also handles events).
-        synchronized (lifecycle) {
-            List<Registered> route = routes.computeIfAbsent(annotation.destination(), each -> new CopyOnWriteArrayList<>());
-            Registered other = route.stream().filter(each -> each.eventType().equals(handler.eventType())).findFirst().orElse(null);
-            if (other != null && other.method().equals(method)) {
-                // A second instance of a non-singleton bean is not a second handler: the first keeps receiving.
-                log.warn("@EventHandler {} is on a bean created more than once: only the first instance receives", method);
-                return;
+        // Only a registration table: subscribing waits for start(), because the transport may need this very bean (a template
+        // customizer that also handles events). This lock is never held across a call out of this class.
+        synchronized (routes) {
+            if (frozen) {
+                throw new IllegalStateException("@EventHandler " + method + " is on a bean created after consumers started. "
+                        + "A consumer could already have acknowledged a message this handler should receive: put handlers on "
+                        + "singletons created at startup");
             }
-            if (other != null) {
+            List<Registered> route = routes.computeIfAbsent(annotation.destination(), each -> new ArrayList<>());
+            route.stream().filter(each -> each.eventType().equals(handler.eventType())).findFirst().ifPresent(other -> {
                 throw new IllegalStateException("@EventHandler methods " + other.method() + " and " + method + " both handle "
                         + describe(handler) + ": exactly one handler receives each message");
-            }
-            if (route.isEmpty()) {
-                newDestinations.add(annotation.destination());
-            }
+            });
             route.add(handler);
         }
     }
@@ -215,11 +205,10 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
                 return;
             } catch (RuntimeException e) {
                 if (attempt >= retry.maxAttempts()) {
-                    // The class and where it was thrown: its message can quote the payload. The whole of it at DEBUG.
+                    // Classes and where it was thrown, at any level: a message can quote the payload.
                     StackTraceElement[] frames = e.getStackTrace();
                     log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: dead-lettered. {} at {}",
-                            method, attempt, destination, e.getClass().getName(), frames.length > 0 ? frames[0] : "unknown");
-                    log.debug("@EventHandler {} failure", method, e);
+                            method, attempt, destination, causes(e), frames.length > 0 ? frames[0] : "unknown");
                     deadLetter(destination, value, headers, "retries exhausted");
                     return;
                 }
@@ -228,6 +217,15 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
                 backoff = shorter(backoff.multipliedBy(2), retry.maxBackoff());
             }
         }
+    }
+
+    private static String causes(Throwable failure) {
+        StringBuilder names = new StringBuilder(failure.getClass().getName());
+        int depth = 0;
+        for (Throwable t = failure.getCause(); t != null && depth < 8; t = t.getCause(), depth++) {
+            names.append(" <- ").append(t.getClass().getName());
+        }
+        return names.toString();
     }
 
     private static Duration shorter(Duration one, Duration other) {
@@ -325,6 +323,9 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLife
             }
             running = true;
             stopping = new CountDownLatch(1);
+            synchronized (routes) {
+                frozen = true;
+            }
             if (routes.isEmpty()) {
                 return;
             }

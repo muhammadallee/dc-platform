@@ -2,6 +2,8 @@ package ae.gov.dubaicustoms.platform.messaging.rabbit;
 
 import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.ShutdownSignalException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -19,7 +21,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.AmqpConnectException;
+import org.springframework.amqp.AmqpException;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -33,6 +36,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.ConditionalRejectingErrorHandler;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 
 /**
@@ -80,6 +84,7 @@ public final class RabbitEventTransport implements EventTransport {
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
     private final Semaphore sendersInFlight = new Semaphore(MAX_SENDERS_IN_FLIGHT);
     private final Set<Thread> senders = ConcurrentHashMap.newKeySet();
+    private final ThreadLocal<Boolean> declaring = new ThreadLocal<>();
     private volatile UnaryOperator<Runnable> contextCarrier = UnaryOperator.identity();
 
     /**
@@ -162,10 +167,6 @@ public final class RabbitEventTransport implements EventTransport {
             properties.setHeader("key", key);
         }
         Message message = new Message(value, properties);
-        // Evaluated per message: a mandatory expression can be true for the constructor's probe and false here.
-        if (!rabbitTemplate.isMandatoryFor(message)) {
-            throw new EventPublishException("not mandatory, so an unroutable message would be dropped: " + destination, null);
-        }
         CorrelationData correlation = new CorrelationData();
         // The whole operation is bounded. A broker under a resource alarm blocks the publish itself, before any confirm
         // can be awaited, so it runs apart from the caller. If it gets through after the timeout, that is a duplicate
@@ -176,8 +177,14 @@ public final class RabbitEventTransport implements EventTransport {
         }
         long deadline = System.nanoTime() + confirmTimeout.toNanos();
         CompletableFuture<Void> publish = new CompletableFuture<>();
-        Runnable carriedSend = contextCarrier.apply(
-                () -> rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation));
+        Runnable carriedSend = contextCarrier.apply(() -> {
+            // On this thread, the one the template evaluates it on: a mandatory expression can be true for the
+            // constructor's probe, or on the caller's thread, and false here.
+            if (!rabbitTemplate.isMandatoryFor(message)) {
+                throw new EventPublishException("not mandatory, so an unroutable message would be dropped: " + destination, null);
+            }
+            rabbitTemplate.send(dest.exchange(), dest.routingKey(), message, correlation);
+        });
         Thread sender = Thread.ofVirtual().name("platform-rabbit-send").unstarted(() -> {
             try {
                 carriedSend.run();
@@ -202,6 +209,9 @@ public final class RabbitEventTransport implements EventTransport {
             Thread.currentThread().interrupt();
             throw new EventPublishException("interrupted waiting for the broker's confirm for " + destination, e);
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof EventPublishException refused) {
+                throw refused;
+            }
             throw new EventPublishException("failed to send to " + destination, e.getCause());
         }
     }
@@ -227,8 +237,35 @@ public final class RabbitEventTransport implements EventTransport {
         return true;
     }
 
+    // Each on its own: one queue's declaration failing must not cost the others theirs. Guarded, because RabbitAdmin takes its
+    // connection from the factory, and in connection-cache mode that creates another and calls back here.
     private void redeclareTopologies() {
-        topologies.forEach(Runnable::run);
+        if (declaring.get() != null) {
+            return;
+        }
+        declaring.set(Boolean.TRUE);
+        try {
+            for (Runnable topology : topologies) {
+                try {
+                    topology.run();
+                } catch (RuntimeException e) {
+                    log.error("A RabbitMQ topology declaration failed: {}", e.getClass().getName(), e);
+                }
+            }
+        } finally {
+            declaring.remove();
+        }
+    }
+
+    // The broker refusing a declaration is an answer about this configuration; anything else is an outage.
+    private static boolean refusedByTheBroker(Throwable failure) {
+        for (Throwable t = failure; t != null; t = t.getCause()) {
+            if (t instanceof ShutdownSignalException signal && signal.getReason() instanceof AMQP.Channel.Close close
+                    && close.getReplyCode() == AMQP.PRECONDITION_FAILED) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -242,9 +279,13 @@ public final class RabbitEventTransport implements EventTransport {
         topologies.add(topology);
         try {
             topology.run();
-        } catch (AmqpConnectException e) {
+        } catch (AmqpException e) {
+            if (refusedByTheBroker(e)) {
+                topologies.remove(topology);
+                throw e;
+            }
             // Not fatal: the outbox absorbs a broker outage, and the connection listener declares this on connecting.
-            log.warn("RabbitMQ is unreachable; subscribing to {} once it is", destination);
+            log.warn("RabbitMQ is unreachable; subscribing to {} once it is: {}", destination, e.getClass().getName());
         }
 
         var container = new SimpleMessageListenerContainer(connectionFactory);
@@ -254,12 +295,19 @@ public final class RabbitEventTransport implements EventTransport {
         container.setDefaultRequeueRejected(false);
         container.setMissingQueuesFatal(false);
         container.setPrefetchCount(prefetch);
+        // A fatal failure on a message that has been dead-lettered before, such as a replayed one, goes back to the DLQ.
+        // Spring's default would acknowledge it: gone for good.
+        var errors = new ConditionalRejectingErrorHandler();
+        errors.setDiscardFatalsWithXDeath(false);
+        container.setErrorHandler(errors);
         container.setShutdownTimeout(shutdownTimeout.toMillis());
         container.setMessageListener((MessageListener) message -> {
             try {
                 deliver(message, listener);
             } catch (TransportListener.RequeueException e) {
-                throw new ImmediateRequeueAmqpException(e.getMessage(), e);
+                throw new ImmediateRequeueAmqpException(e.getMessage());
+            } catch (TransportListener.DeadLetterException e) {
+                throw new AmqpRejectAndDontRequeueException(e.getMessage());
             }
         });
         container.start();
@@ -274,7 +322,7 @@ public final class RabbitEventTransport implements EventTransport {
     // Package-private (not private): exercised directly by docker-free unit tests without needing
     // a live SimpleMessageListenerContainer poll loop.
     static void deliver(Message message, TransportListener listener) {
-        byte[] key = (byte[]) message.getMessageProperties().getHeaders().get("key");
+        byte[] key = message.getMessageProperties().getHeaders().get("key") instanceof byte[] bytes ? bytes : null;
         listener.onMessage(key, message.getBody(), fromRabbitHeaders(message));
     }
 
@@ -283,7 +331,7 @@ public final class RabbitEventTransport implements EventTransport {
         message.getMessageProperties().getHeaders().forEach((name, value) -> {
             if ("x-death".equals(name) && value instanceof List<?> deaths) {
                 headers.put("x-death-count", String.valueOf(deathCount(deaths)));
-            } else if (!"key".equals(name) && !name.startsWith("spring_")) {
+            } else if (value != null && !"key".equals(name) && !name.startsWith("spring_")) {
                 headers.put(name, String.valueOf(value));
             }
         });
@@ -316,6 +364,9 @@ public final class RabbitEventTransport implements EventTransport {
         if (quorumQueues) {
             arguments.put("x-queue-type", "quorum");
             arguments.put("x-delivery-limit", deliveryLimit);
+            // RabbitMQ's default drops a message if the dead-letter queue cannot take it.
+            arguments.put("x-dead-letter-strategy", "at-least-once");
+            arguments.put("x-overflow", "reject-publish");
         }
         Queue queue = new Queue(queueName, true, false, false, arguments);
         rabbitAdmin.declareQueue(queue);

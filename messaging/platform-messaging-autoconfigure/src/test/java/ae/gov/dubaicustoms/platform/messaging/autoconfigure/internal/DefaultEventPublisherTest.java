@@ -41,7 +41,7 @@ class DefaultEventPublisherTest {
     void addsEventTypeAndVersionHeaders() {
         AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
         EventTransport transport = fakeTransport((destination, key, value, headers) -> capturedHeaders.set(headers));
-        var publisher = new DefaultEventPublisher(transport, serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
+        var publisher = new DefaultEventPublisher(transport, () -> serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
 
         EventEnvelope<OrderPlaced> event = EventEnvelope.of(new OrderPlaced("o-1")).build();
         publisher.publish("dc.orders", event);
@@ -73,7 +73,7 @@ class DefaultEventPublisherTest {
             public void close() {
             }
         };
-        var publisher = new DefaultEventPublisher(transport, serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
+        var publisher = new DefaultEventPublisher(transport, () -> serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
 
         assertThatThrownBy(() -> publisher.publish("dc.orders", EventEnvelope.of(new OrderPlaced("o-1")).build()))
                 .isInstanceOf(EventPublishException.class)
@@ -129,7 +129,7 @@ class DefaultEventPublisherTest {
                 return action;
             }
         };
-        var publisher = new DefaultEventPublisher(transport, serializer, MessagingInstrumentation.NOOP, trace, "orders");
+        var publisher = new DefaultEventPublisher(transport, () -> serializer, MessagingInstrumentation.NOOP, trace, "orders");
 
         publisher.publish("dc.orders", EventEnvelope.of(new OrderPlaced("o-1")).build());
 
@@ -142,7 +142,7 @@ class DefaultEventPublisherTest {
     void refusesACredentialNamedHeaderAndSendsNothing() {
         AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
         EventTransport transport = fakeTransport((destination, key, value, headers) -> capturedHeaders.set(headers));
-        var publisher = new DefaultEventPublisher(transport, serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
+        var publisher = new DefaultEventPublisher(transport, () -> serializer, MessagingInstrumentation.NOOP, MessageTrace.NONE, "app");
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publish("dc.orders",
                 EventEnvelope.of(new OrderPlaced("o-1")).header("x-auth-token", "value").build()))

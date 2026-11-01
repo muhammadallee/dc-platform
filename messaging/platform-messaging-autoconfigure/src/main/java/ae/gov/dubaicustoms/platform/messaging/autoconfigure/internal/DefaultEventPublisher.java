@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Default {@link EventPublisher}: wraps the single configured {@link EventTransport}, adding the {@code eventId},
@@ -22,7 +23,7 @@ public final class DefaultEventPublisher implements EventPublisher {
     private static final String EVENT_VERSION_HEADER = "eventVersion";
 
     private final EventTransport transport;
-    private final EventSerializer serializer;
+    private final Supplier<EventSerializer> serializer;
     private final MessagingInstrumentation instrumentation;
     private final MessageTrace trace;
     private final String producer;
@@ -31,12 +32,12 @@ public final class DefaultEventPublisher implements EventPublisher {
      * Creates the publisher.
      *
      * @param transport sends the message; never {@code null}
-     * @param serializer serializes the payload; never {@code null}
+     * @param serializer supplies what serializes the payload, resolved at the first publish; never {@code null}
      * @param instrumentation records the publish; never {@code null}
      * @param trace supplies the trace headers; never {@code null}
      * @param producer this service's name; never {@code null}
      */
-    public DefaultEventPublisher(EventTransport transport, EventSerializer serializer,
+    public DefaultEventPublisher(EventTransport transport, Supplier<EventSerializer> serializer,
             MessagingInstrumentation instrumentation, MessageTrace trace, String producer) {
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
         this.serializer = Objects.requireNonNull(serializer, "serializer must not be null");
@@ -65,7 +66,7 @@ public final class DefaultEventPublisher implements EventPublisher {
         headers.put(EventHeaders.PRODUCER, producer);
         headers.putAll(trace.currentHeaders());
         byte[] key = event.key() != null ? event.key().getBytes(StandardCharsets.UTF_8) : null;
-        byte[] value = serializer.serialize(event.payload());
+        byte[] value = serializer.get().serialize(event.payload());
         try {
             transport.send(destination, key, value, headers);
             instrumentation.count("platform.messaging.published", "destination", destination, "outcome", "success");

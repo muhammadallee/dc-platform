@@ -95,6 +95,9 @@ public final class SubscriptionDispatcher implements AutoCloseable {
         try {
             listener.onMessage(message.key(), message.value(), message.headers());
             inFlight.decrementAndGet();
+        } catch (TransportListener.RequeueException e) {
+            // Nothing is wrong with the message: it does not use up an attempt.
+            queue.offer(message);
         } catch (RuntimeException e) {
             if (message.attempts() + 1 >= maxAttempts) {
                 log.error("[DC-MSG-0500] dropping message on destination={} group={} after {} attempt(s): {}",

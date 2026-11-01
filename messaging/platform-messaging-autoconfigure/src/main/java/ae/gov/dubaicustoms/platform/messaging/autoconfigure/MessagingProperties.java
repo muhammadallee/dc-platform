@@ -107,8 +107,9 @@ public record MessagingProperties(
      * @param confirmTimeout how long a send waits for the broker's publisher confirm before it fails
      * @param prefetch how many messages a consumer holds at once, and so how many a retrying handler can delay
      * @param shutdownTimeout how long a stopping consumer waits for the handler in flight
-     * @param deliveryLimit deliveries a quorum queue allows before dead-lettering: catches a message that keeps killing
-     *     its consumer, which in-process retries cannot count
+     * @param deliveryLimit returns a quorum queue allows before dead-lettering: catches a message that keeps killing its
+     *     consumer, which in-process retries cannot count. A message merely held by a stopping consumer counts too, so it
+     *     is well above what rolling restarts reach
      * @since 0.2.0
      */
     public record Rabbit(
@@ -121,14 +122,14 @@ public record MessagingProperties(
             /** How long a stopping consumer waits for the handler in flight. */
             @DefaultValue("30s") Duration shutdownTimeout,
             /** Deliveries a quorum queue allows before dead-lettering a message that keeps killing its consumer. */
-            @DefaultValue("5") int deliveryLimit) {
+            @DefaultValue("20") int deliveryLimit) {
 
         /** Fills in the default timeout when unset (used when constructed programmatically). */
         public Rabbit {
             confirmTimeout = confirmTimeout != null ? confirmTimeout : Duration.ofSeconds(5);
             prefetch = prefetch > 0 ? prefetch : 10;
             shutdownTimeout = shutdownTimeout != null ? shutdownTimeout : Duration.ofSeconds(30);
-            deliveryLimit = deliveryLimit > 0 ? deliveryLimit : 5;
+            deliveryLimit = deliveryLimit > 0 ? deliveryLimit : 20;
         }
     }
 }

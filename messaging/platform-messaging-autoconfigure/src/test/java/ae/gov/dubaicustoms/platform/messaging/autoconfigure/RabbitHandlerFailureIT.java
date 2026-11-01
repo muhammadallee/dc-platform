@@ -69,7 +69,7 @@ class RabbitHandlerFailureIT {
                 new MessagingProperties.Retry(3, Duration.ofMillis(50), Duration.ofMillis(200))), null, null);
         registrar = new EventHandlerRegistrar(transport, new JacksonEventSerializer(new ObjectMapper()), properties, "app", null);
         registrar.postProcessAfterInitialization(new FailingHandler(), "failing");
-        registrar.afterSingletonsInstantiated();
+        registrar.start();
 
         transport.send(DESTINATION, null, "\"poison\"".getBytes(), Map.of("eventType", "t"));
 

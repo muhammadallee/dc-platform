@@ -101,6 +101,27 @@ public interface EventTransport extends AutoCloseable {
         }
 
         /**
+         * Thrown by a listener on a transport that {@linkplain EventTransport#deadLettersNatively() dead-letters natively}
+         * to end a message there: retries are over, or it can never be handled. It carries no cause, so nothing in a
+         * handler's exception can change the outcome. Immutable and thread-safe.
+         *
+         * @since 1.0.0
+         */
+        final class DeadLetterException extends RuntimeException {
+
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Creates the exception.
+             *
+             * @param message why it is dead-lettered, never quoting the payload; never {@code null}
+             */
+            public DeadLetterException(String message) {
+                super(message);
+            }
+        }
+
+        /**
          * Handles one message.
          *
          * @param key the partitioning/routing key, or {@code null}

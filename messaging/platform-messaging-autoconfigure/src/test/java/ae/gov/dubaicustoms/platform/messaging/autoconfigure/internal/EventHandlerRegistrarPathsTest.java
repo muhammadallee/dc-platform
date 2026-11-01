@@ -103,7 +103,7 @@ class EventHandlerRegistrarPathsTest {
                 () -> new JacksonEventSerializer(new ObjectMapper()), () -> properties, "app",
                 () -> MessagingInstrumentation.NOOP, () -> trace);
         registrar.postProcessAfterInitialization(new Handler(fails), "handler");
-        registrar.afterSingletonsInstantiated();
+        registrar.start();
         return registrar;
     }
 
@@ -115,7 +115,8 @@ class EventHandlerRegistrarPathsTest {
     void onANativeTransportAnExhaustedMessageThrowsAndIsNotRepublished() {
         registrar(true, true, Duration.ofMillis(1));
 
-        assertThatThrownBy(() -> deliver("{\"ref\":\"a\"}", "2")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> deliver("{\"ref\":\"a\"}", "2"))
+                .isInstanceOf(EventTransport.TransportListener.DeadLetterException.class).hasNoCause();
 
         assertThat(attempts).hasValue(3);
         assertThat(republished).isEmpty();
@@ -135,8 +136,8 @@ class EventHandlerRegistrarPathsTest {
     void anUnreadablePayloadIsDeadLetteredWithoutAnAttempt() {
         registrar(true, false, Duration.ofMillis(1));
 
-        assertThatThrownBy(() -> deliver("not json", "2")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("unreadable message");
+        assertThatThrownBy(() -> deliver("not json", "2"))
+                .isInstanceOf(EventTransport.TransportListener.DeadLetterException.class).hasMessage("unreadable message");
 
         assertThat(attempts).hasValue(0);
     }
@@ -198,13 +199,89 @@ class EventHandlerRegistrarPathsTest {
     }
 
     @Test
-    void itStartsAndStopsAsALifecycle() {
+    void aVersionThatIsNotANumberIsDeadLetteredNotTreatedAsOne() {
+        registrar(true, false, Duration.ofMillis(1));
+
+        assertThatThrownBy(() -> deliver("{\"ref\":\"a\"}", "2147483648")).hasMessage("unreadable event version");
+
+        assertThat(attempts).hasValue(0);
+    }
+
+    @Test
+    void itRestartsAfterAStop() throws Exception {
         var registrar = registrar(true, false, Duration.ofMillis(1));
         registrar.start();
         assertThat(registrar.isRunning()).isTrue();
 
         registrar.stop();
-
+        listener = null;
         assertThat(registrar.isRunning()).isFalse();
+
+        registrar.start();
+        assertThat(registrar.isRunning()).isTrue();
+        assertThat(listener).as("subscribed again").isNotNull();
+    }
+
+    /** Two filtered handlers on one destination. */
+    public class Routed {
+
+        @EventHandler(destination = DESTINATION, eventType = "order")
+        public void onOrder(String payload) {
+            attempts.incrementAndGet();
+        }
+
+        @EventHandler(destination = DESTINATION, eventType = "refund")
+        public void onRefund(String payload) {
+            attempts.addAndGet(100);
+        }
+    }
+
+    /** One filtered handler, alone on its destination. */
+    public class FilteredOnly {
+
+        @EventHandler(destination = "dc.filtered", eventType = "order")
+        public void on(String payload) {
+            attempts.incrementAndGet();
+        }
+    }
+
+    /** Two handlers that could receive the same message. */
+    public class Clashing {
+
+        @EventHandler(destination = "dc.clash")
+        public void first(String payload) {
+        }
+
+        @EventHandler(destination = "dc.clash")
+        public void second(String payload) {
+        }
+    }
+
+    @Test
+    void handlersOnOneDestinationShareASubscriptionAndAreRoutedByType() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+        registrar.postProcessAfterInitialization(new Routed(), "routed");
+
+        listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "refund", "eventVersion", "1"));
+        assertThat(attempts).hasValue(100);
+    }
+
+    @Test
+    void aMessageNoHandlerWantsIsAcknowledged() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+        registrar.postProcessAfterInitialization(new FilteredOnly(), "filtered");
+
+        listener.onMessage(null, "\"a\"".getBytes(), Map.of("eventType", "other", "eventVersion", "1"));
+
+        assertThat(attempts).hasValue(0);
+        assertThat(registrar.isRunning()).isTrue();
+    }
+
+    @Test
+    void twoHandlersForTheSameMessageFailStartup() {
+        var registrar = registrar(true, false, Duration.ofMillis(1));
+
+        assertThatThrownBy(() -> registrar.postProcessAfterInitialization(new Clashing(), "clashing"))
+                .hasMessageContaining("both handle");
     }
 }

@@ -72,15 +72,17 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 ### Breaking (capability hardening, phase 5 — RabbitMQ messaging)
 - **`max-attempts` means what it says.** A handler set to 3 attempts ran 9 times on RabbitMQ: two retry layers. The registrar is now
   the only one, and the broker dead-letters what it gives up on. `destination.dlq` is no longer used on RabbitMQ.
-- **Quorum queues by default** (`rabbit.quorum-queues=true`), main and dead-letter, with `rabbit.delivery-limit=5`. RabbitMQ does not
+- **Quorum queues by default** (`rabbit.quorum-queues=true`), main and dead-letter, with `rabbit.delivery-limit=20`. RabbitMQ does not
   convert existing queues.
 - **`correlationId` header and `correlation.propagate` removed.** Messages carry `traceparent`, and a handler continues the trace.
 - **Direct publish refuses a credential-named header**, and every message carries `producer`.
+- **Consumers start with the context's lifecycle**, not before it, and handlers on one destination share a queue, routed by
+  `eventType`. Two handlers that could receive the same message fail startup.
 - **A message newer than the handler's `@EventType` version is dead-lettered** rather than delivered. Unknown fields are always tolerated.
 - `RabbitEventTransport`'s constructor changed; `EventTransport` gains `deadLettersNatively()`.
 
 ### Added (capability hardening, phase 5)
-- `handler.retry.max-backoff`, `rabbit.prefetch`, `rabbit.shutdown-timeout`, `rabbit.delivery-limit`, `tooling/scripts/rabbit-dlq-replay.sh`.
+- `handler.retry.max-backoff`, `rabbit.prefetch`, `rabbit.shutdown-timeout`, `rabbit.delivery-limit`, `tooling/scripts/rabbit-dlq-replay.py`.
 - A service starts without the broker, and messaging starts without Micrometer, tracing or Jackson on the classpath.
 
 ### Breaking (capability hardening, phase 4 — transactional outbox)

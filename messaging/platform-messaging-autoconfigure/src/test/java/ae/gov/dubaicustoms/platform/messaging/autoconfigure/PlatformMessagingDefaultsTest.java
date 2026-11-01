@@ -32,7 +32,7 @@ class PlatformMessagingDefaultsTest {
             assertThat(properties.rabbit().confirmTimeout()).isEqualTo(Duration.ofSeconds(5));
             assertThat(properties.rabbit().prefetch()).isEqualTo(10);
             assertThat(properties.rabbit().shutdownTimeout()).isEqualTo(Duration.ofSeconds(30));
-            assertThat(properties.rabbit().deliveryLimit()).isEqualTo(5);
+            assertThat(properties.rabbit().deliveryLimit()).isEqualTo(20);
         });
     }
 

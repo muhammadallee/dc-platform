@@ -35,5 +35,6 @@ class EventTransportDefaultsTest {
     @Test
     void theRequeueExceptionSaysWhy() {
         assertThat(new EventTransport.TransportListener.RequeueException("stopping")).hasMessage("stopping");
+        assertThat(new EventTransport.TransportListener.DeadLetterException("poison")).hasMessage("poison").hasNoCause();
     }
 }

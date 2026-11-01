@@ -23,7 +23,6 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -104,11 +103,11 @@ public class PlatformMessagingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(EventPublisher.class)
     @ConditionalOnSingleCandidate(EventTransport.class)
-    @ConditionalOnBean(EventSerializer.class)
-    EventPublisher eventPublisher(EventTransport transport, EventSerializer serializer,
+    EventPublisher eventPublisher(EventTransport transport, ObjectProvider<EventSerializer> serializer,
             ObjectProvider<MessagingInstrumentation> instrumentation, ObjectProvider<MessageTrace> trace,
             Environment environment) {
-        return new DefaultEventPublisher(transport, serializer, instrumentation.getIfAvailable(() -> MessagingInstrumentation.NOOP),
+        return new DefaultEventPublisher(transport, serializer::getObject,
+                instrumentation.getIfAvailable(() -> MessagingInstrumentation.NOOP),
                 trace.getIfAvailable(() -> MessageTrace.NONE), environment.getProperty("spring.application.name", "application"));
     }
 

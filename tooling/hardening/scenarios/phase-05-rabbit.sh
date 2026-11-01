@@ -217,13 +217,13 @@ DLQ_COUNT=$(metric platform_messaging_handled_total 'outcome="dlq"')
 
 hh_step "AC12 DLQ inspection and replay with the script: delivered once the cause is fixed, same id"
 export RABBIT_MGMT_URL="$MGMT_URL" RABBIT_USER=hh RABBIT_PASSWORD="$RABBIT_PW"
-REPLAY="$HH_REPO_ROOT/tooling/scripts/rabbit-dlq-replay.sh"
-bash "$REPLAY" inspect "$Q_FLAKY" > "$HH_EVIDENCE/ac12-inspect.txt" 2>&1 || hh_fail "AC12 inspect failed: $(tail -1 "$HH_EVIDENCE/ac12-inspect.txt")"
+REPLAY="$(hh_native "$HH_REPO_ROOT/tooling/scripts/rabbit-dlq-replay.py")"
+python -I "$REPLAY" inspect "$Q_FLAKY" > "$HH_EVIDENCE/ac12-inspect.txt" 2>&1 || hh_fail "AC12 inspect failed: $(tail -1 "$HH_EVIDENCE/ac12-inspect.txt")"
 DEAD_ID=$(python -I -c "import json,sys; print(json.loads(open(sys.argv[1]).readline())['eventId'])" "$(hh_native "$HH_EVIDENCE/ac12-inspect.txt")")
 [ -n "$DEAD_ID" ] && hh_pass "AC12 inspect shows the event id" || hh_fail "AC12 no event id in the inspection"
 [ "$(queue_messages "$Q_FLAKY.dlq")" = 1 ] && hh_pass "AC12 inspect leaves the message in place" || hh_fail "AC12 inspect moved it"
 post_ok ac12-fix "/probe/failing?on=false"
-bash "$REPLAY" replay "$Q_FLAKY" > "$HH_EVIDENCE/ac12-replay.txt" 2>&1 || hh_fail "AC12 replay failed: $(tail -1 "$HH_EVIDENCE/ac12-replay.txt")"
+python -I "$REPLAY" replay "$Q_FLAKY" > "$HH_EVIDENCE/ac12-replay.txt" 2>&1 || hh_fail "AC12 replay failed: $(tail -1 "$HH_EVIDENCE/ac12-replay.txt")"
 wait_delivered ac2-fail 1 60 && hh_pass "AC12 the replayed message was handled" || hh_fail "AC12 replay not handled"
 [ "$(value "select event_id from $OWNER.hh_received where ref = 'ac2-fail'")" = "$DEAD_ID" ] \
     && hh_pass "AC12 under the same event id" || hh_fail "AC12 the id changed"

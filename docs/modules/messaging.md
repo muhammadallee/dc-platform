@@ -103,7 +103,7 @@ class OrdersEventHandlers {
 | `dc.platform.messaging.rabbit.confirm-timeout` | `5s` | How long a send waits for the broker's confirm. |
 | `dc.platform.messaging.rabbit.prefetch` | `10` | Messages a consumer holds at once, and so how many a retrying handler can delay. |
 | `dc.platform.messaging.rabbit.shutdown-timeout` | `30s` | How long a stopping consumer works through what it holds. Keep the pod's grace period above this. |
-| `dc.platform.messaging.rabbit.delivery-limit` | `5` | Deliveries a quorum queue allows before dead-lettering a message that keeps killing its consumer. |
+| `dc.platform.messaging.rabbit.delivery-limit` | `20` | Returns a quorum queue allows before dead-lettering a message that keeps killing its consumer. A message merely held by a stopping consumer counts too, hence well above what rolling restarts reach. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -137,10 +137,16 @@ The container acks after the handler returns, including any transaction the hand
 | Outcome | What happens |
 |---|---|
 | Handler returns | Acked |
-| Handler keeps failing | `max-attempts` attempts in the consumer, then the broker dead-letters it. With the defaults, under 4 s per poison message |
+| Handler keeps failing | `max-attempts` attempts in the consumer, then the broker dead-letters it. With the defaults, 3 s of backoff plus the handler's own time per poison message; other messages the consumer holds wait |
 | Unreadable payload, or a version newer than `@EventType` declares | The DLQ at once, with a WARN or ERROR that never quotes the payload. A replay delivers a newer version after upgrading |
 | Consumer stops | The handler in flight finishes; messages it already holds run within `shutdown-timeout`; a retry backoff stops and puts its message back |
 | Consumer dies mid-handler | The broker redelivers; `delivery-limit` dead-letters a message that keeps doing this |
+
+Quorum queues dead-letter at-least-once (RabbitMQ 3.10 or later); classic queues do so at-most-once.
+
+Handlers on one destination share a queue: each message goes to the handler declaring its `eventType`, else to one declaring none.
+Two handlers that could receive the same message fail startup. A message no handler wants is acknowledged and counted as
+`outcome=ignored`.
 
 **Guarantees, and what they are not.** Delivery is at-least-once and unordered. **Deduplicate by `eventId`:** insert it in a
 processed-events table with a unique constraint, in the same transaction as the business write, and skip on a violation.
@@ -152,9 +158,10 @@ read raises `@EventType(version = …)`.
 
 ### RabbitMQ: inspecting and replaying a DLQ
 
-`tooling/scripts/rabbit-dlq-replay.sh inspect <queue>` prints headers and leaves the messages there; `replay <queue>` moves what
+`tooling/scripts/rabbit-dlq-replay.py inspect <queue>` prints headers and leaves the messages there; `replay <queue>` moves what
 is in the DLQ now back to the main queue, keeping event ids. It needs the `rabbitmq_shovel` and `rabbitmq_shovel_management`
-plugins. Fix the cause first, or the messages come straight back.
+plugins. Fix the cause first, or the messages come straight back. Do not delete the main queue during a replay: the shovel would
+publish into nothing.
 
 ## Customize
 

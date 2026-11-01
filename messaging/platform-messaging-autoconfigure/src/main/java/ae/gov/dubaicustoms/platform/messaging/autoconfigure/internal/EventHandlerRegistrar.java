@@ -12,17 +12,20 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.util.ReflectionUtils;
@@ -42,11 +45,15 @@ import org.springframework.util.function.SingletonSupplier;
  * <p>This is the only retry layer on a transport that dead-letters natively (Rabbit's DLX): the listener throws and the
  * broker routes the message. Any other transport gets a republish to {@code destination + dc.platform.messaging.dlq.suffix}.
  *
- * <p>A stop cuts a backoff short and puts the message back: nothing is wrong with it. Subscriptions close in the
- * lifecycle stop, before the connection pools a handler uses are destroyed.
+ * <p>Handlers on one destination share a subscription, which routes each message by {@code eventType} to the handler
+ * declaring that type, else to one declaring none. Two handlers that could receive the same message fail startup. A message
+ * no handler wants is acknowledged and counted as {@code outcome=ignored}.
+ *
+ * <p>Consumers start and stop with the context's lifecycle, so no handler runs ahead of what it depends on, and all close
+ * before the connection pools a handler uses are destroyed. A stop cuts a backoff short and puts the message back: nothing
+ * is wrong with it.
  */
-public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInitializingSingleton, SmartLifecycle,
-        DisposableBean {
+public final class EventHandlerRegistrar implements BeanPostProcessor, SmartLifecycle, DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(EventHandlerRegistrar.class);
     private static final String METRIC_NAME = "platform.messaging.handled";
@@ -58,10 +65,9 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     private final Supplier<MessagingInstrumentation> instrumentation;
     private final Supplier<MessageTrace> trace;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<Runnable> pending = new CopyOnWriteArrayList<>();
+    private final Map<String, List<Registered>> routes = new ConcurrentHashMap<>();
+    private final AtomicReference<CountDownLatch> stopping = new AtomicReference<>(new CountDownLatch(1));
     private volatile boolean running;
-    private final CountDownLatch stopping = new CountDownLatch(1);
-    private volatile boolean singletonsReady;
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
             String group, MessagingInstrumentation instrumentation) {
@@ -110,88 +116,107 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         }
         EventHandler annotation = method.getAnnotation(EventHandler.class);
         method.setAccessible(true);
-        Runnable subscribe = () -> subscriptions.add(transport.get().subscribe(annotation.destination(), group,
-                (key, value, headers) -> handle(bean, method, annotation, value, headers)));
-        // Not during this bean's own post-processing: the transport may need this very bean (a template customizer that
-        // also handles events), and creating it now would re-enter the unfinished bean.
-        if (singletonsReady) {
-            subscribe.run();
-        } else {
-            pending.add(subscribe);
+        Registered handler = new Registered(bean, method, annotation.destination(), annotation.eventType());
+        // Not subscribed here, during this bean's own post-processing: the transport may need this very bean (a template
+        // customizer that also handles events). Subscribing waits for start().
+        boolean firstOnDestination;
+        synchronized (routes) {
+            List<Registered> route = routes.computeIfAbsent(annotation.destination(), each -> new CopyOnWriteArrayList<>());
+            route.stream().filter(other -> other.eventType().equals(handler.eventType())).findFirst().ifPresent(other -> {
+                throw new IllegalStateException("@EventHandler methods " + other.method() + " and " + method + " both handle "
+                        + describe(handler) + ": exactly one handler receives each message");
+            });
+            firstOnDestination = route.isEmpty();
+            route.add(handler);
+        }
+        if (running && firstOnDestination) {
+            subscribe(annotation.destination());
         }
     }
 
-    /** Subscribes once every singleton exists, with the collaborators resolved first, not on a delivery thread. */
-    @Override
-    public void afterSingletonsInstantiated() {
-        singletonsReady = true;
-        if (pending.isEmpty()) {
-            return;
-        }
-        serializer.get();
-        properties.get();
-        instrumentation.get();
-        trace.get();
-        pending.forEach(Runnable::run);
-        pending.clear();
+    private static String describe(Registered handler) {
+        return (handler.eventType().isEmpty() ? "every event type" : "event type " + handler.eventType())
+                + " on destination " + handler.destination();
     }
 
-    private void handle(Object bean, Method method, EventHandler annotation, byte[] value, Map<String, String> headers) {
+    private void subscribe(String destination) {
+        subscriptions.add(transport.get().subscribe(destination, group, (key, value, headers) -> route(destination, value, headers)));
+    }
+
+    /** Handlers on one destination share one queue, so one subscription receives for all of them and routes by type. */
+    private void route(String destination, byte[] value, Map<String, String> headers) {
         String eventType = headers.getOrDefault("eventType", "");
-        if (!annotation.eventType().isEmpty() && !annotation.eventType().equals(eventType)) {
+        List<Registered> candidates = routes.get(destination);
+        Registered handler = candidates.stream().filter(each -> each.eventType().equals(eventType)).findFirst()
+                .or(() -> candidates.stream().filter(each -> each.eventType().isEmpty()).findFirst()).orElse(null);
+        if (handler == null) {
+            count("ignored");
+            log.debug("no @EventHandler for event type {} on destination={}", eventType, destination);
             return;
         }
         try (MessageTrace.Scope scope = trace.get().continueFrom(headers)) {
-            handleInTrace(bean, method, annotation, value, headers, eventType);
+            handle(handler, value, headers, eventType);
         }
     }
 
-    private void handleInTrace(Object bean, Method method, EventHandler annotation, byte[] value,
-            Map<String, String> headers, String eventType) {
+    private void handle(Registered handler, byte[] value, Map<String, String> headers, String eventType) {
+        Method method = handler.method();
+        String destination = handler.destination();
         EventType declared = payloadType(method).getAnnotation(EventType.class);
-        int version = parseVersion(headers.get("eventVersion"));
-        if (declared != null && version > declared.version()) {
-            // Not retried, not dropped: a replay delivers it once this service understands the version.
-            log.warn("@EventHandler {} understands up to version {} of {} and received version {}: dead-lettered",
-                    method, declared.version(), declared.value(), version);
-            deadLetter(annotation.destination(), value, headers, new IllegalArgumentException("event version too new"));
+        OptionalInt version = parseVersion(headers.get("eventVersion"));
+        if (version.isEmpty()) {
+            log.warn("@EventHandler {} received an eventVersion that is not a number on destination={}: dead-lettered",
+                    method, destination);
+            deadLetter(destination, value, headers, "unreadable event version");
             return;
         }
-        Object argument;
-        try {
-            argument = resolveArgument(method, value, headers, eventType);
-        } catch (RuntimeException e) {
-            // The class only: a parser's message can quote the payload.
-            log.error("@EventHandler {} cannot read a message on destination={}: {}", method, annotation.destination(),
-                    e.getClass().getName());
-            deadLetter(annotation.destination(), value, headers, new IllegalArgumentException("unreadable message"));
+        if (declared != null && version.getAsInt() > declared.version()) {
+            // Not retried, not dropped: a replay delivers it once this service understands the version.
+            log.warn("@EventHandler {} understands up to version {} of {} and received version {}: dead-lettered",
+                    method, declared.version(), declared.value(), version.getAsInt());
+            deadLetter(destination, value, headers, "event version too new");
             return;
         }
         MessagingProperties.Retry retry = properties.get().handler().retry();
-        Duration backoff = retry.backoff();
+        Duration backoff = shorter(retry.backoff(), retry.maxBackoff());
         for (int attempt = 1; attempt <= retry.maxAttempts(); attempt++) {
+            Object argument;
             try {
-                invoke(bean, method, argument);
+                // Per attempt: a handler may change its argument before it fails.
+                argument = resolveArgument(method, value, headers, eventType, version.getAsInt());
+            } catch (RuntimeException e) {
+                // The class only: a parser's message can quote the payload.
+                log.error("@EventHandler {} cannot read a message on destination={}: {}", method, destination,
+                        e.getClass().getName());
+                deadLetter(destination, value, headers, "unreadable message");
+                return;
+            }
+            try {
+                invoke(handler.bean(), method, argument);
                 count("success");
                 return;
             } catch (RuntimeException e) {
                 if (attempt >= retry.maxAttempts()) {
                     log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: dead-lettered",
-                            method, attempt, annotation.destination(), e);
-                    deadLetter(annotation.destination(), value, headers, e);
+                            method, attempt, destination, e);
+                    deadLetter(destination, value, headers, "retries exhausted");
                     return;
                 }
                 count("retry");
                 pause(backoff);
-                backoff = backoff.multipliedBy(2).compareTo(retry.maxBackoff()) < 0 ? backoff.multipliedBy(2) : retry.maxBackoff();
+                backoff = shorter(backoff.multipliedBy(2), retry.maxBackoff());
             }
         }
     }
 
-    private void deadLetter(String destination, byte[] value, Map<String, String> headers, RuntimeException cause) {
+    private static Duration shorter(Duration one, Duration other) {
+        return one.compareTo(other) < 0 ? one : other;
+    }
+
+    private void deadLetter(String destination, byte[] value, Map<String, String> headers, String reason) {
         count("dlq");
         if (transport.get().deadLettersNatively()) {
-            throw cause;
+            throw new EventTransport.TransportListener.DeadLetterException(reason);
         }
         republishToDlq(destination, value, headers);
     }
@@ -209,7 +234,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         }
     }
 
-    private Object resolveArgument(Method method, byte[] value, Map<String, String> headers, String eventType) {
+    private Object resolveArgument(Method method, byte[] value, Map<String, String> headers, String eventType, int eventVersion) {
         Class<?> paramType = method.getParameterTypes()[0];
         if (!EventEnvelope.class.isAssignableFrom(paramType)) {
             return serializer.get().deserialize(value, paramType);
@@ -217,7 +242,6 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         // Generic erasure: EventEnvelope<T>'s T is only visible via the method's generic signature.
         Class<?> payloadType = envelopePayloadType(method);
         Object payload = serializer.get().deserialize(value, payloadType);
-        int eventVersion = parseVersion(headers.get("eventVersion"));
         // A message from a non-platform producer has no id; it still gets one, though a redelivery will differ.
         String eventId = headers.getOrDefault(EventEnvelope.EVENT_ID_HEADER, UUID.randomUUID().toString());
         return new EventEnvelope<>(eventId, eventType, eventVersion, null, payload, headers, Instant.now());
@@ -235,15 +259,20 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
             if (typeArguments.length == 1 && typeArguments[0] instanceof Class<?> payloadClass) {
                 return payloadClass;
             }
+            if (typeArguments.length == 1 && typeArguments[0] instanceof ParameterizedType generic
+                    && generic.getRawType() instanceof Class<?> rawClass) {
+                return rawClass;
+            }
         }
         return Object.class;
     }
 
-    private static int parseVersion(String header) {
+    // A message from a non-platform producer may have none, which means version 1. One that is not a number cannot be judged.
+    private static OptionalInt parseVersion(String header) {
         try {
-            return header != null ? Integer.parseInt(header) : 1;
+            return OptionalInt.of(header != null ? Integer.parseInt(header) : 1);
         } catch (NumberFormatException e) {
-            return 1;
+            return OptionalInt.empty();
         }
     }
 
@@ -254,7 +283,7 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
 
     private void pause(Duration backoff) {
         try {
-            if (stopping.await(backoff.toMillis(), TimeUnit.MILLISECONDS)) {
+            if (stopping.get().await(backoff.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new EventTransport.TransportListener.RequeueException("the consumer is stopping");
             }
         } catch (InterruptedException e) {
@@ -267,16 +296,30 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         instrumentation.get().count(METRIC_NAME, "outcome", outcome);
     }
 
-    /** Subscriptions start in {@link #afterSingletonsInstantiated}; the lifecycle is here to stop them in order. */
+    /** Runs once the context's other beans have started, so no handler runs ahead of what it depends on. */
     @Override
     public void start() {
-        running = true;
+        synchronized (routes) {
+            if (running) {
+                return;
+            }
+            running = true;
+            stopping.set(new CountDownLatch(1));
+        }
+        if (routes.isEmpty()) {
+            return;
+        }
+        serializer.get();
+        properties.get();
+        instrumentation.get();
+        trace.get();
+        routes.keySet().forEach(this::subscribe);
     }
 
     @Override
     public void stop() {
         running = false;
-        stopping.countDown();
+        stopping.get().countDown();
         closeSubscriptions();
     }
 
@@ -287,18 +330,29 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
 
     @Override
     public void destroy() {
-        stopping.countDown();
-        closeSubscriptions();
+        stop();
     }
 
+    // Together: one after another would let the last run for each one's timeout, redelivering what the others put back.
     private void closeSubscriptions() {
-        for (EventTransport.Subscription subscription : subscriptions) {
+        List<Thread> closing = subscriptions.stream().map(subscription -> Thread.ofVirtual().start(() -> {
             try {
                 subscription.close();
             } catch (Exception e) {
                 log.warn("failed to close messaging subscription", e);
             }
-        }
+        })).toList();
         subscriptions.clear();
+        for (Thread thread : closing) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    private record Registered(Object bean, Method method, String destination, String eventType) {
     }
 }

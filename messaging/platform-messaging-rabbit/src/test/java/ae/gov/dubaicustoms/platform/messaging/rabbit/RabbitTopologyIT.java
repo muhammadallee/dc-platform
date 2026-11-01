@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.messaging.rabbit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
@@ -133,6 +134,63 @@ class RabbitTopologyIT {
             });
         } catch (AssertionError | Exception e) {
             throw new AssertionError("definitions not restored; a reset also drops the user", e);
+        }
+    }
+
+    @Test
+    void aFatalFailureOnAReplayedMessageGoesBackToTheDeadLetterQueue() throws Exception {
+        // Spring's default handler acknowledges a fatal failure on a message carrying x-death: gone for good.
+        start(RABBIT.getAmqpPort(), true, 5);
+        var deliveries = new AtomicInteger();
+        try (var subscription = transport.subscribe("dc.fatal:order", "app", (key, value, headers) -> {
+            deliveries.incrementAndGet();
+            throw new ClassCastException("fatal to Spring");
+        })) {
+            var template = new RabbitTemplate(connections);
+            template.convertAndSend("dc.fatal", "order", "body", message -> {
+                message.getMessageProperties().setHeader("x-death", java.util.List.of(Map.of("count", 1L, "queue", "q")));
+                return message;
+            });
+
+            await().atMost(Duration.ofSeconds(30)).until(() -> messages("dc.fatal.order.app.dlq") == 1);
+        }
+        assertThat(deliveries).hasValue(1);
+    }
+
+    @Test
+    void aQueueOfTheOtherTypeFailsItsSubscriptionAndNotOthersOnReconnect() throws Exception {
+        start(RABBIT.getAmqpPort(), false, 5);
+        try (var classic = transport.subscribe("dc.mismatch:order", "app", (key, value, headers) -> { })) {
+            assertThat(queueType("dc.mismatch.order.app")).endsWith("classic");
+        }
+        transport.close();
+        connections.destroy();
+        start(RABBIT.getAmqpPort(), true, 5);
+
+        assertThatThrownBy(() -> transport.subscribe("dc.mismatch:order", "app", (key, value, headers) -> { }))
+                .isInstanceOf(org.springframework.amqp.AmqpException.class);
+        try (var other = transport.subscribe("dc.fine:order", "app", (key, value, headers) -> { })) {
+            connections.resetConnection();
+            assertThat(messages("dc.fine.order.app")).isZero();
+        }
+    }
+
+    @Test
+    void connectionCacheModeDoesNotRecurseOnTopology() throws Exception {
+        connections = new CachingConnectionFactory(RABBIT.getHost(), RABBIT.getAmqpPort());
+        connections.setUsername(RABBIT.getAdminUsername());
+        connections.setPassword(RABBIT.getAdminPassword());
+        connections.setCacheMode(CachingConnectionFactory.CacheMode.CONNECTION);
+        connections.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED);
+        connections.setPublisherReturns(true);
+        var template = new RabbitTemplate(connections);
+        template.setMandatory(true);
+        transport = new RabbitEventTransport(template, connections, true, Duration.ofSeconds(5), 10, Duration.ofSeconds(5), 5);
+        admin = new RabbitAdmin(connections);
+
+        try (var subscription = transport.subscribe("dc.cache:order", "app", (key, value, headers) -> { })) {
+            connections.resetConnection();
+            await().atMost(Duration.ofSeconds(30)).ignoreExceptions().until(() -> messages("dc.cache.order.app") == 0);
         }
     }
 

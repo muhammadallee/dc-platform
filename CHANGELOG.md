@@ -69,6 +69,20 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - JSON mode switches Boot's startup banner off (`spring.main.banner-mode=off`, overridable) so every
   stdout line is JSON (D108).
 
+### Breaking (capability hardening, phase 5 — RabbitMQ messaging)
+- **`max-attempts` means what it says.** A handler set to 3 attempts ran 9 times on RabbitMQ: two retry layers. The registrar is now
+  the only one, and the broker dead-letters what it gives up on. `destination.dlq` is no longer used on RabbitMQ.
+- **Quorum queues by default** (`rabbit.quorum-queues=true`), main and dead-letter, with `rabbit.delivery-limit=5`. RabbitMQ does not
+  convert existing queues.
+- **`correlationId` header and `correlation.propagate` removed.** Messages carry `traceparent`, and a handler continues the trace.
+- **Direct publish refuses a credential-named header**, and every message carries `producer`.
+- **A message newer than the handler's `@EventType` version is dead-lettered** rather than delivered. Unknown fields are always tolerated.
+- `RabbitEventTransport`'s constructor changed; `EventTransport` gains `deadLettersNatively()`.
+
+### Added (capability hardening, phase 5)
+- `handler.retry.max-backoff`, `rabbit.prefetch`, `rabbit.shutdown-timeout`, `rabbit.delivery-limit`, `tooling/scripts/rabbit-dlq-replay.sh`.
+- A service starts without the broker, and messaging starts without Micrometer, tracing or Jackson on the classpath.
+
 ### Breaking (capability hardening, phase 4 — transactional outbox)
 - **`EventEnvelope` has a required `eventId`** (a new first record component): a UUID generated once when the envelope
   is built, settable with `Builder.eventId(…)` for a republish, sent as header `eventId` (HC7: no users yet).

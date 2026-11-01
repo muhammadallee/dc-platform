@@ -781,6 +781,17 @@ One line of context per decision; details live in the commit bodies referenced.
   without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
   missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
   collide with the service's next migration (scope amendment A2).
+- **D120 — One retry layer (hardening phase 5).** The registrar retries; a transport that dead-letters natively says so through
+  `EventTransport.deadLettersNatively()`. Two layers multiplied attempts (3 configured, 9 measured). No delayed-retry queues: they
+  need a plugin or more topology, and prefetch bounds what a backoff delays.
+- **D121 — Quorum queues by default, with `x-delivery-limit` (hardening phase 5).** The limit is only for a message that keeps killing
+  its consumer, which in-process retries cannot count.
+- **D122 — Topology on every connection (hardening phase 5).** A service starts without the broker, since the outbox absorbs an
+  outage, and a broker that lost its definitions gets them back.
+- **D123 — A newer `eventVersion` goes to the DLQ (hardening phase 5).** Delivering risks misreading it; dropping loses it. A replay
+  delivers it after upgrading. Unknown fields stay tolerated, so additive changes need no new version.
+- **D124 — Replay through a dynamic shovel (hardening phase 5).** The broker moves the messages with confirms; a custom consumer
+  could lose one mid-copy.
 - **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
   on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
   rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.

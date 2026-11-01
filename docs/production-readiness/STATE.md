@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 5 — RabbitMQ Messaging |
-| Current gate | A: scope and baseline |
+| Current gate | C: review round 1. Gate B done: consumer trial 63/63 on the Gate B code |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
-| Pending human decisions | Owner's permission to push `hardening/v1` (automatic check blocked it 2026-11-01); HD7 chart-tool details (asked at Phase 8 step 7) |
+| Pending human decisions | HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 5 Gate A. Before tagging `hardening/phase-04-closed`: push, confirm CI. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086 (reverted attempt `4ef7bfc`, `phase-04-outbox/codex/v2-verify.out.md`). Consumer runs go in the foreground: background runs were stopped twice by the host-memory check. `nice_galileo` is stopped. |
+| Next action | Review round 1 and 2, then three closing runs of `phase-05-rabbit.sh`, Phases 1-4 consumers (the Phase 4 run is C1's fault scenarios), downstream compile, golden path, samples. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Consumer runs go in the foreground. `nice_galileo` is stopped. |
 
 ## Phase log
 
@@ -22,7 +22,8 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 1 | `f231689` | **PASS** (final `76cfcc7`; consumer 3× 92/92, golden path 8/8, CI green) | `hardening/phase-01-closed` | 2026-10-26 |
 | 2 | `a33168d` | **PASS** (final code `5b8e820`; consumer 3× 75/75, Phase 1 regression 92/92, golden path 8/8, CI green; residuals accepted) | `hardening/phase-02-closed` | 2026-10-28 |
 | 3 | `60afe86` | **PASS** (final code `29c6ed2`; Oracle consumer 3× 92/92, Phase 1 92/92, Phase 2 75/75, golden path 9/9, CI green; residuals accepted, HI-0071 → Phase 4) | `hardening/phase-03-closed` | 2026-10-31 |
-| 4 | `39e354d` | **PASS with parked issues** (final code `03dee13`; consumer 3× 106/106, Phases 1-3 92/75/92, golden path 9/9; HI-0078 accepted; HI-0071, HI-0079, HI-0086 parked) | pending push and CI | 2026-11-01 |
+| 4 | `39e354d` | **PASS with parked issues** (final code `03dee13`; consumer 3× 106/106, Phases 1-3 92/75/92, golden path 9/9; HI-0078 accepted; HI-0071, HI-0079, HI-0086 parked) | `hardening/phase-04-closed` | 2026-11-01 |
+| 5 | `dfb3524` | in progress | — | — |
 
 ## Environment notes for resumption
 

@@ -1,6 +1,6 @@
 # Phase 4 — Transactional Outbox: closure
 
-**Verdict: PASS with parked issues** (2026-11-01; see Owner decisions). Tag pending CI on the closure commit. Earlier owner decisions: platform JDBC module (HD11), no platform users so
+**Verdict: PASS with parked issues** (2026-11-01; see Owner decisions). Tagged `hardening/phase-04-closed` on `dfb3524`; CI green on `a78e963`, the first pushed commit containing it (the closure's code matches `03dee13`). Earlier owner decisions: platform JDBC module (HD11), no platform users so
 breaking changes need only a CHANGELOG entry (HC7), Oracle only (HD3), prod on 19c (HD13).
 
 | Item | Value |

@@ -68,7 +68,7 @@ class EventHandlerRegistrarTest {
 
     private static MessagingProperties properties(int maxAttempts) {
         return new MessagingProperties(true, "dc.",
-                new MessagingProperties.Handler(new MessagingProperties.Retry(maxAttempts, Duration.ofMillis(1))),
+                new MessagingProperties.Handler(new MessagingProperties.Retry(maxAttempts, Duration.ofMillis(1), Duration.ofMillis(1))),
                 new MessagingProperties.Dlq(".dlq"), new MessagingProperties.Correlation(true), null);
     }
 

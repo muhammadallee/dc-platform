@@ -56,7 +56,7 @@ class RabbitHandlerFailureIT {
     }
 
     @Test
-    void recordsAttemptsAndWhereTheMessageEndsUp() {
+    void aFailingHandlerRunsExactlyMaxAttemptsThenTheBrokerDeadLettersIt() {
         connections = new CachingConnectionFactory(RABBIT.getHost(), RABBIT.getAmqpPort());
         connections.setUsername(RABBIT.getAdminUsername());
         connections.setPassword(RABBIT.getAdminPassword());
@@ -64,9 +64,9 @@ class RabbitHandlerFailureIT {
         connections.setPublisherReturns(true);
         var template = new RabbitTemplate(connections);
         template.setMandatory(true);
-        transport = new RabbitEventTransport(template, connections, 3, Duration.ofMillis(50), false, Duration.ofSeconds(5));
+        transport = new RabbitEventTransport(template, connections, true, Duration.ofSeconds(5), 10, Duration.ofSeconds(5), 5);
         var properties = new MessagingProperties(true, "dc.", new MessagingProperties.Handler(
-                new MessagingProperties.Retry(3, Duration.ofMillis(50))), null, null, null);
+                new MessagingProperties.Retry(3, Duration.ofMillis(50), Duration.ofMillis(200))), null, null, null);
         registrar = new EventHandlerRegistrar(transport, new JacksonEventSerializer(new ObjectMapper()), properties, "app", null);
         registrar.postProcessAfterInitialization(new FailingHandler(), "failing");
         registrar.afterSingletonsInstantiated();
@@ -75,10 +75,10 @@ class RabbitHandlerFailureIT {
 
         var admin = new RabbitAdmin(connections);
         await().atMost(Duration.ofSeconds(30)).until(() -> messages(admin, QUEUE + ".dlq") > 0);
-        await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(5)).until(() -> true);
-        System.out.println("BASELINE attempts=" + attempts.get() + " dlq=" + messages(admin, QUEUE + ".dlq")
-                + " queue=" + messages(admin, QUEUE));
+        await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(5)).until(() -> attempts.get() == 3);
+        assertThat(attempts).hasValue(3);
         assertThat(messages(admin, QUEUE + ".dlq")).isEqualTo(1);
+        assertThat(messages(admin, QUEUE)).isZero();
     }
 
     private static int messages(RabbitAdmin admin, String queue) {

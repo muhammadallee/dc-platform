@@ -47,8 +47,8 @@ class RabbitEventTransportIT {
         connectionFactory.setPublisherReturns(true);
         var rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMandatory(true);
-        transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(100), false,
-                Duration.ofSeconds(5));
+        transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, false, Duration.ofSeconds(5), 10,
+                Duration.ofSeconds(5), 5);
     }
 
     @Test

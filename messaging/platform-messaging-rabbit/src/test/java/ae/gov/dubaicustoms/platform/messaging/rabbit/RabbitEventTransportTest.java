@@ -63,7 +63,7 @@ class RabbitEventTransportTest {
     }
 
     private RabbitEventTransport transport() {
-        return new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(50), false, CONFIRM_TIMEOUT);
+        return new RabbitEventTransport(rabbitTemplate, connectionFactory, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
     }
 
     @Test
@@ -164,14 +164,14 @@ class RabbitEventTransportTest {
 
     @Test
     void nameIsRabbit() {
-        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(50), false, CONFIRM_TIMEOUT);
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
 
         assertThat(transport.name()).isEqualTo("rabbit");
     }
 
     @Test
     void sendUsesParsedExchangeAndRoutingKey() {
-        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(50), false, CONFIRM_TIMEOUT);
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
 
         transport.send("dc.orders:order.placed", "order-1".getBytes(), "payload".getBytes(), Map.of("eventType", "OrderPlaced"));
 
@@ -183,7 +183,7 @@ class RabbitEventTransportTest {
 
     @Test
     void sendWithoutRoutingKeyUsesEmptyRoutingKey() {
-        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, 3, Duration.ofMillis(50), false, CONFIRM_TIMEOUT);
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
 
         transport.send("dc.orders", null, "payload".getBytes(), Map.of());
 
@@ -236,7 +236,7 @@ class RabbitEventTransportTest {
     @Test
     void subscribeDeclaresTopologyStartsContainerAndCloseStopsIt() throws Exception {
         RabbitAdmin rabbitAdmin = mock(RabbitAdmin.class);
-        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbitAdmin, 3, Duration.ofMillis(10), false, CONFIRM_TIMEOUT);
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbitAdmin, false, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
 
         var subscription = transport.subscribe("dc.orders:order.placed", "test-group", (key, value, headers) -> { });
 
@@ -250,7 +250,7 @@ class RabbitEventTransportTest {
     @Test
     void subscribeSupportsQuorumQueuesOptIn() throws Exception {
         RabbitAdmin rabbitAdmin = mock(RabbitAdmin.class);
-        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbitAdmin, 3, Duration.ofMillis(10), true, CONFIRM_TIMEOUT);
+        var transport = new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbitAdmin, true, CONFIRM_TIMEOUT, 10, Duration.ofSeconds(1), 5);
 
         var subscription = transport.subscribe("dc.orders", "test-group", (key, value, headers) -> { });
         subscription.close();

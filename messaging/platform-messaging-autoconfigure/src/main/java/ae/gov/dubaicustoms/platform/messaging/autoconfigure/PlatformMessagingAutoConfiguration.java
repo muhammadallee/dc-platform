@@ -136,9 +136,9 @@ public class PlatformMessagingAutoConfiguration {
         @ConditionalOnMissingBean(EventTransport.class)
         EventTransport rabbitEventTransport(
                 RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, MessagingProperties properties) {
-            return new RabbitEventTransport(rabbitTemplate, connectionFactory,
-                    properties.handler().retry().maxAttempts(), properties.handler().retry().backoff(),
-                    properties.rabbit().quorumQueues(), properties.rabbit().confirmTimeout());
+            MessagingProperties.Rabbit rabbit = properties.rabbit();
+            return new RabbitEventTransport(rabbitTemplate, connectionFactory, rabbit.quorumQueues(),
+                    rabbit.confirmTimeout(), rabbit.prefetch(), rabbit.shutdownTimeout(), rabbit.deliveryLimit());
         }
     }
 }

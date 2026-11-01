@@ -15,7 +15,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.aopalliance.intercept.MethodInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpConnectException;
+import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Message;
@@ -23,14 +26,12 @@ import org.springframework.amqp.core.MessageListener;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
-import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.connection.AbstractRoutingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 
 /**
  * {@link EventTransport} over RabbitMQ. Built from Boot's own {@code RabbitTemplate} and
@@ -42,14 +43,13 @@ import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
  * {@code "exchange:routingKey"}. Each subscription declares (idempotently, via {@link RabbitAdmin})
  * a durable topic exchange, a durable queue bound to it with the routing key, and a dead-letter
  * exchange + queue the broker routes to automatically once a message is rejected without requeue.
- * Quorum queues are opt-in via the constructor flag (recommended for production RabbitMQ clusters;
- * classic queues are the local/dev default).
+ * Topology is declared on every new connection, so a subscription does not need the broker at startup, and a broker that
+ * lost its definitions gets them back.
  *
- * <p>Redelivery/DLQ is Rabbit-native: the container's retry interceptor gives each message up to
- * {@code maxAttempts} local redeliveries, then rejects it without requeue — the queue's
- * {@code x-dead-letter-exchange} argument makes the broker route it to the DLQ automatically. This
- * is in addition to, not instead of, {@code platform-messaging-autoconfigure}'s transport-agnostic
- * republish-to-{@code dlq.suffix} fallback (which every provider gets for free).
+ * <p>This transport does not retry: {@code platform-messaging-autoconfigure}'s registrar does. A listener that throws
+ * has its message rejected without requeue, and the queue's {@code x-dead-letter-exchange} routes it to the DLQ; a
+ * {@link TransportListener.RequeueException} puts it back. A quorum queue's {@code x-delivery-limit} also dead-letters
+ * a message that keeps killing its consumer.
  *
  * <p>{@link #send} honours the SPI's "blocks until acknowledged": it waits for the broker's publisher
  * confirm, and a nack, a returned (unroutable) message or no confirm within the timeout is an
@@ -62,16 +62,19 @@ import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
  */
 public final class RabbitEventTransport implements EventTransport {
 
+    private static final Logger log = LoggerFactory.getLogger(RabbitEventTransport.class);
     private static final String UNACKNOWLEDGED = "A send could be lost without anyone knowing. Set ";
     private static final int MAX_SENDERS_IN_FLIGHT = 64;
 
     private final RabbitTemplate rabbitTemplate;
     private final ConnectionFactory connectionFactory;
     private final RabbitAdmin rabbitAdmin;
-    private final int maxAttempts;
-    private final Duration backoff;
     private final boolean quorumQueues;
     private final Duration confirmTimeout;
+    private final int prefetch;
+    private final Duration shutdownTimeout;
+    private final int deliveryLimit;
+    private final CopyOnWriteArrayList<Runnable> topologies = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<SimpleMessageListenerContainer> containers = new CopyOnWriteArrayList<>();
     private final Semaphore sendersInFlight = new Semaphore(MAX_SENDERS_IN_FLIGHT);
     private final Set<Thread> senders = ConcurrentHashMap.newKeySet();
@@ -82,31 +85,34 @@ public final class RabbitEventTransport implements EventTransport {
      * @param rabbitTemplate the Boot-configured template used for publish; never {@code null}
      * @param connectionFactory the Boot-configured connection factory each subscription's container
      *     and the topology declarations are built from; never {@code null}
-     * @param maxAttempts total delivery attempts before a message is rejected to the DLQ; at least 1
-     * @param backoff pause between redelivery attempts; never {@code null}
-     * @param quorumQueues declare quorum queues ({@code x-queue-type=quorum}) instead of classic
-     *     queues; opt-in for production clusters
+     * @param quorumQueues declare quorum queues ({@code x-queue-type=quorum}), the main and the dead-letter one,
+     *     instead of classic queues
      * @param confirmTimeout how long a send waits for the broker's confirm; never {@code null}
+     * @param prefetch how many messages a consumer holds at once; at least 1
+     * @param shutdownTimeout how long a stopping consumer waits for the listener in flight; never {@code null}
+     * @param deliveryLimit deliveries a quorum queue allows before dead-lettering; at least 1
      * @throws IllegalStateException if publisher confirms, returns or {@code mandatory} are off
      */
-    public RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, int maxAttempts,
-            Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
-        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), maxAttempts, backoff, quorumQueues,
-                confirmTimeout);
+    public RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory,
+            boolean quorumQueues, Duration confirmTimeout, int prefetch, Duration shutdownTimeout, int deliveryLimit) {
+        this(rabbitTemplate, connectionFactory, new RabbitAdmin(connectionFactory), quorumQueues, confirmTimeout,
+                prefetch, shutdownTimeout, deliveryLimit);
     }
 
     // Package-private: lets docker-free unit tests inject a mocked RabbitAdmin instead of one
     // backed by a real broker channel.
     RabbitEventTransport(RabbitTemplate rabbitTemplate, ConnectionFactory connectionFactory, RabbitAdmin rabbitAdmin,
-            int maxAttempts, Duration backoff, boolean quorumQueues, Duration confirmTimeout) {
+            boolean quorumQueues, Duration confirmTimeout, int prefetch, Duration shutdownTimeout, int deliveryLimit) {
         this.rabbitTemplate = Objects.requireNonNull(rabbitTemplate, "rabbitTemplate must not be null");
         this.connectionFactory = Objects.requireNonNull(connectionFactory, "connectionFactory must not be null");
         this.rabbitAdmin = Objects.requireNonNull(rabbitAdmin, "rabbitAdmin must not be null");
-        this.maxAttempts = maxAttempts;
-        this.backoff = Objects.requireNonNull(backoff, "backoff must not be null");
         this.quorumQueues = quorumQueues;
         this.confirmTimeout = Objects.requireNonNull(confirmTimeout, "confirmTimeout must not be null");
+        this.prefetch = prefetch;
+        this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "shutdownTimeout must not be null");
+        this.deliveryLimit = deliveryLimit;
         requireAcknowledgedPublishing(rabbitTemplate, connectionFactory);
+        connectionFactory.addConnectionListener(connection -> redeclareTopologies());
     }
 
     private static void requireAcknowledgedPublishing(RabbitTemplate template, ConnectionFactory factory) {
@@ -202,38 +208,52 @@ public final class RabbitEventTransport implements EventTransport {
     }
 
     @Override
+    public boolean deadLettersNatively() {
+        return true;
+    }
+
+    private void redeclareTopologies() {
+        topologies.forEach(Runnable::run);
+    }
+
+    @Override
     public Subscription subscribe(String destination, String group, TransportListener listener) {
         Objects.requireNonNull(destination, "destination must not be null");
         Objects.requireNonNull(group, "group must not be null");
         Objects.requireNonNull(listener, "listener must not be null");
         RabbitDestination dest = RabbitDestination.parse(destination);
         String queueName = queueName(dest, group);
-        declareTopology(dest, queueName);
+        Runnable topology = () -> declareTopology(dest, queueName);
+        topologies.add(topology);
+        try {
+            topology.run();
+        } catch (AmqpConnectException e) {
+            // Not fatal: the outbox absorbs a broker outage, and the connection listener declares this on connecting.
+            log.warn("RabbitMQ is unreachable; subscribing to {} once it is", destination);
+        }
 
         var container = new SimpleMessageListenerContainer(connectionFactory);
         container.setQueueNames(queueName);
-        // Rejected (retries exhausted) does NOT requeue to the same queue; the queue's
-        // x-dead-letter-exchange argument (declared below) is what routes it to the DLQ instead.
+        // Rejected does NOT requeue to the same queue; the queue's x-dead-letter-exchange argument (declared below) is
+        // what routes it to the DLQ instead. The registrar has already retried.
         container.setDefaultRequeueRejected(false);
-        container.setAdviceChain(retryInterceptor());
-        container.setMessageListener((MessageListener) message -> deliver(message, listener));
+        container.setMissingQueuesFatal(false);
+        container.setPrefetchCount(prefetch);
+        container.setShutdownTimeout(shutdownTimeout.toMillis());
+        container.setMessageListener((MessageListener) message -> {
+            try {
+                deliver(message, listener);
+            } catch (TransportListener.RequeueException e) {
+                throw new ImmediateRequeueAmqpException(e.getMessage(), e);
+            }
+        });
         container.start();
         containers.add(container);
         return () -> {
             containers.remove(container);
+            topologies.remove(topology);
             container.stop();
         };
-    }
-
-    private MethodInterceptor retryInterceptor() {
-        // RejectAndDontRequeueRecoverer: once retries are exhausted, reject without requeue so the
-        // broker's x-dead-letter-exchange argument (declared in declareTopology) routes the
-        // message to the DLQ. maxRetries() is retries AFTER the first attempt, hence -1.
-        return RetryInterceptorBuilder.stateless()
-                .maxRetries(Math.max(0, maxAttempts - 1))
-                .backOffOptions(backoff.toMillis(), 1.0, backoff.toMillis())
-                .recoverer(new RejectAndDontRequeueRecoverer())
-                .build();
     }
 
     // Package-private (not private): exercised directly by docker-free unit tests without needing
@@ -270,13 +290,15 @@ public final class RabbitEventTransport implements EventTransport {
         arguments.put("x-dead-letter-routing-key", queueName);
         if (quorumQueues) {
             arguments.put("x-queue-type", "quorum");
+            arguments.put("x-delivery-limit", deliveryLimit);
         }
         Queue queue = new Queue(queueName, true, false, false, arguments);
         rabbitAdmin.declareQueue(queue);
         String routingKey = dest.routingKey().isEmpty() ? "#" : dest.routingKey();
         rabbitAdmin.declareBinding(BindingBuilder.bind(queue).to(exchange).with(routingKey));
 
-        Queue deadLetterQueue = new Queue(queueName + ".dlq", true, false, false);
+        Map<String, Object> deadLetterArguments = quorumQueues ? Map.of("x-queue-type", "quorum") : Map.of();
+        Queue deadLetterQueue = new Queue(queueName + ".dlq", true, false, false, new HashMap<>(deadLetterArguments));
         rabbitAdmin.declareQueue(deadLetterQueue);
         rabbitAdmin.declareBinding(BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange).with(queueName));
     }

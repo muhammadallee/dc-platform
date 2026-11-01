@@ -10,17 +10,21 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.function.SingletonSupplier;
 
@@ -31,18 +35,18 @@ import org.springframework.util.function.SingletonSupplier;
  * <p>Lifecycle per message: deserialize into the handler's declared parameter type (the payload
  * type, or {@code EventEnvelope<T>} when the method wants headers/metadata too) &rarr; invoke
  * &rarr; on success, count {@code outcome=success}; on a thrown exception, retry up to
- * {@code dc.platform.messaging.handler.retry.max-attempts} with
- * {@code dc.platform.messaging.handler.retry.backoff} between attempts (counting each retry) &rarr;
- * once exhausted, republish the raw message to {@code destination + dc.platform.messaging.dlq.suffix}
- * via the same transport (counting {@code outcome=dlq}) and give up on this delivery.
+ * {@code dc.platform.messaging.handler.retry.max-attempts} with an exponential, capped backoff (counting each retry)
+ * &rarr; once exhausted, dead-letter it (counting {@code outcome=dlq}). A payload that cannot be deserialized is
+ * dead-lettered on the first attempt: it can never succeed.
  *
- * <p>Republishing to a suffixed destination is transport-agnostic — it works identically whether
- * the underlying provider is the in-memory transport, Kafka, or RabbitMQ — so it is this
- * platform-wide fallback that honors {@code dlq.suffix}, in addition to (not instead of) whatever
- * broker-native DLQ mechanism a specific provider also wires up (kafka's
- * {@code DeadLetterPublishingRecoverer}, rabbit's DLX).
+ * <p>This is the only retry layer on a transport that dead-letters natively (Rabbit's DLX): the listener throws and the
+ * broker routes the message. Any other transport gets a republish to {@code destination + dc.platform.messaging.dlq.suffix}.
+ *
+ * <p>A stop cuts a backoff short and puts the message back: nothing is wrong with it. Subscriptions close in the
+ * lifecycle stop, before the connection pools a handler uses are destroyed.
  */
-public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInitializingSingleton, DisposableBean {
+public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInitializingSingleton, SmartLifecycle,
+        DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(EventHandlerRegistrar.class);
     private static final String METRIC_NAME = "platform.messaging.handled";
@@ -54,6 +58,8 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
     private final Supplier<MeterRegistry> meterRegistry;
     private final CopyOnWriteArrayList<EventTransport.Subscription> subscriptions = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Runnable> pending = new CopyOnWriteArrayList<>();
+    private volatile boolean running;
+    private final CountDownLatch stopping = new CountDownLatch(1);
     private volatile boolean singletonsReady;
 
     public EventHandlerRegistrar(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
@@ -129,28 +135,46 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         if (!annotation.eventType().isEmpty() && !annotation.eventType().equals(eventType)) {
             return;
         }
-        int maxAttempts = properties.get().handler().retry().maxAttempts();
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        Object argument;
+        try {
+            argument = resolveArgument(method, value, headers, eventType);
+        } catch (RuntimeException e) {
+            // The class only: a parser's message can quote the payload.
+            log.error("@EventHandler {} cannot read a message on destination={}: {}", method, annotation.destination(),
+                    e.getClass().getName());
+            deadLetter(annotation.destination(), value, headers, new IllegalArgumentException("unreadable message"));
+            return;
+        }
+        MessagingProperties.Retry retry = properties.get().handler().retry();
+        Duration backoff = retry.backoff();
+        for (int attempt = 1; attempt <= retry.maxAttempts(); attempt++) {
             try {
-                invoke(bean, method, value, headers, eventType);
+                invoke(bean, method, argument);
                 count("success");
                 return;
             } catch (RuntimeException e) {
-                if (attempt >= maxAttempts) {
-                    count("dlq");
-                    republishToDlq(annotation.destination(), value, headers);
-                    log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: routed to DLQ",
+                if (attempt >= retry.maxAttempts()) {
+                    log.error("@EventHandler {} exhausted {} attempt(s) on destination={}: dead-lettered",
                             method, attempt, annotation.destination(), e);
+                    deadLetter(annotation.destination(), value, headers, e);
                     return;
                 }
                 count("retry");
-                sleepBackoff();
+                pause(backoff);
+                backoff = backoff.multipliedBy(2).compareTo(retry.maxBackoff()) < 0 ? backoff.multipliedBy(2) : retry.maxBackoff();
             }
         }
     }
 
-    private void invoke(Object bean, Method method, byte[] value, Map<String, String> headers, String eventType) {
-        Object argument = resolveArgument(method, value, headers, eventType);
+    private void deadLetter(String destination, byte[] value, Map<String, String> headers, RuntimeException cause) {
+        count("dlq");
+        if (transport.get().deadLettersNatively()) {
+            throw cause;
+        }
+        republishToDlq(destination, value, headers);
+    }
+
+    private void invoke(Object bean, Method method, Object argument) {
         try {
             method.invoke(bean, argument);
         } catch (InvocationTargetException e) {
@@ -201,11 +225,14 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         transport.get().send(dlqDestination, null, value, headers);
     }
 
-    private void sleepBackoff() {
+    private void pause(Duration backoff) {
         try {
-            Thread.sleep(properties.get().handler().retry().backoff());
+            if (stopping.await(backoff.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new EventTransport.TransportListener.RequeueException("the consumer is stopping");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new EventTransport.TransportListener.RequeueException("interrupted during a retry backoff");
         }
     }
 
@@ -216,8 +243,31 @@ public final class EventHandlerRegistrar implements BeanPostProcessor, SmartInit
         }
     }
 
+    /** Subscriptions start in {@link #afterSingletonsInstantiated}; the lifecycle is here to stop them in order. */
+    @Override
+    public void start() {
+        running = true;
+    }
+
+    @Override
+    public void stop() {
+        running = false;
+        stopping.countDown();
+        closeSubscriptions();
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
     @Override
     public void destroy() {
+        stopping.countDown();
+        closeSubscriptions();
+    }
+
+    private void closeSubscriptions() {
         for (EventTransport.Subscription subscription : subscriptions) {
             try {
                 subscription.close();

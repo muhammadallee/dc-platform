@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;
 
+import ae.gov.dubaicustoms.platform.core.CommitOutcomeUnknown;
 import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import java.sql.SQLException;
 import java.util.IdentityHashMap;
@@ -76,7 +77,8 @@ public enum DataAccessFailure {
     private static final String HIKARI_CLOSED_CONNECTION = "Connection is closed";
 
     // Spring's commit. Its translator can drop Hibernate's commit exception (a recoverable SQLException cause becomes
-    // RecoverableDataAccessException), so a lost connection is recognised as a commit failure by where it was raised.
+    // RecoverableDataAccessException). The platform's transaction manager says so explicitly (CommitOutcomeUnknown); for
+    // a service's own manager, a lost connection is recognised as a commit failure by where it was raised.
     private static final String SPRING_TRANSACTION_MANAGER =
             "org.springframework.transaction.support.AbstractPlatformTransactionManager";
     private static final String SPRING_COMMIT = "processCommit";
@@ -163,6 +165,11 @@ public enum DataAccessFailure {
 
     private static boolean raisedDuringCommit(Throwable exception) {
         return anyInChain(exception, t -> {
+            for (Throwable suppressed : t.getSuppressed()) {
+                if (suppressed instanceof CommitOutcomeUnknown) {
+                    return true;
+                }
+            }
             for (StackTraceElement frame : t.getStackTrace()) {
                 if (SPRING_COMMIT.equals(frame.getMethodName()) && SPRING_TRANSACTION_MANAGER.equals(frame.getClassName())) {
                     return true;

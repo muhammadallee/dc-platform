@@ -124,6 +124,30 @@ class DataAccessFailureTest {
     }
 
     @Test
+    void theCommitEvidenceMakesALostConnectionNotRetryableWithoutACommitFrame() {
+        // Built outside any commit, as an exception rethrown by the commit would be: no frame could tell.
+        RuntimeException failure = new org.springframework.dao.RecoverableDataAccessException("lost",
+                new SQLRecoverableException("ORA-17008: Closed connection", "08006"));
+        assertThat(DataAccessFailure.classify(failure)).contains(DataAccessFailure.UNAVAILABLE);
+
+        failure.addSuppressed(new ae.gov.dubaicustoms.platform.core.CommitOutcomeUnknown());
+
+        assertThat(DataAccessFailure.classify(failure)).isEmpty();
+    }
+
+    @Test
+    void theCommitEvidenceIsFoundOnAWrappedFailureAndLeavesAConflictAConflict() {
+        RuntimeException lost = new org.springframework.dao.RecoverableDataAccessException("lost",
+                new SQLRecoverableException("ORA-17008: Closed connection", "08006"));
+        lost.addSuppressed(new ae.gov.dubaicustoms.platform.core.CommitOutcomeUnknown());
+        assertThat(DataAccessFailure.classify(new IllegalStateException("wrapped", lost))).isEmpty();
+
+        RuntimeException conflict = new DataIntegrityViolationException("conflict");
+        conflict.addSuppressed(new ae.gov.dubaicustoms.platform.core.CommitOutcomeUnknown());
+        assertThat(DataAccessFailure.classify(conflict)).contains(DataAccessFailure.INTEGRITY_CONFLICT);
+    }
+
+    @Test
     void aCommitThatLosesItsConnectionThroughSpringsTranslationIsNotRetryable() {
         // Spring's translator turns Hibernate's commit failure over a recoverable SQLException into a
         // RecoverableDataAccessException without the Hibernate exception: the veto has to come from where it was

@@ -1,1 +1,2 @@
 ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoConfiguration
+ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformJpaTransactionManagerAutoConfiguration

@@ -781,6 +781,11 @@ One line of context per decision; details live in the commit bodies referenced.
   without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
   missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
   collide with the service's next migration (scope amendment A2).
+- **D120 — Explicit commit evidence, fail-closed callback shapes, one transaction manager (hardening phase 4, owner
+  2026-11-01).** A `JpaTransactionManager` subclass overrides `doCommit` and marks its failure with `CommitOutcomeUnknown`:
+  `commit()` is final, so a proxy could not intercept it without losing the concrete type. The stack-frame check stays as the
+  fallback for a service's own manager. Callback shapes are refused unless `TransactionAspectSupport`'s status proves a new
+  transaction; a `TransactionTemplate` gives no such proof. Several transaction managers fail startup, with an opt-out.
 - **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
   on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
   rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.

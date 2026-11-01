@@ -25,6 +25,8 @@ import org.springframework.validation.annotation.Validated;
  * @param retentionInterval how often sent rows are deleted
  * @param stopTimeout how long a shutdown waits for the batch in flight
  * @param readTimeout the Oracle driver's read timeout on the drainer's connections, unless the application pool sets one
+ * @param allowMultipleTransactionManagers {@code true} lets a service with several transaction managers start, accepting
+ *        that a publish under the wrong one may not be atomic with the business write
  * @since 1.0.0
  */
 @Validated
@@ -55,7 +57,9 @@ public record OutboxProperties(
         /** How long a shutdown waits for the batch in flight. */
         @DefaultValue("30s") Duration stopTimeout,
         /** The Oracle driver's read timeout on the drainer's connections, unless the application pool sets one. */
-        @DefaultValue("60s") Duration readTimeout) {
+        @DefaultValue("60s") Duration readTimeout,
+        /** True lets a service with several transaction managers start, accepting a publish under the wrong one may not be atomic. */
+        @DefaultValue("false") boolean allowMultipleTransactionManagers) {
 
     /** Refuses a pool too small to run a batch and the metrics beside it, and a read timeout of none. */
     public OutboxProperties {

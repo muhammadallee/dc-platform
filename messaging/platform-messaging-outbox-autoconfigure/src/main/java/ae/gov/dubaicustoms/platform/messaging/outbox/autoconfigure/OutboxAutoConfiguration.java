@@ -20,7 +20,9 @@ import java.time.Clock;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -29,6 +31,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
 
 /*
  * Transactional outbox (HD11). Activation: platform-messaging-outbox on the classpath, a DataSource bean, and
@@ -37,7 +40,9 @@ import org.springframework.context.annotation.Configuration;
  *   outboxDrainer (SmartLifecycle) delivers; outboxCapabilityDescriptor reports ACTIVE.
  *   dc.platform.messaging.outbox.enabled=false: a startup WARN says publishes are no longer guaranteed;
  *   outboxPublisher publishes through EventPublisher after commit; no drainer runs.
- * Backs off by bean: OutboxPublisher, OutboxContext, outboxDrainer, outboxCapabilityDescriptor.
+ * Backs off by bean: OutboxPublisher, OutboxContext, outboxDrainer, outboxCapabilityDescriptor,
+ * outboxSingleTransactionManagerCheck. That check fails startup with several transaction managers (HI-0079), unless
+ * dc.platform.messaging.outbox.allow-multiple-transaction-managers=true.
  * Deliberately adds no DataSource and no PlatformTransactionManager bean: either would make Boot back off from the
  * service's own pool or JPA transaction manager (OutboxConnections holds the drainer's pool instead).
  */
@@ -85,6 +90,21 @@ public class OutboxAutoConfiguration {
                 OutboxProperties properties, ObjectProvider<MeterRegistry> registry) {
             return new OutboxDrainer(connections.dataSource(), transport, context, properties.settings(),
                     Clock.systemUTC(), registry.getIfAvailable());
+        }
+
+        // Spring offers no check that a transaction owns a connection, so a second manager can defeat the publisher's.
+        @Bean
+        @ConditionalOnMissingBean(name = "outboxSingleTransactionManagerCheck")
+        SmartInitializingSingleton outboxSingleTransactionManagerCheck(ListableBeanFactory beans, OutboxProperties properties) {
+            return () -> {
+                String[] managers = beans.getBeanNamesForType(PlatformTransactionManager.class, true, false);
+                if (managers.length > 1 && !properties.allowMultipleTransactionManagers()) {
+                    throw new IllegalStateException("The outbox found " + managers.length + " transaction managers "
+                            + java.util.Arrays.toString(managers) + ": a publish under the wrong one may not be atomic with "
+                            + "the business write. Keep one per outbox database, or accept the risk with "
+                            + "dc.platform.messaging.outbox.allow-multiple-transaction-managers=true");
+                }
+            };
         }
 
         @Bean

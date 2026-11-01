@@ -113,6 +113,8 @@ TOXI_API="http://127.0.0.1:$(docker port "$HH_RUN_ID-toxiproxy" 8474/tcp | head 
 for _ in $(seq 1 60); do [ "$(toxi GET /version)" = 200 ] && break; sleep 0.5; done
 [ "$(toxi POST /proxies '{"name":"rabbit","listen":"0.0.0.0:5672","upstream":"rabbitmq:5672"}')" = 201 ] \
     || hh_abort "could not create the toxiproxy route to RabbitMQ"
+[ "$(toxi POST /proxies '{"name":"oracle","listen":"0.0.0.0:1521","upstream":"oracle:1521"}')" = 201 ] \
+    || hh_abort "could not create the toxiproxy route to Oracle"
 {
   echo "oracle_image=$(pin "$ORACLE_IMAGE")"
   echo "rabbit_image=$(pin "$RABBIT_IMAGE")"
@@ -335,6 +337,72 @@ hh_wait_ready 300
 wait_delivered ac14 150 180 || hh_fail "AC14 the backlog was not delivered after the restart"
 assert_all_delivered AC14 ac14 150 0
 HH_APP_NAME=fourth hh_app_stop_graceful
+
+hh_step "AC10 + 7.4 database lost mid-drain: bounded requests, the drainer survives, recovery delivers everything"
+# Two instances, so a failing handler cannot pass for a lost event. "sink" records deliveries on a direct connection and has
+# no drainer; "dbfault" drains through Toxiproxy and has no handler.
+HH_APP_NAME=sink hh_app_start "${APP_ENV[@]}" PROBE_INSTANCE=sink DC_PLATFORM_MESSAGING_OUTBOX_ENABLED=false
+hh_wait_ready 300
+SINK="$HH_APP_CONTAINER"
+HH_APP_NAME=dbfault hh_app_start "${APP_ENV[@]}" PROBE_INSTANCE=dbfault PROBE_RECEIVER=false \
+    SPRING_DATASOURCE_URL=jdbc:oracle:thin:@//toxiproxy:1521/FREEPDB1
+hh_wait_ready 300
+toxi POST /proxies/rabbit/toxics '{"name":"pace","type":"latency","stream":"downstream","attributes":{"latency":100}}' >/dev/null
+post_ok dblost "/probe/orders/many?prefix=dblost&count=200"
+sleep 3
+[ "$(value "select count(*) from $OWNER.platform_outbox where status = 'PENDING'")" -gt 0 ] \
+    && hh_pass "DB-lost the outage starts with rows still due" || hh_fail "DB-lost the drain had already finished"
+[ "$(toxi POST /proxies/oracle '{"enabled":false}')" = 200 ] || hh_fail "could not disable the Oracle proxy"
+DOWN_STARTED=$(date +%s)
+hh_http dbdown-request POST "/probe/orders?ref=dbdown-1"; hh_expect_status 503
+[ $(( $(date +%s) - DOWN_STARTED )) -le 12 ] && hh_pass "DB-lost a database request is refused within 12 s" \
+    || hh_fail "DB-lost a database request took $(( $(date +%s) - DOWN_STARTED )) s"
+hh_http dbdown-liveness GET /actuator/health/liveness; hh_expect_status 200
+sleep 25
+[ "$(metric platform_outbox_drainer_running)" = 1 ] && hh_pass "DB-lost the drainer is still running" || hh_fail "DB-lost the drainer stopped"
+STALE=$(metric platform_outbox_gauges_age_seconds)
+echo "dblost gauges_age=$STALE" >> "$HH_EVIDENCE/run-identity.txt"
+[ "${STALE:-0}" -ge 10 ] && hh_pass "DB-lost the backlog figures say they are stale (${STALE}s)" || hh_fail "DB-lost gauges age: ${STALE:-none}"
+[ "$(toxi POST /proxies/oracle '{"enabled":true}')" = 200 ] || hh_fail "could not re-enable the Oracle proxy"
+toxi DELETE /proxies/rabbit/toxics/pace >/dev/null
+wait_delivered dblost 200 180 || hh_fail "DB-lost backlog not delivered within 180 s of recovery"
+assert_all_delivered DB-lost dblost 200 50
+[ "$(value "select count(*) from $OWNER.hh_order where ref = 'dbdown-1'")" = 0 ] && hh_pass "DB-lost the refused request wrote nothing" \
+    || hh_fail "DB-lost the refused request left a row"
+[ "$(outbox_rows PARKED)" = 0 ] && hh_pass "DB-lost the outage parked nothing" || hh_fail "DB-lost parked $(outbox_rows PARKED) rows"
+RECOVERED=no
+for _ in $(seq 1 30); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X POST "$HH_BASE/probe/orders?ref=dbback-1")" = 200 ] && { RECOVERED=yes; break; }
+  sleep 2
+done
+[ "$RECOVERED" = yes ] && hh_pass "DB-lost requests recover without a restart" || hh_fail "DB-lost requests did not recover"
+wait_delivered dbback-1 1 60 && hh_pass "DB-lost the drainer recovers without a restart" || hh_fail "DB-lost the drainer did not recover"
+
+hh_step "AC10 database slow: requests bounded, the drainer stays on its own pool, nothing lost"
+toxi POST /proxies/rabbit/toxics '{"name":"pace","type":"latency","stream":"downstream","attributes":{"latency":100}}' >/dev/null
+post_ok dbslow "/probe/orders/many?prefix=dbslow&count=100"
+[ "$(toxi POST /proxies/oracle/toxics '{"name":"slow","type":"latency","stream":"downstream","attributes":{"latency":500}}')" = 200 ] \
+    || hh_fail "could not add the Oracle latency toxic"
+sleep 5
+SLOW_STARTED=$(date +%s)
+hh_http dbslow-request POST "/probe/orders?ref=dbslowone"; hh_expect_status 200
+SLOW_SECONDS=$(( $(date +%s) - SLOW_STARTED ))
+[ "$SLOW_SECONDS" -le 30 ] && hh_pass "DB-slow a request completes in ${SLOW_SECONDS}s" || hh_fail "DB-slow a request took ${SLOW_SECONDS}s"
+sleep 15
+curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" > "$HH_EVIDENCE/dbslow-scrape.txt"
+{ grep -E '^hikaricp_connections_(max|active|pending)' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } > "$HH_EVIDENCE/dbslow-pools.txt"
+DB_DRAINER_ACTIVE=$({ grep -E '^hikaricp_connections_active' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } | { grep -F 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)
+DB_MAIN_PENDING=$({ grep -E '^hikaricp_connections_pending' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } | { grep -v 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)
+echo "dbslow request_seconds=$SLOW_SECONDS drainer_active=$DB_DRAINER_ACTIVE main_pending=$DB_MAIN_PENDING" >> "$HH_EVIDENCE/run-identity.txt"
+[ "${DB_DRAINER_ACTIVE:-9}" -le 2 ] && hh_pass "DB-slow the drainer holds at most its 2 connections" || hh_fail "DB-slow drainer active: ${DB_DRAINER_ACTIVE:-none}"
+[ "${DB_MAIN_PENDING:-1}" = 0 ] && hh_pass "DB-slow no request waits on the application pool" || hh_fail "DB-slow main pool pending: ${DB_MAIN_PENDING:-none}"
+toxi DELETE /proxies/oracle/toxics/slow >/dev/null
+toxi DELETE /proxies/rabbit/toxics/pace >/dev/null
+wait_delivered dbslow- 100 180 || hh_fail "DB-slow events not delivered within 180 s of the latency ending"
+assert_all_delivered DB-slow dbslow- 100 50
+[ "$(metric platform_outbox_drainer_running)" = 1 ] && hh_pass "DB-slow the drainer is still running" || hh_fail "DB-slow the drainer stopped"
+HH_APP_NAME=dbfault hh_app_stop_graceful
+HH_APP_CONTAINER="$SINK"; HH_APP_NAME=sink hh_app_stop_graceful
 
 hh_step "AC13 outbox disabled: a startup WARN, no drainer, publish after commit"
 HH_APP_NAME=disabled hh_app_start "${APP_ENV[@]}" PROBE_INSTANCE=disabled DC_PLATFORM_MESSAGING_OUTBOX_ENABLED=false

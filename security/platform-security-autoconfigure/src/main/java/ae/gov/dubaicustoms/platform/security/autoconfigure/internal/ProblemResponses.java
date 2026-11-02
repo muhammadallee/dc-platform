@@ -6,6 +6,7 @@ import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 /**
@@ -24,11 +25,19 @@ final class ProblemResponses {
     /** Authenticated principal without the required authority. */
     static final ErrorCode ACCESS_DENIED = new ErrorCode("DC-SEC-0403");
 
+    /** A token could not be checked, since the signing keys cannot be fetched. */
+    static final ErrorCode UNAVAILABLE = new ErrorCode("DC-SEC-0503");
+
     private ProblemResponses() {
     }
 
     static void write(HttpServletRequest request, HttpServletResponse response, String typeBaseUri, int status,
             ErrorCode code, String title, String detail) throws IOException {
+        write(request, response, typeBaseUri, status, code, title, detail, false);
+    }
+
+    static void write(HttpServletRequest request, HttpServletResponse response, String typeBaseUri, int status,
+            ErrorCode code, String title, String detail, boolean retryable) throws IOException {
         response.setStatus(status);
         response.setContentType("application/problem+json");
         StringBuilder body = new StringBuilder()
@@ -41,8 +50,9 @@ final class ProblemResponses {
         RequestContext.correlationId().map(CorrelationId::value)
                 .ifPresent(traceId -> body.append(",\"traceId\":\"").append(traceId).append('"'));
         body.append(",\"timestamp\":\"").append(Instant.now()).append('"')
-                .append(",\"retryable\":false}");
-        response.getWriter().write(body.toString());
+                .append(",\"retryable\":").append(retryable).append('}');
+        // Bytes, not the writer, which would add charset=ISO-8859-1 and garble a non-ASCII path in instance.
+        response.getOutputStream().write(body.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     // JSON string escaping for the characters a URI path or configured text can contain.

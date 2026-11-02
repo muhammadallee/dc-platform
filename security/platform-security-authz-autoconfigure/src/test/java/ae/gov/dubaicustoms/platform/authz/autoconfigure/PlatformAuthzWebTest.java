@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
  * authenticated-with-permission 200.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, classes = PlatformAuthzWebTest.App.class,
-        properties = "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json")
+        properties = {"spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
+                "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/", "spring.security.oauth2.resourceserver.jwt.audiences=svc"})
 @AutoConfigureMockMvc
 class PlatformAuthzWebTest {
 

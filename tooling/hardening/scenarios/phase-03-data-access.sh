@@ -141,7 +141,7 @@ APP_ENV=(SPRING_PROFILES_ACTIVE=prod
   # hikari.connection (a getter that opens a connection) and fail startup.
   "SPRING_DATASOURCE_HIKARI_CONNECTIONINITSQL=alter session set current_schema=$OWNER"
   SPRING_FLYWAY_USER=$OWNER SPRING_FLYWAY_PASSWORD=$OWNER_PW
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
   'SPRING_APPLICATION_JSON={"spring.jpa.properties.jakarta.persistence.database-major-version":"19"}')
 printf '%s\n' "${APP_ENV[@]}" | sed -E 's/(PASSWORD=).*/\1****/' > "$HH_EVIDENCE/app-env.txt"
 
@@ -231,7 +231,7 @@ else hh_fail "AC6 DB request took ${DOWN_SECONDS}s while Oracle was down"; fi
 hh_http ac6-context-down GET /probe/context; hh_expect_status 200
 hh_http ac6-readiness-down GET /actuator/health/readiness; hh_expect_status 200
 hh_http ac6-liveness-down GET /actuator/health/liveness; hh_expect_status 200
-hh_http ac6-dependencies-down GET /actuator/health/dependencies; hh_expect_status 503
+hh_http ac6-dependencies-down GET /actuator/health/dependencies "${AUTH[@]}"; hh_expect_status 503
 hh_expect_json "dependencies DOWN" "b['status'] == 'DOWN'"
 [ "$(toxi POST /proxies/oracle '{"enabled":true}')" = 200 ] || hh_fail "could not re-enable the Oracle proxy"
 if http_code_within 60 /actuator/health/dependencies; then hh_pass "AC6 dependencies UP again within 60 s, no restart"

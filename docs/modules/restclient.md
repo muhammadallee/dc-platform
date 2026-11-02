@@ -25,13 +25,9 @@ breaker, a bulkhead and one failure type on every outbound call.
   named client's builder.
 - **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
   the application's `ObservationRegistry`), tagged `client.name=<clientName>`.
-- **Guarded token relay** — when the security capability is present and a request is
-  authenticated, the incoming bearer token is relayed to outbound calls automatically; a
-  restclient-only consumer never pulls in security. The auto-configuration is ordered after the
-  security capability's, so the relay registers in real applications (not only in tests that supply
-  a `CurrentUserAccessor` bean themselves). The relay applies to **every** client the factory builds —
-  use the factory for services that should see the caller's token, and a `PlatformRestClientCustomizer`
-  or a separate client for third parties. A redirect to another origin does not carry the header
+- **Token relay, opt-in per client** — name the clients that should carry the caller's bearer token in
+  `dc.platform.restclient.token-relay.clients`. None do by default, since whoever receives a token can replay it. A
+  restclient-only consumer never pulls in security. A redirect to another origin does not carry the header
   (JDK `HttpClient` behavior, covered by a test).
 
 ## Starter coordinates
@@ -133,12 +129,9 @@ An uncaught `RemoteCallException` becomes a ProblemDetail with code `DC-RCLIENT-
 Client names name breakers and tags, so take them from a fixed set. Query strings and URL credentials are left out of
 the `uri` tag and the span's `http.url`.
 
-Malformed JSON in a **success** body: the JSON library's own message can quote the bad token, and Spring keeps it in the
-exception chain, which your error log prints. A downstream that sends credentials in a broken JSON body could put them there.
-
-A failure inside a JSON body can arrive as Spring's `RestClientException`, wrapping a `RemoteCallException`, when the JSON
-library wraps what it reads through. It then reaches your caller as a 500, `retryable=false`. Otherwise it is the
-`RemoteCallException` itself, and the table above applies.
+A **success** body that cannot be parsed fails as Spring's `RestClientException`, with the parser's exception type and no text
+from the body (HI-0099), so a secret in a broken response stays out of your logs. Converters you add after `builder()` returns
+are not covered. A connection failure while reading a body is the `RemoteCallException` itself, and the table above applies.
 
 ## Properties
 

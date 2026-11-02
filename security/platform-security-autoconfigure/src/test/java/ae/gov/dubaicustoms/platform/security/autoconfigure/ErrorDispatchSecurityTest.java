@@ -56,7 +56,8 @@ class ErrorDispatchSecurityTest {
     @BeforeAll
     static void start() {
         context = new SpringApplication(App.class).run("--server.port=0", "--spring.main.banner-mode=off",
-                "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json");
+                "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
+                "--spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/", "--spring.security.oauth2.resourceserver.jwt.audiences=svc");
         port = ((WebServerApplicationContext) context).getWebServer().getPort();
     }
 

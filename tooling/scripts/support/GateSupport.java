@@ -43,6 +43,7 @@ public final class GateSupport {
         Files.createDirectories(dir);
         try (TestJwtIssuer issuer = TestJwtIssuer.start()) {
             Files.writeString(dir.resolve("jwks-uri"), issuer.jwkSetUri());
+            Files.writeString(dir.resolve("issuer-uri"), issuer.issuerUri());
             Files.writeString(dir.resolve("token-valid"), issuer.token("gate-user", Map.of(), java.time.Duration.ofHours(2)));
             Files.writeString(dir.resolve("token-untrusted"), issuer.untrustedToken("gate-user"));
             Files.writeString(dir.resolve("token-expired"), issuer.expiredToken("gate-user"));

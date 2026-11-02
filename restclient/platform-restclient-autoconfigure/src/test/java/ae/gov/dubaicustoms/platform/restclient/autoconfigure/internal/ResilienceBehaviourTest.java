@@ -4,13 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
-import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException.Kind;
-import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties;
+import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties.Bulkhead;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties.CircuitBreaker;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties.Defaults;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties.Retry;
+import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.ServerSocket;
@@ -741,15 +741,14 @@ class ResilienceBehaviourTest {
     }
 
     @Test
-    void aFailureInsideAJsonBodyArrivesWrappedAndCarriesTheFailureBeneath() {
+    void aFailureInsideAJsonBodyArrivesAsItself() {
         server.enqueue(new MockResponse().addHeader("Content-Type", "application/json").setBody("{\"a\":\"" + "y".repeat(100_000) + "\"}")
                 .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY));
         RestClient client = fastClient();
 
         Throwable e = catchThrowable(() -> client.post().uri("/a").body("x").retrieve().body(Map.class));
 
-        assertThat(e).isInstanceOf(org.springframework.web.client.RestClientException.class);
-        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).contains(RemoteCallException.class.getName());
+        assertThat(e).isInstanceOf(RemoteCallException.class);
         assertThat(server.getRequestCount()).isEqualTo(1);
     }
 

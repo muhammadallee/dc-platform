@@ -7,9 +7,9 @@ import java.util.Objects;
 
 /**
  * Default {@link PermissionEvaluatorProvider}: grants a permission when it appears in the
- * configured claim (a collection or single string), falling back to the {@link CurrentUser}'s
- * {@link CurrentUser#roles()} (populated from the token's granted authorities) when the claim is
- * absent or not present in that shape.
+ * configured claim (a collection or single string), or among the {@link CurrentUser}'s
+ * {@link CurrentUser#roles()} (the token's granted authorities) as itself or as a role, {@code ROLE_x}.
+ * A scope, {@code SCOPE_x}, is not a permission {@code x}.
  */
 public final class RolesClaimPermissionProvider implements PermissionEvaluatorProvider {
 
@@ -22,12 +22,9 @@ public final class RolesClaimPermissionProvider implements PermissionEvaluatorPr
     @Override
     public boolean hasPermission(CurrentUser user, String permission) {
         Object claim = user.claims().get(rolesClaim);
-        if (claim instanceof Collection<?> values) {
-            return values.stream().map(String::valueOf).anyMatch(permission::equals);
-        }
-        if (claim instanceof String single) {
-            return single.equals(permission);
-        }
-        return user.roles().contains(permission);
+        boolean inClaim = claim instanceof Collection<?> values
+                ? values.stream().anyMatch(permission::equals)
+                : permission.equals(claim);
+        return inClaim || user.roles().contains(permission) || user.roles().contains("ROLE_" + permission);
     }
 }

@@ -22,7 +22,8 @@ class PlatformSecurityAutoConfigurationTest {
     // on; OAuth2ResourceServerAutoConfiguration supplies the JwtDecoder the chain resolves eagerly
     // at build time (a fixed jwk-set-uri never reaches the network: decoding is lazy).
     private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
-            .withPropertyValues("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json")
+            .withPropertyValues("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
+                    "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/", "spring.security.oauth2.resourceserver.jwt.audiences=svc")
             .withConfiguration(AutoConfigurations.of(ServletWebSecurityAutoConfiguration.class,
                     OAuth2ResourceServerAutoConfiguration.class, PlatformSecurityAutoConfiguration.class));
 
@@ -49,8 +50,10 @@ class PlatformSecurityAutoConfigurationTest {
 
     @Test
     void backsOffWhenUserBeanPresent() {
+        // A mock has no matcher, so the coverage check has to be told; FilterChainFailClosedTest runs it for real.
         var mine = org.mockito.Mockito.mock(SecurityFilterChain.class);
-        runner.withBean("mine", SecurityFilterChain.class, () -> mine)
+        runner.withPropertyValues("dc.platform.security.allow-partial-chains=true")
+                .withBean("mine", SecurityFilterChain.class, () -> mine)
                 .run(context -> assertThat(context.getBean(SecurityFilterChain.class)).isSameAs(mine));
     }
 

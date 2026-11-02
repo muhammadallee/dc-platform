@@ -46,7 +46,7 @@ import org.springframework.web.client.RestClient;
  *        restclientHealthIndicator (nested) — reports each breaker's state. Always UP: a remote being down is not
  *                 this pod being unwell. Sits in the dependencies group, never readiness (HD6);
  *        platformTokenRelayCustomizer (nested config) — relays the current bearer token to
- *                 outbound calls; activates ONLY when a Jwt-shaped resource server is on the
+ *                 the outbound calls of clients named in token-relay.clients; activates ONLY when a Jwt-shaped resource server is on the
  *                 classpath AND the security capability's CurrentUserAccessor bean is actually
  *                 registered — a guarded, optional edge to the security capability's api
  *                 (CLAUDE.md rule 5), never a hard dependency for a restclient-only consumer.
@@ -59,7 +59,7 @@ import org.springframework.web.client.RestClient;
 @AutoConfiguration(afterName = "ae.gov.dubaicustoms.platform.security.autoconfigure.PlatformSecurityAutoConfiguration")
 @ConditionalOnClass(RestClient.class)
 @ConditionalOnProperty(prefix = "dc.platform.restclient", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableConfigurationProperties(RestClientProperties.class)
+@EnableConfigurationProperties({RestClientProperties.class, TokenRelayProperties.class})
 public class PlatformRestClientAutoConfiguration {
 
     @Bean
@@ -124,8 +124,8 @@ public class PlatformRestClientAutoConfiguration {
 
         @Bean
         @ConditionalOnBean(CurrentUserAccessor.class)
-        PlatformRestClientCustomizer platformTokenRelayCustomizer() {
-            return new OAuth2TokenRelayCustomizer();
+        PlatformRestClientCustomizer platformTokenRelayCustomizer(TokenRelayProperties relay) {
+            return new OAuth2TokenRelayCustomizer(relay.clients());
         }
     }
 }

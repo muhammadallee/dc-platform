@@ -54,13 +54,11 @@ class PlatformAuthzAutoConfigurationTest {
     }
 
     @Test
-    void advisorBacksOffWithoutCurrentUserAccessor() {
+    void withNoCurrentUserAccessorStartupFailsInsteadOfProtectingNothing() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformAuthzAutoConfiguration.class))
-                .run(context -> {
-                    assertThat(context).hasSingleBean(PermissionEvaluatorProvider.class);
-                    assertThat(context).doesNotHaveBean("requiresPermissionAdvisor");
-                });
+                .run(context -> assertThat(context).hasFailed().getFailure()
+                        .hasRootCauseInstanceOf(ae.gov.dubaicustoms.platform.authz.autoconfigure.internal.NoCurrentUserAccessorException.class));
     }
 
     @Test

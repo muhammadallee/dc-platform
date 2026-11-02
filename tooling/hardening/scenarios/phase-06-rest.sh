@@ -103,11 +103,12 @@ read -r -d '' CONFIG <<JSON || true
  "$P.clients.bh.retry.enabled":false,"$P.clients.bh.circuit-breaker.enabled":false,"$P.clients.bh.bulkhead.max-concurrent":2,
  "$P.clients.bh.read-timeout":"6s",
  "$P.clients.dl.circuit-breaker.enabled":false,"$P.clients.dl.deadline":"1s","$P.clients.dl.read-timeout":"5s",
+ "$P.token-relay.clients":"main",
  "management.endpoint.health.show-details":"always"}
 JSON
 APP_ENV=(SPRING_PROFILES_ACTIVE=prod JAVA_TOOL_OPTIONS=-Xmx300m MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
   PROBE_BASEURL=http://toxiproxy:8666 APP_GREETING_BASEURL=http://toxiproxy:8666
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
   "SPRING_APPLICATION_JSON=$(printf '%s' "$CONFIG" | tr -d '\n')")
 printf '%s\n' "${APP_ENV[@]}" > "$HH_EVIDENCE/app-env.txt"
 { echo "toxiproxy_image=$TOXIPROXY_IMAGE"; } >> "$HH_EVIDENCE/run-identity.txt"

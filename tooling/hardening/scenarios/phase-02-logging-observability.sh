@@ -111,7 +111,7 @@ APP_ENV=(SPRING_PROFILES_ACTIVE=prod
   SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app SPRING_DATASOURCE_USERNAME=app
   SPRING_DATASOURCE_PASSWORD=app-pw-hardening SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=2000
   APP_GREETING_BASE_URL=http://127.0.0.1:8080
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP"
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
   MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
   DC_PLATFORM_OBSERVABILITY_OTLP_ENABLED=true
   MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://toxiproxy:4318/v1/traces
@@ -132,7 +132,9 @@ done
 hh_http ac9-platform-anon GET /actuator/platform; hh_expect_status 401
 hh_http ac9-platform-token GET /actuator/platform "${AUTH[@]}"; hh_expect_status 200
 hh_expect_json "capability report names observability ACTIVE" "'observability' in json.dumps(b) and 'ACTIVE' in json.dumps(b)"
-hh_http ac9-info-anon GET /actuator/info; hh_expect_status 200
+# Tightened in phase 7 (G7-02): only the two probes are open.
+hh_http ac9-info-anon GET /actuator/info; hh_expect_status 401
+hh_http ac9-info-token GET /actuator/info "${AUTH[@]}"; hh_expect_status 200
 
 hh_step "AC1 JSON line shape: a request's lines carry its traceId and spanId; ERROR lines a stack_trace"
 hh_http ac1-error GET "/probe/hostile?msg=plain-failure-$T" -H "traceparent: $(tp "$T")"
@@ -208,7 +210,7 @@ docker stop "$HH_RUN_ID-postgres" >/dev/null
 sleep 2
 hh_http ac10-readiness-down GET /actuator/health/readiness; hh_expect_status 200
 hh_http ac10-liveness-down GET /actuator/health/liveness; hh_expect_status 200
-hh_http ac10-dependencies-down GET /actuator/health/dependencies; hh_expect_status 503
+hh_http ac10-dependencies-down GET /actuator/health/dependencies "${AUTH[@]}"; hh_expect_status 503
 hh_expect_json "dependencies DOWN" "b['status'] == 'DOWN'"
 D=$(hex 16)
 hh_http ac10-db-down GET /probe/db -H "traceparent: $(tp "$D")"
@@ -221,7 +223,7 @@ docker start "$HH_RUN_ID-postgres" >/dev/null
 for _ in $(seq 1 60); do docker exec "$HH_RUN_ID-postgres" pg_isready -U app >/dev/null 2>&1 && break; sleep 1; done
 RECOVERED=no
 for _ in $(seq 1 60); do
-  [ "$(curl -s -o /dev/null -w '%{http_code}' "$HH_BASE/actuator/health/dependencies")" = 200 ] && { RECOVERED=yes; break; }
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "$HH_BASE/actuator/health/dependencies")" = 200 ] && { RECOVERED=yes; break; }
   sleep 1
 done
 [ "$RECOVERED" = yes ] && hh_pass "AC10 dependencies UP again after the database returned" \

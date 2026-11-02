@@ -33,6 +33,8 @@ public abstract class HttpIntegrationTestSupport {
     @DynamicPropertySource
     static void jwtIssuer(DynamicPropertyRegistry registry) {
         registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", ISSUER::jwkSetUri);
+        registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", ISSUER::issuerUri);
+        registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> TestJwtIssuer.AUDIENCE);
     }
 
     /**

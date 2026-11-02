@@ -124,6 +124,8 @@ PIDS+=($!)
 for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
 [ -f "$IDP_DIR/ready" ] || fail "JWKS issuer did not start (see $EVIDENCE/idp.log)"
 JWKS=$(cat "$IDP_DIR/jwks-uri"); TOKEN=$(cat "$IDP_DIR/token-valid")
+ISSUER_ARGS=("--spring.security.oauth2.resourceserver.jwt.issuer-uri=$(cat "$IDP_DIR/issuer-uri")"
+    "--spring.security.oauth2.resourceserver.jwt.audiences=platform-test")
 UNTRUSTED=$(cat "$IDP_DIR/token-untrusted"); EXPIRED=$(cat "$IDP_DIR/token-expired")
 echo "   jwks=$JWKS"
 
@@ -268,7 +270,7 @@ await_ready() { # log
     [ "$waited" -lt "$READY_TIMEOUT" ] || { echo "   not ready after ${READY_TIMEOUT}s"; tail -40 "$1"; return 1; }
   done
   # Identity: the process answering is the one this gate spawned (its unique run id is in /actuator/info).
-  curl -sf --max-time 5 "http://127.0.0.1:$APP_PORT/actuator/info" | grep -q "$RUN_ID" \
+  curl -sf --max-time 5 -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/actuator/info" | grep -q "$RUN_ID" \
       || { echo "   port $APP_PORT is answered by a process this gate did not start"; return 1; }
 }
 
@@ -284,7 +286,7 @@ expect_startup_failure() { # label pattern log cmd...
   start_app "$log" "$@"
   while kill -0 "$APP_PID" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
-    if curl -sf --max-time 2 "http://127.0.0.1:$APP_PORT/actuator/health" >/dev/null 2>&1 || [ "$waited" -ge "$EXIT_TIMEOUT" ]; then
+    if curl -sf --max-time 2 "http://127.0.0.1:$APP_PORT/actuator/health/liveness" >/dev/null 2>&1 || [ "$waited" -ge "$EXIT_TIMEOUT" ]; then
       stop_app; fail "$label: started although mandatory configuration was missing"
     fi
   done
@@ -363,7 +365,7 @@ run_scenario() { # id features groupId artifactId package platformVersion subdir
   local extra=()
   has "$effective" restclient && extra+=("--app.greeting.base-url=http://127.0.0.1:9")
   start_app "$log" java -jar "$(native_path "$jar")" \
-      "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS" ${extra[@]+"${extra[@]}"}
+      "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS" "${ISSUER_ARGS[@]}" ${extra[@]+"${extra[@]}"}
   await_ready "$log" || fail "$id: packaged jar did not become ready"
   probe_http "$id jar" "$effective" "$log" "$artifact"
   stop_app
@@ -388,7 +390,7 @@ requested_service_probes() { # project jar artifactId
   await_ready "$log" || fail "spring-boot:run did not become ready"
   probe_http "spring-boot:run" "data,restclient" "$log" "$artifact"
   # spring-boot:run forks the application JVM: stop it by the pid it reports, then the Maven process.
-  local app_pid; app_pid=$(curl -sf "http://127.0.0.1:$APP_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
+  local app_pid; app_pid=$(curl -sf -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
   if [ -n "$app_pid" ]; then
     if command -v taskkill >/dev/null 2>&1; then taskkill //F //PID "$app_pid" >/dev/null 2>&1 || true; else kill "$app_pid" 2>/dev/null || true; fi
   fi

@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.authz.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.authz.RequiresPermission;
+import ae.gov.dubaicustoms.platform.authz.autoconfigure.internal.NoCurrentUserAccessorException;
 import ae.gov.dubaicustoms.platform.authz.autoconfigure.internal.RequiresPermissionAdvisorFactory;
 import ae.gov.dubaicustoms.platform.authz.autoconfigure.internal.RequiresPermissionAutoProxyRegistrar;
 import ae.gov.dubaicustoms.platform.authz.autoconfigure.internal.RolesClaimPermissionProvider;
@@ -11,7 +12,6 @@ import org.springframework.aop.Advisor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -24,9 +24,9 @@ import org.springframework.context.annotation.Role;
  * Activates when: RequiresPermission + PermissionEvaluatorProvider (this cap's own api/spi) +
  *                 CurrentUserAccessor (security-api) on the classpath AND
  *                 dc.platform.authz.enabled != false
- * Backs off when: user defines a PermissionEvaluatorProvider bean (default provider) or the
- *                 requiresPermissionAdvisor is not created when no CurrentUserAccessor bean exists
- *                 (security capability not actually active in this application)
+ * Backs off when: user defines a PermissionEvaluatorProvider bean (default provider)
+ * Fails startup when: no CurrentUserAccessor bean exists: @RequiresPermission would otherwise do nothing, and every annotated
+ *                 method would be open
  * Beans: permissionEvaluatorProvider — RolesClaimPermissionProvider (configurable claim name);
  *        requiresPermissionAdvisor — Spring AOP Advisor bridging @RequiresPermission to the
  *                 ordered PermissionEvaluatorProvider beans; unauthenticated callers get
@@ -37,11 +37,8 @@ import org.springframework.context.annotation.Role;
  *        AopConfigUtils's cooperative escalation protocol — the same mechanism
  *        @EnableMethodSecurity uses — so proxying works even if the security capability's method
  *        security has not separately enabled it, and the two never register conflicting creators.
- *        afterName (by string, not class literal: autoconfigure -> autoconfigure of another
- *        capability has no allowance in the dependency constitution, even same-capability) ensures
- *        PlatformSecurityAutoConfiguration's currentUserAccessor bean definition is already
- *        registered when requiresPermissionAdvisor's @ConditionalOnBean(CurrentUserAccessor.class)
- *        is evaluated — Boot only sees PREVIOUSLY processed auto-configurations' bean definitions.
+ *        afterName is by string, not class literal: autoconfigure -> autoconfigure of another
+ *        capability has no allowance in the dependency constitution, even same-capability.
  */
 @AutoConfiguration(afterName = "ae.gov.dubaicustoms.platform.security.autoconfigure.PlatformSecurityAutoConfiguration")
 @ConditionalOnClass({RequiresPermission.class, PermissionEvaluatorProvider.class, CurrentUserAccessor.class})
@@ -61,10 +58,13 @@ public class PlatformAuthzAutoConfiguration {
     // considers Advisor beans with this role — a plain application-role bean is silently ignored.
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    @ConditionalOnBean(CurrentUserAccessor.class)
     @ConditionalOnMissingBean(name = "requiresPermissionAdvisor")
-    Advisor requiresPermissionAdvisor(CurrentUserAccessor accessor, ObjectProvider<PermissionEvaluatorProvider> providers) {
-        return RequiresPermissionAdvisorFactory.create(accessor, providers.orderedStream().toList());
+    Advisor requiresPermissionAdvisor(ObjectProvider<CurrentUserAccessor> accessor, ObjectProvider<PermissionEvaluatorProvider> providers) {
+        CurrentUserAccessor found = accessor.getIfAvailable();
+        if (found == null) {
+            throw new NoCurrentUserAccessorException();
+        }
+        return RequiresPermissionAdvisorFactory.create(found, providers.orderedStream().toList());
     }
 
     @Bean

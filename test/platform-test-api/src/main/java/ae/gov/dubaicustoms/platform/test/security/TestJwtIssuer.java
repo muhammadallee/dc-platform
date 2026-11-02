@@ -36,7 +36,9 @@ import org.apiguardian.api.API;
  *
  * @DynamicPropertySource
  * static void issuer(DynamicPropertyRegistry registry) {
+ *     registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", ISSUER::issuerUri);
  *     registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", ISSUER::jwkSetUri);
+ *     registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> TestJwtIssuer.AUDIENCE);
  * }
  *
  * // then, over real HTTP:  Authorization: Bearer <ISSUER.token("alice")>
@@ -53,6 +55,9 @@ import org.apiguardian.api.API;
  */
 @API(status = API.Status.EXPERIMENTAL, since = "1.0.0")
 public final class TestJwtIssuer implements AutoCloseable {
+
+    /** The {@code aud} of every minted token, unless the claims given replace it. */
+    public static final String AUDIENCE = "platform-test";
 
     private static final String JWKS_PATH = "/.well-known/jwks.json";
     private static final String KEY_ID = "platform-test-key";
@@ -169,6 +174,7 @@ public final class TestJwtIssuer implements AutoCloseable {
         Instant issuedAt = expiresAt.isBefore(now) ? expiresAt.minus(Duration.ofMinutes(5)) : now;
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("iss", issuerUri());
+        payload.put("aud", AUDIENCE);
         payload.put("sub", subject);
         payload.put("preferred_username", subject);
         payload.put("iat", issuedAt.getEpochSecond());

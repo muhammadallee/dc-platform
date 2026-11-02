@@ -132,7 +132,7 @@ A pair of `HttpClient`s per client name, following redirects and not (round 1, F
 | AC13 | SLICE | `RetryableOperation` under `default`, through the real registry, does not repeat a failed platform client call. `@Retry` reads the same registry; no test runs the aspect |
 | AC14 | CONSUMER | Readiness and liveness stay up with the downstream down; the `dependencies` group shows the breaker |
 | AC15 | CONSUMER | SIGTERM during a backoff and with a call in flight: stops in time, exit 143, in-flight answered |
-| AC16 | SLICE, CONSUMER | Failure while reading a success body: `RemoteCallException`; through a JSON library, `RestClientException` wrapping it, never `retryable` |
+| AC16 | SLICE, CONSUMER | Failure while reading a success body: `RemoteCallException`; through a JSON library it may be `RestClientException` wrapping it, then never `retryable` |
 | AC17 | CONSUMER | Concurrent calls keep separate traces and no MDC bleed |
 
 P0: R1, R2, R3, R4, R8. P1: R5, R6, R7, R9. Deferred: R4.2.

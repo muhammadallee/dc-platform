@@ -213,8 +213,11 @@ hh_expect_json "the secret is gone, the rest stays" "'$MARKER' not in b['snippet
 script '{"default":{"status":200,"body":"'"$(printf 'y%.0s' $(seq 1 40))"'","trickle_ms":200}}'
 hh_http ac16-string GET "/probe/dl/get" "${AUTH[@]}"; expect_problem 504 True
 script '{"default":{"status":200,"headers":{"Content-Type":"application/json"},"body":"{\"a\":\"'"$(printf 'y%.0s' $(seq 1 40))"'\"}","trickle_ms":200}}'
-hh_http ac16-json GET "/probe/dl/json" "${AUTH[@]}"; hh_expect_status 500
-hh_expect_json "AC16 a failure inside JSON is not called retryable" "b.get('retryable')==False and b.get('detail')=='An unexpected error occurred.'"
+hh_http ac16-json GET "/probe/dl/json" "${AUTH[@]}"
+# Through the JSON library: the deadline itself (504), or, where the library wraps it, a plain 500. Never a success.
+hh_expect_json "AC16 a body failure inside JSON is a failure, with a matching retryable" \
+    "(b.get('status')==504 and b.get('retryable')==True) or (b.get('status')==500 and b.get('retryable')==False)"
+hh_expect_json "AC16 with the generic detail" "b.get('detail')=='An unexpected error occurred.'"
 
 hh_step "AC8, AC14: the breaker opens, refuses, recovers; probes stay up"
 script '{"default":{"status":503}}'

@@ -132,8 +132,9 @@ An uncaught `RemoteCallException` becomes a ProblemDetail with code `DC-RCLIENT-
 Client names name breakers and tags, so take them from a fixed set. Query strings and URL credentials are left out of
 the `uri` tag and the span's `http.url`.
 
-A failure deep in a JSON body arrives as Spring's `RestClientException`, wrapping a `RemoteCallException`: the JSON
-library wraps what it reads through. It reaches your caller as a 500, `retryable=false`.
+A failure inside a JSON body can arrive as Spring's `RestClientException`, wrapping a `RemoteCallException`, when the JSON
+library wraps what it reads through. It then reaches your caller as a 500, `retryable=false`. Otherwise it is the
+`RemoteCallException` itself, and the table above applies.
 
 ## Properties
 

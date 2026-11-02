@@ -57,6 +57,9 @@ class RemoteCallExceptionTest {
         "<password><![CDATA[dXNlcjpwYXNz]]></password>",
         "<password value=\"dXNlcjpwYXNz\"/>",
         "<clientSecret content='dXNlcjpwYXNz'/>",
+        "<password><![CDATA[dXNlcjpwYXNz",
+        "<password><![CDATA[first]]><![CDATA[dXNlcjpwYXNz]]></password>",
+        "<password value=\"prefix'dXNlcjpwYXNz\"/>",
         "<ns:clientSecret kind=\"x\">dXNlcjpwYXNz</ns:clientSecret>",
         "client_secret=dXNlcjpwYXNz&x=1",
         "access-token: dXNlcjpwYXNz"})
@@ -67,10 +70,17 @@ class RemoteCallExceptionTest {
     @Test
     void aHostileBodyIsHandledQuickly() {
         for (String body : new String[] {"token".repeat(1638), "\\a".repeat(4096), "\"token\":\"" + "\\a".repeat(4000), " ".repeat(8192),
-            "<token".repeat(1365), "bearer ".repeat(1170),
+            "<token".repeat(1365), "bearer ".repeat(1170), "<token/>".repeat(1024),
             "<token><![CDATA[".repeat(512), "<token value=\"".repeat(546)}) {
             assertTimeoutPreemptively(Duration.ofSeconds(1), () -> new RemoteCallException("orders", 500, body, null, null));
         }
+    }
+
+    @Test
+    void anElementAfterASecretOneSurvives() {
+        String snippet = new RemoteCallException("orders", 500, "<token>a</token><id>keep</id>", null, null).bodySnippet();
+
+        assertThat(snippet).doesNotContain(">a<").contains("keep");
     }
 
     @Test

@@ -99,7 +99,7 @@ read -r -d '' CONFIG <<JSON || true
  "$P.clients.refused.circuit-breaker.enabled":false,"$P.clients.unknownhost.circuit-breaker.enabled":false,
  "$P.clients.cb.retry.enabled":false,"$P.clients.cb.circuit-breaker.sliding-window-size":4,
  "$P.clients.cb.circuit-breaker.minimum-calls":4,"$P.clients.cb.circuit-breaker.open-duration":"15s",
- "$P.clients.cb.circuit-breaker.half-open-calls":1,
+ "$P.clients.cb.circuit-breaker.half-open-calls":1,"$P.clients.cb.read-timeout":"8s",
  "$P.clients.bh.retry.enabled":false,"$P.clients.bh.circuit-breaker.enabled":false,"$P.clients.bh.bulkhead.max-concurrent":2,
  "$P.clients.bh.read-timeout":"6s",
  "$P.clients.dl.circuit-breaker.enabled":false,"$P.clients.dl.deadline":"1s","$P.clients.dl.read-timeout":"5s",
@@ -231,7 +231,7 @@ hh_http ac8-open-post GET "/probe/cb/write?method=POST" "${AUTH[@]}"; expect_pro
 expect_count "AC8 an open breaker sent nothing" 4
 ATTEMPTS=$(metric platform_restclient_attempts_total 'client="cb"' 'outcome="circuit_open"')
 if [ "${ATTEMPTS:-0}" -ge 2 ]; then hh_pass "AC8 attempts counted circuit_open: $ATTEMPTS"; else hh_fail "AC8 attempts metric: '$ATTEMPTS'"; fi
-script '{"default":{"status":200,"body":"hello","delay_ms":1500}}'
+script '{"default":{"status":200,"body":"hello","delay_ms":5000}}'
 sleep 16
 curl -s -o "$HH_EVIDENCE/ac8-trial.body" -w '%{http_code}' --max-time 30 "${AUTH[@]}" "$HH_BASE/probe/cb/get" > "$HH_EVIDENCE/ac8-trial.status" &
 TRIAL_PID=$!
@@ -254,6 +254,17 @@ done
 wait "${BH_PIDS[@]}"
 OK=$(cat "$HH_EVIDENCE"/bh/*.status | grep -c '^200 ' || true)
 REFUSED=$(cat "$HH_EVIDENCE"/bh/*.status | grep -c '^503 ' || true)
+REFUSAL_BODIES=$(python -I - "$(hh_native "$HH_EVIDENCE/bh")" <<'PY'
+import glob, json, sys
+good = 0
+for path in glob.glob(sys.argv[1] + "/*.status"):
+    if open(path).read().startswith("503"):
+        b = json.load(open(path[:-6] + "body", encoding="utf-8"))
+        good += b.get("code") == "DC-RCLIENT-0500" and b.get("retryable") is True and b.get("detail") == "An unexpected error occurred."
+print(good)
+PY
+)
+if [ "$REFUSAL_BODIES" = "$REFUSED" ]; then hh_pass "AC9 each refusal is a generic, retryable ProblemDetail"; else hh_fail "AC9 only $REFUSAL_BODIES of $REFUSED refusals were right"; fi
 if [ "$OK" = 2 ] && [ "$REFUSED" = 4 ]; then hh_pass "AC9 2 answered, 4 refused"; else hh_fail "AC9 $OK answered, $REFUSED refused"; fi
 FAST=$(awk '$1==503 && $2<1.5{n++} END{print n+0}' "$HH_EVIDENCE"/bh/*.status)
 if [ "$FAST" = "$REFUSED" ]; then hh_pass "AC9 the refused did not wait"; else hh_fail "AC9 only $FAST of $REFUSED refusals were fast"; fi
@@ -299,7 +310,8 @@ script '{"default":{"status":200,"body":"late","delay_ms":1000},"queue":[{"statu
 curl -s -o "$HH_EVIDENCE/ac15-backoff.body" -w '%{http_code}' --max-time 40 "${AUTH[@]}" "$HH_BASE/probe/main/get?id=900" > "$HH_EVIDENCE/ac15-backoff.status" &
 BACKOFF_PID=$!
 for _ in $(seq 1 40); do [ "$(stub_count)" = 1 ] && break; sleep 0.1; done
-expect_count "AC15 the first attempt failed, so the call is waiting" 1
+expect_count "AC15 the first attempt arrived" 1
+sleep 1 # Its 503 is back by now, and the call is inside its 3 s wait.
 hh_app_stop_graceful
 wait "$BACKOFF_PID" || true
 if [ "$(cat "$HH_EVIDENCE/ac15-backoff.status")" = 200 ] && [ "$(cat "$HH_EVIDENCE/ac15-backoff.body")" = late ]; then
@@ -317,8 +329,8 @@ hh_http down GET "/probe/main/get" "${AUTH[@]}"; expect_problem 503 True
 proxy_enabled true
 script '{"default":{"status":200,"body":"hello"}}'
 hh_http back GET "/probe/main/get" "${AUTH[@]}"; hh_expect_status 200
-script '{"default":{"status":200,"body":"inflight","delay_ms":1500}}'
-curl -s -o "$HH_EVIDENCE/ac15-send.body" -w '%{http_code}' --max-time 40 "${AUTH[@]}" "$HH_BASE/probe/main/get?id=901" > "$HH_EVIDENCE/ac15-send.status" &
+script '{"default":{"status":200,"body":"inflight","delay_ms":4000}}'
+curl -s -o "$HH_EVIDENCE/ac15-send.body" -w '%{http_code}' --max-time 40 "${AUTH[@]}" "$HH_BASE/probe/bh/get?id=901" > "$HH_EVIDENCE/ac15-send.status" &
 SEND_PID=$!
 for _ in $(seq 1 40); do [ "$(stub_count)" = 1 ] && break; sleep 0.1; done
 expect_count "AC15 the call is in flight" 1

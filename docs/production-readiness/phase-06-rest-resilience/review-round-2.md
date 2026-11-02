@@ -47,3 +47,21 @@
 | AC17 could trip the default bulkhead | That client's bulkhead raised |
 | §7.11 cannot prove no connection at startup | Accepted: true by construction; the times are recorded, stated in the scope |
 | R9, R10 wording | Scope amended: a pair of clients per name; the deadline has no switch |
+
+## Verification pass 1 ([out](codex/v1-verify.out.md), `6741388`): REJECT, 10 and 9 test gaps
+
+| # | Finding | Severity | Claude | Disposition |
+|---|---|---|---|---|
+| 1 | A metrics listener failing after a send lost a successful outcome and leaked its permit | High | Agree | FIXED: a listener can no longer fail a call. The most serious thing this pass found |
+| 2 | XML secrets in truncated or repeated CDATA, and mixed quotes | High | Agree | FIXED by replacing the shape-by-shape patterns: a secret-named element keeps only its name |
+| 3 | The guard cannot see the JDK's cached value if `net.properties` is edited while the JVM runs | High | Disagree: Low. Editing a JDK config file on a live JVM, then restarting only the context. Docs say to remove it, and a JVM restart follows any such edit | ACCEPTED, residual HI-0096 |
+| 4 | An illegal header's value, and URL credentials with a space, in exceptions | High | Agree | FIXED: nothing built is reported without its message; a message quoting a URL goes whole |
+| 5 | URL fragments in observations | High | Agree | FIXED |
+| 6 | A builder publishing a transport could then cut another's call | Medium | Agree | FIXED: creation and close exclude each other |
+| 7, 8 | Two composites sharing an exporter double-count; closed registries retained | Medium, Low | Partly agree: both need unusual registry setups, and Boot's own single composite is unaffected | ACCEPTED, residual HI-0097 |
+| 9 | A reset within 2 ms of the deadline is called the deadline | Medium | Partly agree: Low. 504 instead of 503 in a 2 ms window, both `retryable`, and never for a POST | ACCEPTED, residual HI-0098 |
+| 10 | An unrelated bad line in `net.properties`, or a whitespace value, failed construction | Medium | Agree | FIXED: the JDK's own semantics |
+
+Test gaps: AC6's margin widened; AC8 holds its trial for 5 s; AC12 asserts the attempts reported; AC13 now sends a real POST through a real client inside the real
+retry; AC16 asserts the `RemoteCallException` beneath; AC15 waits inside the backoff and uses a longer-timeout client for its in-flight send; §7.7 checks each refusal's body, and
+a POST refused by a full bulkhead. Transport termination is not asserted, only the clean exit.

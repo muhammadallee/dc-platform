@@ -27,7 +27,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
@@ -50,7 +51,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  */
 final class ResilientRequestFactory implements ClientHttpRequestFactory {
 
-    private static final Pattern QUERY_ONWARD = Pattern.compile("(?s)[?#].*");
+    private static final Logger log = LoggerFactory.getLogger(ResilientRequestFactory.class);
     private static final long TIMER_MARGIN_NANOS = TimeUnit.MILLISECONDS.toNanos(2);
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
     private static final Set<HttpMethod> IDEMPOTENT = Set.of(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.PUT,
@@ -62,7 +63,7 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
     private final RestClientProperties.Defaults settings;
     private final CircuitBreaker breaker;
     private final Bulkhead bulkhead;
-    private final BiConsumer<String, String> attempts;
+    private final BiConsumer<String, String> listener;
 
     /**
      * @param following the transport for idempotent methods, following redirects
@@ -78,7 +79,7 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         this.settings = settings;
         this.breaker = breaker;
         this.bulkhead = bulkhead;
-        this.attempts = attempts;
+        this.listener = attempts;
     }
 
     /** An allowlist: a method this code has never heard of could do anything, and {@link HttpMethod} is case-sensitive. */
@@ -129,7 +130,7 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
             for (int attempt = 1;; attempt++) {
                 Duration remaining = remaining();
                 if (remaining.isZero() || remaining.isNegative()) {
-                    attempts.accept(client, "deadline");
+                    report("deadline");
                     throw new RemoteCallException(client, Kind.DEADLINE, 0, "", idempotent, null);
                 }
                 acquire();
@@ -143,18 +144,27 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
                     releaseBulkhead();
                     recordFailure(started, e);
                     RemoteCallException failure = classify(e, idempotent, cutByDeadline);
-                    attempts.accept(client, failure.kind().name().toLowerCase(Locale.ROOT));
+                    report(failure.kind().name().toLowerCase(Locale.ROOT));
                     if (attempt < maxAttempts && failure.kind() != Kind.DEADLINE && waited(backoff(attempt))) {
                         continue;
                     }
                     throw failure;
-                } catch (RuntimeException | Error e) {
+                } catch (RuntimeException e) {
+                    // The request could not be built, as with an illegal header. Nothing was sent, this says nothing of the
+                    // remote, and the JDK's message quotes the value: it may be a credential.
                     releaseBulkhead();
-                    recordFailure(started, e);
+                    releaseBreaker();
+                    report("invalid_request");
+                    IOException cause = new IOException(e.getClass().getName());
+                    cause.setStackTrace(e.getStackTrace());
+                    throw new RemoteCallException(client, Kind.CONNECTION, 0, "", false, cause);
+                } catch (Error e) {
+                    releaseBulkhead();
+                    releaseBreaker();
                     throw e;
                 }
                 int status = status(response);
-                attempts.accept(client, status >= 200 && status < 300 ? "success" : "status_" + status / 100 + "xx");
+                report(status >= 200 && status < 300 ? "success" : "status_" + status / 100 + "xx");
                 if (attempt < maxAttempts && RETRYABLE_STATUSES.contains(status)) {
                     int thisAttempt = attempt;
                     Duration wait = retryAfter(response.getHeaders()).orElseGet(() -> backoff(thisAttempt));
@@ -204,17 +214,30 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         }
     }
 
+    /** A failing metrics registry must never cost a call its outcome, or its permit. */
+    private void report(String outcome) {
+        try {
+            listener.accept(client, outcome);
+        } catch (RuntimeException e) {
+            log.debug("attempt listener failed", e);
+        }
+    }
+
     private void acquire() {
         if (breaker != null && !breaker.tryAcquirePermission()) {
-            attempts.accept(client, "circuit_open");
+            report("circuit_open");
             throw new RemoteCallException(client, Kind.CIRCUIT_OPEN, 0, "", true, null);
         }
         if (bulkhead != null && !bulkhead.tryAcquirePermission()) {
-            if (breaker != null) {
-                breaker.releasePermission();
-            }
-            attempts.accept(client, "bulkhead_full");
+            releaseBreaker();
+            report("bulkhead_full");
             throw new RemoteCallException(client, Kind.BULKHEAD_FULL, 0, "", true, null);
+        }
+    }
+
+    private void releaseBreaker() {
+        if (breaker != null) {
+            breaker.releasePermission();
         }
     }
 
@@ -254,10 +277,10 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         return new RemoteCallException(client, Kind.CONNECTION, 0, "", idempotent, cause);
     }
 
-    /** A transport message can quote a URL, as with a bad redirect target: all after a query or fragment goes, and so do deeper causes. */
+    /** A transport message can quote a URL, as with a bad redirect target, in forms no pattern covers: such a message goes whole. */
     private static IOException sanitized(IOException e) {
-        String message = e.getMessage() == null ? ""
-                : ": " + QUERY_ONWARD.matcher(e.getMessage()).replaceFirst("…").replaceAll("//[^/\\s@]*@", "//");
+        String text = e.getMessage();
+        String message = text == null || text.contains("://") || text.contains("?") || text.contains("#") ? "" : ": " + text;
         IOException clean = new IOException(e.getClass().getName() + message);
         clean.setStackTrace(e.getStackTrace());
         return clean;

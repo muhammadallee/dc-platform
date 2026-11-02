@@ -648,7 +648,7 @@ class ResilienceBehaviourTest {
 
     @Test
     void aRetryAfterDateIsWaitedForOnARealCall() {
-        String date = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(3));
+        String date = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(5));
         server.enqueue(status(503).addHeader("Retry-After", date));
         server.enqueue(new MockResponse());
         RestClient client = fastClient();
@@ -714,13 +714,18 @@ class ResilienceBehaviourTest {
                 return status(503);
             }
         });
-        RestClient client = client(new Defaults(null, null, null, FAST, new CircuitBreaker(true, 50f, 1, 1, Duration.ofSeconds(30), 1), null));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST,
+                new CircuitBreaker(true, 50f, 1, 1, Duration.ofSeconds(30), 1), null));
+        List<String> outcomes = new ArrayList<>();
+        factory.onAttempt((name, outcome) -> outcomes.add(outcome));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
 
-        // The first attempt opens it; the second finds it open, and that ends the call.
+        // The first attempt opens it; the second finds it open, and that ends the call: a third would report again.
         RemoteCallException e = failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
 
         assertThat(e.kind()).isEqualTo(Kind.CIRCUIT_OPEN);
         assertThat(server.getRequestCount()).isEqualTo(1);
+        assertThat(outcomes).containsExactly("status_5xx", "circuit_open");
     }
 
     @Test
@@ -744,7 +749,7 @@ class ResilienceBehaviourTest {
         Throwable e = catchThrowable(() -> client.post().uri("/a").body("x").retrieve().body(Map.class));
 
         assertThat(e).isInstanceOf(org.springframework.web.client.RestClientException.class);
-        assertThat(e).hasRootCauseInstanceOf(IOException.class);
+        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).contains(RemoteCallException.class.getName());
         assertThat(server.getRequestCount()).isEqualTo(1);
     }
 
@@ -756,6 +761,106 @@ class ResilienceBehaviourTest {
         Throwable e = catchThrowable(() -> client.get().uri("/a").retrieve().toBodilessEntity());
 
         assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+    }
+
+    @Test
+    void aFailingListenerCostsNeitherTheOutcomeNorThePermit() {
+        server.enqueue(new MockResponse().setBody("applied"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, new Bulkhead(true, null, 1)));
+        factory.onAttempt((client, outcome) -> {
+            throw new IllegalArgumentException("a meter of another type");
+        });
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+
+        assertThat(client.post().uri("/a").body("x").retrieve().body(String.class)).isEqualTo("applied");
+        assertThat(factory.bulkheads().bulkhead("rest-orders").getMetrics().getAvailableConcurrentCalls()).isEqualTo(1);
+    }
+
+    @Test
+    void anIllegalHeaderNeverQuotesItsValueAndSendsNothing() {
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST,
+                new CircuitBreaker(true, 50f, 2, 2, Duration.ofSeconds(30), 1), new Bulkhead(true, null, 1)));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+
+        RemoteCallException e = failure(() -> client.get().uri("/a").header("X-Api-Key", "PRIVATE\n").retrieve().toBodilessEntity());
+
+        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+        assertThat(e.retryable()).isFalse();
+        assertThat(server.getRequestCount()).isZero();
+        assertThat(factory.bulkheads().bulkhead("rest-orders").getMetrics().getAvailableConcurrentCalls()).isEqualTo(1);
+        assertThat(factory.circuitBreakers().circuitBreaker("rest-orders").getMetrics().getNumberOfFailedCalls()).isZero();
+    }
+
+    @Test
+    void aRedirectTargetsUrlCredentialsStayOutOfTheCause() {
+        server.enqueue(status(307).addHeader("Location", "http://user:PRIVATE VALUE@example.test/"));
+        RestClient client = fastClient();
+
+        Throwable e = catchThrowable(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+    }
+
+    @Test
+    void fragmentsStayOutOfObservations() {
+        server.enqueue(new MockResponse());
+        var observed = new java.util.concurrent.atomic.AtomicReference<io.micrometer.observation.Observation.Context>();
+        io.micrometer.observation.ObservationRegistry registry = io.micrometer.observation.ObservationRegistry.create();
+        registry.observationConfig().observationHandler(new io.micrometer.observation.ObservationHandler<>() {
+            @Override
+            public boolean supportsContext(io.micrometer.observation.Observation.Context context) {
+                return true;
+            }
+
+            @Override
+            public void onStop(io.micrometer.observation.Observation.Context context) {
+                observed.set(context);
+            }
+        });
+        DefaultPlatformRestClientFactory factory = new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of(),
+                () -> registry);
+        factories.add(factory);
+
+        factory.builder("orders").baseUrl(server.url("/").toString()).build().get().uri("/callback#access_token=SECRET").retrieve()
+                .toBodilessEntity();
+
+        assertThat(observed.get().getAllKeyValues().toString()).doesNotContain("SECRET").contains("/callback");
+    }
+
+    @Test
+    void aFullBulkheadRefusesAPostAsSafeToRepeat() throws Exception {
+        server.enqueue(new MockResponse().setBody("held"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, new Bulkhead(true, null, 1)));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+
+        try (java.io.InputStream held = client.get().uri("/a").retrieve().body(java.io.InputStream.class)) {
+            RemoteCallException refused = failure(() -> client.post().uri("/a").body("x").retrieve().toBodilessEntity());
+
+            assertThat(refused.kind()).isEqualTo(Kind.BULKHEAD_FULL);
+            assertThat(refused.retryable()).isTrue();
+            assertThat(server.getRequestCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void anEmptyOrTrueAllMethodRetryIsRefusedAndFalseIsNot() {
+        for (String value : new String[] {"", "true"}) {
+            System.setProperty("jdk.httpclient.enableAllMethodRetry", value);
+            try {
+                assertThatThrownBy(() -> new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of()))
+                        .isInstanceOf(IllegalStateException.class);
+            } finally {
+                System.clearProperty("jdk.httpclient.enableAllMethodRetry");
+            }
+        }
+        for (String value : new String[] {"false", " ", "no"}) {
+            System.setProperty("jdk.httpclient.enableAllMethodRetry", value);
+            try {
+                new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of()).destroy();
+            } finally {
+                System.clearProperty("jdk.httpclient.enableAllMethodRetry");
+            }
+        }
     }
 
     @Test

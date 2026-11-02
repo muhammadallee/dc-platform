@@ -80,7 +80,7 @@ the same token and `traceparent`, and one call is one `http.client.requests` obs
 - **The JDK client re-sends a GET or HEAD once by itself** after a dropped connection, and this cannot be
   switched off per client. So the worst case is 2 × `max-attempts` requests. POST is not re-sent, and
   `jdk.httpclient.enableAllMethodRetry`, which would change that, stops the application from starting, as a system
-  property or in the JDK's `conf/net.properties`.
+  property or in the JDK's `conf/net.properties`. The check reads the file when the context starts; restart the JVM after changing it.
 - **Only known idempotent methods follow redirects.** A POST, PATCH or custom method gets the 3xx back, since a 307 or
   308 would send it again. Under HTTP/2, the JDK can re-send a stream the server said it never processed.
 - **Request bodies are held in memory** for the length of the call, so a streaming upload is buffered. Use something

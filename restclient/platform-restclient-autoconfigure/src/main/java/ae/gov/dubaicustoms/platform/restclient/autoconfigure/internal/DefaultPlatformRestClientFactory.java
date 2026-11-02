@@ -14,7 +14,6 @@ import io.micrometer.common.KeyValue;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -53,7 +52,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     private final CircuitBreakerRegistry breakers = CircuitBreakerRegistry.ofDefaults();
     private final BulkheadRegistry bulkheads = BulkheadRegistry.ofDefaults();
     private final Map<String, Transport> transports = new ConcurrentHashMap<>();
-    private volatile boolean closed;
+    private boolean closed;
     private final List<BiConsumer<String, String>> attemptListeners = new CopyOnWriteArrayList<>();
 
     public DefaultPlatformRestClientFactory(RestClientProperties properties, List<PlatformRestClientCustomizer> customizers) {
@@ -72,7 +71,9 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         refuseAllMethodRetry();
     }
 
-    /** The JDK reads this from the system property, then from its {@code conf/net.properties}. */
+    /**
+     * The JDK reads this from the system property, then from its {@code conf/net.properties}: empty or {@code true} turns it on.
+     */
     private static void refuseAllMethodRetry() {
         String value = System.getProperty(ALL_METHOD_RETRY);
         if (value == null) {
@@ -81,13 +82,13 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
                 Properties net = new Properties();
                 try (InputStream in = Files.newInputStream(file)) {
                     net.load(in);
-                } catch (IOException e) {
-                    throw new UncheckedIOException("cannot read " + file, e);
+                } catch (IOException | IllegalArgumentException e) {
+                    return; // The JDK ignores a file it cannot load, so the setting is off.
                 }
                 value = net.getProperty(ALL_METHOD_RETRY);
             }
         }
-        if (value != null && !"false".equalsIgnoreCase(value.trim())) {
+        if (value != null && (value.isEmpty() || Boolean.parseBoolean(value))) {
             throw new IllegalStateException(ALL_METHOD_RETRY + " makes the JDK client re-send a POST after a lost connection, which "
                     + "could apply it twice. Remove it from the JVM options and conf/net.properties");
         }
@@ -133,25 +134,14 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     }
 
     private Transport transport(String clientName, RestClientProperties.Defaults settings) {
-        if (closed) {
-            throw new IllegalStateException("the REST client factory is closed");
-        }
-        Transport[] created = new Transport[1];
-        Transport transport = transports.computeIfAbsent(clientName, name -> {
-            created[0] = new Transport(
-                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
-                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build());
-            return created[0];
-        });
-        if (closed) {
-            // Only one made here, which the close may have missed. Any other is draining, with calls of its own.
-            if (created[0] != null) {
-                created[0].following().shutdownNow();
-                created[0].direct().shutdownNow();
+        synchronized (transports) {
+            if (closed) {
+                throw new IllegalStateException("the REST client factory is closed");
             }
-            throw new IllegalStateException("the REST client factory is closed");
+            return transports.computeIfAbsent(clientName, name -> new Transport(
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build()));
         }
-        return transport;
     }
 
     private CircuitBreaker breaker(String clientName, RestClientProperties.Defaults settings) {
@@ -209,8 +199,11 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     /** Lets calls in flight finish, within one wait shared by all clients, then cuts them, so a stop is bounded. */
     @Override
     public void destroy() {
-        closed = true;
-        List<HttpClient> clients = transports.values().stream().flatMap(t -> Stream.of(t.following(), t.direct())).toList();
+        List<HttpClient> clients;
+        synchronized (transports) {
+            closed = true;
+            clients = transports.values().stream().flatMap(t -> Stream.of(t.following(), t.direct())).toList();
+        }
         clients.forEach(HttpClient::shutdown);
         long giveUpAt = System.nanoTime() + CLOSE_WAIT.toNanos();
         for (HttpClient client : clients) {
@@ -233,6 +226,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     private static final class ClientNameConvention extends DefaultClientRequestObservationConvention {
 
         private static final Pattern USER_INFO = Pattern.compile("//[^/@]*+@");
+        private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("(?s)[?#].*");
 
         private final KeyValue clientName;
 
@@ -257,9 +251,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
 
         private static KeyValue stripped(KeyValue value) {
             String text = value.getValue();
-            int query = text.indexOf('?');
-            String withoutQuery = query < 0 ? text : text.substring(0, query);
-            return KeyValue.of(value.getKey(), USER_INFO.matcher(withoutQuery).replaceFirst("//"));
+            String withoutSuffix = QUERY_OR_FRAGMENT.matcher(text).replaceFirst("");
+            return KeyValue.of(value.getKey(), USER_INFO.matcher(withoutSuffix).replaceFirst("//"));
         }
     }
 }

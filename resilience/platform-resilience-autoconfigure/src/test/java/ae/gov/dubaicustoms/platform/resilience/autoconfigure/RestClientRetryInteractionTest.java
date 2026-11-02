@@ -5,7 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ae.gov.dubaicustoms.platform.resilience.RetryableOperation;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
+import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties;
+import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.DefaultPlatformRestClientFactory;
+import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.springboot.retry.autoconfigure.RetryAutoConfiguration;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -19,6 +25,34 @@ class RestClientRetryInteractionTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withInitializer(context -> new PlatformResilienceEnvironmentPostProcessor().postProcessEnvironment(context.getEnvironment(), null))
             .withConfiguration(AutoConfigurations.of(RetryAutoConfiguration.class, PlatformResilienceAutoConfiguration.class));
+
+    @Test
+    void aRealPostThroughARealClientIsSentOnceInsideTheDefaultPolicy() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        AtomicInteger received = new AtomicInteger();
+        server.createContext("/", exchange -> {
+            received.incrementAndGet();
+            exchange.getRequestBody().readAllBytes();
+            exchange.sendResponseHeaders(503, -1);
+            exchange.close();
+        });
+        server.start();
+        var factory = new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of());
+        try {
+            var client = factory.builder("orders").baseUrl("http://127.0.0.1:" + server.getAddress().getPort()).build();
+            runner.run(context -> {
+                RetryableOperation retry = context.getBean(RetryableOperation.class);
+
+                assertThatThrownBy(() -> retry.call("orders", () -> client.post().uri("/a").body("x").retrieve().toBodilessEntity()))
+                        .isInstanceOf(RemoteCallException.class);
+
+                assertThat(received).hasValue(1);
+            });
+        } finally {
+            factory.destroy();
+            server.stop(0);
+        }
+    }
 
     @Test
     void theDefaultPolicyDoesNotRepeatAPlatformClientFailure() {

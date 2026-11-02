@@ -1,6 +1,6 @@
 # Phase 5 — RabbitMQ Messaging: closure
 
-**Verdict: PASS, with three residuals awaiting the owner's acceptance** (below). Earlier owner decisions: HC7 (no users, so breaking
+**Verdict: PASS, with three residuals accepted by the owner** (below). Earlier owner decisions: HC7 (no users, so breaking
 changes need only a CHANGELOG entry), HI-0071, HI-0079 and HI-0086 parked.
 
 | Item | Value |
@@ -46,11 +46,15 @@ changes need only a CHANGELOG entry), HI-0071, HI-0079 and HI-0086 parked.
 
 See CHANGELOG `## [Unreleased]`, phase 5.
 
-## Owner acceptance (PENDING)
+## Owner acceptance (2026-11-02, D125)
 
-1. **HI-0087:** a message returned by stopping consumers counts toward the delivery limit. Default raised to 20.
-2. **HI-0088:** a main queue deleted during a replay loses what the shovel moves afterwards.
-3. **HI-0093:** consumers start before default-phase lifecycle beans, so a drained event finds its queue declared.
+1. **HI-0087: accepted.** A message returned by stopping consumers counts toward the delivery limit. Default raised to 20.
+2. **HI-0088: accepted, to be reviewed again at the end of all phases, before the Phase 8 release decision.** A main queue deleted
+   during a replay loses what the shovel moves afterwards. It is the only one of the three that loses data.
+3. **HI-0093: accepted.** Consumers start before default-phase lifecycle beans, so a drained event finds its queue declared.
+
+The failure scenarios behind HI-0087 (returns from a stopping consumer) and HI-0088 (a queue deleted mid-replay) were reasoned from
+the code and not run, and HI-0088's warning is in the script's help and the docs only, not at runtime. The owner was told both.
 
 Amendments A1, A2: for information.
 

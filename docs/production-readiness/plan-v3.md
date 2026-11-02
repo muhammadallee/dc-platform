@@ -326,6 +326,8 @@ On failure: attribute, patch narrowly, Codex verification pass for material chan
 
 Write `run-results.md`, `release-decision.md`, and `final-release-assessment.md` (certified capabilities with evidence levels; exceptions; open issues; **Not certified** list; known limitations; recommended first-adopter conditions).
 
+Before `release-decision.md`, put HI-0088 back to the owner for review (D125, owner 2026-11-02): keep accepting it, or replace the replay shovel.
+
 ---
 
 ## 11. Deliverables layout

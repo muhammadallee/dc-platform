@@ -820,3 +820,6 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D106 — uri tag cardinality is Boot's.** Boot 4.1 caps `uri` values for server and client HTTP
   meters (`management.metrics.web.{server,client}.max-uri-tags`, 100, deny + log once). The platform adds
   no `uri` filter of its own and keeps a test that fails if the cap is lifted.
+- **D125 — Phase 5 residuals accepted (hardening phase 5, owner 2026-11-02).** HI-0087 and HI-0093 are accepted. HI-0088, a main queue
+  deleted during a replay losing what the shovel moves afterwards, is accepted for now and goes back to the owner at the end of all
+  phases, before the Phase 8 release decision: keep accepting it, or replace the shovel.

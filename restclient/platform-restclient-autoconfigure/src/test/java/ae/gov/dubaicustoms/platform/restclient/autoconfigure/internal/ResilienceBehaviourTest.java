@@ -777,6 +777,42 @@ class ResilienceBehaviourTest {
     }
 
     @Test
+    void oneFailingListenerDoesNotSilenceAnother() {
+        server.enqueue(new MockResponse());
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, null));
+        List<String> heard = new ArrayList<>();
+        factory.onAttempt((client, outcome) -> {
+            throw new IllegalArgumentException("a meter of another type");
+        });
+        factory.onAttempt((client, outcome) -> heard.add(outcome));
+
+        factory.builder("orders").baseUrl(server.url("/").toString()).build().get().uri("/a").retrieve().toBodilessEntity();
+
+        assertThat(heard).containsExactly("success");
+    }
+
+    @Test
+    void aBadStatusLineNeverReachesTheException() throws Exception {
+        try (ServerSocket raw = new ServerSocket(0)) {
+            Thread.ofVirtual().start(() -> {
+                try (var socket = raw.accept()) {
+                    socket.getInputStream().read(new byte[1024]);
+                    socket.getOutputStream().write("HTTP/1.1 xxx token=PRIVATE\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+            });
+            RestClient client = client(new Defaults(null, null, null, new Retry(false, null, null, null, null, null), NO_BREAKER, null));
+            RestClient direct = factories.getLast().builder("raw").baseUrl("http://127.0.0.1:" + raw.getLocalPort()).build();
+
+            Throwable e = catchThrowable(() -> direct.post().uri("/a").body("x").retrieve().toBodilessEntity());
+
+            assertThat(e).isInstanceOf(RemoteCallException.class);
+            assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+        }
+    }
+
+    @Test
     void anIllegalHeaderNeverQuotesItsValueAndSendsNothing() {
         DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST,
                 new CircuitBreaker(true, 50f, 2, 2, Duration.ofSeconds(30), 1), new Bulkhead(true, null, 1)));
@@ -788,7 +824,7 @@ class ResilienceBehaviourTest {
         assertThat(e.retryable()).isFalse();
         assertThat(server.getRequestCount()).isZero();
         assertThat(factory.bulkheads().bulkhead("rest-orders").getMetrics().getAvailableConcurrentCalls()).isEqualTo(1);
-        assertThat(factory.circuitBreakers().circuitBreaker("rest-orders").getMetrics().getNumberOfFailedCalls()).isZero();
+        assertThat(factory.circuitBreakers().circuitBreaker("rest-orders").getMetrics().getNumberOfFailedCalls()).isEqualTo(1);
     }
 
     @Test

@@ -13,9 +13,9 @@ import org.apiguardian.api.API;
  * connection, an exhausted deadline, or a local refusal by the breaker or bulkhead. {@link #kind()} says which.
  *
  * <p>Carries the response status when there was one, and a body snippet truncated to 1KB, with common credential forms
- * removed: authorization and cookie header lines, auth schemes, JWTs, and the values of secret-named keys in JSON, XML and
- * forms. Redaction is best effort, by pattern. An encoded or unusually named secret, and personal or business data, can
- * remain, so log the snippet only where such data may go.
+ * removed: authorization and cookie header lines, auth schemes, JWTs, the values of secret-named keys in JSON and forms, and
+ * all of a body holding a secret-named XML element. Redaction is best effort, by pattern. An encoded or unusually named secret,
+ * and personal or business data, can remain, so log the snippet only where such data may go.
  *
  * <pre>{@code
  * try {
@@ -64,10 +64,9 @@ public final class RemoteCallException extends PlatformException {
     private static final Pattern HEADER_LINE = Pattern.compile(
             "(?im)^(\\s{0,8}(?:proxy-)?(?:authorization|cookie|set-cookie)\\s{0,8}:).*+$");
     private static final Pattern SCHEME = Pattern.compile("(?i)\\b(?:bearer|basic|digest|negotiate)\\s{1,8}+[A-Za-z0-9._~+/=-]++");
-    // A secret-named XML element keeps only its name: attributes and content go, up to its closing tag or, if the read cut it
-    // off, the end. Shape by shape, CDATA and quoting always find a way round.
-    private static final Pattern XML_ELEMENT = Pattern.compile("(?is)(<[a-z0-9_:.-]{0,64}?" + SECRET_NAME + "[a-z0-9_:.-]{0,64}+)"
-            + "(?:[^>]{0,8192}?/>|[^>]{0,8192}+>?+(?:.{0,8192}?(?=</)|.*+))");
+    // A body with a secret-named XML element loses all of the snippet: CDATA, quoting and truncation always find a way round
+    // anything finer, and regular expressions do not parse XML.
+    private static final Pattern XML_SECRET = Pattern.compile("(?i)<[a-z0-9_:.-]{0,64}?" + SECRET_NAME);
     private static final Pattern JWT = Pattern.compile("\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*");
     private static final Pattern SECRET_VALUE = Pattern.compile("(?i)(" + SECRET_NAME + "[a-z0-9_.-]{0,64}+\"?+\\s{0,8}+[:=]\\s{0,8}+)"
             + "(\"[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+\"?+|[^\\s,&;}<]++)");
@@ -137,10 +136,12 @@ public final class RemoteCallException extends PlatformException {
     /** Fails closed: a body that defeats the patterns is not worth keeping. */
     private static String redacted(String body) {
         try {
+            if (XML_SECRET.matcher(body).find()) {
+                return "[REDACTED]";
+            }
             String text = HEADER_LINE.matcher(body).replaceAll("$1 [REDACTED]");
             text = SCHEME.matcher(text).replaceAll("[REDACTED]");
             text = JWT.matcher(text).replaceAll("[REDACTED]");
-            text = XML_ELEMENT.matcher(text).replaceAll("$1>[REDACTED]");
             return SECRET_VALUE.matcher(text).replaceAll("$1[REDACTED]");
         } catch (StackOverflowError e) {
             return "[REDACTED]";

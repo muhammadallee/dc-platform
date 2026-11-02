@@ -14,7 +14,8 @@ breaker, a bulkhead and one failure type on every outbound call.
 - **Per-client settings** — everything below has a default, overridable per client name.
 - **One failure type** — every failure throws `RemoteCallException`; `kind()` says which (see below).
   At most 8 KiB of an error body is read. The 1KB snippet has common credential forms removed: authorization and
-  cookie lines, auth schemes, JWTs, and secret-named values in JSON, XML and forms. This is best effort, by pattern:
+  cookie lines, auth schemes, JWTs, and secret-named values in JSON and forms; a body with a secret-named XML element
+  loses its whole snippet. This is best effort, by pattern:
   an encoded or oddly named secret, or personal or business data, can remain. It also errs the safe way, so
   "basic validation failed" loses a word.
   `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
@@ -131,6 +132,9 @@ An uncaught `RemoteCallException` becomes a ProblemDetail with code `DC-RCLIENT-
 
 Client names name breakers and tags, so take them from a fixed set. Query strings and URL credentials are left out of
 the `uri` tag and the span's `http.url`.
+
+Malformed JSON in a **success** body: the JSON library's own message can quote the bad token, and Spring keeps it in the
+exception chain, which your error log prints. A downstream that sends credentials in a broken JSON body could put them there.
 
 A failure inside a JSON body can arrive as Spring's `RestClientException`, wrapping a `RemoteCallException`, when the JSON
 library wraps what it reads through. It then reaches your caller as a 500, `retryable=false`. Otherwise it is the

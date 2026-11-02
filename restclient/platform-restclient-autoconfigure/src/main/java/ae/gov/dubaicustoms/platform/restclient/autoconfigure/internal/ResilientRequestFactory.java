@@ -27,8 +27,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
@@ -51,7 +49,6 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  */
 final class ResilientRequestFactory implements ClientHttpRequestFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(ResilientRequestFactory.class);
     private static final long TIMER_MARGIN_NANOS = TimeUnit.MILLISECONDS.toNanos(2);
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
     private static final Set<HttpMethod> IDEMPOTENT = Set.of(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.PUT,
@@ -142,25 +139,24 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
                     response = send(headers, timeout, idempotent);
                 } catch (IOException e) {
                     releaseBulkhead();
-                    recordFailure(started, e);
                     RemoteCallException failure = classify(e, idempotent, cutByDeadline);
+                    recordFailure(started, failure.getCause());
                     report(failure.kind().name().toLowerCase(Locale.ROOT));
                     if (attempt < maxAttempts && failure.kind() != Kind.DEADLINE && waited(backoff(attempt))) {
                         continue;
                     }
                     throw failure;
                 } catch (RuntimeException e) {
-                    // The request could not be built, as with an illegal header. Nothing was sent, this says nothing of the
-                    // remote, and the JDK's message quotes the value: it may be a credential.
+                    // An illegal header, or a redirect to an unusable target after the request was sent: it cannot be told apart
+                    // here, so it counts as a failure and is never called repeatable. The JDK's message can quote a credential.
                     releaseBulkhead();
-                    releaseBreaker();
-                    report("invalid_request");
-                    IOException cause = new IOException(e.getClass().getName());
-                    cause.setStackTrace(e.getStackTrace());
+                    IOException cause = sanitized(e);
+                    recordFailure(started, cause);
+                    report("invalid");
                     throw new RemoteCallException(client, Kind.CONNECTION, 0, "", false, cause);
                 } catch (Error e) {
                     releaseBulkhead();
-                    releaseBreaker();
+                    recordFailure(started, e);
                     throw e;
                 }
                 int status = status(response);
@@ -214,13 +210,8 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         }
     }
 
-    /** A failing metrics registry must never cost a call its outcome, or its permit. */
     private void report(String outcome) {
-        try {
-            listener.accept(client, outcome);
-        } catch (RuntimeException e) {
-            log.debug("attempt listener failed", e);
-        }
+        listener.accept(client, outcome);
     }
 
     private void acquire() {
@@ -229,15 +220,11 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
             throw new RemoteCallException(client, Kind.CIRCUIT_OPEN, 0, "", true, null);
         }
         if (bulkhead != null && !bulkhead.tryAcquirePermission()) {
-            releaseBreaker();
+            if (breaker != null) {
+                breaker.releasePermission();
+            }
             report("bulkhead_full");
             throw new RemoteCallException(client, Kind.BULKHEAD_FULL, 0, "", true, null);
-        }
-    }
-
-    private void releaseBreaker() {
-        if (breaker != null) {
-            breaker.releasePermission();
         }
     }
 
@@ -277,11 +264,12 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         return new RemoteCallException(client, Kind.CONNECTION, 0, "", idempotent, cause);
     }
 
-    /** A transport message can quote a URL, as with a bad redirect target, in forms no pattern covers: such a message goes whole. */
-    private static IOException sanitized(IOException e) {
-        String text = e.getMessage();
-        String message = text == null || text.contains("://") || text.contains("?") || text.contains("#") ? "" : ": " + text;
-        IOException clean = new IOException(e.getClass().getName() + message);
+    /**
+     * Keeps a failure's type and where it happened, and no words: transport messages quote status lines, headers and URLs, from
+     * the remote, in more forms than a pattern can cover.
+     */
+    private static IOException sanitized(Exception e) {
+        IOException clean = new IOException(e.getClass().getName());
         clean.setStackTrace(e.getStackTrace());
         return clean;
     }

@@ -29,6 +29,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.http.client.observation.ClientHttpObservationDocumentation;
 import org.springframework.http.client.observation.ClientRequestObservationContext;
@@ -42,6 +44,7 @@ import org.springframework.web.client.RestClient;
  */
 public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory, DisposableBean {
 
+    private static final Logger log = LoggerFactory.getLogger(DefaultPlatformRestClientFactory.class);
     private static final String ALL_METHOD_RETRY = "jdk.httpclient.enableAllMethodRetry";
     private static final int MAX_ERROR_BODY_BYTES = 8 * 1024;
     private static final Duration CLOSE_WAIT = Duration.ofSeconds(5);
@@ -83,7 +86,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
                 try (InputStream in = Files.newInputStream(file)) {
                     net.load(in);
                 } catch (IOException | IllegalArgumentException e) {
-                    return; // The JDK ignores a file it cannot load, so the setting is off.
+                    // The JDK keeps what it read before a bad line, so this does too.
+                    log.debug("could not read all of {}", file, e);
                 }
                 value = net.getProperty(ALL_METHOD_RETRY);
             }
@@ -106,7 +110,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         ResilientRequestFactory requestFactory = new ResilientRequestFactory(clientName, transport.following(), transport.direct(),
                 settings,
                 breaker(clientName, settings), bulkhead(clientName, settings),
-                (client, outcome) -> attemptListeners.forEach(listener -> listener.accept(client, outcome)));
+                this::reportAttempt);
 
         RestClient.Builder builder = RestClient.builder()
                 .requestFactory(requestFactory)
@@ -122,6 +126,17 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
             customizer.customize(clientName, builder);
         }
         return builder;
+    }
+
+    /** Each listener alone, and none can fail a call: a registry refusing a meter must cost neither an outcome nor a permit. */
+    private void reportAttempt(String client, String outcome) {
+        for (BiConsumer<String, String> listener : attemptListeners) {
+            try {
+                listener.accept(client, outcome);
+            } catch (RuntimeException e) {
+                log.debug("attempt listener failed", e);
+            }
+        }
     }
 
     /** Reads what is needed and no more: the rest is dropped when the response closes. */

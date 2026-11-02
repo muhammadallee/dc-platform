@@ -1,0 +1,182 @@
+PASS	dependency tree has platform-starter-restclient
+PASS	dependency tree has resilience4j-circuitbreaker
+PASS	dependency tree has resilience4j-bulkhead
+PASS	dependency tree has resilience4j-micrometer
+PASS	app ready in 14s
+PASS	ac1 status 200
+PASS	AC1 the downstream's body came back
+PASS	AC1: 1 request(s) reached the downstream
+PASS	AC1 traceparent carries the inbound trace
+PASS	AC1 no custom correlation header
+PASS	AC1 the token is relayed
+PASS	ac4-404 status 500
+PASS	ac4-404: code DC-RCLIENT-0500, retryable=False
+PASS	ac4-404: exactly the generic detail
+PASS	AC4 404: 1 request(s) reached the downstream
+PASS	AC4 the upstream body stays out of the response
+PASS	ac4-500 status 500
+PASS	ac4-500: code DC-RCLIENT-0500, retryable=False
+PASS	ac4-500: exactly the generic detail
+PASS	AC4 500: 1 request(s) reached the downstream
+PASS	ac4-429 status 503
+PASS	ac4-429: code DC-RCLIENT-0500, retryable=True
+PASS	ac4-429: exactly the generic detail
+PASS	AC4 429: 3 request(s) reached the downstream
+PASS	ac4-502 status 503
+PASS	ac4-502: code DC-RCLIENT-0500, retryable=True
+PASS	ac4-502: exactly the generic detail
+PASS	AC4 502: 3 request(s) reached the downstream
+PASS	ac4-504 status 503
+PASS	ac4-504: code DC-RCLIENT-0500, retryable=True
+PASS	ac4-504: exactly the generic detail
+PASS	AC4 504: 3 request(s) reached the downstream
+PASS	ac4-503 status 503
+PASS	ac4-503: code DC-RCLIENT-0500, retryable=True
+PASS	ac4-503: exactly the generic detail
+PASS	AC4 503: 3 request(s) reached the downstream
+PASS	AC12 the trace is the same on every attempt
+PASS	AC12 the token is the same on every attempt
+PASS	ac4-recover status 200
+PASS	AC4 recovery: 2 request(s) reached the downstream
+PASS	ac6-retry-after status 200
+PASS	AC6 Retry-After: 2 request(s) reached the downstream
+PASS	AC6 Retry-After was waited for
+PASS	ac2-slow status 503
+PASS	ac2-slow: code DC-RCLIENT-0500, retryable=True
+PASS	ac2-slow: exactly the generic detail
+PASS	AC2 slow, bounded by the deadline: 7s, at most 10 s
+PASS	ac2-silent status 503
+PASS	ac2-silent: code DC-RCLIENT-0500, retryable=True
+PASS	ac2-silent: exactly the generic detail
+PASS	AC2 no response, bounded: 8s, at most 10 s
+PASS	ac2-after status 200
+PASS	ac7 status 504
+PASS	ac7: code DC-RCLIENT-0500, retryable=True
+PASS	ac7: exactly the generic detail
+PASS	AC7 stopped at the deadline: 2s, at most 3 s
+PASS	ac3-refused status 503
+PASS	ac3-refused: code DC-RCLIENT-0500, retryable=True
+PASS	ac3-refused: exactly the generic detail
+PASS	AC3 refused: 2s, at most 9 s
+PASS	ac3-unknown status 503
+PASS	ac3-unknown: code DC-RCLIENT-0500, retryable=True
+PASS	ac3-unknown: exactly the generic detail
+PASS	AC3 unknown host: 1s, at most 9 s
+PASS	ac3-refused-post status 503
+PASS	ac3-refused-post: code DC-RCLIENT-0500, retryable=True
+PASS	ac3-refused-post: exactly the generic detail
+PASS	ac10-POST status 500
+PASS	ac10-POST: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-POST: exactly the generic detail
+PASS	AC10 POST on 503: 1 request(s) reached the downstream
+PASS	ac10-POST-key status 500
+PASS	ac10-POST-key: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-POST-key: exactly the generic detail
+PASS	AC10 POST on 503, with a key: 1 request(s) reached the downstream
+PASS	AC10 POST key arrives unchanged
+PASS	ac10-POST-drop status 500
+PASS	ac10-POST-drop: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-POST-drop: exactly the generic detail
+PASS	AC10 POST, connection lost after sending: 1 request(s) reached the downstream
+PASS	ac10-POST-slow status 500
+PASS	ac10-POST-slow: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-POST-slow: exactly the generic detail
+PASS	AC10 POST timed out: outcome unknown: 1 request(s) reached the downstream
+PASS	ac10-POST-307 status 200
+PASS	AC10 POST not re-sent by a 307: 1 request(s) reached the downstream
+PASS	ac10-PATCH status 500
+PASS	ac10-PATCH: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-PATCH: exactly the generic detail
+PASS	AC10 PATCH on 503: 1 request(s) reached the downstream
+PASS	ac10-PATCH-key status 500
+PASS	ac10-PATCH-key: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-PATCH-key: exactly the generic detail
+PASS	AC10 PATCH on 503, with a key: 1 request(s) reached the downstream
+PASS	AC10 PATCH key arrives unchanged
+PASS	ac10-PATCH-drop status 500
+PASS	ac10-PATCH-drop: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-PATCH-drop: exactly the generic detail
+PASS	AC10 PATCH, connection lost after sending: 1 request(s) reached the downstream
+PASS	ac10-PATCH-slow status 500
+PASS	ac10-PATCH-slow: code DC-RCLIENT-0500, retryable=False
+PASS	ac10-PATCH-slow: exactly the generic detail
+PASS	AC10 PATCH timed out: outcome unknown: 1 request(s) reached the downstream
+PASS	ac10-PATCH-307 status 200
+PASS	AC10 PATCH not re-sent by a 307: 1 request(s) reached the downstream
+PASS	ac4-put status 503
+PASS	ac4-put: code DC-RCLIENT-0500, retryable=True
+PASS	ac4-put: exactly the generic detail
+PASS	AC4 PUT retried: 3 request(s) reached the downstream
+PASS	ac5-large status 200
+PASS	ac5-large: kind RESPONSE, status 500
+PASS	ac5-large: the snippet is at most 1 KB
+PASS	AC5 returned without reading it all: 2s, at most 5 s
+PASS	AC5 the rest of the body was not read
+PASS	ac5-redact status 200
+PASS	ac5-redact: the secret is gone, the rest stays
+PASS	ac16-string status 504
+PASS	ac16-string: code DC-RCLIENT-0500, retryable=True
+PASS	ac16-string: exactly the generic detail
+PASS	ac16-json: AC16 a body failure inside JSON is a failure, with a matching retryable
+PASS	ac16-json: AC16 with the generic detail
+PASS	ac8-fail-1 status 503
+PASS	ac8-fail-1: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-fail-1: exactly the generic detail
+PASS	ac8-fail-2 status 503
+PASS	ac8-fail-2: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-fail-2: exactly the generic detail
+PASS	ac8-fail-3 status 503
+PASS	ac8-fail-3: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-fail-3: exactly the generic detail
+PASS	ac8-fail-4 status 503
+PASS	ac8-fail-4: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-fail-4: exactly the generic detail
+PASS	AC8 retries off for this client: 4 request(s) reached the downstream
+PASS	AC8 the breaker's metric says open: 1
+PASS	ac14-deps status 200
+PASS	ac14-deps: AC14 the dependencies group shows it open
+PASS	ac14-ready status 200
+PASS	ac14-ready: AC14 readiness UP
+PASS	ac14-live status 200
+PASS	ac14-live: AC14 liveness UP
+PASS	ac8-open status 200
+PASS	ac8-open: AC8 refused as CIRCUIT_OPEN
+PASS	ac8-open-problem status 503
+PASS	ac8-open-problem: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-open-problem: exactly the generic detail
+PASS	ac8-open-post status 503
+PASS	ac8-open-post: code DC-RCLIENT-0500, retryable=True
+PASS	ac8-open-post: exactly the generic detail
+PASS	AC8 an open breaker sent nothing: 4 request(s) reached the downstream
+PASS	AC8 attempts counted circuit_open: 3
+PASS	AC8 half-open during its trial call: 1
+PASS	AC8 the trial call succeeded
+PASS	AC8 closed again: 1
+PASS	ac8-closed: AC8 the group shows it closed
+PASS	AC9 each refusal is a generic, retryable ProblemDetail
+PASS	AC9 2 answered, 4 refused
+PASS	AC9 the refused did not wait
+PASS	AC9 only the permitted were sent: 2 request(s) reached the downstream
+PASS	ac9-after status 200
+PASS	AC17: 30 request(s) reached the downstream
+PASS	AC17 every call carried its own trace
+PASS	AC17 no trace bleed in the log: 30 lines, each on its own trace
+PASS	AC5 the secret is in no log
+PASS	no query string in the client metric's tags
+PASS	http.client.requests tagged by client name
+PASS	AC15 the first attempt arrived: 1 request(s) reached the downstream
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	AC15 the call in its backoff finished, through a second attempt in flight
+PASS	app ready in 9s
+PASS	§7.11 ready in 9s with the downstream down, 14s with it up
+PASS	down status 503
+PASS	down: code DC-RCLIENT-0500, retryable=True
+PASS	down: exactly the generic detail
+PASS	back status 200
+PASS	AC15 the call is in flight: 1 request(s) reached the downstream
+PASS	app exited on SIGTERM (code 143) in 4s
+PASS	graceful shutdown completed (logged)
+PASS	AC15 the call in flight at SIGTERM finished
+PASS	no token in the evidence
+PASS	cleanup: no containers left for dch-20261102155736-38723

@@ -628,6 +628,137 @@ class ResilienceBehaviourTest {
     }
 
     @Test
+    void atMost8KibOfAnErrorBodyIsRead() {
+        var read = new java.util.concurrent.atomic.AtomicLong();
+        java.io.InputStream counting = new java.io.InputStream() {
+            @Override
+            public int read() {
+                read.incrementAndGet();
+                return 'x';
+            }
+        };
+        var response = new org.springframework.mock.http.client.MockClientHttpResponse(counting,
+                org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+
+        String body = DefaultPlatformRestClientFactory.readBody(response);
+
+        assertThat(body).hasSize(8192);
+        assertThat(read).hasValue(8192);
+    }
+
+    @Test
+    void aRetryAfterDateIsWaitedForOnARealCall() {
+        String date = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(3));
+        server.enqueue(status(503).addHeader("Retry-After", date));
+        server.enqueue(new MockResponse());
+        RestClient client = fastClient();
+
+        long started = System.nanoTime();
+        client.get().uri("/a").retrieve().toBodilessEntity();
+
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isGreaterThan(Duration.ofSeconds(1));
+        assertThat(server.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
+    void halfOpenAllowsItsTrialCallsAndRefusesTheRestUntilTheyFinish() throws Exception {
+        server.enqueue(status(500));
+        server.enqueue(status(500));
+        server.enqueue(new MockResponse().setBody("trial"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, new Retry(false, null, null, null, null, null),
+                new CircuitBreaker(true, 50f, 2, 2, Duration.ofMillis(100), 1), null));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+        var breaker = factory.circuitBreakers().circuitBreaker("rest-orders");
+        failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+        failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+        assertThat(breaker.getState().name()).isEqualTo("OPEN");
+        Thread.sleep(200);
+
+        try (java.io.InputStream trial = client.get().uri("/a").retrieve().body(java.io.InputStream.class)) {
+            assertThat(breaker.getState().name()).isEqualTo("HALF_OPEN");
+            assertThat(failure(() -> client.get().uri("/a").retrieve().toBodilessEntity()).kind()).isEqualTo(Kind.CIRCUIT_OPEN);
+            trial.readAllBytes();
+        }
+
+        assertThat(breaker.getState().name()).isEqualTo("CLOSED");
+    }
+
+    @Test
+    void aCallerKeepingAStreamOpenIsNotASlowCall() throws Exception {
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST,
+                new CircuitBreaker(true, 50f, 2, 2, Duration.ofSeconds(30), 1), null));
+        factory.builder("orders");
+
+        assertThat(factory.circuitBreakers().circuitBreaker("rest-orders").getCircuitBreakerConfig().getSlowCallDurationThreshold())
+                .isGreaterThan(Duration.ofDays(30));
+    }
+
+    @Test
+    void eachAttemptTakesAndReturnsAPermit() {
+        server.enqueue(status(503));
+        server.enqueue(status(503));
+        server.enqueue(new MockResponse().setBody("third"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, new Bulkhead(true, null, 1)));
+
+        // A single permit: a second attempt can only start if the first gave it back.
+        assertThat(factory.builder("orders").baseUrl(server.url("/").toString()).build().get().uri("/a").retrieve().body(String.class))
+                .isEqualTo("third");
+        assertThat(server.getRequestCount()).isEqualTo(3);
+    }
+
+    @Test
+    void anOpenBreakerIsNotRetried() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return status(503);
+            }
+        });
+        RestClient client = client(new Defaults(null, null, null, FAST, new CircuitBreaker(true, 50f, 1, 1, Duration.ofSeconds(30), 1), null));
+
+        // The first attempt opens it; the second finds it open, and that ends the call.
+        RemoteCallException e = failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(e.kind()).isEqualTo(Kind.CIRCUIT_OPEN);
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void theBreakerAndBulkheadCanBeSwitchedOff() {
+        server.enqueue(new MockResponse());
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, null, NO_BREAKER,
+                new Bulkhead(false, null, null)));
+
+        factory.builder("orders").baseUrl(server.url("/").toString()).build().get().uri("/a").retrieve().toBodilessEntity();
+
+        assertThat(factory.circuitBreakers().getAllCircuitBreakers()).isEmpty();
+        assertThat(factory.bulkheads().getAllBulkheads()).isEmpty();
+    }
+
+    @Test
+    void aFailureInsideAJsonBodyArrivesWrappedAndCarriesTheFailureBeneath() {
+        server.enqueue(new MockResponse().addHeader("Content-Type", "application/json").setBody("{\"a\":\"" + "y".repeat(100_000) + "\"}")
+                .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY));
+        RestClient client = fastClient();
+
+        Throwable e = catchThrowable(() -> client.post().uri("/a").body("x").retrieve().body(Map.class));
+
+        assertThat(e).isInstanceOf(org.springframework.web.client.RestClientException.class);
+        assertThat(e).hasRootCauseInstanceOf(IOException.class);
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void aRedirectTargetsFragmentAndAnythingAfterItsSpaceStayOutOfTheCause() {
+        server.enqueue(status(307).addHeader("Location", "http://example.test/?q=public PRIVATE"));
+        RestClient client = fastClient();
+
+        Throwable e = catchThrowable(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+    }
+
+    @Test
     void aBlankClientNameIsRefused() {
         assertThatThrownBy(() -> factory(new Defaults(null, null, null, null, null, null)).builder(" "))
                 .isInstanceOf(IllegalArgumentException.class);

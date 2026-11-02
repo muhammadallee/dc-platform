@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
@@ -49,7 +50,8 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  */
 final class ResilientRequestFactory implements ClientHttpRequestFactory {
 
-    private static final long TIMER_MARGIN_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
+    private static final Pattern QUERY_ONWARD = Pattern.compile("(?s)[?#].*");
+    private static final long TIMER_MARGIN_NANOS = TimeUnit.MILLISECONDS.toNanos(2);
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
     private static final Set<HttpMethod> IDEMPOTENT = Set.of(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.PUT,
             HttpMethod.DELETE);
@@ -94,7 +96,8 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         private final URI uri;
         private final HttpMethod method;
         private final ByteArrayOutputStream body = new ByteArrayOutputStream();
-        // From here, so a body written slowly by the caller's callback counts too.
+        // From here: it covers a body written by the caller's callback, when no interceptor buffered it first, and not the time
+        // the caller's own interceptors take before reaching this.
         private final long deadlineAt = System.nanoTime() + settings.deadline().toNanos();
 
         private ResilientRequest(URI uri, HttpMethod method) {
@@ -251,9 +254,10 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
         return new RemoteCallException(client, Kind.CONNECTION, 0, "", idempotent, cause);
     }
 
-    /** A transport message can quote a URL, as with a bad redirect target, so its query and credentials go, and so do deeper causes. */
+    /** A transport message can quote a URL, as with a bad redirect target: all after a query or fragment goes, and so do deeper causes. */
     private static IOException sanitized(IOException e) {
-        String message = e.getMessage() == null ? "" : ": " + e.getMessage().replaceAll("\\?\\S*", "?…").replaceAll("//[^/\\s@]*@", "//");
+        String message = e.getMessage() == null ? ""
+                : ": " + QUERY_ONWARD.matcher(e.getMessage()).replaceFirst("…").replaceAll("//[^/\\s@]*@", "//");
         IOException clean = new IOException(e.getClass().getName() + message);
         clean.setStackTrace(e.getStackTrace());
         return clean;

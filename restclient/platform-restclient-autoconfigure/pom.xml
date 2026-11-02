@@ -121,6 +121,17 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- A real JSON converter, for a failure inside a JSON body. -->
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- MockWebServer asserting headers, timeout config, and error mapping (pinned in
          platform-dependencies; test scope). -->
     <dependency>

@@ -13,7 +13,9 @@ import io.github.resilience4j.micrometer.tagged.TaggedCircuitBreakerMetrics;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import io.micrometer.observation.ObservationRegistry;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -79,11 +81,11 @@ public class PlatformRestClientAutoConfiguration {
 
         @Bean
         MeterBinder restclientResilienceMetrics(ObjectProvider<PlatformRestClientFactory> factories) {
-            // Binds once. Boot hands the composite registry over; a second binding would count every event twice.
-            AtomicBoolean bound = new AtomicBoolean();
+            // Once per registry: binding one twice would count every event twice. Boot may hand over several user composites.
+            Set<MeterRegistry> bound = Collections.newSetFromMap(new IdentityHashMap<>());
             return registry -> {
                 if (!(factories.getIfAvailable() instanceof DefaultPlatformRestClientFactory factory)
-                        || !bound.compareAndSet(false, true)) {
+                        || !bound.add(registry)) {
                     return;
                 }
                 TaggedCircuitBreakerMetrics.ofCircuitBreakerRegistry(factory.circuitBreakers()).bindTo(registry);

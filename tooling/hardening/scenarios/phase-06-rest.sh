@@ -37,7 +37,7 @@ expect_stub() { # description python-expression
 expect_problem() { # status retryable
   hh_expect_status "$1"
   hh_expect_json "code DC-RCLIENT-0500, retryable=$2" "b.get('code')=='DC-RCLIENT-0500' and b.get('retryable')==$2"
-  hh_expect_json "a generic detail" "b.get('detail')=='An unexpected error occurred.' or 'toxiproxy' not in str(b)"
+  hh_expect_json "exactly the generic detail" "b.get('detail')=='An unexpected error occurred.'"
 }
 expect_seconds() { # description started max
   local took=$(( $(date +%s) - $2 ))
@@ -95,7 +95,7 @@ for _ in $(seq 1 60); do [ "$(toxi GET /version)" = 200 ] && break; sleep 0.5; d
 P=dc.platform.restclient
 read -r -d '' CONFIG <<JSON || true
 {"$P.defaults.read-timeout":"2s","$P.defaults.deadline":"8s",
- "$P.clients.main.circuit-breaker.enabled":false,
+ "$P.clients.main.circuit-breaker.enabled":false,"$P.clients.main.bulkhead.max-concurrent":60,
  "$P.clients.refused.circuit-breaker.enabled":false,"$P.clients.unknownhost.circuit-breaker.enabled":false,
  "$P.clients.cb.retry.enabled":false,"$P.clients.cb.circuit-breaker.sliding-window-size":4,
  "$P.clients.cb.circuit-breaker.minimum-calls":4,"$P.clients.cb.circuit-breaker.open-duration":"15s",
@@ -134,6 +134,10 @@ hh_http ac4-404 GET "/probe/main/get" "${AUTH[@]}"; expect_problem 500 False; ex
 if grep -q UPSTREAMMARKER <<<"$HH_BODY"; then hh_fail "AC4 the upstream body reached the caller"; else hh_pass "AC4 the upstream body stays out of the response"; fi
 script '{"default":{"status":500}}'
 hh_http ac4-500 GET "/probe/main/get" "${AUTH[@]}"; expect_problem 500 False; expect_count "AC4 500" 1
+for CODE in 429 502 504; do
+  script "{\"default\":{\"status\":$CODE}}"
+  hh_http "ac4-$CODE" GET "/probe/main/get" "${AUTH[@]}"; expect_problem 503 True; expect_count "AC4 $CODE" 3
+done
 script '{"default":{"status":503}}'
 T=5bf92f3577b34da6a3ce929d0e0e4737
 hh_http ac4-503 GET "/probe/main/get" "${AUTH[@]}" -H "traceparent: $(trace_header $T)"; expect_problem 503 True; expect_count "AC4 503" 3
@@ -207,8 +211,10 @@ script "{\"default\":{\"status\":500,\"body\":\"{\\\"password\\\":\\\"$MARKER\\\
 hh_http ac5-redact GET "/probe/main/kind" "${AUTH[@]}"; hh_expect_status 200
 hh_expect_json "the secret is gone, the rest stays" "'$MARKER' not in b['snippet'] and 'keep' in b['snippet']"
 script '{"default":{"status":200,"body":"'"$(printf 'y%.0s' $(seq 1 40))"'","trickle_ms":200}}'
-hh_http ac16 GET "/probe/main/kind" "${AUTH[@]}"
-hh_http ac16-get GET "/probe/dl/get" "${AUTH[@]}"; expect_problem 504 True
+hh_http ac16-string GET "/probe/dl/get" "${AUTH[@]}"; expect_problem 504 True
+script '{"default":{"status":200,"headers":{"Content-Type":"application/json"},"body":"{\"a\":\"'"$(printf 'y%.0s' $(seq 1 40))"'\"}","trickle_ms":200}}'
+hh_http ac16-json GET "/probe/dl/json" "${AUTH[@]}"; hh_expect_status 500
+hh_expect_json "AC16 a failure inside JSON is not called retryable" "b.get('retryable')==False and b.get('detail')=='An unexpected error occurred.'"
 
 hh_step "AC8, AC14: the breaker opens, refuses, recovers; probes stay up"
 script '{"default":{"status":503}}'
@@ -221,12 +227,18 @@ hh_http ac14-ready GET /actuator/health/readiness; hh_expect_status 200; hh_expe
 hh_http ac14-live GET /actuator/health/liveness; hh_expect_status 200; hh_expect_json "AC14 liveness UP" "b['status']=='UP'"
 hh_http ac8-open GET "/probe/cb/kind" "${AUTH[@]}"; hh_expect_status 200; hh_expect_json "AC8 refused as CIRCUIT_OPEN" "b['kind']=='CIRCUIT_OPEN' and b['retryable']"
 hh_http ac8-open-problem GET "/probe/cb/get" "${AUTH[@]}"; expect_problem 503 True
+hh_http ac8-open-post GET "/probe/cb/write?method=POST" "${AUTH[@]}"; expect_problem 503 True
 expect_count "AC8 an open breaker sent nothing" 4
 ATTEMPTS=$(metric platform_restclient_attempts_total 'client="cb"' 'outcome="circuit_open"')
 if [ "${ATTEMPTS:-0}" -ge 2 ]; then hh_pass "AC8 attempts counted circuit_open: $ATTEMPTS"; else hh_fail "AC8 attempts metric: '$ATTEMPTS'"; fi
-script '{"default":{"status":200,"body":"hello"}}'
+script '{"default":{"status":200,"body":"hello","delay_ms":1500}}'
 sleep 16
-hh_http ac8-half-open GET "/probe/cb/get" "${AUTH[@]}"; hh_expect_status 200
+curl -s -o "$HH_EVIDENCE/ac8-trial.body" -w '%{http_code}' --max-time 30 "${AUTH[@]}" "$HH_BASE/probe/cb/get" > "$HH_EVIDENCE/ac8-trial.status" &
+TRIAL_PID=$!
+for _ in $(seq 1 40); do [ "$(stub_count)" = 1 ] && break; sleep 0.1; done
+expect_metric "AC8 half-open during its trial call" resilience4j_circuitbreaker_state 'name="rest-cb"' 'state="half_open"' 1
+wait "$TRIAL_PID" || true
+if [ "$(cat "$HH_EVIDENCE/ac8-trial.status")" = 200 ]; then hh_pass "AC8 the trial call succeeded"; else hh_fail "AC8 trial: $(cat "$HH_EVIDENCE/ac8-trial.status")"; fi
 expect_metric "AC8 closed again" resilience4j_circuitbreaker_state 'name="rest-cb"' 'state="closed"' 1
 hh_http ac8-closed GET /actuator/health/dependencies "${AUTH[@]}"
 hh_expect_json "AC8 the group shows it closed" "b['components']['restclient']['details']['rest-cb']=='CLOSED'"
@@ -282,11 +294,12 @@ if grep -E 'http_client_requests' "$HH_EVIDENCE/prometheus.txt" | grep -q 'id=';
 if grep -q 'client_name="main"' "$HH_EVIDENCE/prometheus.txt"; then hh_pass "http.client.requests tagged by client name"; else hh_fail "no client_name tag"; fi
 rm -f "$HH_EVIDENCE/app-so-far.stdout"
 
-hh_step "AC15: SIGTERM during a backoff and with a call in flight"
-script '{"default":{"status":200,"body":"late","delay_ms":1000},"queue":[{"status":503,"headers":{"Retry-After":"2"}}]}'
+hh_step "AC15: SIGTERM during a backoff, then again with a send in flight"
+script '{"default":{"status":200,"body":"late","delay_ms":1000},"queue":[{"status":503,"headers":{"Retry-After":"3"}}]}'
 curl -s -o "$HH_EVIDENCE/ac15-backoff.body" -w '%{http_code}' --max-time 40 "${AUTH[@]}" "$HH_BASE/probe/main/get?id=900" > "$HH_EVIDENCE/ac15-backoff.status" &
 BACKOFF_PID=$!
-sleep 1
+for _ in $(seq 1 40); do [ "$(stub_count)" = 1 ] && break; sleep 0.1; done
+expect_count "AC15 the first attempt failed, so the call is waiting" 1
 hh_app_stop_graceful
 wait "$BACKOFF_PID" || true
 if [ "$(cat "$HH_EVIDENCE/ac15-backoff.status")" = 200 ] && [ "$(cat "$HH_EVIDENCE/ac15-backoff.body")" = late ]; then
@@ -304,7 +317,16 @@ hh_http down GET "/probe/main/get" "${AUTH[@]}"; expect_problem 503 True
 proxy_enabled true
 script '{"default":{"status":200,"body":"hello"}}'
 hh_http back GET "/probe/main/get" "${AUTH[@]}"; hh_expect_status 200
+script '{"default":{"status":200,"body":"inflight","delay_ms":1500}}'
+curl -s -o "$HH_EVIDENCE/ac15-send.body" -w '%{http_code}' --max-time 40 "${AUTH[@]}" "$HH_BASE/probe/main/get?id=901" > "$HH_EVIDENCE/ac15-send.status" &
+SEND_PID=$!
+for _ in $(seq 1 40); do [ "$(stub_count)" = 1 ] && break; sleep 0.1; done
+expect_count "AC15 the call is in flight" 1
 HH_APP_NAME=downstream-down hh_app_stop_graceful
+wait "$SEND_PID" || true
+if [ "$(cat "$HH_EVIDENCE/ac15-send.status")" = 200 ] && [ "$(cat "$HH_EVIDENCE/ac15-send.body")" = inflight ]; then
+  hh_pass "AC15 the call in flight at SIGTERM finished"
+else hh_fail "AC15 in-flight send: $(cat "$HH_EVIDENCE/ac15-send.status") $(cat "$HH_EVIDENCE/ac15-send.body")"; fi
 
 TOKEN_VALUE=$(cat "$IDP_DIR/token-valid")
 if grep -qF -e "$TOKEN_VALUE" -r "$HH_EVIDENCE"; then hh_fail "a token reached the evidence"; else hh_pass "no token in the evidence"; fi

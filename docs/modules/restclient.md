@@ -15,7 +15,8 @@ breaker, a bulkhead and one failure type on every outbound call.
 - **One failure type** — every failure throws `RemoteCallException`; `kind()` says which (see below).
   At most 8 KiB of an error body is read. The 1KB snippet has common credential forms removed: authorization and
   cookie lines, auth schemes, JWTs, and secret-named values in JSON, XML and forms. This is best effort, by pattern:
-  an encoded or oddly named secret, or personal or business data, can remain.
+  an encoded or oddly named secret, or personal or business data, can remain. It also errs the safe way, so
+  "basic validation failed" loses a word.
   `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
   caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
 - **Retries, deadline, breaker, bulkhead** — see [Resilience](#resilience).
@@ -78,12 +79,14 @@ the same token and `traceparent`, and one call is one `http.client.requests` obs
   `retry.methods`.
 - **The JDK client re-sends a GET or HEAD once by itself** after a dropped connection, and this cannot be
   switched off per client. So the worst case is 2 × `max-attempts` requests. POST is not re-sent, and
-  `-Djdk.httpclient.enableAllMethodRetry`, which would change that, stops the application from starting.
+  `jdk.httpclient.enableAllMethodRetry`, which would change that, stops the application from starting, as a system
+  property or in the JDK's `conf/net.properties`.
 - **Only known idempotent methods follow redirects.** A POST, PATCH or custom method gets the 3xx back, since a 307 or
   308 would send it again. Under HTTP/2, the JDK can re-send a stream the server said it never processed.
 - **Request bodies are held in memory** for the length of the call, so a streaming upload is buffered. Use something
   else for large uploads.
-- **Deadline.** Covers all attempts and waits. An attempt's timeout is the smaller of `read-timeout` and
+- **Deadline.** Always on. Covers all attempts and waits, from the moment a call reaches the client's transport: not
+  the time your own interceptors or a slow upload callback take first. An attempt's timeout is the smaller of `read-timeout` and
   what remains. The read timeout covers the whole response, body included, so raise it for a large download.
 - **Circuit breaker.** Per client name: opens at 50% failures over 10 calls, stays open 30 s, then allows 3
   trial calls. A failure is a connection failure, a timeout, or 500 and above. A 4xx is an answer. Open means

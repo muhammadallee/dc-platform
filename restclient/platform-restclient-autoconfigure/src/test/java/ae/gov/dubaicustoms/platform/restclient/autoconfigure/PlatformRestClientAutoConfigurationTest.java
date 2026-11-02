@@ -121,12 +121,13 @@ class PlatformRestClientAutoConfigurationTest {
     }
 
     @Test
-    void metricsBindOnlyOnce() {
+    void metricsBindOncePerRegistry() {
         runner.run(context -> {
             var factory = context.getBean(PlatformRestClientFactory.class);
             var first = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
             var second = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
             var binder = context.getBean(io.micrometer.core.instrument.binder.MeterBinder.class);
+            binder.bindTo(first);
             binder.bindTo(first);
             binder.bindTo(second);
             var failing = factory.builder("orders").baseUrl("http://127.0.0.1:1").build();
@@ -134,7 +135,7 @@ class PlatformRestClientAutoConfigurationTest {
                     .isInstanceOf(ae.gov.dubaicustoms.platform.restclient.RemoteCallException.class);
 
             assertThat(first.get("platform.restclient.attempts").counter().count()).isEqualTo(3);
-            assertThat(second.getMeters()).isEmpty();
+            assertThat(second.get("platform.restclient.attempts").counter().count()).isEqualTo(3);
         });
     }
 

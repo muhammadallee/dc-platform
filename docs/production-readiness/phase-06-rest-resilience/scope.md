@@ -82,10 +82,10 @@ Outermost first: deadline, retry, circuit breaker, bulkhead, HTTP. Each attempt 
 At most 8 KiB is read, then closed; the snippet stays 1 KB, is not cut through a character, and is redacted: bearer tokens, JWTs, and values of secret-named keys. The javadoc stops saying "safe to log" without that.
 
 ### R9 Client lifetime
-One `HttpClient` per client name, closed when the context closes. Connect timeouts, redirects, trace propagation and token relay keep their behaviour.
+A pair of `HttpClient`s per client name, following redirects and not (round 1, F1), closed when the context closes. Connect timeouts, redirects, trace propagation and token relay keep their behaviour.
 
 ### R10 Configuration
-`dc.platform.restclient.{defaults,clients.<name>}.{deadline, retry.*, circuit-breaker.*, bulkhead.*}`, each with `enabled`. Immutable records and metadata. Invalid values fail startup with the property's name.
+`dc.platform.restclient.{defaults,clients.<name>}.{deadline, retry.*, circuit-breaker.*, bulkhead.*}`, each with `enabled`, except the deadline, which is always on. Immutable records and metadata. Invalid values fail startup with the property's name.
 
 ### R11 Documentation
 `restclient.md`, `resilience.md` (time limiter corrected), archetype sample and its test, `docs/samples/rest-resilience/`.
@@ -111,7 +111,7 @@ One `HttpClient` per client name, closed when the context closes. Connect timeou
 | 7.8 | R8; no URL query or body in logs or tags | Tested |
 | 7.9 | Low-cardinality tags only | Tested |
 | 7.10 | Shutdown during a backoff and with a call in flight; clients closed | Consumer |
-| 7.11 | No connection at startup, so a down dependency cannot delay it | Consumer, both times recorded |
+| 7.11 | No connection at startup, by construction: a client connects on its first call | Consumer: both times recorded, not an assertion of no attempt |
 
 ## 5. Acceptance criteria
 
@@ -128,11 +128,11 @@ One `HttpClient` per client name, closed when the context closes. Connect timeou
 | AC9 | SLICE, CONSUMER | Bulkhead saturated under concurrency: the excess rejected at once, 503; the permit released on close |
 | AC10 | SLICE, CONSUMER | **POST and PATCH: exactly one request** at the stub, on 503, on a reset after sending, on a 307, and with `Idempotency-Key`, whose value arrives unchanged. Unknown outcome: 500 `retryable=false` |
 | AC11 | SLICE | Configuring POST as retryable, or a thread-pool bulkhead, fails startup naming the property |
-| AC12 | SLICE | Order: an open breaker is not retried, each attempt takes and returns a permit, the token and trace are on every attempt |
-| AC13 | SLICE | `@Retry` and `RetryableOperation` under `default` do not repeat a failed platform client call |
+| AC12 | SLICE, CONSUMER | Order: an open breaker is not retried, each attempt takes and returns a permit (slice); the token and trace are on every attempt (consumer, the real ones) |
+| AC13 | SLICE | `RetryableOperation` under `default`, through the real registry, does not repeat a failed platform client call. `@Retry` reads the same registry; no test runs the aspect |
 | AC14 | CONSUMER | Readiness and liveness stay up with the downstream down; the `dependencies` group shows the breaker |
 | AC15 | CONSUMER | SIGTERM during a backoff and with a call in flight: stops in time, exit 143, in-flight answered |
-| AC16 | SLICE | Failure while reading a success body: `RemoteCallException`, not a raw `RestClientException` |
+| AC16 | SLICE, CONSUMER | Failure while reading a success body: `RemoteCallException`; through a JSON library, `RestClientException` wrapping it, never `retryable` |
 | AC17 | CONSUMER | Concurrent calls keep separate traces and no MDC bleed |
 
 P0: R1, R2, R3, R4, R8. P1: R5, R6, R7, R9. Deferred: R4.2.

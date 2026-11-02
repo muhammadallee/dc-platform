@@ -66,6 +66,12 @@ class RestClientRetryInteractionTest {
     }
 
     @Test
+    void theBackendsAliasIsAThreadPoolBulkheadToo() {
+        runner.withPropertyValues("spring.threads.virtual.enabled=true", "resilience4j.thread-pool-bulkhead.backends.a.core-thread-pool-size=2")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void aMetricsSwitchAloneIsNotAThreadPoolBulkhead() {
         runner.withPropertyValues("spring.threads.virtual.enabled=true", "resilience4j.thread-pool-bulkhead.metrics.enabled=false")
                 .run(context -> assertThat(context).hasNotFailed());

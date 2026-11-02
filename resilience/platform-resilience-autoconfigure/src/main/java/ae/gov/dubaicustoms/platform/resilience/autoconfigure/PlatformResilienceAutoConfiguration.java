@@ -4,6 +4,8 @@ import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.resilience.RetryableOperation;
 import ae.gov.dubaicustoms.platform.resilience.autoconfigure.internal.DefaultRetryableOperation;
 import io.github.resilience4j.retry.RetryRegistry;
+import java.util.List;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -52,11 +54,10 @@ public class PlatformResilienceAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "spring.threads.virtual.enabled", havingValue = "true")
     static SmartInitializingSingleton threadPoolBulkheadGuard(Environment environment) {
-        ConfigurationPropertyName instances = ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead.instances");
-        ConfigurationPropertyName configs = ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead.configs");
+        List<ConfigurationPropertyName> names = Stream.of("instances", "backends", "configs")
+                .map(group -> ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead." + group)).toList();
         for (ConfigurationPropertySource source : ConfigurationPropertySources.get(environment)) {
-            if (source.containsDescendantOf(instances) == ConfigurationPropertyState.PRESENT
-                    || source.containsDescendantOf(configs) == ConfigurationPropertyState.PRESENT) {
+            if (names.stream().anyMatch(name -> source.containsDescendantOf(name) == ConfigurationPropertyState.PRESENT)) {
                 throw new IllegalStateException("resilience4j.thread-pool-bulkhead is configured while "
                         + "spring.threads.virtual.enabled=true: a thread-pool bulkhead would pin blocking calls to platform "
                         + "threads. Use a semaphore bulkhead (resilience4j.bulkhead), or remove the thread-pool configuration");

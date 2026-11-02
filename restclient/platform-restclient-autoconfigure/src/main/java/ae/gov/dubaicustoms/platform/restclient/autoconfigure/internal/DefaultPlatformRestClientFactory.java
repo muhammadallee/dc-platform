@@ -14,13 +14,18 @@ import io.micrometer.common.KeyValue;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -38,6 +43,7 @@ import org.springframework.web.client.RestClient;
  */
 public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory, DisposableBean {
 
+    private static final String ALL_METHOD_RETRY = "jdk.httpclient.enableAllMethodRetry";
     private static final int MAX_ERROR_BODY_BYTES = 8 * 1024;
     private static final Duration CLOSE_WAIT = Duration.ofSeconds(5);
 
@@ -48,7 +54,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     private final BulkheadRegistry bulkheads = BulkheadRegistry.ofDefaults();
     private final Map<String, Transport> transports = new ConcurrentHashMap<>();
     private volatile boolean closed;
-    private volatile BiConsumer<String, String> attempts = (client, outcome) -> { };
+    private final List<BiConsumer<String, String>> attemptListeners = new CopyOnWriteArrayList<>();
 
     public DefaultPlatformRestClientFactory(RestClientProperties properties, List<PlatformRestClientCustomizer> customizers) {
         this(properties, customizers, () -> ObservationRegistry.NOOP);
@@ -63,10 +69,27 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.customizers = List.copyOf(customizers);
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
-        String allMethodRetry = System.getProperty("jdk.httpclient.enableAllMethodRetry");
-        if (allMethodRetry != null && !"false".equalsIgnoreCase(allMethodRetry)) {
-            throw new IllegalStateException("-Djdk.httpclient.enableAllMethodRetry makes the JDK client re-send a POST after a lost "
-                    + "connection, which could apply it twice. Remove it: the platform client must never do that");
+        refuseAllMethodRetry();
+    }
+
+    /** The JDK reads this from the system property, then from its {@code conf/net.properties}. */
+    private static void refuseAllMethodRetry() {
+        String value = System.getProperty(ALL_METHOD_RETRY);
+        if (value == null) {
+            Path file = Path.of(System.getProperty("java.home"), "conf", "net.properties");
+            if (Files.isReadable(file)) {
+                Properties net = new Properties();
+                try (InputStream in = Files.newInputStream(file)) {
+                    net.load(in);
+                } catch (IOException e) {
+                    throw new UncheckedIOException("cannot read " + file, e);
+                }
+                value = net.getProperty(ALL_METHOD_RETRY);
+            }
+        }
+        if (value != null && !"false".equalsIgnoreCase(value.trim())) {
+            throw new IllegalStateException(ALL_METHOD_RETRY + " makes the JDK client re-send a POST after a lost connection, which "
+                    + "could apply it twice. Remove it from the JVM options and conf/net.properties");
         }
     }
 
@@ -78,10 +101,11 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         }
         RestClientProperties.Defaults settings = properties.timeoutsFor(clientName);
         Transport transport = transport(clientName, settings);
-        // A listener resolved per attempt, so metrics bound after a client is built still count it.
+        // Listeners read per attempt, so metrics bound after a client is built still count it.
         ResilientRequestFactory requestFactory = new ResilientRequestFactory(clientName, transport.following(), transport.direct(),
                 settings,
-                breaker(clientName, settings), bulkhead(clientName, settings), (client, outcome) -> attempts.accept(client, outcome));
+                breaker(clientName, settings), bulkhead(clientName, settings),
+                (client, outcome) -> attemptListeners.forEach(listener -> listener.accept(client, outcome)));
 
         RestClient.Builder builder = RestClient.builder()
                 .requestFactory(requestFactory)
@@ -100,7 +124,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     }
 
     /** Reads what is needed and no more: the rest is dropped when the response closes. */
-    private static String readBody(org.springframework.http.client.ClientHttpResponse response) {
+    static String readBody(org.springframework.http.client.ClientHttpResponse response) {
         try (InputStream in = response.getBody()) {
             return new String(in.readNBytes(MAX_ERROR_BODY_BYTES), StandardCharsets.UTF_8);
         } catch (IOException | RemoteCallException e) {
@@ -112,12 +136,19 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         if (closed) {
             throw new IllegalStateException("the REST client factory is closed");
         }
-        Transport transport = transports.computeIfAbsent(clientName, name -> new Transport(
-                HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
-                HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build()));
+        Transport[] created = new Transport[1];
+        Transport transport = transports.computeIfAbsent(clientName, name -> {
+            created[0] = new Transport(
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build());
+            return created[0];
+        });
         if (closed) {
-            transport.following().shutdownNow();
-            transport.direct().shutdownNow();
+            // Only one made here, which the close may have missed. Any other is draining, with calls of its own.
+            if (created[0] != null) {
+                created[0].following().shutdownNow();
+                created[0].direct().shutdownNow();
+            }
             throw new IllegalStateException("the REST client factory is closed");
         }
         return transport;
@@ -135,6 +166,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
                 .minimumNumberOfCalls(config.minimumCalls())
                 .waitDurationInOpenState(config.openDuration())
                 .permittedNumberOfCallsInHalfOpenState(config.halfOpenCalls())
+                // Failures only: a call's time includes however long its caller keeps a streamed body open.
+                .slowCallDurationThreshold(Duration.ofDays(365))
                 .build());
     }
 
@@ -165,12 +198,12 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     }
 
     /**
-     * Sets who hears of each attempt.
+     * Adds someone to hear of each attempt.
      *
      * @param listener receives the client name and the attempt's outcome
      */
     public void onAttempt(BiConsumer<String, String> listener) {
-        this.attempts = Objects.requireNonNull(listener, "listener must not be null");
+        attemptListeners.add(Objects.requireNonNull(listener, "listener must not be null"));
     }
 
     /** Lets calls in flight finish, within one wait shared by all clients, then cuts them, so a stop is bounded. */

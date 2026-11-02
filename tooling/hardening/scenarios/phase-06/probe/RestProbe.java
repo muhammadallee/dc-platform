@@ -52,6 +52,11 @@ public class RestProbe {
         return client(client).get().uri("/data?id={id}", id).retrieve().body(String.class);
     }
 
+    @GetMapping("/json")
+    public Map<?, ?> json(@PathVariable String client) {
+        return client(client).get().uri("/data").retrieve().body(Map.class);
+    }
+
     @GetMapping("/write")
     public ResponseEntity<String> write(@PathVariable String client, @RequestParam String method,
             @RequestParam(defaultValue = "0") String id, @RequestHeader(name = "Idempotency-Key", required = false) String key) {

@@ -38,7 +38,7 @@ By reading (each gets a test at Gate B):
 ## 2. Requirements
 
 ### R1 One failure type
-1. Every failed call throws `RemoteCallException`, with a `Kind`: `RESPONSE`, `TIMEOUT`, `CONNECTION`, `DEADLINE`, `CIRCUIT_OPEN`, `BULKHEAD_FULL`. `status()` is 0 when there was no response. A failure while reading a success body also becomes one.
+1. Every failed call throws `RemoteCallException`, with a `Kind`: `RESPONSE`, `TIMEOUT`, `CONNECTION`, `DEADLINE`, `CIRCUIT_OPEN`, `BULKHEAD_FULL`. `status()` is 0 when there was no response. A failure while reading a success body also becomes one, or Spring's `RestClientException` wrapping one when a JSON library reads through it (round 1, F8).
 2. `retryable()` is true only if a repeat by the caller is safe and may help. A connection never made is safe for any method.
 
 ### R2 ProblemDetail (§7.7)
@@ -72,7 +72,7 @@ The detail is generic: no host, URL, or upstream body.
 4. Metrics from Resilience4j's Micrometer binding. Health: a `restclient` contributor, always `UP`, with each breaker's state in its details, in the `dependencies` group and never in readiness (HD6).
 
 ### R6 Bulkhead (G6-06)
-1. Semaphore per client, default 25 concurrent and no wait. The permit is held until the response is closed. Full: `BULKHEAD_FULL`, not retried.
+1. Semaphore per client, default 25 concurrent. A full one refuses at once: there is no wait, so none can pass a deadline (round 1, F6). The permit is held until the response is closed. Full: `BULKHEAD_FULL`, not retried.
 2. `bulkhead.type=THREAD_POOL` fails startup with a clear message: it is not supported. In the resilience capability, a `resilience4j.thread-pool-bulkhead` instance with `spring.threads.virtual.enabled=true` fails startup too.
 
 ### R7 Order
@@ -126,7 +126,7 @@ One `HttpClient` per client name, closed when the context closes. Connect timeou
 | AC7 | SLICE | Exhausted deadline: no further attempt; `DEADLINE`, 504 |
 | AC8 | CONSUMER | Breaker closed, open, half-open, closed, with its metrics; open sends nothing |
 | AC9 | SLICE, CONSUMER | Bulkhead saturated under concurrency: the excess rejected at once, 503; the permit released on close |
-| AC10 | SLICE, CONSUMER | **POST and PATCH: exactly one request** at the stub, on 503, on a reset after sending, and with `Idempotency-Key`, whose value arrives unchanged. Unknown outcome: 500 `retryable=false` |
+| AC10 | SLICE, CONSUMER | **POST and PATCH: exactly one request** at the stub, on 503, on a reset after sending, on a 307, and with `Idempotency-Key`, whose value arrives unchanged. Unknown outcome: 500 `retryable=false` |
 | AC11 | SLICE | Configuring POST as retryable, or a thread-pool bulkhead, fails startup naming the property |
 | AC12 | SLICE | Order: an open breaker is not retried, each attempt takes and returns a permit, the token and trace are on every attempt |
 | AC13 | SLICE | `@Retry` and `RetryableOperation` under `default` do not repeat a failed platform client call |

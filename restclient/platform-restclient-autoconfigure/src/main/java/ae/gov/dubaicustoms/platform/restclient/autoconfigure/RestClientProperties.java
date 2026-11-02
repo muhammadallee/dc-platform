@@ -94,6 +94,8 @@ public record RestClientProperties(
             connectTimeout = connectTimeout != null ? connectTimeout : Duration.ofSeconds(2);
             readTimeout = readTimeout != null ? readTimeout : Duration.ofSeconds(10);
             deadline = deadline != null ? deadline : Duration.ofSeconds(30);
+            requirePositive(connectTimeout, "connect-timeout");
+            requirePositive(readTimeout, "read-timeout");
             requirePositive(deadline, "deadline");
             retry = Retry.DEFAULT.overriddenBy(retry);
             circuitBreaker = CircuitBreaker.DEFAULT.overriddenBy(circuitBreaker);
@@ -115,8 +117,14 @@ public record RestClientProperties(
     public record ClientOverride(Duration connectTimeout, Duration readTimeout, Duration deadline, Retry retry,
             CircuitBreaker circuitBreaker, Bulkhead bulkhead) {
 
-        /** Fails on a non-positive deadline. */
+        /** Fails on a non-positive duration. */
         public ClientOverride {
+            if (connectTimeout != null) {
+                requirePositive(connectTimeout, "connect-timeout");
+            }
+            if (readTimeout != null) {
+                requirePositive(readTimeout, "read-timeout");
+            }
             if (deadline != null) {
                 requirePositive(deadline, "deadline");
             }
@@ -218,17 +226,17 @@ public record RestClientProperties(
     }
 
     /**
-     * The per-client concurrency limit. Only a semaphore: a thread pool would defeat virtual threads.
+     * The per-client concurrency limit. Only a semaphore: a thread pool would defeat virtual threads. A full bulkhead refuses
+     * at once, so waiting for room can never pass a deadline.
      *
      * @param enabled whether to use it
      * @param type {@link BulkheadType#SEMAPHORE}; {@link BulkheadType#THREAD_POOL} fails startup
      * @param maxConcurrent calls in flight at once
-     * @param maxWait how long a call waits for room
      * @since 1.0.0
      */
-    public record Bulkhead(Boolean enabled, BulkheadType type, Integer maxConcurrent, Duration maxWait) {
+    public record Bulkhead(Boolean enabled, BulkheadType type, Integer maxConcurrent) {
 
-        private static final Bulkhead DEFAULT = new Bulkhead(true, BulkheadType.SEMAPHORE, 25, Duration.ZERO);
+        private static final Bulkhead DEFAULT = new Bulkhead(true, BulkheadType.SEMAPHORE, 25);
 
         /** Fails on a thread-pool type or an impossible value. */
         public Bulkhead {
@@ -237,17 +245,13 @@ public record RestClientProperties(
                         + "platform threads and defeat virtual threads. Use SEMAPHORE");
             }
             requireAtLeastOne(maxConcurrent, "bulkhead.max-concurrent");
-            if (maxWait != null && maxWait.isNegative()) {
-                throw new IllegalArgumentException("bulkhead.max-wait must not be negative, got " + maxWait);
-            }
         }
 
         Bulkhead overriddenBy(Bulkhead other) {
             if (other == null) {
                 return this;
             }
-            return new Bulkhead(pick(other.enabled, enabled), pick(other.type, type), pick(other.maxConcurrent, maxConcurrent),
-                    pick(other.maxWait, maxWait));
+            return new Bulkhead(pick(other.enabled, enabled), pick(other.type, type), pick(other.maxConcurrent, maxConcurrent));
         }
     }
 

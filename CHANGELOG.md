@@ -16,7 +16,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - At most 8 KiB of an error body is read, and the snippet is redacted.
 - `PlatformException.problemStatus()` is new, default 500.
 - The `dependencies` health group adds `restclient`.
-- The default Resilience4j retry ignores `RemoteCallException` and `ResourceAccessException`.
+- The default Resilience4j retry ignores `RemoteCallException` and `RestClientException`.
+- A POST, PATCH or custom method no longer follows redirects: it gets the 3xx back.
+- `-Djdk.httpclient.enableAllMethodRetry` stops the application from starting.
 - A `resilience4j.thread-pool-bulkhead` with virtual threads on fails startup.
 - Docs: the 5 s time limiter bounds only asynchronous returns, not a blocking call.
 

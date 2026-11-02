@@ -23,17 +23,18 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.client.observation.ClientHttpObservationDocumentation;
 import org.springframework.http.client.observation.ClientRequestObservationContext;
 import org.springframework.http.client.observation.DefaultClientRequestObservationConvention;
 import org.springframework.web.client.RestClient;
 
 /**
- * Default {@link PlatformRestClientFactory}: one JDK {@link HttpClient} per client name under the platform's resilience,
- * plus {@code http.client.requests} observations tagged {@code client.name=<clientName>}. Closes its clients with the
- * context.
+ * Default {@link PlatformRestClientFactory}: JDK {@link HttpClient}s per client name under the platform's resilience,
+ * plus {@code http.client.requests} observations tagged {@code client.name=<clientName>} that leave out query strings and
+ * URL credentials. Closes its clients with the context.
  */
 public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory, DisposableBean {
 
@@ -45,7 +46,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
     private final Supplier<ObservationRegistry> observationRegistry;
     private final CircuitBreakerRegistry breakers = CircuitBreakerRegistry.ofDefaults();
     private final BulkheadRegistry bulkheads = BulkheadRegistry.ofDefaults();
-    private final Map<String, HttpClient> httpClients = new ConcurrentHashMap<>();
+    private final Map<String, Transport> transports = new ConcurrentHashMap<>();
+    private volatile boolean closed;
     private volatile BiConsumer<String, String> attempts = (client, outcome) -> { };
 
     public DefaultPlatformRestClientFactory(RestClientProperties properties, List<PlatformRestClientCustomizer> customizers) {
@@ -61,6 +63,11 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.customizers = List.copyOf(customizers);
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
+        String allMethodRetry = System.getProperty("jdk.httpclient.enableAllMethodRetry");
+        if (allMethodRetry != null && !"false".equalsIgnoreCase(allMethodRetry)) {
+            throw new IllegalStateException("-Djdk.httpclient.enableAllMethodRetry makes the JDK client re-send a POST after a lost "
+                    + "connection, which could apply it twice. Remove it: the platform client must never do that");
+        }
     }
 
     @Override
@@ -70,10 +77,11 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
             throw new IllegalArgumentException("clientName must not be blank");
         }
         RestClientProperties.Defaults settings = properties.timeoutsFor(clientName);
+        Transport transport = transport(clientName, settings);
         // A listener resolved per attempt, so metrics bound after a client is built still count it.
-        ResilientRequestFactory requestFactory = new ResilientRequestFactory(clientName,
-                httpClients.computeIfAbsent(clientName, name -> httpClient(settings)), settings, breaker(clientName, settings),
-                bulkhead(clientName, settings), (client, outcome) -> attempts.accept(client, outcome));
+        ResilientRequestFactory requestFactory = new ResilientRequestFactory(clientName, transport.following(), transport.direct(),
+                settings,
+                breaker(clientName, settings), bulkhead(clientName, settings), (client, outcome) -> attempts.accept(client, outcome));
 
         RestClient.Builder builder = RestClient.builder()
                 .requestFactory(requestFactory)
@@ -82,9 +90,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         // No correlation interceptor: the observation registry above propagates traceparent, the
         // platform's only correlation id. No custom correlation header is sent or read.
         builder.defaultStatusHandler(org.springframework.http.HttpStatusCode::isError, (request, response) -> {
-            boolean repeatable = !HttpMethod.POST.equals(request.getMethod()) && !HttpMethod.PATCH.equals(request.getMethod());
             throw new RemoteCallException(clientName, RemoteCallException.Kind.RESPONSE, response.getStatusCode().value(),
-                    readBody(response), repeatable, null);
+                    readBody(response), ResilientRequestFactory.isIdempotent(request.getMethod()), null);
         });
         for (PlatformRestClientCustomizer customizer : customizers) {
             customizer.customize(clientName, builder);
@@ -101,8 +108,19 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         }
     }
 
-    private static HttpClient httpClient(RestClientProperties.Defaults settings) {
-        return HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build();
+    private Transport transport(String clientName, RestClientProperties.Defaults settings) {
+        if (closed) {
+            throw new IllegalStateException("the REST client factory is closed");
+        }
+        Transport transport = transports.computeIfAbsent(clientName, name -> new Transport(
+                HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
+                HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build()));
+        if (closed) {
+            transport.following().shutdownNow();
+            transport.direct().shutdownNow();
+            throw new IllegalStateException("the REST client factory is closed");
+        }
+        return transport;
     }
 
     private CircuitBreaker breaker(String clientName, RestClientProperties.Defaults settings) {
@@ -127,7 +145,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         }
         return bulkheads.bulkhead(resilienceName(clientName), BulkheadConfig.custom()
                 .maxConcurrentCalls(config.maxConcurrent())
-                .maxWaitDuration(config.maxWait())
+                .maxWaitDuration(Duration.ZERO)
                 .build());
     }
 
@@ -155,24 +173,33 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         this.attempts = Objects.requireNonNull(listener, "listener must not be null");
     }
 
-    /** Lets calls in flight finish briefly, then cuts them, so a stop is bounded. */
+    /** Lets calls in flight finish, within one wait shared by all clients, then cuts them, so a stop is bounded. */
     @Override
     public void destroy() {
-        httpClients.values().forEach(HttpClient::shutdown);
-        for (HttpClient client : httpClients.values()) {
+        closed = true;
+        List<HttpClient> clients = transports.values().stream().flatMap(t -> Stream.of(t.following(), t.direct())).toList();
+        clients.forEach(HttpClient::shutdown);
+        long giveUpAt = System.nanoTime() + CLOSE_WAIT.toNanos();
+        for (HttpClient client : clients) {
             try {
-                if (!client.awaitTermination(CLOSE_WAIT)) {
+                if (!client.awaitTermination(Duration.ofNanos(Math.max(1, giveUpAt - System.nanoTime())))) {
                     client.shutdownNow();
                 }
             } catch (InterruptedException e) {
-                client.shutdownNow();
+                clients.forEach(HttpClient::shutdownNow);
                 Thread.currentThread().interrupt();
+                return;
             }
         }
     }
 
+    private record Transport(HttpClient following, HttpClient direct) {
+    }
+
     /** Tags observations with the logical platform client name instead of the remote host. */
     private static final class ClientNameConvention extends DefaultClientRequestObservationConvention {
+
+        private static final Pattern USER_INFO = Pattern.compile("//[^/@]*+@");
 
         private final KeyValue clientName;
 
@@ -183,6 +210,23 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         @Override
         protected KeyValue clientName(ClientRequestObservationContext context) {
             return clientName;
+        }
+
+        @Override
+        protected KeyValue uri(ClientRequestObservationContext context) {
+            return stripped(super.uri(context));
+        }
+
+        @Override
+        protected KeyValue requestUri(ClientRequestObservationContext context) {
+            return stripped(super.requestUri(context));
+        }
+
+        private static KeyValue stripped(KeyValue value) {
+            String text = value.getValue();
+            int query = text.indexOf('?');
+            String withoutQuery = query < 0 ? text : text.substring(0, query);
+            return KeyValue.of(value.getKey(), USER_INFO.matcher(withoutQuery).replaceFirst("//"));
         }
     }
 }

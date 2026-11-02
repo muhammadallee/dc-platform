@@ -12,7 +12,7 @@ model is Resilience4j's own annotations — the platform ships **no** wrapper an
   - retry: 3 attempts, exponential backoff (200ms × 2)
   - circuit breaker: opens at a 50% failure rate over a 10-call count window
   - time limiter: 5s, for `CompletionStage` and `Future` returns only; **it does nothing to a blocking call**
-  - the default retry ignores `RemoteCallException` and `ResourceAccessException` (see below)
+  - the default retry ignores `RemoteCallException` and Spring's `RestClientException` (see below)
 - **`RetryableOperation`** — a programmatic retry helper (`<T> T call(String name, Supplier<T>)`) for
   call sites that cannot use the `@Retry` annotation (dynamic policy names, non-Spring call sites).
   The `name` resolves against the same retry registry the annotations use.

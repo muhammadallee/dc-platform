@@ -52,9 +52,11 @@ public class PlatformResilienceAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "spring.threads.virtual.enabled", havingValue = "true")
     static SmartInitializingSingleton threadPoolBulkheadGuard(Environment environment) {
-        ConfigurationPropertyName key = ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead");
+        ConfigurationPropertyName instances = ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead.instances");
+        ConfigurationPropertyName configs = ConfigurationPropertyName.of("resilience4j.thread-pool-bulkhead.configs");
         for (ConfigurationPropertySource source : ConfigurationPropertySources.get(environment)) {
-            if (source.containsDescendantOf(key) == ConfigurationPropertyState.PRESENT) {
+            if (source.containsDescendantOf(instances) == ConfigurationPropertyState.PRESENT
+                    || source.containsDescendantOf(configs) == ConfigurationPropertyState.PRESENT) {
                 throw new IllegalStateException("resilience4j.thread-pool-bulkhead is configured while "
                         + "spring.threads.virtual.enabled=true: a thread-pool bulkhead would pin blocking calls to platform "
                         + "threads. Use a semaphore bulkhead (resilience4j.bulkhead), or remove the thread-pool configuration");

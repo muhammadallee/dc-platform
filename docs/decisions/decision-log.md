@@ -826,7 +826,8 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D126 — REST resilience in a request factory (hardening phase 6).** Below the interceptors, not an interceptor or aspect: a retried
   interceptor chain can skip later interceptors, such as the token relay, and the factory sees only real sends. One observation per call.
 - **D127 — Resilience4j for the breaker and bulkhead, a short loop for retry (hardening phase 6).** Retry must weigh `Retry-After`, the
-  deadline and the method together. Replacing the request factory removes all of it, documented.
+  deadline and the method together. Replacing the request factory removes all of it, documented. No `max-wait` on the bulkhead: a wait
+  could pass the deadline, and a refusal is more useful than a queue. Only known idempotent methods follow redirects.
 - **D128 — What is retried (hardening phase 6).** 429, 502, 503, 504, a timeout or a connection failure, on GET, HEAD, OPTIONS, PUT, DELETE
   (RFC 9110). Never POST or PATCH (HD2). Not 500: usually a bug, and repeating adds load.
 - **D129 — `PlatformException.problemStatus()` (hardening phase 6).** A remote failure maps to 503, 504 or 500 through a hint on the core

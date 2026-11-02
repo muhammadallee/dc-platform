@@ -13,8 +13,9 @@ breaker, a bulkhead and one failure type on every outbound call.
   No custom correlation header is sent or read (the former `X-Correlation-Id` behaviour is gone).
 - **Per-client settings** — everything below has a default, overridable per client name.
 - **One failure type** — every failure throws `RemoteCallException`; `kind()` says which (see below).
-  At most 8 KiB of an error body is read; the 1KB snippet has bearer tokens, JWTs and the values of
-  secret-named keys removed. Redaction is by pattern: a body can still hold personal or business data.
+  At most 8 KiB of an error body is read. The 1KB snippet has common credential forms removed: authorization and
+  cookie lines, auth schemes, JWTs, and secret-named values in JSON, XML and forms. This is best effort, by pattern:
+  an encoded or oddly named secret, or personal or business data, can remain.
   `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
   caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
 - **Retries, deadline, breaker, bulkhead** — see [Resilience](#resilience).
@@ -76,7 +77,12 @@ the same token and `traceparent`, and one call is one `http.client.requests` obs
 - **PUT and DELETE are retried** because RFC 9110 calls them idempotent. If yours is not, remove them from
   `retry.methods`.
 - **The JDK client re-sends a GET or HEAD once by itself** after a dropped connection, and this cannot be
-  switched off per client. So the worst case is 2 × `max-attempts` requests. POST is not re-sent.
+  switched off per client. So the worst case is 2 × `max-attempts` requests. POST is not re-sent, and
+  `-Djdk.httpclient.enableAllMethodRetry`, which would change that, stops the application from starting.
+- **Only known idempotent methods follow redirects.** A POST, PATCH or custom method gets the 3xx back, since a 307 or
+  308 would send it again. Under HTTP/2, the JDK can re-send a stream the server said it never processed.
+- **Request bodies are held in memory** for the length of the call, so a streaming upload is buffered. Use something
+  else for large uploads.
 - **Deadline.** Covers all attempts and waits. An attempt's timeout is the smaller of `read-timeout` and
   what remains. The read timeout covers the whole response, body included, so raise it for a large download.
 - **Circuit breaker.** Per client name: opens at 50% failures over 10 calls, stays open 30 s, then allows 3
@@ -120,7 +126,11 @@ An uncaught `RemoteCallException` becomes a ProblemDetail with code `DC-RCLIENT-
 - The `restclient` health contributor is always `UP`, with each breaker's state in its details. It is in the
   `dependencies` group and never in readiness: a remote being down must not take every replica out.
 
-Client names name breakers and tags, so take them from a fixed set.
+Client names name breakers and tags, so take them from a fixed set. Query strings and URL credentials are left out of
+the `uri` tag and the span's `http.url`.
+
+A failure deep in a JSON body arrives as Spring's `RestClientException`, wrapping a `RemoteCallException`: the JSON
+library wraps what it reads through. It reaches your caller as a 500, `retryable=false`.
 
 ## Properties
 
@@ -145,8 +155,7 @@ Client names name breakers and tags, so take them from a fixed set.
 | `….circuit-breaker.half-open-calls` | `3` | Trial calls after that. |
 | `….bulkhead.enabled` | `true` | Use the bulkhead. |
 | `….bulkhead.type` | `SEMAPHORE` | `THREAD_POOL` fails startup. |
-| `….bulkhead.max-concurrent` | `25` | Calls at once. |
-| `….bulkhead.max-wait` | `0` | How long a call waits for room. |
+| `….bulkhead.max-concurrent` | `25` | Calls at once. A full bulkhead refuses at once. |
 | `dc.platform.restclient.clients.<name>.*` | (defaults) | Any of the above except `enabled` at the top, for one client. Unset values inherit. |
 
 `…` is `dc.platform.restclient.defaults` or `dc.platform.restclient.clients.<name>`.

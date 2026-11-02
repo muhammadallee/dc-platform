@@ -82,8 +82,7 @@ class PlatformRestClientAutoConfigurationTest {
                     java.time.Duration.ofSeconds(5), java.util.Set.of("GET", "HEAD", "OPTIONS", "PUT", "DELETE")));
             assertThat(settings.circuitBreaker()).isEqualTo(new RestClientProperties.CircuitBreaker(true, 50f, 10, 10,
                     java.time.Duration.ofSeconds(30), 3));
-            assertThat(settings.bulkhead()).isEqualTo(new RestClientProperties.Bulkhead(true, RestClientProperties.BulkheadType.SEMAPHORE, 25,
-                    java.time.Duration.ZERO));
+            assertThat(settings.bulkhead()).isEqualTo(new RestClientProperties.Bulkhead(true, RestClientProperties.BulkheadType.SEMAPHORE, 25));
         });
     }
 
@@ -118,6 +117,24 @@ class PlatformRestClientAutoConfigurationTest {
                     .isEqualTo(3);
             assertThat(registry.find("resilience4j.circuitbreaker.state").tag("name", "rest-orders").gauges()).isNotEmpty();
             assertThat(registry.find("resilience4j.bulkhead.available.concurrent.calls").tag("name", "rest-orders").gauges()).isNotEmpty();
+        });
+    }
+
+    @Test
+    void metricsBindOnlyOnce() {
+        runner.run(context -> {
+            var factory = context.getBean(PlatformRestClientFactory.class);
+            var first = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var second = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var binder = context.getBean(io.micrometer.core.instrument.binder.MeterBinder.class);
+            binder.bindTo(first);
+            binder.bindTo(second);
+            var failing = factory.builder("orders").baseUrl("http://127.0.0.1:1").build();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> failing.get().uri("/a").retrieve().toBodilessEntity())
+                    .isInstanceOf(ae.gov.dubaicustoms.platform.restclient.RemoteCallException.class);
+
+            assertThat(first.get("platform.restclient.attempts").counter().count()).isEqualTo(3);
+            assertThat(second.getMeters()).isEmpty();
         });
     }
 

@@ -37,7 +37,7 @@ public class PlatformResilienceEnvironmentPostProcessor implements EnvironmentPo
 
     private static final List<String> PLATFORM_CLIENT_FAILURES = List.of(
             "ae.gov.dubaicustoms.platform.restclient.RemoteCallException",
-            "org.springframework.web.client.ResourceAccessException");
+            "org.springframework.web.client.RestClientException");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {

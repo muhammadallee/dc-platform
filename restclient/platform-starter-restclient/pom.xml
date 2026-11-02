@@ -17,8 +17,8 @@
 
   <name>DC Platform :: REST Client :: Starter</name>
   <description>
-    Platform-conventional outbound REST calls for every DC platform service: correlation
-    propagation, per-client timeouts, RemoteCallException error mapping.
+    Platform-conventional outbound REST calls for every DC platform service: trace propagation,
+    timeouts and a deadline, safe retries, a circuit breaker and a bulkhead per client, one failure type.
   </description>
 
   <dependencies>
@@ -28,6 +28,11 @@
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-restclient-autoconfigure</artifactId>
       <version>${revision}</version>
+    </dependency>
+    <!-- The named provider of the breaker and bulkhead meters, and the condition for the attempts counter. -->
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-micrometer</artifactId>
     </dependency>
   </dependencies>
 </project>

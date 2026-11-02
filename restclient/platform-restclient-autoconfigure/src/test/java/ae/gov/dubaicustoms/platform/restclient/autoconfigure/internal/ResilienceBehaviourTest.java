@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException.Kind;
@@ -350,7 +351,7 @@ class ResilienceBehaviourTest {
             }
         });
         DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER,
-                new Bulkhead(true, null, 1, null)));
+                new Bulkhead(true, null, 1)));
         RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
         Thread holder = Thread.ofVirtual().start(() -> client.get().uri("/a").retrieve().body(String.class));
         var bulkhead = factory.bulkheads().bulkhead("rest-orders");
@@ -374,7 +375,7 @@ class ResilienceBehaviourTest {
         }
         server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST));
         DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, new Retry(false, null, null, null, null, null),
-                NO_BREAKER, new Bulkhead(true, null, 2, null)));
+                NO_BREAKER, new Bulkhead(true, null, 2)));
         RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
 
         for (int i = 0; i < 4; i++) {
@@ -427,7 +428,7 @@ class ResilienceBehaviourTest {
 
     @Test
     void aThreadPoolBulkheadFailsWithAReason() {
-        assertThatThrownBy(() -> new Bulkhead(null, RestClientProperties.BulkheadType.THREAD_POOL, null, null))
+        assertThatThrownBy(() -> new Bulkhead(null, RestClientProperties.BulkheadType.THREAD_POOL, null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("THREAD_POOL");
     }
 
@@ -444,6 +445,186 @@ class ResilienceBehaviourTest {
         assertThat(effective.retry().enabled()).isTrue();
         assertThat(effective.readTimeout()).isEqualTo(Duration.ofSeconds(10));
         assertThat(effective.bulkhead().maxConcurrent()).isEqualTo(25);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {307, 308})
+    void aPostIsNotSentAgainByARedirect(int code) throws Exception {
+        server.enqueue(status(code).addHeader("Location", server.url("/elsewhere").toString()));
+        server.enqueue(new MockResponse());
+        RestClient client = fastClient();
+
+        client.post().uri("/a").body("x").retrieve().toBodilessEntity();
+
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void aGetStillFollowsARedirect() {
+        server.enqueue(status(307).addHeader("Location", server.url("/elsewhere").toString()));
+        server.enqueue(new MockResponse().setBody("there"));
+        RestClient client = fastClient();
+
+        assertThat(client.get().uri("/a").retrieve().body(String.class)).isEqualTo("there");
+    }
+
+    @Test
+    void aFailedRedirectTargetAfterAPostCannotBeCalledRepeatable() {
+        server.enqueue(status(303).addHeader("Location", "http://127.0.0.1:1/created"));
+        RestClient client = fastClient();
+
+        assertThat(client.post().uri("/a").body("x").retrieve().toBodilessEntity().getStatusCode().value()).isEqualTo(303);
+    }
+
+    @Test
+    void aMethodNotKnownToBeIdempotentIsNotRetriedOrCalledRepeatable() {
+        server.enqueue(status(503));
+        server.enqueue(new MockResponse());
+        RestClient client = fastClient();
+
+        RemoteCallException e = failure(() -> client.method(org.springframework.http.HttpMethod.valueOf("CHARGE")).uri("/a").retrieve()
+                .toBodilessEntity());
+
+        assertThat(server.getRequestCount()).isEqualTo(1);
+        assertThat(e.retryable()).isFalse();
+    }
+
+    @Test
+    void theJdksAllMethodRetryIsRefused() {
+        System.setProperty("jdk.httpclient.enableAllMethodRetry", "true");
+        try {
+            assertThatThrownBy(() -> new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of()))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("enableAllMethodRetry");
+        } finally {
+            System.clearProperty("jdk.httpclient.enableAllMethodRetry");
+        }
+    }
+
+    @Test
+    void closingAStreamedBodyReturnsThePermit() throws Exception {
+        server.enqueue(new MockResponse().setBody("stream"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, new Bulkhead(true, null, 1)));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+        var bulkhead = factory.bulkheads().bulkhead("rest-orders");
+
+        try (java.io.InputStream body = client.get().uri("/a").retrieve().body(java.io.InputStream.class)) {
+            assertThat(bulkhead.getMetrics().getAvailableConcurrentCalls()).isZero();
+            assertThat(new String(body.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("stream");
+        }
+
+        assertThat(bulkhead.getMetrics().getAvailableConcurrentCalls()).isEqualTo(1);
+    }
+
+    @Test
+    void anEnormousRetryAfterFailsCleanly() {
+        server.enqueue(status(429).addHeader("Retry-After", "9223372037"));
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, FAST, NO_BREAKER, new Bulkhead(true, null, 1)));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+
+        RemoteCallException e = failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(e.status()).isEqualTo(429);
+        assertThat(factory.bulkheads().bulkhead("rest-orders").getMetrics().getAvailableConcurrentCalls()).isEqualTo(1);
+    }
+
+    @Test
+    void aRetryAfterBeyondTheDeadlineDoesNotWaitForAStalledBody() {
+        server.enqueue(status(503).addHeader("Retry-After", "60").setBody("y".repeat(60)).throttleBody(1, 1, TimeUnit.SECONDS));
+        RestClient client = client(new Defaults(null, null, Duration.ofSeconds(5), FAST, NO_BREAKER, null));
+
+        long started = System.nanoTime();
+        failure(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+    }
+
+    @Test
+    void bodiesThatFailCountAgainstTheBreaker() {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                return new MockResponse().setBody("y".repeat(4096)).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY);
+            }
+        });
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, new Retry(false, null, null, null, null, null),
+                new CircuitBreaker(true, 50f, 4, 4, Duration.ofSeconds(30), 1), null));
+        RestClient client = factory.builder("orders").baseUrl(server.url("/").toString()).build();
+
+        for (int i = 0; i < 4; i++) {
+            failure(() -> client.get().uri("/a").retrieve().body(String.class));
+        }
+
+        assertThat(factory.circuitBreakers().circuitBreaker("rest-orders").getState().name()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void aBodyThatOutlivesTheDeadlineIsReportedAsTheDeadline() {
+        server.enqueue(new MockResponse().setBody("y".repeat(60)).throttleBody(10, 1, TimeUnit.SECONDS));
+        RestClient client = client(new Defaults(null, Duration.ofSeconds(10), Duration.ofMillis(500), FAST, NO_BREAKER, null));
+
+        RemoteCallException e = failure(() -> client.get().uri("/a").retrieve().body(String.class));
+
+        assertThat(e.kind()).isEqualTo(Kind.DEADLINE);
+        assertThat(e.problemStatus()).isEqualTo(504);
+    }
+
+    @Test
+    void aBadRedirectTargetsQueryNeverReachesTheCause() {
+        server.enqueue(status(307).addHeader("Location", "http://example.test/?q=PRIVATE%ZZ"));
+        RestClient client = fastClient();
+
+        Throwable e = catchThrowable(() -> client.get().uri("/a").retrieve().toBodilessEntity());
+
+        assertThat(org.assertj.core.util.Throwables.getStackTrace(e)).doesNotContain("PRIVATE");
+    }
+
+    @Test
+    void queriesAndUrlCredentialsStayOutOfObservations() throws Exception {
+        server.enqueue(new MockResponse());
+        var observed = new java.util.concurrent.atomic.AtomicReference<io.micrometer.observation.Observation.Context>();
+        io.micrometer.observation.ObservationRegistry registry = io.micrometer.observation.ObservationRegistry.create();
+        registry.observationConfig().observationHandler(new io.micrometer.observation.ObservationHandler<>() {
+            @Override
+            public boolean supportsContext(io.micrometer.observation.Observation.Context context) {
+                return true;
+            }
+
+            @Override
+            public void onStop(io.micrometer.observation.Observation.Context context) {
+                observed.set(context);
+            }
+        });
+        DefaultPlatformRestClientFactory factory = new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null), List.of(),
+                () -> registry);
+        factories.add(factory);
+        String base = "http://user:pw@127.0.0.1:" + server.getPort();
+
+        factory.builder("orders").baseUrl(base).build().get().uri("/lookup?token=SECRET").retrieve().toBodilessEntity();
+
+        String tags = observed.get().getAllKeyValues().toString();
+        assertThat(tags).doesNotContain("SECRET", "token=", "pw@").contains("/lookup");
+    }
+
+    @Test
+    void aClosedFactoryRefusesNewClients() {
+        DefaultPlatformRestClientFactory factory = factory(new Defaults(null, null, null, null, null, null));
+        factory.builder("orders");
+
+        factory.destroy();
+
+        assertThatThrownBy(() -> factory.builder("other")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0s", "-1s"})
+    void anImpossibleTimeoutFailsAtBinding(String value) {
+        Duration duration = Duration.parse(value.equals("0s") ? "PT0S" : "PT-1S");
+        assertThatThrownBy(() -> new Defaults(duration, null, null, null, null, null)).hasMessageContaining("connect-timeout");
+        assertThatThrownBy(() -> new Defaults(null, duration, null, null, null, null)).hasMessageContaining("read-timeout");
+        assertThatThrownBy(() -> new RestClientProperties.ClientOverride(duration, null, null, null, null, null))
+                .hasMessageContaining("connect-timeout");
+        assertThatThrownBy(() -> new RestClientProperties.ClientOverride(null, duration, null, null, null, null))
+                .hasMessageContaining("read-timeout");
     }
 
     @Test

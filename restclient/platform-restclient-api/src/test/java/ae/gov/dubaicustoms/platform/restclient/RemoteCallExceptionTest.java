@@ -2,10 +2,13 @@ package ae.gov.dubaicustoms.platform.restclient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class RemoteCallExceptionTest {
 
@@ -43,6 +46,27 @@ class RemoteCallExceptionTest {
         String snippet = new RemoteCallException("orders", 500, body, null, null).bodySnippet();
 
         assertThat(snippet).doesNotContain("hunter2", "k-1", "abc.def", "xyz", jwt).contains("keep", "next=1");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "Authorization: Basic dXNlcjpwYXNz",
+        "x\nset-cookie: a=1; session=dXNlcjpwYXNz\ny",
+        "{\"password\":\"a\\\"dXNlcjpwYXNz\"}",
+        "<password>dXNlcjpwYXNz</password>",
+        "<ns:clientSecret kind=\"x\">dXNlcjpwYXNz</ns:clientSecret>",
+        "client_secret=dXNlcjpwYXNz&x=1",
+        "access-token: dXNlcjpwYXNz"})
+    void redactsCommonCredentialForms(String body) {
+        assertThat(new RemoteCallException("orders", 500, body, null, null).bodySnippet()).doesNotContain("dXNlcjpwYXNz");
+    }
+
+    @Test
+    void aHostileBodyIsHandledQuickly() {
+        for (String body : new String[] {"token".repeat(1638), "\\a".repeat(4096), "\"token\":\"" + "\\a".repeat(4000), " ".repeat(8192),
+            "<token".repeat(1365), "bearer ".repeat(1170)}) {
+            assertTimeoutPreemptively(Duration.ofSeconds(1), () -> new RemoteCallException("orders", 500, body, null, null));
+        }
     }
 
     @Test

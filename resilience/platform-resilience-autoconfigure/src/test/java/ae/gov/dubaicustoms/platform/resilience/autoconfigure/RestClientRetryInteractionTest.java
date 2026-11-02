@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 
 /** Runs the real Resilience4j auto-configuration under the platform's defaults. */
 class RestClientRetryInteractionTest {
@@ -47,6 +48,27 @@ class RestClientRetryInteractionTest {
 
             assertThat(calls).hasValue(1);
         });
+    }
+
+    @Test
+    void theDefaultPolicyDoesNotRepeatAWrappedBodyFailure() {
+        runner.run(context -> {
+            RetryableOperation retry = context.getBean(RetryableOperation.class);
+            AtomicInteger calls = new AtomicInteger();
+
+            assertThatThrownBy(() -> retry.call("orders", () -> {
+                calls.incrementAndGet();
+                throw new RestClientException("Error while extracting response");
+            })).isInstanceOf(RestClientException.class);
+
+            assertThat(calls).hasValue(1);
+        });
+    }
+
+    @Test
+    void aMetricsSwitchAloneIsNotAThreadPoolBulkhead() {
+        runner.withPropertyValues("spring.threads.virtual.enabled=true", "resilience4j.thread-pool-bulkhead.metrics.enabled=false")
+                .run(context -> assertThat(context).hasNotFailed());
     }
 
     @Test

@@ -27,7 +27,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.client.observation.ClientRequestObservationContext;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 class DefaultPlatformRestClientFactoryTest {
@@ -35,7 +34,7 @@ class DefaultPlatformRestClientFactoryTest {
     private final MockWebServer server = new MockWebServer();
 
     private final RestClientProperties defaultProperties =
-            new RestClientProperties(true, new RestClientProperties.Defaults(null, null), Map.of());
+            new RestClientProperties(true, new RestClientProperties.Defaults(null, null, null, null, null, null), Map.of());
 
     @BeforeEach
     void startServer() throws IOException {
@@ -62,8 +61,10 @@ class DefaultPlatformRestClientFactoryTest {
 
     @Test
     void mapsNon2xxResponsesToRemoteCallException() {
-        server.enqueue(new MockResponse().setResponseCode(503).setBody("service unavailable")
-                .addHeader("X-Correlation-Id", "remote-abc"));
+        for (int attempt = 0; attempt < 3; attempt++) {
+            server.enqueue(new MockResponse().setResponseCode(503).setBody("service unavailable")
+                    .addHeader("X-Correlation-Id", "remote-abc"));
+        }
         // A callee's custom correlation header is not read either.
         RestClient client = new DefaultPlatformRestClientFactory(defaultProperties, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
@@ -95,30 +96,32 @@ class DefaultPlatformRestClientFactoryTest {
     void readTimeoutAbortsASlowResponseWithinTheConfiguredBound() {
         server.enqueue(new MockResponse().setBody("late").setHeadersDelay(3, TimeUnit.SECONDS));
         RestClientProperties shortRead = new RestClientProperties(true,
-                new RestClientProperties.Defaults(null, Duration.ofMillis(300)), Map.of());
+                new RestClientProperties.Defaults(null, Duration.ofMillis(300), null, null, null, null), Map.of());
         RestClient client = new DefaultPlatformRestClientFactory(shortRead, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
 
-        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () ->
                 assertThatThrownBy(() -> client.get().uri("/slow").retrieve().toBodilessEntity())
-                        .isInstanceOf(ResourceAccessException.class));
+                        .isInstanceOfSatisfying(RemoteCallException.class,
+                                e -> assertThat(e.kind()).isEqualTo(RemoteCallException.Kind.TIMEOUT)));
     }
 
     @Test
     void perClientReadTimeoutOverridesTheDefaultAtCallTime() {
         server.enqueue(new MockResponse().setBody("late").setHeadersDelay(3, TimeUnit.SECONDS));
-        RestClientProperties overridden = new RestClientProperties(true, new RestClientProperties.Defaults(null, null),
-                Map.of("orders", new RestClientProperties.ClientOverride(null, Duration.ofMillis(300))));
+        RestClientProperties overridden = new RestClientProperties(true, new RestClientProperties.Defaults(null, null, null, null, null, null),
+                Map.of("orders", new RestClientProperties.ClientOverride(null, Duration.ofMillis(300), null, null, null, null)));
         RestClient client = new DefaultPlatformRestClientFactory(overridden, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
 
-        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () ->
                 assertThatThrownBy(() -> client.get().uri("/slow").retrieve().toBodilessEntity())
-                        .isInstanceOf(ResourceAccessException.class));
+                        .isInstanceOfSatisfying(RemoteCallException.class,
+                                e -> assertThat(e.kind()).isEqualTo(RemoteCallException.Kind.TIMEOUT)));
     }
 
     @Test
-    void refusedConnectionSurfacesAsResourceAccessException() throws IOException {
+    void refusedConnectionSurfacesAsAConnectionFailure() throws IOException {
         int closedPort;
         try (ServerSocket socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             closedPort = socket.getLocalPort();
@@ -128,7 +131,8 @@ class DefaultPlatformRestClientFactoryTest {
 
         assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
                 assertThatThrownBy(() -> client.get().uri("/widgets").retrieve().toBodilessEntity())
-                        .isInstanceOf(ResourceAccessException.class));
+                        .isInstanceOfSatisfying(RemoteCallException.class,
+                                e -> assertThat(e.kind()).isEqualTo(RemoteCallException.Kind.CONNECTION)));
     }
 
     @Test
@@ -187,8 +191,8 @@ class DefaultPlatformRestClientFactoryTest {
 
     @Test
     void appliesPerClientTimeoutOverride() {
-        RestClientProperties withOverride = new RestClientProperties(true, new RestClientProperties.Defaults(null, null),
-                Map.of("orders", new RestClientProperties.ClientOverride(Duration.ofMillis(1), null)));
+        RestClientProperties withOverride = new RestClientProperties(true, new RestClientProperties.Defaults(null, null, null, null, null, null),
+                Map.of("orders", new RestClientProperties.ClientOverride(Duration.ofMillis(1), null, null, null, null, null)));
 
         RestClientProperties.Defaults resolved = withOverride.timeoutsFor("orders");
 

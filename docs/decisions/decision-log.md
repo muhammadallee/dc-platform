@@ -823,3 +823,13 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D125 — Phase 5 residuals accepted (hardening phase 5, owner 2026-11-02).** HI-0087 and HI-0093 are accepted. HI-0088, a main queue
   deleted during a replay losing what the shovel moves afterwards, is accepted for now and goes back to the owner at the end of all
   phases, before the Phase 8 release decision: keep accepting it, or replace the shovel.
+- **D126 — REST resilience in a request factory (hardening phase 6).** Below the interceptors, not an interceptor or aspect: a retried
+  interceptor chain can skip later interceptors, such as the token relay, and the factory sees only real sends. One observation per call.
+- **D127 — Resilience4j for the breaker and bulkhead, a short loop for retry (hardening phase 6).** Retry must weigh `Retry-After`, the
+  deadline and the method together. Replacing the request factory removes all of it, documented.
+- **D128 — What is retried (hardening phase 6).** 429, 502, 503, 504, a timeout or a connection failure, on GET, HEAD, OPTIONS, PUT, DELETE
+  (RFC 9110). Never POST or PATCH (HD2). Not 500: usually a bug, and repeating adds load.
+- **D129 — `PlatformException.problemStatus()` (hardening phase 6).** A remote failure maps to 503, 504 or 500 through a hint on the core
+  type, so `errors` stays independent of `restclient`. `BusinessException` keeps its own status hint.
+- **D130 — An unknown outcome is never `retryable` (hardening phase 6).** A POST that may have arrived is 500, `retryable=false`, as a lost
+  commit is under HI-0071's rule. A connection never made, or a local refusal, is 503 for any method.

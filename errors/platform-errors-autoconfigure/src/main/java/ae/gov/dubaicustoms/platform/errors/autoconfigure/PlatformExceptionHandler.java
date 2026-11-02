@@ -96,7 +96,7 @@ public class PlatformExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(PlatformException.class)
     public ResponseEntity<ProblemDetail> handlePlatformException(PlatformException exception,
             HttpServletRequest request) {
-        int status = exception instanceof BusinessException business ? business.statusHint().status() : 500;
+        int status = exception instanceof BusinessException business ? business.statusHint().status() : exception.problemStatus();
         if (status >= 500) {
             log.error("platform exception [{}]", exception.code().value(), exception);
         } else {

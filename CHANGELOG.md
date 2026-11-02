@@ -5,6 +5,22 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Phase 6: REST client and resilience (breaking; HC7)
+
+- **Every platform REST client now retries idempotent methods, has a 30 s deadline, a circuit breaker and a bulkhead, by default.** POST and
+  PATCH are never retried. See `docs/modules/restclient.md`.
+- **Timeouts and connection failures throw `RemoteCallException`**, not `ResourceAccessException`. A new `kind()` tells them apart, and
+  `retryable()` says whether a repeat is safe. `status()` is 0 when there was no response.
+- An uncaught remote failure is now 503, 504 or 500 with an accurate `retryable`, not always 500.
+- `RestClientProperties.Defaults` and `ClientOverride` have new components, so their constructors changed.
+- At most 8 KiB of an error body is read, and the snippet is redacted.
+- `PlatformException.problemStatus()` is new, default 500.
+- The `dependencies` health group adds `restclient`.
+- The default Resilience4j retry ignores `RemoteCallException` and `ResourceAccessException`.
+- A `resilience4j.thread-pool-bulkhead` with virtual threads on fails startup.
+- Docs: the 5 s time limiter bounds only asynchronous returns, not a blocking call.
+
+
 ### Breaking (capability hardening, phase 1 — core + errors)
 - **Correlation is the W3C trace ID.** `X-Correlation-Id` is no longer read, generated, echoed, sent by
   the REST client, or mirrored into tracing baggage; a caller's `X-Correlation-Id` is ignored. Send

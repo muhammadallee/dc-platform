@@ -10,8 +10,10 @@ import org.apiguardian.api.API;
  *
  * <p>The values back the {@code default} named instances of each Resilience4j registry: retry makes
  * three attempts with exponential backoff; the circuit breaker opens at a 50% failure rate measured
- * over a count-based window of ten calls; the time limiter caps a call at five seconds. User
- * configuration under {@code resilience4j.*} always overrides these — they are contributed at lowest
+ * over a count-based window of ten calls; the time limiter caps a
+ * {@code CompletionStage} or {@code Future} call at five seconds, and does nothing to a blocking one.
+ * The {@code default} retry ignores the platform REST client's failures: that client retries what is
+ * safe itself. User configuration under {@code resilience4j.*} always overrides these — they are contributed at lowest
  * precedence.
  *
  * <p>Not instantiable; thread-safe.
@@ -36,7 +38,7 @@ public final class ResilienceDefaults {
     /** Number of calls in the count-based sliding window the breaker measures over. */
     public static final int CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE = 10;
 
-    /** Maximum duration a call guarded by the {@code default} time limiter may run. */
+    /** Maximum duration an asynchronous call guarded by the {@code default} time limiter may run. Does not bound a blocking call. */
     public static final Duration TIME_LIMITER_TIMEOUT = Duration.ofSeconds(5);
 
     private ResilienceDefaults() {

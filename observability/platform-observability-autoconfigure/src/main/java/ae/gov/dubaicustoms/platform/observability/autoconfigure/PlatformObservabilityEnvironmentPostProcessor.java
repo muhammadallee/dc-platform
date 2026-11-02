@@ -34,7 +34,7 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     static final String EXPOSURE = "health,info,prometheus";
 
     /** Members of the {@code dependencies} health group: shared infrastructure, never readiness. */
-    static final String DEPENDENCIES = "db,rabbit,redis";
+    static final String DEPENDENCIES = "db,rabbit,redis,restclient";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {

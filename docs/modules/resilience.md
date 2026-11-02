@@ -11,7 +11,8 @@ model is Resilience4j's own annotations — the platform ships **no** wrapper an
   always wins):
   - retry: 3 attempts, exponential backoff (200ms × 2)
   - circuit breaker: opens at a 50% failure rate over a 10-call count window
-  - time limiter: 5s
+  - time limiter: 5s, for `CompletionStage` and `Future` returns only; **it does nothing to a blocking call**
+  - the default retry ignores `RemoteCallException` and `ResourceAccessException` (see below)
 - **`RetryableOperation`** — a programmatic retry helper (`<T> T call(String name, Supplier<T>)`) for
   call sites that cannot use the `@Retry` annotation (dynamic policy names, non-Spring call sites).
   The `name` resolves against the same retry registry the annotations use.
@@ -19,6 +20,18 @@ model is Resilience4j's own annotations — the platform ships **no** wrapper an
   share one source of truth.
 - **Metrics** — Resilience4j's Micrometer binding is on by default, so retries, breaker state, and
   time-limiter events are instrumented when Micrometer/actuator are present.
+
+**A call through `PlatformRestClientFactory` needs none of this.** That client already has its own
+deadline, safe retries, breaker and bulkhead (see [REST Client](restclient.md)). Under the `default`
+config, `@Retry` and `RetryableOperation` leave its failures alone: repeating one could send a POST twice,
+and would multiply the retries of the rest. A retry instance of your own with `ignore-exceptions` changed loses
+that protection. Use this capability for everything else: a file, a cache, a third-party SDK.
+
+When several annotations are used together, Resilience4j's order, from the outside in, is
+Retry, CircuitBreaker, RateLimiter, TimeLimiter, Bulkhead.
+
+With `spring.threads.virtual.enabled=true`, configuring `resilience4j.thread-pool-bulkhead` fails startup: use
+`resilience4j.bulkhead`. An `@Bulkhead(type = THREADPOOL)` annotation is not detected, so don't use one.
 
 ## Starter coordinates
 
@@ -42,7 +55,7 @@ public InventoryLevel check(String sku) { ... }
 Programmatic — when a policy name is dynamic or the call site is not a Spring bean:
 
 ```java
-String body = retryableOperation.call("inventory", () -> restClient.get(uri).body(String.class));
+String stock = retryableOperation.call("stock-file", () -> readStockFile(path));
 ```
 
 Override any default with Resilience4j's native keys:

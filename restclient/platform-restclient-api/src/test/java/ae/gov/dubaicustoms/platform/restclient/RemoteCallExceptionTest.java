@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class RemoteCallExceptionTest {
 
@@ -31,6 +33,58 @@ class RemoteCallExceptionTest {
         var exception = new RemoteCallException("orders", 500, longBody, null, null);
 
         assertThat(exception.bodySnippet()).hasSize(1024);
+    }
+
+    @Test
+    void redactsTokensAndSecretValuesFromTheSnippet() {
+        String jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhIn0.c2lnbmF0dXJl";
+        String body = "{\"password\":\"hunter2\",\"api_key\": \"k-1\",\"id\":\"keep\"} Authorization: Bearer abc.def token=xyz&next=1 " + jwt;
+
+        String snippet = new RemoteCallException("orders", 500, body, null, null).bodySnippet();
+
+        assertThat(snippet).doesNotContain("hunter2", "k-1", "abc.def", "xyz", jwt).contains("keep", "next=1");
+    }
+
+    @Test
+    void redactsASecretCutOffByTheReadLimit() {
+        String snippet = new RemoteCallException("orders", 500, "{\"token\":\"abcdef", null, null).bodySnippet();
+
+        assertThat(snippet).doesNotContain("abcdef");
+    }
+
+    @Test
+    void doesNotCutThroughACharacter() {
+        String body = "x".repeat(1023) + "😀" + "tail";
+
+        String snippet = new RemoteCallException("orders", 500, body, null, null).bodySnippet();
+
+        assertThat(snippet).hasSize(1023).doesNotContain("\uD83D");
+    }
+
+    @Test
+    void theBodyNeverReachesTheMessage() {
+        assertThat(new RemoteCallException("orders", RemoteCallException.Kind.RESPONSE, 500, "private", true, null).getMessage())
+                .doesNotContain("private").contains("500");
+        assertThat(new RemoteCallException("orders", RemoteCallException.Kind.TIMEOUT, 0, "", true, null).getMessage()).contains("TIMEOUT");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "RESPONSE, 429, true, 503", "RESPONSE, 502, true, 503", "RESPONSE, 503, true, 503", "RESPONSE, 504, true, 503",
+        "RESPONSE, 500, true, 500", "RESPONSE, 404, true, 500", "RESPONSE, 503, false, 500",
+        "TIMEOUT, 0, true, 503", "TIMEOUT, 0, false, 500", "CONNECTION, 0, true, 503", "CONNECTION, 0, false, 500",
+        "DEADLINE, 0, true, 504", "DEADLINE, 0, false, 500", "CIRCUIT_OPEN, 0, true, 503", "BULKHEAD_FULL, 0, true, 503"})
+    void mapsAFailureToAProblemStatus(RemoteCallException.Kind kind, int status, boolean repeatable, int expected) {
+        var exception = new RemoteCallException("orders", kind, status, "", repeatable, null);
+
+        assertThat(exception.kind()).isEqualTo(kind);
+        assertThat(exception.problemStatus()).isEqualTo(expected);
+        assertThat(exception.retryable()).isEqualTo(expected != 500);
+    }
+
+    @Test
+    void aResponseOfUnknownMethodIsNotAssumedRepeatable() {
+        assertThat(new RemoteCallException("orders", 503, "", null, null).retryable()).isFalse();
     }
 
     @Test

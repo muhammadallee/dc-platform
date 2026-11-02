@@ -100,6 +100,16 @@ class PlatformExceptionHandlerTest {
     }
 
     @Test
+    void aPlatformExceptionsStatusHintDecidesTheStatusAndRetryableWithoutLeakingItsMessage() throws Exception {
+        MvcResult result = mockMvc(defaults(), List.of()).perform(get("/remote"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("DC-TEST-0503"))
+                .andExpect(jsonPath("$.retryable").value(true))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain("orders.internal");
+    }
+
+    @Test
     void malformedJsonMapsTo400WithoutParserInternals() throws Exception {
         MvcResult result = mockMvc(defaults(), List.of())
                 .perform(post("/orders").contentType(MediaType.APPLICATION_JSON).content("{\"name\": [oops"))
@@ -255,6 +265,11 @@ class PlatformExceptionHandlerTest {
             throw new ConflictException(new ErrorCode("DC-TEST-0409"), "name already taken");
         }
 
+        @GetMapping("/remote")
+        String remote() {
+            throw new TestRemoteException();
+        }
+
         @GetMapping("/infra")
         String infra() {
             throw new TestInfraException();
@@ -331,6 +346,18 @@ class PlatformExceptionHandlerTest {
     public static final class Unwritable {
         public String getValue() {
             throw new IllegalStateException("serializer reached db-secret-host");
+        }
+    }
+
+    static final class TestRemoteException extends PlatformException {
+
+        TestRemoteException() {
+            super(new ErrorCode("DC-TEST-0503"), "orders.internal refused the call");
+        }
+
+        @Override
+        public int problemStatus() {
+            return 503;
         }
     }
 

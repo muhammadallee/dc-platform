@@ -57,6 +57,31 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-http-client</artifactId>
     </dependency>
+    <!-- The per-client breaker and bulkhead (D127). -->
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-circuitbreaker</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-bulkhead</artifactId>
+    </dependency>
+    <!-- Metrics and health, when the application has them. -->
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-micrometer</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-health</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Reads the bearer token off the JWT principal for the guarded token-relay customizer;
          optional so a restclient-only consumer (no security capability) never needs it. -->
     <dependency>

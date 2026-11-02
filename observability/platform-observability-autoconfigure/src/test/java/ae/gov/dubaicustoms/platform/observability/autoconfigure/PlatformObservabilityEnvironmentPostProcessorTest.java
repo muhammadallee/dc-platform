@@ -26,7 +26,7 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("management.endpoint.health.group.readiness.include"))
                 .isEqualTo("readinessState");
         assertThat(environment.getProperty("management.endpoint.health.group.dependencies.include"))
-                .isEqualTo("db,rabbit,redis");
+                .isEqualTo("db,rabbit,redis,restclient");
         assertThat(environment.getProperty("management.endpoint.health.validate-group-membership"))
                 .isEqualTo("false");
         // HD5: no custom correlation header is mirrored into baggage; traceparent is the only carrier.

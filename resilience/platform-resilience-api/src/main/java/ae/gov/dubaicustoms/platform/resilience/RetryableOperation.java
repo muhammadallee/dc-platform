@@ -10,8 +10,11 @@ import org.apiguardian.api.API;
  * the same configuration a {@code @Retry("name")} annotation would.
  *
  * <pre>{@code
- * String body = retryableOperation.call("inventory", () -> restClient.get(url));
+ * String stock = retryableOperation.call("stock-file", () -> readStockFile(path));
  * }</pre>
+ *
+ * <p>Retries repeat whatever {@code action} did, so it must be safe to repeat. A call through a platform REST client
+ * needs none of this: the client retries idempotent methods itself and the {@code default} policy ignores its failures.
  *
  * <p>Deliberately narrow: no wrapper types over Resilience4j's own API (things-to-avoid #25). For
  * circuit breaking or time limiting, use Resilience4j's annotations directly.

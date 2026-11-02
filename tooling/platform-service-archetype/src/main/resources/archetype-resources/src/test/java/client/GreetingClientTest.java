@@ -39,12 +39,12 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.ResourceAccessException;
 
 /**
  * Drives {@link GreetingClient} — built by the platform's {@link PlatformRestClientFactory} — through
  * REAL calls to a loopback stub: URI composition, method, headers, JSON both ways, empty bodies, 4xx/5xx
- * mapping to {@link RemoteCallException}, a bounded read timeout, a refused connection, and the
+ * mapping to {@link RemoteCallException}, retries of GET and never of POST, a bounded read timeout, a refused
+ * connection, and the
  * inbound-request → application log → outbound-call chain (W3C trace + bearer-token relay).
  */
 @ExtendWith(OutputCaptureExtension.class)
@@ -62,6 +62,8 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
     static void downstream(DynamicPropertyRegistry registry) {
         registry.add("app.greeting.base-url", STUB::baseUrl);
         registry.add("dc.platform.restclient.clients.greeting.read-timeout", () -> "500ms");
+        // These tests fail on purpose, often enough to open the breaker for the ones after them.
+        registry.add("dc.platform.restclient.clients.greeting.circuit-breaker.enabled", () -> "false");
     }
 
     @AfterAll
@@ -122,22 +124,37 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
     }
 
     @Test
-    void serverErrorMapsToRemoteCallExceptionWithStatusAndBody() {
+    void aTransientServerErrorIsRetriedThenMappedToRemoteCallException() throws Exception {
         STUB.respond(503, "unavailable");
 
         assertThatThrownBy(() -> client.fetch("bob"))
                 .isInstanceOfSatisfying(RemoteCallException.class, e -> {
                     assertThat(e.status()).isEqualTo(503);
                     assertThat(e.bodySnippet()).isEqualTo("unavailable");
+                    assertThat(e.retryable()).isTrue();
                 });
+        for (int attempt = 0; attempt < 3; attempt++) {
+            STUB.take();
+        }
+    }
+
+    @Test
+    void aPostIsNeverRetried() throws Exception {
+        STUB.respond(503, "unavailable");
+
+        assertThatThrownBy(() -> client.publish(new GreetingClient.Greeting("once")))
+                .isInstanceOfSatisfying(RemoteCallException.class, e -> assertThat(e.retryable()).isFalse());
+        STUB.take();
+        assertThat(STUB.requests.poll(300, TimeUnit.MILLISECONDS)).isNull();
     }
 
     @Test
     void slowResponseFailsWithinTheConfiguredReadTimeout() {
         STUB.respondAfter(Duration.ofSeconds(3), 200, "{\"message\":\"too late\"}");
 
-        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
-                assertThatThrownBy(() -> client.fetch("slow")).isInstanceOf(ResourceAccessException.class));
+        assertTimeoutPreemptively(Duration.ofSeconds(4), () ->
+                assertThatThrownBy(() -> client.fetch("slow")).isInstanceOfSatisfying(RemoteCallException.class,
+                        e -> assertThat(e.kind()).isEqualTo(RemoteCallException.Kind.TIMEOUT)));
     }
 
     @Test
@@ -150,7 +167,8 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
 
         assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
                 assertThatThrownBy(() -> unreachable.get().uri("/greetings/x").retrieve().toBodilessEntity())
-                        .isInstanceOf(ResourceAccessException.class));
+                        .isInstanceOfSatisfying(RemoteCallException.class,
+                                e -> assertThat(e.kind()).isEqualTo(RemoteCallException.Kind.CONNECTION)));
     }
 
     @Test

@@ -15,9 +15,9 @@ import org.springframework.web.client.RestClient;
 /**
  * Feature sample (features=restclient): an outbound HTTP client built from
  * {@link PlatformRestClientFactory}. The platform pre-wires W3C trace (traceparent) propagation, bearer-token
- * relay for authenticated requests, per-client timeouts ({@code dc.platform.restclient.clients.greeting.*})
- * and maps non-2xx responses to {@code RemoteCallException} — never build a raw {@code RestTemplate}
- * or {@code WebClient}.
+ * relay for authenticated requests, timeouts, a deadline, retries of idempotent methods, a circuit breaker and a
+ * bulkhead ({@code dc.platform.restclient.clients.greeting.*}), and maps every failure to
+ * {@code RemoteCallException} — never build a raw {@code RestTemplate} or {@code WebClient}.
  *
  * <p>The base URL is mandatory configuration ({@code app.greeting.base-url}); the generated
  * {@code application.yml} sets a loopback placeholder outside the {@code prod} profile only, so a

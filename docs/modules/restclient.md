@@ -17,7 +17,7 @@ breaker, a bulkhead and one failure type on every outbound call.
   cookie lines, auth schemes, JWTs, and secret-named values in JSON and forms; a body with a secret-named XML element
   loses its whole snippet. This is best effort, by pattern:
   an encoded or oddly named secret, or personal or business data, can remain. It also errs the safe way, so
-  "basic validation failed" loses a word.
+  "basic validation failed" loses a word. Treat `bodySnippet()` as untrusted: never return it to your own callers.
   `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
   caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
 - **Retries, deadline, breaker, bulkhead** — see [Resilience](#resilience).
@@ -58,7 +58,7 @@ class OrdersClient {
         try {
             return client.get().uri("/orders/{id}", id).retrieve().body(Order.class);
         } catch (RemoteCallException e) {
-            throw new UpstreamOrdersFailure(e.status(), e.bodySnippet());
+            throw new UpstreamOrdersFailure(e.status());
         }
     }
 }

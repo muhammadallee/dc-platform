@@ -1,6 +1,6 @@
 # Phase 6 — REST Client + Resilience: closure
 
-**Verdict: PASS, with residuals awaiting the owner's acceptance** (below). Earlier owner decisions: HD2 (POST and PATCH never retried), HC7 (no users, so breaking changes need only a CHANGELOG entry).
+**Verdict: PASS, residuals decided by the owner on 2026-11-02 (D131, below).** Earlier owner decisions: HD2 (POST and PATCH never retried), HC7 (no users, so breaking changes need only a CHANGELOG entry).
 
 | Item | Value |
 |---|---|
@@ -23,7 +23,7 @@
 | Downstream (§3.9) | `-amd test-compile`: 93 modules, BUILD SUCCESS, sha256 `55c4c251c990cc5e…` | `evidence-raw/downstream-final.log` |
 | Golden path | **9/9** on `78636c0` | [`evidence/golden-path-summary-78636c0.tsv`](evidence/golden-path-summary-78636c0.tsv) |
 | H samples + operations | written | [`../../samples/rest-resilience/`](../../samples/rest-resilience/) |
-| CI (PR #2) | to be confirmed on the closure commit before tagging | GitHub Actions |
+| CI (PR #2) | green on the closure commit; tagged `hardening/phase-06-closed` | GitHub Actions |
 
 Phases 3, 4 and 5 consumers were not rerun: nothing they certified changed except `PlatformException` gaining a method with the old behaviour, and they compile. Phase 8 reruns everything.
 
@@ -47,14 +47,14 @@ Phases 3, 4 and 5 consumers were not rerun: nothing they certified changed excep
 
 See CHANGELOG `## [Unreleased]`, phase 6.
 
-## Owner acceptance (PENDING)
+## Owner decision (2026-11-02, D131)
 
-1. **HI-0099:** a JSON library's message for a malformed **success** body can quote a bad token into the error log. **Codex rates this High, Claude Medium**: the owner decides.
-2. **HI-0096:** `net.properties` is checked at context start, so a live edit without a JVM restart is missed. **Codex rated this High, Claude Low**.
-3. **HI-0094:** request bodies are held in memory, and the deadline starts after a caller's interceptors.
-4. **HI-0095:** an encoded or oddly named secret, or personal data, can remain in a snippet.
-5. **HI-0097:** two user composite registries sharing an exporter double-count attempts; closed registries are retained.
-6. **HI-0098:** a reset within 2 ms of the deadline is reported as the deadline.
+1. **HI-0099, not accepted, to fix in Phase 7:** a JSON library's message for a malformed **success** body can quote a bad token into the error log. Codex rated this High, Claude Medium. The log encoder masks recognisable credentials there, but not a bare token.
+2. **HI-0096, accepted:** `net.properties` is checked at context start, so a live edit without a JVM restart is missed. Codex rated this High, Claude Low.
+3. **HI-0094, accepted:** request bodies are held in memory, and the deadline starts after a caller's interceptors.
+4. **HI-0095, accepted:** an encoded or oddly named secret, or personal data, can remain in a snippet.
+5. **HI-0097, accepted:** two user composite registries sharing an exporter double-count attempts; closed registries are retained.
+6. **HI-0098, accepted:** a reset within 2 ms of the deadline is reported as the deadline.
 
 ## Open (non-blocking)
 

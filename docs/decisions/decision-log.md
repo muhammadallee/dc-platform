@@ -834,3 +834,8 @@ One line of context per decision; details live in the commit bodies referenced.
   type, so `errors` stays independent of `restclient`. `BusinessException` keeps its own status hint.
 - **D130 — An unknown outcome is never `retryable` (hardening phase 6).** A POST that may have arrived is 500, `retryable=false`, as a lost
   commit is under HI-0071's rule. A connection never made, or a local refusal, is 503 for any method.
+- **D131 — Phase 6 residuals decided (hardening phase 6, owner 2026-11-02).** HI-0094, HI-0095, HI-0096, HI-0097 and HI-0098 are
+  accepted, including HI-0096, which Codex rated High: the JDK caches the value privately, and the gap needs a JDK file edited on a live JVM.
+  HI-0099 is **not** accepted and moves into Phase 7: the log encoder masks recognisable credentials in exception text, but a bare
+  token has nothing to match, so the quoted text is removed at its source. `bodySnippet()` is to be treated as untrusted; the module
+  docs' example no longer passes it on.

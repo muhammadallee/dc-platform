@@ -1,0 +1,73 @@
+Static review only; no JVM or Docker tests were run. I found the following defects. Findings about retained behavior are included where Phase 7 explicitly promises to close that gap.
+
+1. **High — Boot’s decoder can replace the strict decoder through auto-configuration ordering.**  
+   [PlatformSecurityAutoConfiguration.java:67](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/PlatformSecurityAutoConfiguration.java:67) names a nonexistent Boot 4.1 class: the real class has no `.servlet` package component. Trigger: another auto-configuration orders itself after Boot’s resource-server configuration and before the platform configuration. Boot registers its decoder first; the platform backs off. With only `jwk-set-uri`, wrong-issuer/wrong-audience tokens can then authenticate. This is visible in the [Boot 4.1 sources](https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-security-oauth2-resource-server/4.1.0/spring-boot-security-oauth2-resource-server-4.1.0-sources.jar).
+
+2. **High — List overrides retain supposedly removed audiences and algorithms.**  
+   [PlatformJwtDecoderFactory.java:139](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:139) independently reads the scalar property and every indexed property, then combines them. Trigger: base YAML contains `audiences: [legacy]`, while an environment or command-line override sets `audiences=production`. Both remain accepted. Likewise, overriding a YAML algorithm list with `RS256` can retain `RS512`. Use Boot’s list binding and property-source precedence.
+
+3. **High — A wildcard customizer defeats authenticated-by-default.**  
+   [PlatformSecurityAutoConfiguration.java:112](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/PlatformSecurityAutoConfiguration.java:112). Trigger: a `SecurityCustomizer` adds `requestMatchers("/**").permitAll()`. Startup succeeds, the coverage check passes, and anonymous requests reach every endpoint because that rule precedes `anyRequest().authenticated()`. The new test exercises only `anyRequest().permitAll()`, which Spring rejects. R4.3 remains unsatisfied.
+
+4. **High — A bean-name collision silently disables permission enforcement and its startup guard.**  
+   [PlatformAuthzAutoConfiguration.java:61](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-authz-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/authz/autoconfigure/PlatformAuthzAutoConfiguration.java:61). Trigger: register an unrelated bean named `requiresPermissionAdvisor`, leave authz enabled, and provide no `CurrentUserAccessor`. The condition suppresses both the advisor and the newly added validation. Startup succeeds and externally invoked `@RequiresPermission` methods execute without this authorization check.
+
+5. **High — A loopback redirect bypasses the insecure-JWKS restriction.**  
+   [PlatformJwtDecoderFactory.java:107](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:107). Trigger: configure an allowed `http://127.0.0.1:port/jwks` endpoint that redirects to `http://idp.internal/jwks`, with `allow-insecure-jwks=false`. Nimbus’s retriever uses `HttpURLConnection`, which follows that same-scheme redirect without reapplying `jwksUrl`. The remote plaintext response supplies trusted signing keys, allowing an attacker on that network path to forge tokens.
+
+6. **Medium — Unsafe RSA keys are accepted.**  
+   [PlatformJwtDecoderFactory.java:86](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:86). Trigger: the configured JWKS publishes a 1024-bit RSA signing key and supplies an otherwise valid RS256 token. Neither the selector nor Nimbus’s RSA verifier enforces a 2048-bit minimum. Authentication therefore accepts cryptographically inadequate signing material.
+
+7. **Medium — Claim validation occurs after lossy normalization.**  
+   [PlatformJwtDecoderFactory.java:95](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:95). Two concrete signed-token triggers:
+   - `sub: 123` becomes `"123"` inside Nimbus and passes the apparent string check, conflating distinct JSON representations of identity.
+   - `nbf: 9223372036854775807` overflows when Nimbus multiplies seconds by 1000, becoming `-1000` milliseconds. With an ordinary future `exp`, the token authenticates despite its future `nbf`.
+
+   These behaviors are present in the [Nimbus 10.9 sources](https://repo.maven.apache.org/maven2/com/nimbusds/nimbus-jose-jwt/10.9/nimbus-jose-jwt-10.9-sources.jar). Validate raw registered claims before those conversions.
+
+8. **Medium — The cooldown permits two fetches, contrary to R2/AC5.**  
+   [PlatformJwtDecoderFactory.java:113](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:113). Trigger: warm the cache, wait beyond 30 seconds but below its TTL, then send two unknown-key tokens sequentially. Nimbus’s `RateLimitedJWKSetSource` permits two invocations per interval. Both fetch JWKS. The new test explicitly allows two, weakening the required maximum of one.
+
+9. **Medium — Malformed JWKS responses produce incorrect status, metrics, and logging.**  
+   [PlatformJwtDecoderFactory.java:228](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:228). Trigger: after caching keys, return HTTP 200 with HTML or invalid JWKS JSON during an unknown-key refresh. `lastFailed` becomes false and the success counter increments before Nimbus parses the response. Outage tolerance supplies the old keys, but an unknown key receives **401 instead of 503**, and no failed-fetch WARN is emitted. Cold-start parsing failures likewise become 401 once rate limiting takes over.
+
+10. **Medium — JWKS fetching is not bounded by a total deadline, and zero disables timeouts.**  
+    [PlatformJwtDecoderFactory.java:107](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtDecoderFactory.java:107). Trigger: drip response bytes more frequently than the two-second read timeout. The fetching request holds the refresh lock for potentially hours; `cacheRefreshTimeout` bounds waiting threads, not the fetch owner. Separately, `read-timeout=0` or a positive sub-millisecond duration becomes Nimbus’s infinite timeout. Concurrent authentication requests can repeatedly block and fail while refresh remains occupied.
+
+11. **Medium — Malformed scope collections produce 500.**  
+    [PlatformJwtAuthoritiesConverter.java:37](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/PlatformJwtAuthoritiesConverter.java:37). Trigger: an otherwise valid signed token contains `scp: [123]`. Spring’s delegated scope converter casts collection elements to `String`, throwing `ClassCastException`. This escapes authentication handling as a server error, contrary to R3’s malformed-claim behavior.
+
+12. **Medium — HI-0099 remains for parser exceptions outside Spring’s conversion hierarchy.**  
+    [UnquotedReadFailures.java:88](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/restclient/platform-restclient-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/restclient/autoconfigure/internal/UnquotedReadFailures.java:88). Trigger: install Spring’s `ProtobufHttpMessageConverter` through a platform customizer and parse a successful `text/plain` response containing an unknown field such as `hunter2bareTokenValue: "x"`. Protobuf throws an `IOException` subclass whose message contains that field. The wrapper does not catch it; RestClient preserves it as a cause and the bare secret reaches exception logging. The [Protobuf parser](https://raw.githubusercontent.com/protocolbuffers/protobuf/main/java/core/src/main/java/com/google/protobuf/TextFormat.java) constructs precisely this diagnostic.
+
+13. **Medium — A platform customizer can remove redaction before `builder()` returns.**  
+    [DefaultPlatformRestClientFactory.java:119](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/restclient/platform-restclient-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/restclient/autoconfigure/internal/DefaultPlatformRestClientFactory.java:119). Trigger: a `PlatformRestClientCustomizer` calls `configureMessageConverters`, adding a list callback that clears/replaces the converters with a Jackson converter. Spring composes callbacks in order: platform wrapping runs first, replacement runs second. Malformed JSON then leaks its parser message. This occurs inside platform customization, outside the documented exclusion for converters added after `builder()` returns.
+
+14. **Medium — Problem responses fail after an earlier filter obtains the writer.**  
+    [ProblemResponses.java:55](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/internal/ProblemResponses.java:55). Trigger: an upstream filter calls `response.getWriter()` without committing, then delegates a request requiring a 401/403/503 response. Calling `getOutputStream()` throws `IllegalStateException`; the promised problem body is lost and error dispatch can replace the response with 500. Set encoding before obtaining a writer, or explicitly handle the existing response mode.
+
+15. **Medium — Ordinary composite-registry configurations double-count security events.**  
+    [PlatformSecurityAutoConfiguration.java:174](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/security/platform-security-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/security/autoconfigure/PlatformSecurityAutoConfiguration.java:174). Trigger: Boot exposes a composite registry plus its exporter registries. Iterating every registry increments each child directly and again through the composite. Both security counters are inflated. This affects a normal composite-plus-children setup, not merely the two-user-composites case accepted under HI-0097.
+
+16. **Medium — The required relay properties do nothing.**  
+    [TokenRelayProperties.java:13](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/restclient/platform-restclient-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/restclient/autoconfigure/TokenRelayProperties.java:13). Trigger: set R7.2’s `dc.platform.restclient.clients.orders.relay-token=true`, or `defaults.relay-token=true`. Neither binds to this implementation, which instead reads `token-relay.clients`. Relay stays disabled and authenticated downstream calls fail despite the specified opt-in.
+
+17. **Medium — Generated REST-client tests are broken by the relay default change.**  
+    [GreetingClientTest.java:188](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/tooling/platform-service-archetype/src/main/resources/archetype-resources/src/test/java/client/GreetingClientTest.java:188). Trigger: generate a service with `restclient` and run its tests. The relay test requires an outbound bearer header, but neither its dynamic properties nor generated configuration opts `greeting` into relay. The asserted header is now absent.
+
+18. **Medium — Several golden-path launches omit the newly mandatory identity settings.**  
+    [golden-path.sh:382](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/tooling/scripts/golden-path.sh:382). Trigger: reach `requested_service_probes`. Its `$auth` still contains only `jwk-set-uri`. The no-profile/local launches retain placeholder issuer/audience values and reject fixture tokens; successful prod fixture launches lack issuer/audience and fail startup. Adding `ISSUER_ARGS` to the earlier launch did not migrate these paths.
+
+19. **Low — Redaction discards the required parser position.**  
+    [UnquotedReadFailures.java:55](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/restclient/platform-restclient-autoconfigure/src/main/java/ae/gov/dubaicustoms/platform/restclient/autoconfigure/internal/UnquotedReadFailures.java:55). Trigger: any malformed Jackson success body. The replacement retains only the parser’s class name; line, column, and offset disappear. This violates R7.3 and removes safe diagnostic information needed to locate malformed content.
+
+20. **Low — Breaking changes lack the required changelog entry.**  
+    [CHANGELOG.md:6](/C:/Users/Ali/AppData/Local/Temp/hd/codex-p4r1/CHANGELOG.md:6). Trigger: upgrade an issuer-less consumer, an automatically relaying client, or a consumer relying on formerly public endpoints. These changes alter startup or runtime behavior, but the changelog has no Phase 7 entry. HC7’s required migration notice is missing.
+
+No additional concrete defect found in ordinary signature verification, `none`/HMAC rejection, JWK `use`/`alg` filtering, embedded key-header handling, or issuer/audience type rejection. Missing `nbf` is consistent with the scope requiring only `exp` and `sub`.
+
+For **context**, I found no new concrete propagation or cleanup defect with platform-core context propagation active. For **exposure and lifecycle**, I found no additional defect in the default actuator paths, ERROR/ASYNC handling, optional-Micrometer class isolation, or nested constructor binding. The filter post-processor is applied.
+
+Normal client-role isolation and role prefixes follow the stated mapping. I found no additional direct bearer-token leakage in the normal relay path; JDK 25 filters authorization on cross-origin redirects in its [redirect request construction](https://raw.githubusercontent.com/openjdk/jdk25u/master/src/java.net.http/share/classes/jdk/internal/net/http/HttpRequestImpl.java). The authz default snapshot required by §7.2 is absent; generated metadata and runtime acceptance criteria were not verified.
+
+VERDICT: REJECT

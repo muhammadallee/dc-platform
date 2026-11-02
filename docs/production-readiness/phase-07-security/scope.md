@@ -55,8 +55,8 @@ By reading (each gets a test at Gate B):
 6. Every rejection is the same 401 body and bare `WWW-Authenticate: Bearer`.
 
 ### R2 JWKS (G7-05)
-1. Fetch: 2 s connect, 2 s read, 1 MiB limit. Properties under `dc.platform.security.jwt.jwks.*`.
-2. Cached 5 min, so a rotated-out key stops working within that; refreshed on an unknown `kid`, at most once per 30 s.
+1. Fetch: 2 s connect, 2 s read, the sum as a limit on the whole fetch, 1 MiB limit, no redirects. A response with no keys or not JSON is a failed fetch. RSA keys under 2048 bits are ignored. Properties under `dc.platform.security.jwt.jwks.*`.
+2. Cached 5 min, so a rotated-out key stops working within that; refreshed on an unknown `kid`, at most twice per 30 s, which is how Nimbus's limiter works.
 3. JWKS down: cached keys keep working for up to 1 h beyond their TTL (`outage-tolerance`), then rejected.
 4. Unknown `kid` and JWKS reachable, or rate limited: 401. Unknown `kid` and JWKS down, or no key ever fetched: **503 `DC-SEC-0503`, `retryable=true`**. Never reaches the application.
 5. Rotation: a new `kid` is accepted without a restart.
@@ -69,7 +69,7 @@ By reading (each gets a test at Gate B):
 ### R4 Fail closed (G7-03)
 1. After startup, while the capability is enabled, the last `SecurityFilterChain` must match every request; otherwise startup fails, naming it. A consumer's full chain is accepted.
 2. `@RequiresPermission` with `authz` enabled and no `CurrentUserAccessor` fails startup, with a `FailureAnalyzer` message.
-3. `SecurityCustomizer` still cannot remove authenticated-by-default.
+3. Neither `permit-paths` nor a `SecurityCustomizer` can open every path: the built chain is asked about an unnamed path, and startup fails if an anonymous caller would get in.
 4. Kill-switch tier: `DEFAULT_ON`. `enabled=false` or `mode=disabled` with no chain stays closed (Boot's own chain).
 
 ### R5 Exposure (G7-02)
@@ -83,8 +83,8 @@ By reading (each gets a test at Gate B):
 
 ### R7 Tokens stay out (§7.8)
 1. No token, valid or rejected, in logs, spans or response bodies, at the default log levels. Debug logging from Spring Security is out of scope, and stated as a limit.
-2. Token relay becomes opt-in, per client: `dc.platform.restclient.clients.<name>.relay-token`, or under `defaults`, default `false`.
-3. HI-0099: a parse failure on a success body keeps the exception type and position, and no text from the body.
+2. Token relay becomes opt-in, per client: `dc.platform.restclient.token-relay.clients`, a list, default empty.
+3. HI-0099: a parse failure on a success body keeps the exception type, and no text from the body. Position is dropped, since it would take a Jackson dependency here.
 
 ### R8 Observability (§7.9)
 `platform.security.token.rejected` and `platform.security.jwks.fetch{outcome}` counters with no user-derived tags. A failed JWKS fetch logs one WARN with no URL query and no token.
@@ -113,7 +113,7 @@ By reading (each gets a test at Gate B):
 | AC2 | Expired; not yet valid; inside and outside the skew |
 | AC3 | Wrong issuer, wrong audience, no `exp`, no `sub` |
 | AC4 | Bad signature, `alg=none`, HS256 with the public key, unlisted RS512 |
-| AC5 | Unknown `kid`: 401; 20 of them: at most 1 JWKS fetch |
+| AC5 | Unknown `kid`: 401; 20 of them: at most 2 JWKS fetches |
 | AC6 | JWKS down: known `kid` 200, fresh `kid` 503; recovery |
 | AC7 | JWKS hung: bounded answer |
 | AC8 | Rotation: new key accepted, old key rejected after the TTL |

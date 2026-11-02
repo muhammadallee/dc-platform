@@ -61,6 +61,7 @@ class GreetingClientTest extends HttpIntegrationTestSupport {
     @DynamicPropertySource
     static void downstream(DynamicPropertyRegistry registry) {
         registry.add("app.greeting.base-url", STUB::baseUrl);
+        registry.add("dc.platform.restclient.token-relay.clients", () -> "greeting");
         registry.add("dc.platform.restclient.clients.greeting.read-timeout", () -> "500ms");
         // These tests fail on purpose, often enough to open the breaker for the ones after them.
         registry.add("dc.platform.restclient.clients.greeting.circuit-breaker.enabled", () -> "false");

@@ -6,6 +6,8 @@ import com.nimbusds.jose.KeySourceException;
 import com.nimbusds.jose.RemoteKeySourceException;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSelector;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder;
 import com.nimbusds.jose.jwk.source.RateLimitReachedException;
@@ -16,20 +18,27 @@ import com.nimbusds.jose.util.Resource;
 import com.nimbusds.jose.util.ResourceRetriever;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.text.ParseException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -52,6 +61,7 @@ public final class PlatformJwtDecoderFactory {
     private static final String PREFIX = "spring.security.oauth2.resourceserver.jwt.";
     private static final Duration MAX_SKEW = Duration.ofMinutes(5);
     private static final int MAX_JWKS_BYTES = 1024 * 1024;
+    private static final int MIN_RSA_BITS = 2048;
     private static final Set<JWSAlgorithm> ASYMMETRIC = Set.of(JWSAlgorithm.RS256, JWSAlgorithm.RS384, JWSAlgorithm.RS512,
             JWSAlgorithm.PS256, JWSAlgorithm.PS384, JWSAlgorithm.PS512, JWSAlgorithm.ES256, JWSAlgorithm.ES384, JWSAlgorithm.ES512);
 
@@ -68,13 +78,19 @@ public final class PlatformJwtDecoderFactory {
      * @throws InvalidSecurityConfigurationException if the setup is refused
      */
     public static JwtDecoder create(Environment environment, SecurityProperties.Jwt settings, SecurityMetrics metrics) {
-        String issuer = required(environment, "issuer-uri");
-        String jwkSetUri = required(environment, "jwk-set-uri");
-        List<String> audiences = list(environment, "audiences");
+        Binder binder = Binder.get(environment);
+        String issuer = required(binder, "issuer-uri");
+        String jwkSetUri = required(binder, "jwk-set-uri");
+        List<String> audiences = list(binder, "audiences");
         if (audiences.isEmpty()) {
             throw missing("audiences");
         }
-        Set<JWSAlgorithm> algorithms = algorithms(list(environment, "jws-algorithms"));
+        Set<JWSAlgorithm> algorithms = algorithms(list(binder, "jws-algorithms"));
+        positive("jwks.connect-timeout", settings.jwks().connectTimeout());
+        positive("jwks.read-timeout", settings.jwks().readTimeout());
+        positive("jwks.cache-ttl", settings.jwks().cacheTtl());
+        positive("jwks.refresh-cooldown", settings.jwks().refreshCooldown());
+        positive("jwks.outage-tolerance", settings.jwks().outageTolerance());
         Duration skew = settings.clockSkew();
         if (skew.isNegative() || skew.compareTo(MAX_SKEW) > 0) {
             throw new InvalidSecurityConfigurationException("dc.platform.security.jwt.clock-skew is " + skew
@@ -104,9 +120,9 @@ public final class PlatformJwtDecoderFactory {
     }
 
     private static JWKSource<SecurityContext> jwkSource(URL url, SecurityProperties.Jwks settings, SecurityMetrics metrics) {
-        DefaultResourceRetriever http = new DefaultResourceRetriever(millis(settings.connectTimeout()),
-                millis(settings.readTimeout()), MAX_JWKS_BYTES);
-        CountingRetriever retriever = new CountingRetriever(http, metrics);
+        DefaultResourceRetriever http = new NoRedirects(millis(settings.connectTimeout()), millis(settings.readTimeout()));
+        Duration budget = settings.connectTimeout().plus(settings.readTimeout());
+        CountingRetriever retriever = new CountingRetriever(http, metrics, budget);
         JWKSource<SecurityContext> source = JWKSourceBuilder.<SecurityContext>create(url, retriever)
                 .cache(settings.cacheTtl().toMillis(), settings.connectTimeout().plus(settings.readTimeout()).toMillis())
                 .refreshAheadCache(false)
@@ -121,9 +137,17 @@ public final class PlatformJwtDecoderFactory {
         return Math.toIntExact(duration.toMillis());
     }
 
-    private static String required(Environment environment, String key) {
-        String value = environment.getProperty(PREFIX + key);
-        if (value == null || value.isBlank()) {
+    private static void positive(String key, Duration value) {
+        if (value.toMillis() < 1 || value.toMillis() > Integer.MAX_VALUE) {
+            throw new InvalidSecurityConfigurationException("dc.platform.security.jwt." + key + " is " + value
+                    + ", which is out of range: a fetch timeout of zero would mean no timeout at all.",
+                    "Set a duration of at least 1 ms and under 24 days.");
+        }
+    }
+
+    private static String required(Binder binder, String key) {
+        String value = binder.bind(PREFIX + key, String.class).orElse("");
+        if (value.isBlank()) {
             throw missing(key);
         }
         return value;
@@ -136,26 +160,10 @@ public final class PlatformJwtDecoderFactory {
                         + "or set dc.platform.security.mode=disabled to leave security to the application.");
     }
 
-    private static List<String> list(Environment environment, String key) {
-        List<String> values = new ArrayList<>();
-        String joined = environment.getProperty(PREFIX + key);
-        if (joined != null) {
-            values.addAll(split(joined));
-        }
-        for (int i = 0; environment.containsProperty(PREFIX + key + "[" + i + "]"); i++) {
-            values.addAll(split(environment.getProperty(PREFIX + key + "[" + i + "]")));
-        }
-        return values;
-    }
-
-    private static List<String> split(String joined) {
-        List<String> values = new ArrayList<>();
-        for (String value : joined.split(",")) {
-            if (!value.isBlank()) {
-                values.add(value.strip());
-            }
-        }
-        return values;
+    // Boot's binder, so a higher-precedence source replaces a whole list, as everywhere else in Spring.
+    private static List<String> list(Binder binder, String key) {
+        return binder.bind(PREFIX + key, Bindable.listOf(String.class)).orElse(List.of()).stream()
+                .map(String::strip).filter(value -> !value.isEmpty()).toList();
     }
 
     private static Set<JWSAlgorithm> algorithms(List<String> configured) {
@@ -210,22 +218,43 @@ public final class PlatformJwtDecoderFactory {
         }
     }
 
-    /** Counts fetches, remembers how the last one went, and logs a failure without the URL's query or the cause's text. */
+    /** A redirect would skip the check on the URL, so one is a failed fetch. */
+    private static final class NoRedirects extends DefaultResourceRetriever {
+
+        NoRedirects(int connectTimeout, int readTimeout) {
+            super(connectTimeout, readTimeout, MAX_JWKS_BYTES);
+        }
+
+        @Override
+        protected HttpURLConnection openHTTPConnection(URL url) throws IOException {
+            HttpURLConnection connection = super.openHTTPConnection(url);
+            connection.setInstanceFollowRedirects(false);
+            return connection;
+        }
+    }
+
+    /**
+     * Bounds a whole fetch, since the read timeout resets on every byte; a fetch counts as good only if it holds keys; counts
+     * fetches, remembers how the last one went, and logs a failure without the URL's query or the cause's text.
+     */
     private static final class CountingRetriever implements ResourceRetriever {
 
         private final ResourceRetriever delegate;
         private final SecurityMetrics metrics;
+        private final Duration budget;
         private volatile boolean lastFailed;
 
-        CountingRetriever(ResourceRetriever delegate, SecurityMetrics metrics) {
+        CountingRetriever(ResourceRetriever delegate, SecurityMetrics metrics, Duration budget) {
             this.delegate = delegate;
             this.metrics = metrics;
+            this.budget = budget;
         }
 
         @Override
         public Resource retrieveResource(URL url) throws IOException {
             try {
-                Resource resource = delegate.retrieveResource(url);
+                Resource resource = bounded(url);
+                requireKeys(resource);
                 lastFailed = false;
                 count(true);
                 return resource;
@@ -234,6 +263,36 @@ public final class PlatformJwtDecoderFactory {
                 count(false);
                 log.warn("could not fetch the JWKS from {}://{}: {}", url.getProtocol(), url.getAuthority(), e.getClass().getSimpleName());
                 throw e;
+            }
+        }
+
+        private Resource bounded(URL url) throws IOException {
+            FutureTask<Resource> fetch = new FutureTask<>(() -> delegate.retrieveResource(url));
+            Thread.ofVirtual().name("platform-jwks-fetch").start(fetch);
+            try {
+                return fetch.get(budget.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                fetch.cancel(true);
+                throw new IOException("the fetch took too long");
+            } catch (InterruptedException e) {
+                fetch.cancel(true);
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted");
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof IOException io) {
+                    throw io;
+                }
+                throw new IOException("the fetch failed");
+            }
+        }
+
+        private static void requireKeys(Resource resource) throws IOException {
+            try {
+                if (JWKSet.parse(resource.getContent()).isEmpty()) {
+                    throw new IOException("no keys in the response");
+                }
+            } catch (ParseException e) {
+                throw new IOException("not a JWK set");
             }
         }
 
@@ -271,7 +330,7 @@ public final class PlatformJwtDecoderFactory {
             if (keys.isEmpty() && retriever.lastFailed) {
                 throw new RemoteKeySourceException("the signing keys cannot be fetched", null);
             }
-            return keys;
+            return keys.stream().filter(key -> !(key instanceof RSAKey rsa) || rsa.size() >= MIN_RSA_BITS).toList();
         }
     }
 }

@@ -78,6 +78,40 @@ class UnquotedReadFailuresTest {
     }
 
     @Test
+    void aConverterACustomizerAddsIsCoveredAndAnIoFailureInItToo() throws Exception {
+        org.springframework.http.converter.AbstractHttpMessageConverter<Shape> throwing =
+                new org.springframework.http.converter.AbstractHttpMessageConverter<>(org.springframework.http.MediaType.APPLICATION_JSON) {
+                    @Override
+                    protected boolean supports(Class<?> clazz) {
+                        return Shape.class == clazz;
+                    }
+
+                    @Override
+                    protected Shape readInternal(Class<? extends Shape> clazz, org.springframework.http.HttpInputMessage message)
+                            throws java.io.IOException {
+                        throw new java.io.IOException("unknown field " + SECRET);
+                    }
+
+                    @Override
+                    protected void writeInternal(Shape shape, org.springframework.http.HttpOutputMessage message) {
+                        throw new UnsupportedOperationException();
+                    }
+                };
+        DefaultPlatformRestClientFactory custom = new DefaultPlatformRestClientFactory(new RestClientProperties(true, null, null),
+                List.of((name, builder) -> builder.configureMessageConverters(converters -> converters
+                        .configureMessageConvertersList(list -> list.add(0, throwing)))));
+        try {
+            RestClient replaced = custom.builder("c2").baseUrl("http://127.0.0.1:" + server.getAddress().getPort()).build();
+            body = "{}";
+            Throwable failure = catchThrowable(() -> replaced.get().retrieve().body(Shape.class));
+            assertThat(failure).isInstanceOf(RestClientException.class);
+            assertThat(printed(failure)).doesNotContain(SECRET);
+        } finally {
+            custom.destroy();
+        }
+    }
+
+    @Test
     void aGoodBodyStillParses() {
         body = "{\"name\": \"ok\"}";
         assertThat(client.get().retrieve().body(Shape.class)).isEqualTo(new Shape("ok"));

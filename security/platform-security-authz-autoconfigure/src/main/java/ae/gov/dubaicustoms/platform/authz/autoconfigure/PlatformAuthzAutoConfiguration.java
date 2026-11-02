@@ -58,7 +58,8 @@ public class PlatformAuthzAutoConfiguration {
     // considers Advisor beans with this role — a plain application-role bean is silently ignored.
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    @ConditionalOnMissingBean(name = "requiresPermissionAdvisor")
+    // Deliberately no back-off, which would let any bean of this name, or any Advisor at all, switch enforcement off: a name clash
+    // fails startup. To change what is granted, supply a PermissionEvaluatorProvider; to remove it, the kill switch.
     Advisor requiresPermissionAdvisor(ObjectProvider<CurrentUserAccessor> accessor, ObjectProvider<PermissionEvaluatorProvider> providers) {
         CurrentUserAccessor found = accessor.getIfAvailable();
         if (found == null) {

@@ -116,8 +116,7 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
                 .requestFactory(requestFactory)
                 .observationRegistry(observationRegistry.get())
                 .observationConvention(new ClientNameConvention(clientName))
-                .configureMessageConverters(converters -> converters.registerDefaults()
-                        .configureMessageConvertersList(UnquotedReadFailures::wrapAll));
+                .configureMessageConverters(converters -> converters.registerDefaults());
         // No correlation interceptor: the observation registry above propagates traceparent, the
         // platform's only correlation id. No custom correlation header is sent or read.
         builder.defaultStatusHandler(org.springframework.http.HttpStatusCode::isError, (request, response) -> {
@@ -127,6 +126,8 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         for (PlatformRestClientCustomizer customizer : customizers) {
             customizer.customize(clientName, builder);
         }
+        // After the customizers, so a converter one of them adds or swaps in is covered too.
+        builder.configureMessageConverters(converters -> converters.configureMessageConvertersList(UnquotedReadFailures::wrapAll));
         return builder;
     }
 

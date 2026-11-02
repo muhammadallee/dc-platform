@@ -52,7 +52,12 @@ final class ProblemResponses {
         body.append(",\"timestamp\":\"").append(Instant.now()).append('"')
                 .append(",\"retryable\":").append(retryable).append('}');
         // Bytes, not the writer, which would add charset=ISO-8859-1 and garble a non-ASCII path in instance.
-        response.getOutputStream().write(body.toString().getBytes(StandardCharsets.UTF_8));
+        try {
+            response.getOutputStream().write(body.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalStateException writerAlreadyInUse) {
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write(body.toString());
+        }
     }
 
     // JSON string escaping for the characters a URI path or configured text can contain.

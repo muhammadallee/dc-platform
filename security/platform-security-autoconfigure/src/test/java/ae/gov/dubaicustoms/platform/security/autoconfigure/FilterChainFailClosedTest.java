@@ -87,6 +87,55 @@ class FilterChainFailClosedTest {
     @Test
     void aCustomizerCannotOpenEverything() {
         assertThatThrownBy(() -> start(WideOpenCustomizerApp.class, valid()).close()).isInstanceOf(Exception.class);
+        assertThatThrownBy(() -> start(WildcardCustomizerApp.class, valid()).close())
+                .hasRootCauseInstanceOf(InvalidSecurityConfigurationException.class)
+                .rootCause().hasMessageContaining("opens every path");
+    }
+
+    @Test
+    void permitPathsCannotOpenEverything() {
+        List<String> props = new ArrayList<>(List.of(valid()));
+        props.add("dc.platform.security.permit-paths=/**");
+        assertRefused("opens every path", props.toArray(String[]::new));
+    }
+
+    @Test
+    void anUnrelatedConfigurationStaysOpenToItsNamedPathsOnly() throws Exception {
+        List<String> props = new ArrayList<>(List.of(valid()));
+        props.add("dc.platform.security.permit-paths=/open");
+        try (ConfigurableApplicationContext app = start(App.class, props.toArray(String[]::new))) {
+            assertThat(status(app, "/open")).isEqualTo(200);
+            assertThat(status(app, "/closed")).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void theStrictDecoderIsRegisteredAndBootsNameIsTheRealOne() throws Exception {
+        Class.forName("org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerAutoConfiguration");
+        try (ConfigurableApplicationContext app = start(App.class, valid())) {
+            assertThat(app.getBeanNamesForType(JwtDecoder.class)).containsExactly("jwtDecoder");
+        }
+    }
+
+    @Test
+    void aHigherSourceReplacesAWholeList() {
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setProperty(JWT + "issuer-uri", "https://idp.test/");
+        env.setProperty(JWT + "jwk-set-uri", "https://idp.test/jwks");
+        env.setProperty(JWT + "audiences[0]", "legacy");
+        env.getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("override",
+                java.util.Map.of(JWT + "audiences", "production")));
+        org.springframework.boot.context.properties.bind.Binder binder = org.springframework.boot.context.properties.bind.Binder.get(env);
+        assertThat(binder.bind(JWT + "audiences", org.springframework.boot.context.properties.bind.Bindable.listOf(String.class)).get())
+                .containsExactly("production");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"connect-timeout", "read-timeout", "cache-ttl", "refresh-cooldown", "outage-tolerance"})
+    void aZeroDurationIsRefused(String key) {
+        List<String> props = new ArrayList<>(List.of(valid()));
+        props.add("dc.platform.security.jwt.jwks." + key + "=0s");
+        assertRefused(key, props.toArray(String[]::new));
     }
 
     @ParameterizedTest
@@ -241,6 +290,17 @@ class FilterChainFailClosedTest {
         @Bean
         JwtAuthenticationConverter myConverter() {
             return CONVERTER;
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import(Api.class)
+    static class WildcardCustomizerApp {
+
+        @Bean
+        SecurityCustomizer wildcard() {
+            return http -> http.authorizeHttpRequests(a -> a.requestMatchers("/**").permitAll());
         }
     }
 

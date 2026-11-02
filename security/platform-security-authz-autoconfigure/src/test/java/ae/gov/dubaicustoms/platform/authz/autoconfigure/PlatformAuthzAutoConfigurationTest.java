@@ -54,6 +54,26 @@ class PlatformAuthzAutoConfigurationTest {
     }
 
     @Test
+    void anUnrelatedBeanOfTheAdvisorsNameDoesNotSwitchEnforcementOff() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(PlatformAuthzAutoConfiguration.class))
+                .withBean("requiresPermissionAdvisor", String.class, () -> "unrelated")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void theDefaultsAreWhatTheDocumentationSays() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(PlatformAuthzAutoConfiguration.class))
+                .withBean(CurrentUserAccessor.class, () -> stubAccessor)
+                .run(context -> {
+                    AuthzProperties properties = context.getBean(AuthzProperties.class);
+                    assertThat(properties.enabled()).isTrue();
+                    assertThat(properties.rolesClaim()).isEqualTo("roles");
+                });
+    }
+
+    @Test
     void withNoCurrentUserAccessorStartupFailsInsteadOfProtectingNothing() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformAuthzAutoConfiguration.class))

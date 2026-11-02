@@ -379,7 +379,7 @@ run_scenario() { # id features groupId artifactId package platformVersion subdir
 
 requested_service_probes() { # project jar artifactId
   local p=$1 jar=$2 artifact=$3 log db closed
-  local auth="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS"
+  local auth="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS ${ISSUER_ARGS[*]}"
   local downstream="--app.greeting.base-url=http://127.0.0.1:9"
   step "Requested service: documented launch (mvn spring-boot:run, no profile)"
   log="$EVIDENCE/data-restclient-spring-boot-run.log"

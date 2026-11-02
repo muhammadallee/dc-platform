@@ -233,6 +233,70 @@ class RealTokenValidationTest {
     }
 
     @Test
+    void aProviderDrippingBytesIsCutOffAtTheBudget() throws Exception {
+        jwks.createContext("/drip", exchange -> {
+            fetches.incrementAndGet();
+            exchange.sendResponseHeaders(200, 0);
+            try {
+                for (int i = 0; i < 300; i++) {
+                    exchange.getResponseBody().write(' ');
+                    exchange.getResponseBody().flush();
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException | IOException e) {
+                Thread.currentThread().interrupt();
+            }
+            exchange.close();
+        });
+        start("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/drip",
+                "dc.platform.security.jwt.jwks.read-timeout=500ms", "dc.platform.security.jwt.jwks.connect-timeout=500ms");
+        long started = System.nanoTime();
+        assertUnavailable(get(rs256(key, claims().build())));
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void aBadResponseCountsAsAnOutageNotAsNoSuchKey() throws Exception {
+        jwks.createContext("/html", exchange -> {
+            byte[] page = "<html>sign in</html>".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, page.length);
+            exchange.getResponseBody().write(page);
+            exchange.close();
+        });
+        start("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/html");
+        assertUnavailable(get(rs256(key, claims().build())));
+        assertUnavailable(get(rs256(key, claims().build())));
+    }
+
+    @Test
+    void aRedirectIsNotFollowed() throws Exception {
+        jwks.createContext("/moved", exchange -> {
+            exchange.getResponseHeaders().add("Location", "http://127.0.0.1:" + jwks.getAddress().getPort() + "/jwks");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        start("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/moved");
+        assertUnavailable(get(rs256(key, claims().build())));
+        assertThat(fetches.get()).isZero();
+    }
+
+    @Test
+    void aShortRsaKeyIsRefused() throws Exception {
+        RSAKey weak = new RSAKeyGenerator(1024, true).keyID("weak").keyUse(KeyUse.SIGNATURE).generate();
+        served = new JWKSet(weak.toPublicJWK());
+        start();
+        SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("weak").build(), claims().build());
+        jwt.sign(new RSASSASigner(weak.toPrivateKey(), true));
+        assertThat(get(jwt.serialize()).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void scopesOfTheWrongShapeGrantNothingAndAreNotAFailure() throws Exception {
+        start();
+        assertThat(get(rs256(key, claims().claim("scp", List.of(123)).build())).statusCode()).isEqualTo(200);
+    }
+
+    @Test
     void nothingIsFetchedAtStartup() {
         start();
         assertThat(fetches.get()).isZero();

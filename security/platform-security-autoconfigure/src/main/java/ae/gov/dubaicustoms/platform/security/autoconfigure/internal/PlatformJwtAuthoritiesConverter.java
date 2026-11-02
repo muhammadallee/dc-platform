@@ -35,9 +35,14 @@ public final class PlatformJwtAuthoritiesConverter implements Converter<Jwt, Col
     @Override
     public Collection<GrantedAuthority> convert(Jwt jwt) {
         Set<GrantedAuthority> authorities = new LinkedHashSet<>();
-        Collection<GrantedAuthority> scoped = scopes.convert(jwt);
-        if (scoped != null) {
-            authorities.addAll(scoped);
+        try {
+            Collection<GrantedAuthority> scoped = scopes.convert(jwt);
+            if (scoped != null) {
+                authorities.addAll(scoped);
+            }
+        } catch (ClassCastException notStrings) {
+            // scp: [123]. Spring casts each element; a claim of the wrong shape grants nothing.
+            authorities.clear();
         }
         addRoles(authorities, jwt.getClaims().get(ROLES));
         addRoles(authorities, nested(jwt.getClaims().get("realm_access"), ROLES));

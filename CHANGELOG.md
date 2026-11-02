@@ -5,6 +5,26 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Phase 7: security (breaking; HC7)
+
+- **The application no longer starts without `spring.security.oauth2.resourceserver.jwt.issuer-uri`, `jwk-set-uri` and `audiences`.** All
+  three, and `issuer-uri` alone no longer discovers the keys. Tokens with the wrong issuer or audience, or no `exp` or `sub`, were
+  accepted before and are refused now.
+- **Only `/actuator/health/liveness` and `/actuator/health/readiness` are open by default.** `info`, aggregate health, `dependencies`,
+  OpenAPI and swagger need a token.
+- **A consumer's `SecurityFilterChain` must cover every request**, or startup fails. `dc.platform.security.allow-partial-chains=true` accepts one
+  that does not.
+- `permit-paths` or a `SecurityCustomizer` that opens every path fails startup.
+- `jws-algorithms` refuses `none` and HMAC. A `jwk-set-uri` that is not https or loopback fails startup without `allow-insecure-jwks`. RSA keys under
+  2048 bits are ignored. JWKS redirects are not followed.
+- `@RequiresPermission` with no `CurrentUserAccessor` fails startup, where it used to protect nothing.
+- **Token relay is opt-in**: name the clients in `dc.platform.restclient.token-relay.clients`.
+- Keycloak roles map to `ROLE_x`, and grant `@RequiresPermission("x")`. Boot's `authorities-claim-*` keys no longer apply unless you supply a converter.
+- A token that cannot be checked because the keys cannot be fetched is a 503 `DC-SEC-0503`, not a bare 500.
+- 401, 403 and 503 bodies are UTF-8. Clock skew is 30 s, was 60 s.
+- A success body that cannot be parsed fails with no text from the body. A connection failure while reading a JSON body is the
+  `RemoteCallException` itself, never wrapped.
+
 ### Phase 6: REST client and resilience (breaking; HC7)
 
 - **Every platform REST client now retries idempotent methods, has a 30 s deadline, a circuit breaker and a bulkhead, by default.** POST and

@@ -10,7 +10,6 @@ import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.GenericHttpMessageConverter;
-import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.SmartHttpMessageConverter;
@@ -46,12 +45,13 @@ final class UnquotedReadFailures {
         return new Plain((HttpMessageConverter<Object>) converter);
     }
 
-    private static HttpMessageNotReadableException unquoted(HttpMessageConversionException failure, HttpInputMessage message) {
+    private static HttpMessageNotReadableException unquoted(Exception failure, HttpInputMessage message) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             if (cause instanceof RemoteCallException remote) {
                 throw remote;
             }
         }
+        // A transport failure while reading is already a RemoteCallException, so what is left comes from the parser, whatever its type.
         Throwable parser = failure.getCause() == null ? failure : failure.getCause();
         return new HttpMessageNotReadableException("The response body could not be parsed: " + parser.getClass().getName(), message);
     }
@@ -88,7 +88,7 @@ final class UnquotedReadFailures {
         public Object read(Class<?> clazz, HttpInputMessage message) throws IOException {
             try {
                 return delegate.read(clazz, message);
-            } catch (HttpMessageConversionException e) {
+            } catch (IOException | RuntimeException e) {
                 throw unquoted(e, message);
             }
         }
@@ -117,7 +117,7 @@ final class UnquotedReadFailures {
         public Object read(Type type, Class<?> contextClass, HttpInputMessage message) throws IOException {
             try {
                 return generic.read(type, contextClass, message);
-            } catch (HttpMessageConversionException e) {
+            } catch (IOException | RuntimeException e) {
                 throw unquoted(e, message);
             }
         }
@@ -161,7 +161,7 @@ final class UnquotedReadFailures {
         public Object read(ResolvableType type, HttpInputMessage message, Map<String, Object> hints) throws IOException {
             try {
                 return smart.read(type, message, hints);
-            } catch (HttpMessageConversionException e) {
+            } catch (IOException | RuntimeException e) {
                 throw unquoted(e, message);
             }
         }

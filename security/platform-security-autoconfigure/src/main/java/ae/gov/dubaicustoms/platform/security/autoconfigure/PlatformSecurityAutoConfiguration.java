@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.security.autoconfigure;
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
+import ae.gov.dubaicustoms.platform.security.autoconfigure.internal.AnonymousAccessProbe;
 import ae.gov.dubaicustoms.platform.security.autoconfigure.internal.FilterChainCoverageCheck;
 import ae.gov.dubaicustoms.platform.security.autoconfigure.internal.JwtCurrentUserAccessor;
 import ae.gov.dubaicustoms.platform.security.autoconfigure.internal.PlatformJwtAuthoritiesConverter;
@@ -64,7 +65,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * security off. Tests use spring-security-test's jwt() request post-processor (no live IdP
  * needed); docs/modules/security.md documents a Docker dev-issuer option for manual runs.
  */
-@AutoConfiguration(beforeName = "org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet"
+@AutoConfiguration(beforeName = "org.springframework.boot.security.oauth2.server.resource.autoconfigure"
         + ".OAuth2ResourceServerAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnClass({SecurityCustomizer.class, HttpSecurity.class})
@@ -120,7 +121,9 @@ public class PlatformSecurityAutoConfiguration {
             properties.permitPaths().forEach(path -> auth.requestMatchers(path).permitAll());
             auth.anyRequest().authenticated();
         });
-        return http.build();
+        SecurityFilterChain chain = http.build();
+        AnonymousAccessProbe.check(chain);
+        return chain;
     }
 
     @Bean
@@ -171,13 +174,14 @@ public class PlatformSecurityAutoConfiguration {
             return new SecurityMetrics() {
                 @Override
                 public void tokenRejected() {
-                    registries.forEach(registry -> Counter.builder("platform.security.token.rejected")
+                    // The primary registry only: with a composite, its children would count twice.
+                    registries.ifUnique(registry -> Counter.builder("platform.security.token.rejected")
                             .description("Bearer tokens refused").register(registry).increment());
                 }
 
                 @Override
                 public void jwksFetch(boolean success) {
-                    registries.forEach(registry -> Counter.builder("platform.security.jwks.fetch")
+                    registries.ifUnique(registry -> Counter.builder("platform.security.jwks.fetch")
                             .description("JWKS fetches").tag("outcome", success ? "success" : "failure").register(registry).increment());
                 }
             };

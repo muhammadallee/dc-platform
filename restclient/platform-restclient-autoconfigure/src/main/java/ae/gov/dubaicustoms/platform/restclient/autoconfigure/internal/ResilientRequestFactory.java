@@ -49,6 +49,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
  */
 final class ResilientRequestFactory implements ClientHttpRequestFactory {
 
+    private static final long TIMER_MARGIN_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
     private static final Set<HttpMethod> IDEMPOTENT = Set.of(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.PUT,
             HttpMethod.DELETE);
@@ -373,12 +374,15 @@ final class ResilientRequestFactory implements ClientHttpRequestFactory {
             };
         }
 
-        /** Spring's timer closes the stream when an attempt's time is up, so the clock is what tells a timeout from a loss. */
+        /**
+         * Spring's timer closes the stream when an attempt's time is up, so the clock is what tells a timeout from a loss. The
+         * timer truncates to milliseconds and can fire just before the exact expiry, hence the margin.
+         */
         private RemoteCallException readFailure(IOException e) {
             if (verdictPending.compareAndSet(true, false)) {
                 recordFailure(started, e);
             }
-            boolean timedOut = e instanceof HttpTimeoutException || System.nanoTime() - expiresAt >= 0;
+            boolean timedOut = e instanceof HttpTimeoutException || System.nanoTime() - expiresAt >= -TIMER_MARGIN_NANOS;
             Kind kind = !timedOut ? Kind.CONNECTION : cutByDeadline ? Kind.DEADLINE : Kind.TIMEOUT;
             return new RemoteCallException(client, kind, status(delegate), "", idempotent, sanitized(e));
         }

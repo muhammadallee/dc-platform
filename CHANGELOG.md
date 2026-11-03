@@ -17,7 +17,9 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - `permit-paths` or a `SecurityCustomizer` that opens every path fails startup.
 - `jws-algorithms` refuses `none` and HMAC. A `jwk-set-uri` that is not https or loopback fails startup without `allow-insecure-jwks`. RSA keys under
   2048 bits are ignored. JWKS redirects are not followed.
-- `@RequiresPermission` with no `CurrentUserAccessor` fails startup, where it used to protect nothing.
+- `@RequiresPermission` with no `CurrentUserAccessor` fails startup, where it used to protect nothing. On a type, it now applies to
+  inherited methods too (was a 500). Through an interface proxy, the implementing method's own annotation is enforced and wins over its
+  type's (was ignored, or the type's applied).
 - **Token relay is opt-in**: name the clients in `dc.platform.restclient.token-relay.clients`.
 - Keycloak roles map to `ROLE_x`, and grant `@RequiresPermission("x")`. Boot's `authorities-claim-*` keys no longer apply unless you supply a converter.
 - A token that cannot be checked because the keys cannot be fetched is a 503 `DC-SEC-0503`, not a bare 500.

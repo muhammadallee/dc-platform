@@ -1,0 +1,170 @@
+PASS	dependency tree has platform-starter-security
+PASS	app ready in 10s
+PASS	AC22 nothing fetched at startup
+PASS	ac22-cold status 503
+PASS	ac22-cold: exact generic body, retryable
+PASS	ac22-back status 200
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	§7.4 a WARN says the keys cannot be fetched
+PASS	app ready in 9s
+PASS	ac1 status 200
+PASS	ac1: principal read back
+PASS	ac1: no subject or claim in MDC
+PASS	ac2-expired status 401
+PASS	ac2-expired: exact generic body
+PASS	ac2-expired: no reason in the challenge
+PASS	ac2-future status 401
+PASS	ac2-future: exact generic body
+PASS	ac2-future: no reason in the challenge
+PASS	ac2-skew-exp status 200
+PASS	ac2-skew-nbf status 200
+PASS	ac3-iss status 401
+PASS	ac3-iss: exact generic body
+PASS	ac3-iss: no reason in the challenge
+PASS	ac3-noiss status 401
+PASS	ac3-noiss: exact generic body
+PASS	ac3-noiss: no reason in the challenge
+PASS	ac3-aud status 401
+PASS	ac3-aud: exact generic body
+PASS	ac3-aud: no reason in the challenge
+PASS	ac3-noaud status 401
+PASS	ac3-noaud: exact generic body
+PASS	ac3-noaud: no reason in the challenge
+PASS	ac3-noexp status 401
+PASS	ac3-noexp: exact generic body
+PASS	ac3-noexp: no reason in the challenge
+PASS	ac3-nosub status 401
+PASS	ac3-nosub: exact generic body
+PASS	ac3-nosub: no reason in the challenge
+PASS	ac4-forged status 401
+PASS	ac4-forged: exact generic body
+PASS	ac4-forged: no reason in the challenge
+PASS	ac4-none status 401
+PASS	ac4-none: exact generic body
+PASS	ac4-none: no reason in the challenge
+PASS	ac4-hs256 status 401
+PASS	ac4-hs256: exact generic body
+PASS	ac4-hs256: no reason in the challenge
+PASS	ac4-rs512 status 401
+PASS	ac4-rs512: exact generic body
+PASS	ac4-rs512: no reason in the challenge
+PASS	ac5-warm status 200
+PASS	ac5-unknown status 401
+PASS	ac5-unknown: exact generic body
+PASS	ac5-unknown: no reason in the challenge
+PASS	AC5 21 unknown-kid requests in 6s cost 6 fetches, at most 8
+PASS	ac9-none status 401
+PASS	ac9-none: same refusal
+PASS	ac9-garbage status 401
+PASS	ac9-garbage: exact generic body
+PASS	ac9-garbage: no reason in the challenge
+PASS	ac9-query status 401
+PASS	ac6-warm status 200
+PASS	ac6-known status 200
+PASS	ac6-fresh status 503
+PASS	ac6-fresh: exact generic body, retryable
+PASS	ac6-html-prep status 503
+PASS	ac6-html-prep: exact generic body, retryable
+PASS	ac6-html status 503
+PASS	ac6-html: exact generic body, retryable
+PASS	ac6-redirect status 503
+PASS	ac6-redirect: exact generic body, retryable
+PASS	ac8-new status 200
+PASS	ac8-removed status 401
+PASS	ac8-removed: exact generic body
+PASS	ac8-removed: no reason in the challenge
+PASS	ac8-still status 200
+PASS	ac8-back status 200
+PASS	AC7 refused in 3s (503)
+PASS	ac10-anon status 401
+PASS	ac10-none status 403
+PASS	ac10-none: 403 body, exactly generic
+PASS	ac10-realm status 200
+PASS	ac10-plain status 200
+PASS	ac10-client status 200
+PASS	ac10-other-client status 403
+PASS	ac10-scope status 200
+PASS	ac10-noscope status 403
+PASS	ac10-shape status 200
+PASS	ac12-health-liveness status 200
+PASS	ac12-health-readiness status 200
+PASS	ac12-health-anon status 401
+PASS	ac12-health-dependencies-anon status 401
+PASS	ac12-info-anon status 401
+PASS	ac12-prometheus-anon status 401
+PASS	ac12-platform-anon status 401
+PASS	ac12-env-anon status 401
+PASS	ac12-beans-anon status 401
+PASS	ac12-health-token status 200
+PASS	ac12-health-dependencies-token status 200
+PASS	ac12-info-token status 200
+PASS	ac12-prometheus-token status 200
+PASS	ac12-platform-token status 200
+PASS	ac12-env-token status 404
+PASS	ac12-ready-detail: an anonymous probe shows no details
+PASS	ac12-metrics status 200
+PASS	R8 rejected tokens counted
+PASS	R8 failed fetches counted
+PASS	R8 no user-derived tag
+PASS	ac13-v3api-docs status 401
+PASS	ac13-swagger-uihtml status 401
+PASS	ac13-swagger-uiindexhtml status 401
+PASS	ac14-public status 200
+PASS	ac14-custom status 200
+PASS	ac14-closed status 401
+PASS	AC14 encoded traversal refused (400)
+PASS	ac17-async status 200
+PASS	ac17-async: same principal on the worker
+PASS	AC17 200 concurrent, two principals, no bleed
+PASS	ac17-after status 401
+PASS	ac19-plain status 200
+PASS	AC19 an unnamed client carries no token
+PASS	ac19-relayed status 200
+PASS	AC19 a named client carries it
+PASS	ac20 status 500
+PASS	AC20 not in the body
+PASS	app exited on SIGTERM (code 143) in 4s
+PASS	graceful shutdown completed (logged)
+PASS	AC21 the request finished
+PASS	AC20 the marker is in no log
+PASS	AC18 none of the 30 tokens used is in a log
+PASS	AC18 nothing JWT-shaped in a log
+PASS	no principal in a log field
+PASS	app ready in 9s
+PASS	mgmt-ready status 200
+PASS	mgmt-health-anon status 401
+PASS	mgmt-info-anon status 401
+PASS	mgmt-prometheus-anon status 401
+PASS	mgmt-info-token status 200
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	app ready in 9s
+PASS	full-open status 200
+PASS	full-denied status 403
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	AC15 no-issuer: refused in 9s, naming 'issuer-uri'
+PASS	AC15 no-audience: refused in 9s, naming 'audiences'
+PASS	AC15 no-jwks: refused in 9s, naming 'jwk-set-uri'
+PASS	AC15 alg-none: refused in 9s, naming 'jws-algorithms'
+PASS	AC15 alg-hs256: refused in 8s, naming 'jws-algorithms'
+PASS	AC15 big-skew: refused in 9s, naming 'clock-skew'
+PASS	AC15 http-jwks: refused in 9s, naming 'https'
+PASS	AC15 narrow-chain: refused in 10s, naming 'does not match every request'
+PASS	AC15 wildcard: refused in 9s, naming 'opens every path'
+PASS	AC15 wide-permit: refused in 9s, naming 'opens every path'
+PASS	app ready in 10s
+PASS	ac11-me status 200
+PASS	ac11-me: subject and both kinds of role
+PASS	ac11-me: another client's role grants nothing
+PASS	ac11-clerk status 200
+PASS	ac11-approver status 200
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	app ready in 9s
+PASS	ac11-aud status 401
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	AC18 the Keycloak token is in no log
+PASS	cleanup: no containers left for dch-20261103132345-28450

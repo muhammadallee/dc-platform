@@ -1,0 +1,61 @@
+PASS	dependency tree has platform-starter-security
+PASS	dependency tree has platform-starter-restclient
+PASS	dependency tree has platform-starter-data-jpa-oracle
+PASS	dependency tree has platform-starter-observability
+PASS	app ready in 91s
+PASS	chain status 200
+PASS	chain: principal in context before and after the call, trace kept
+PASS	C2.1 the same trace reached the downstream
+PASS	C2.1 the token was relayed to the named client
+PASS	chain-row status 200
+PASS	C2.1 the row holds the principal and the trace
+PASS	down-401 status 500
+PASS	down-401: down-401 generic body, retryable=False
+PASS	down-401: no downstream body in the response
+PASS	down-401: no token in the response
+PASS	C2.2 401 not retried: 1 request(s) reached the downstream
+PASS	down-403 status 500
+PASS	down-403: down-403 generic body, retryable=False
+PASS	down-403: no downstream body in the response
+PASS	down-403: no token in the response
+PASS	C2.2 403 not retried: 1 request(s) reached the downstream
+PASS	down-500 status 500
+PASS	down-500: down-500 generic body, retryable=False
+PASS	down-500: no downstream body in the response
+PASS	down-500: no token in the response
+PASS	C2.2 500 not retried: 1 request(s) reached the downstream
+PASS	down-503 status 503
+PASS	down-503: down-503 generic body, retryable=True
+PASS	down-503: no downstream body in the response
+PASS	down-503: no token in the response
+PASS	C2.2 503 retried: 3 request(s) reached the downstream
+PASS	cb-open status 503
+PASS	cb-open: cb-open generic body, retryable=True
+PASS	cb-open: no downstream body in the response
+PASS	cb-open: no token in the response
+PASS	C2.3 an open breaker sends nothing: 0 request(s) reached the downstream
+PASS	cb-db status 200
+PASS	cb-other status 200
+PASS	cb-ready status 200
+PASS	cb-deps: db UP, the breaker shown open
+PASS	cb-deps-anon status 401
+PASS	slow-remote status 200
+PASS	C2.4 an outbound call needs no database: 512 ms
+PASS	slow-order status 200
+PASS	slow-ready status 200
+PASS	C2.5 200 chains, no wrong principal, no repeated trace
+PASS	C2.5 principal-a owns 100 rows
+PASS	C2.5 principal-b owns 100 rows
+PASS	after-anon status 401
+PASS	C2.5 two different tokens reached the downstream, each principal's own
+PASS	C2.6 the call is in flight: 1 request(s) reached the downstream
+PASS	app exited on SIGTERM (code 143) in 4s
+PASS	graceful shutdown completed (logged)
+PASS	C2.6 the in-flight chain finished
+PASS	C2 the log line carries the trace
+PASS	C2 'alice-c2' not in the log
+PASS	C2 'principal-a' not in the log
+PASS	C2 'principal-b' not in the log
+PASS	C2 'hhDownstreamBodyMarker' not in the log
+PASS	C2 nothing JWT-shaped in the log
+PASS	cleanup: no containers left for dch-20261103135711-33654

@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 8 — Final full-project verification |
-| Current gate | Phase 8: steps 1 (full reactor verify, 1,557 tests) and 2 (in-scope container suites, 13 classes) pass on `f96ece6`; step 3 next. Results in `phase-08-final/run-results.md` |
+| Current gate | Phase 8: steps 1 to 3 and 6 pass (full reactor 1,557 tests; 13 container classes; golden path 9/9; all-capability app 63/63); step 4 next. Results in `phase-08-final/run-results.md` |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | Review HI-0088 again at the end of all phases, before the Phase 8 release decision (D125); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 8 step 3: golden path, a fresh archetype app with all 7 certified capabilities, and the C1 + C2 smoke matrix; then steps 4 to 8 (step 7 needs the D7 chart-tool details from the owner). Full builds in the foreground with `-l`, `-T1`; `install -DskipTests` after step 1 before any `-pl` run, or siblings resolve stale from `~/.m2`. Consumer repository: `bash tooling/hardening/phase-07-repo.sh`, after `mvn -o clean` (HI-0003). Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Before `release-decision.md`, put HI-0088 back to the owner (D125). Disk: old phase repositories removed with the owner's leave (2026-11-03); `~/dc-hardening-runs` kept. |
+| Next action | Phase 8 step 4 (scans), then 5, 7, 8 (step 7 needs the D7 chart-tool details from the owner). Full builds in the foreground with `-l`, `-T1`; `install -DskipTests` after step 1 before any `-pl` run, or siblings resolve stale from `~/.m2`. Consumer repository: `bash tooling/hardening/phase-07-repo.sh`, after `mvn -o clean` (HI-0003). Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Before `release-decision.md`, put HI-0088 back to the owner (D125). Disk: old phase repositories removed with the owner's leave (2026-11-03); `~/dc-hardening-runs` kept. |
 
 ## Phase log
 

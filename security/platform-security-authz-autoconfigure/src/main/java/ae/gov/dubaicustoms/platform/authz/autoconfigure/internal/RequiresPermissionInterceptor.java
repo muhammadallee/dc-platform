@@ -4,6 +4,7 @@ import ae.gov.dubaicustoms.platform.authz.RequiresPermission;
 import ae.gov.dubaicustoms.platform.authz.spi.PermissionEvaluatorProvider;
 import ae.gov.dubaicustoms.platform.security.CurrentUser;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
 import org.aopalliance.intercept.MethodInterceptor;
@@ -31,10 +32,16 @@ final class RequiresPermissionInterceptor implements MethodInterceptor {
 
     @Override
     public Object invoke(MethodInvocation invocation) throws Throwable {
-        RequiresPermission annotation = AnnotatedElementUtils.findMergedAnnotation(invocation.getMethod(), RequiresPermission.class);
-        if (annotation == null && invocation.getThis() != null) {
+        Class<?> target = invocation.getThis() == null ? null : AopUtils.getTargetClass(invocation.getThis());
+        // Method before class, and the implementing method first: a JDK proxy passes the interface method, and a weaker class
+        // permission must not stand in for the implementing method's own.
+        Method specific = target == null ? invocation.getMethod() : AopUtils.getMostSpecificMethod(invocation.getMethod(), target);
+        RequiresPermission annotation = AnnotatedElementUtils.findMergedAnnotation(specific, RequiresPermission.class);
+        if (annotation == null) {
+            annotation = AnnotatedElementUtils.findMergedAnnotation(invocation.getMethod(), RequiresPermission.class);
+        }
+        if (annotation == null && target != null) {
             // The class the pointcut matched, which may be a subclass of the method's declaring class.
-            Class<?> target = AopUtils.getTargetClass(invocation.getThis());
             annotation = AnnotatedElementUtils.findMergedAnnotation(target, RequiresPermission.class);
         }
         if (annotation == null) {

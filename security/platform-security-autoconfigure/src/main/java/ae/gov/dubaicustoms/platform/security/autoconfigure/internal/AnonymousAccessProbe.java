@@ -98,7 +98,8 @@ public final class AnonymousAccessProbe {
             AuthorizationResult result = filter.getAuthorizationManager().authorize(
                     () -> new AnonymousAuthenticationToken("probe", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))),
                     request(method, path, servletContext));
-            return result != null && result.isGranted();
+            // AuthorizationFilter lets a null (abstaining) decision through, so it counts as open.
+            return result == null || result.isGranted();
         } catch (RuntimeException e) {
             log.debug("security chain probe failed", e);
             throw new InvalidSecurityConfigurationException("A request matcher in the platform security chain failed on a check "

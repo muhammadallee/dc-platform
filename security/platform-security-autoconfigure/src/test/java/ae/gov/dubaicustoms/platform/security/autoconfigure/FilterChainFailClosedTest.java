@@ -107,6 +107,13 @@ class FilterChainFailClosedTest {
     }
 
     @Test
+    void anAbstainingRuleForEverythingFailsStartup() {
+        assertThatThrownBy(() -> start(AbstainingRuleApp.class, valid()).close())
+                .hasRootCauseInstanceOf(InvalidSecurityConfigurationException.class)
+                .rootCause().hasMessageContaining("opens every path");
+    }
+
+    @Test
     void aMatcherReadingTheServerNameIsAnswered() throws Exception {
         try (ConfigurableApplicationContext app = start(ServerNameMatcherApp.class, valid())) {
             assertThat(status(app, "/closed")).isEqualTo(401);
@@ -338,6 +345,17 @@ class FilterChainFailClosedTest {
         @Bean
         SecurityCustomizer postWildcard() {
             return http -> http.authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.POST, "/**").permitAll());
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import(Api.class)
+    static class AbstainingRuleApp {
+
+        @Bean
+        SecurityCustomizer abstaining() {
+            return http -> http.authorizeHttpRequests(a -> a.requestMatchers("/**").access((authentication, context) -> null));
         }
     }
 

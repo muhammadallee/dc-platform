@@ -8,7 +8,7 @@
 | 4 | Transactional Outbox | 4 | PASS with parked issues (2026-11-01, `03dee13`) | SLICE + CONTAINER + CONSUMER | Platform JDBC module (HD11). HI-0071, HI-0079, HI-0086 parked, to fix before production use |
 | 5 | RabbitMQ Messaging | 5 | PASS (2026-11-02, `5cafcf3`) | UNIT + SLICE + CONTAINER + CONSUMER | C1 passed. One broker node; quorum failover unverified. HI-0087, HI-0093 accepted; HI-0088 accepted, review at the end of all phases |
 | 6 | REST Client + Resilience | 6 | PASS (2026-11-02, `78636c0`) | SLICE + CONSUMER | No TLS, HTTP/2 or load run; the `@Retry` aspect not run. HI-0094 to HI-0098 accepted (D131); HI-0099 to fix in Phase 7 |
-| 7 | Security | 7 | PASS, residuals with the owner (2026-11-03, `d56d0a0`) | SLICE + CONSUMER | C2 passed. Real Keycloak and a scripted provider; no TLS, no spans, no Keycloak HA. HI-0099 fixed; HI-0100 to HI-0103 Low, for the owner |
+| 7 | Security | 7 | PASS (2026-11-03, `d56d0a0`) | SLICE + CONSUMER | C2 passed. Real Keycloak and a scripted provider; no TLS, no spans, no Keycloak HA. HI-0099 fixed; HI-0100 to HI-0103 accepted (D132) |
 
 ## Not certified (ships in the BOM, outside this initiative)
 

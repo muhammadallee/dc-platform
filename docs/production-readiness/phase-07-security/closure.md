@@ -1,6 +1,6 @@
 # Phase 7 — Security: closure
 
-**Verdict: PASS, pending the owner's decision on four Low residuals, HI-0100 to HI-0103 (below).** Earlier owner decisions: D131 (HI-0099 to fix here), HC7 (no users, so breaking changes need only a CHANGELOG entry).
+**Verdict: PASS, residuals accepted by the owner on 2026-11-03 (D132, below).** Earlier owner decisions: D131 (HI-0099 to fix here), HC7 (no users, so breaking changes need only a CHANGELOG entry).
 
 | Item | Value |
 |---|---|
@@ -15,7 +15,7 @@
 | B implement + targeted tests | strict validation, bounded JWKS, outage 503, fail-closed checks, role mapping, opt-in relay, HI-0099 | `evidence-raw/` |
 | C round 1 | REJECT, 20: 16 fixed, 3 corrected in scope, 1 residual (HI-0100) | [`review-round-1.md`](review-round-1.md) |
 | D round 2 and verification | REJECT, 12 and 4 test gaps; pass 1 REJECT, 8; pass 2 REJECT, 2 High; **pass 3 ACCEPT** on the final code | [`review-round-2.md`](review-round-2.md) |
-| E register | G7-01 to G7-05 closed; HI-0099 FIXED; HI-0100 to HI-0103 OPEN, Low | [`../issue-register.md`](../issue-register.md) |
+| E register | G7-01 to G7-05 closed; HI-0099 FIXED; HI-0100 to HI-0103 ACCEPTED, Low | [`../issue-register.md`](../issue-register.md) |
 | F consumer | three closing runs **170/170** each | [`consumer-run.md`](consumer-run.md), [`evidence/gate-f-closing-1..3`](evidence/) |
 | G composition C2 | **61/61** on Oracle | [`consumer-run.md`](consumer-run.md), [`evidence/gate-g-c2`](evidence/gate-g-c2/) |
 | F regressions (§3.10) | Phase 1 **92/92**, 2 **76/76**, 3 **92/92**, 4 **106/106**, 5 **63/63**, 6 **182/182**: every consumer, since every one now needs a token | [`evidence/`](evidence/) |
@@ -48,7 +48,7 @@ Gaps: G7-01 issuer, audience, algorithms and skew (R1); G7-02 exposure (R5); G7-
 
 See CHANGELOG `## [Unreleased]`, phase 7. Every consumer needs `issuer-uri`, `jwk-set-uri` and `audiences`, and a token for `info`, `prometheus` and `dependencies`.
 
-## For the owner: four Low residuals
+## Owner decision (2026-11-03, D132): four Low residuals, all accepted
 
 Codex agreed in pass 2 and pass 3 that each is Low.
 
@@ -57,7 +57,6 @@ Codex agreed in pass 2 and pass 3 that each is Low.
 3. **HI-0102:** if an earlier filter chose UTF-16 and took the writer without committing, a 401, 403 or 503 body is UTF-16. Needs an unusual filter; the request is still refused.
 4. **HI-0103:** test gaps, no defect shown: an auto-configuration placed between ours and Boot's, several providers through enforcement, the 1 MiB key-set cap, spans.
 
-Claude's recommendation: accept all four.
 
 ## Open (non-blocking)
 

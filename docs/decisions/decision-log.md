@@ -839,3 +839,7 @@ One line of context per decision; details live in the commit bodies referenced.
   HI-0099 is **not** accepted and moves into Phase 7: the log encoder masks recognisable credentials in exception text, but a bare
   token has nothing to match, so the quoted text is removed at its source. `bodySnippet()` is to be treated as untrusted; the module
   docs' example no longer passes it on.
+- **D132 — Phase 7 residuals accepted (hardening phase 7, owner 2026-11-03).** HI-0100 (a numeric `sub` or an overflowing `nbf`
+  in a token the trusted provider signed), HI-0101 (the `@RequiresPermission` advisor fails startup rather than back off to a bean
+  of its name, against plan §7.1, since that back-off switched enforcement off in round 1), HI-0102 (a UTF-16 body after an earlier
+  filter took a UTF-16 writer) and HI-0103 (test gaps, no defect shown) are accepted, all Low, as Codex agreed in passes 2 and 3.

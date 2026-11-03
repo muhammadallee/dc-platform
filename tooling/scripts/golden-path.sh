@@ -399,7 +399,7 @@ requested_service_probes() { # project jar artifactId
 
   step "Requested service: local profile (human-readable console logs)"
   log="$EVIDENCE/data-restclient-local.log"
-  start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=local "$auth"
+  start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=local $auth
   await_ready "$log" || fail "local profile did not become ready"
   status_of 200 "local authenticated /hello" -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/hello?name=gate"
   grep -m1 'Started ' "$log" | grep -vq '^{' || fail "local profile still logs JSON"
@@ -410,20 +410,20 @@ requested_service_probes() { # project jar artifactId
   db="jdbc:h2:file:$(native_path "$WORKDIR/prod-db")/service"
   expect_startup_failure "prod without datasource" "Failed to configure a DataSource" \
       "$EVIDENCE/data-restclient-prod-no-datasource.log" java -jar "$(native_path "$jar")" \
-      --spring.profiles.active=prod "$auth" "$downstream"
-  expect_startup_failure "prod without identity provider" "JwtDecoder" \
+      --spring.profiles.active=prod $auth "$downstream"
+  expect_startup_failure "prod without identity provider" "issuer-uri" \
       "$EVIDENCE/data-restclient-prod-no-idp.log" java -jar "$(native_path "$jar")" \
       --spring.profiles.active=prod "--spring.datasource.url=$db" "$downstream"
   expect_startup_failure "prod without downstream base URL" "app.greeting.base-url" \
       "$EVIDENCE/data-restclient-prod-no-downstream.log" java -jar "$(native_path "$jar")" \
-      --spring.profiles.active=prod "--spring.datasource.url=$db" "$auth"
+      --spring.profiles.active=prod "--spring.datasource.url=$db" $auth
 
   step "Requested service: prod profile with externally supplied fixture settings, twice on one database"
   rm -rf "$WORKDIR/prod-db"
   local run
   for run in 1 2; do
     log="$EVIDENCE/data-restclient-prod-run$run.log"
-    start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=prod "$auth" \
+    start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=prod $auth \
         "--spring.datasource.url=$db" "$downstream"
     await_ready "$log" || fail "prod fixture run $run did not become ready"
     if [ "$run" = 1 ]; then

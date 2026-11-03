@@ -7,12 +7,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 7 — Security |
-| Current gate | Phase 7 Gate A |
+| Current gate | Phase 7 Gate D: Codex round 2 waits for its usage limit, which resets 2026-11-05 17:12. Gates F and G pass on the round 1 code, and must be rerun on the final code |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | Review HI-0088 again at the end of all phases, before the Phase 8 release decision (D125); HD7 chart-tool details (asked at Phase 8 step 7) |
 | Known `BLOCKED` | Oracle RAC failover (HD4, no environment) |
-| Next action | Phase 7 Gate A, with composition checkpoint C2 and the fix for HI-0099 (D131). Phase 6 consumer repository: `bash tooling/hardening/phase-06-repo.sh`; Codex has a usage limit, so a failed run may just need waiting. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Consumer runs go in the foreground. `nice_galileo` is stopped. Disk: D: under 1 GB free, not from this work; golden path dependencies copied to `~/gp-p5-m2`, use `GP_MAVEN_REPO`, `GP_WORKDIR`, `GP_EVIDENCE` on C:. |
+| Next action | After 2026-11-05 17:12: run `codex/r2-review.prompt.md` on HEAD, then the rest of Gate D, E, F 3 times, G, H, closure. Consumer repository: `bash tooling/hardening/phase-07-repo.sh`, after `mvn -o clean` (HI-0003). Phase 6 consumer repository: `bash tooling/hardening/phase-06-repo.sh`; Codex has a usage limit, so a failed run may just need waiting. Parked for a later fix, before production use: HI-0071, HI-0079, HI-0086. Consumer runs go in the foreground. `nice_galileo` is stopped. Disk: D: under 1 GB free, not from this work; golden path dependencies copied to `~/gp-p5-m2`, use `GP_MAVEN_REPO`, `GP_WORKDIR`, `GP_EVIDENCE` on C:. |
 
 ## Phase log
 

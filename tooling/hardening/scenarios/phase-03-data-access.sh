@@ -39,7 +39,7 @@ sys_sql() { sql system "$SYSTEM_PW"; }
 http_code_within() { # seconds path : polls a GET until it answers 200 or the bound passes
   local bound=$1 path=$2 deadline=$(( $(date +%s) + $1 ))
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$HH_BASE$path")" = 200 ] && return 0
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${AUTH[@]}" "$HH_BASE$path")" = 200 ] && return 0
     sleep 1
   done
   return 1

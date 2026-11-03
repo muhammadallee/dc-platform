@@ -210,6 +210,12 @@ for EP in health health/dependencies info prometheus platform; do
   call "ac12-$N-token" "/actuator/$EP" "$VALID" 200
 done
 call ac12-env-token /actuator/env "$VALID" 404
+hh_http ac12-ready-detail GET /actuator/health/readiness
+hh_expect_json "an anonymous probe shows no details" "set(b.keys())<={'status','groups'}"
+call ac12-metrics /actuator/prometheus "$VALID" 200
+if grep -qE '^platform_security_token_rejected_total(\{[^}]*\})? [1-9]' <<<"$HH_BODY"; then hh_pass "R8 rejected tokens counted"; else hh_fail "R8 no rejection count"; fi
+if grep -qE '^platform_security_jwks_fetch_total\{[^}]*outcome="failure"[^}]*\} [1-9]' <<<"$HH_BODY"; then hh_pass "R8 failed fetches counted"; else hh_fail "R8 no failed fetch count"; fi
+if grep -E '^platform_security' <<<"$HH_BODY" | grep -qE 'sub=|subject=|kid='; then hh_fail "R8 a user-derived tag"; else hh_pass "R8 no user-derived tag"; fi
 for EP in /v3/api-docs /swagger-ui.html /swagger-ui/index.html; do
   hh_http "ac13-$(tr -d '/.' <<<"$EP")" GET "$EP"; hh_expect_status 401
 done

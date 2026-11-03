@@ -2,6 +2,8 @@ package ae.gov.dubaicustoms.platform.security.autoconfigure.internal;
 
 import ae.gov.dubaicustoms.platform.security.CurrentUser;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.security.core.Authentication;
@@ -25,6 +27,13 @@ public final class JwtCurrentUserAccessor implements CurrentUserAccessor {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         Object tenantClaim = jwt.getClaims().get(TENANT_CLAIM);
         String tenant = tenantClaim == null ? null : tenantClaim.toString();
-        return Optional.of(new CurrentUser(jwt.getSubject(), tenant, roles, jwt.getClaims()));
+        // A claim sent as null would make CurrentUser's copy throw; it carries nothing, so it is left out.
+        Map<String, Object> claims = new HashMap<>();
+        jwt.getClaims().forEach((name, value) -> {
+            if (value != null) {
+                claims.put(name, value);
+            }
+        });
+        return Optional.of(new CurrentUser(jwt.getSubject(), tenant, roles, claims));
     }
 }

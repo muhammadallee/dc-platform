@@ -93,6 +93,29 @@ class FilterChainFailClosedTest {
     }
 
     @Test
+    void aWildcardForOneMethodIsCaughtToo() {
+        assertThatThrownBy(() -> start(PostWildcardApp.class, valid()).close())
+                .hasRootCauseInstanceOf(InvalidSecurityConfigurationException.class)
+                .rootCause().hasMessageContaining("anonymous POST");
+    }
+
+    @Test
+    void aMatcherThatFailsOnTheCheckFailsStartup() {
+        assertThatThrownBy(() -> start(ThrowingMatcherApp.class, valid()).close())
+                .hasRootCauseInstanceOf(InvalidSecurityConfigurationException.class)
+                .rootCause().hasMessageContaining("failed on a check request");
+    }
+
+    @Test
+    void aSingleSegmentPermitIsNotMistakenForEverything() throws Exception {
+        List<String> props = new ArrayList<>(List.of(valid()));
+        props.add("dc.platform.security.permit-paths=/*");
+        try (ConfigurableApplicationContext app = start(App.class, props.toArray(String[]::new))) {
+            assertThat(status(app, "/open")).isEqualTo(200);
+        }
+    }
+
+    @Test
     void permitPathsCannotOpenEverything() {
         List<String> props = new ArrayList<>(List.of(valid()));
         props.add("dc.platform.security.permit-paths=/**");
@@ -290,6 +313,30 @@ class FilterChainFailClosedTest {
         @Bean
         JwtAuthenticationConverter myConverter() {
             return CONVERTER;
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import(Api.class)
+    static class PostWildcardApp {
+
+        @Bean
+        SecurityCustomizer postWildcard() {
+            return http -> http.authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.POST, "/**").permitAll());
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import(Api.class)
+    static class ThrowingMatcherApp {
+
+        @Bean
+        SecurityCustomizer throwing() {
+            return http -> http.authorizeHttpRequests(a -> a.requestMatchers(request -> {
+                throw new IllegalStateException("cannot match");
+            }).authenticated());
         }
     }
 

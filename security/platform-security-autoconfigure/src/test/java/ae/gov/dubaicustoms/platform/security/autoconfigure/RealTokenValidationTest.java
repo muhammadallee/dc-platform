@@ -291,6 +291,63 @@ class RealTokenValidationTest {
     }
 
     @Test
+    void aWeakKeyPaddedToLookLongIsRefused() throws Exception {
+        RSAKey weak = new RSAKeyGenerator(1024, true).keyID("padded").keyUse(KeyUse.SIGNATURE).generate();
+        byte[] modulus = weak.getModulus().decode();
+        byte[] padded = new byte[256];
+        System.arraycopy(modulus, 0, padded, 256 - modulus.length, modulus.length);
+        RSAKey published = new RSAKey.Builder(com.nimbusds.jose.util.Base64URL.encode(padded), weak.getPublicExponent())
+                .keyID("padded").keyUse(KeyUse.SIGNATURE).build();
+        served = new JWKSet(published);
+        start();
+        SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("padded").build(), claims().build());
+        jwt.sign(new RSASSASigner(weak.toPrivateKey(), true));
+        assertThat(get(jwt.serialize()).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void aJwkSetWithANullKeyIsAnOutage() throws Exception {
+        jwks.createContext("/nullkey", exchange -> {
+            byte[] body = "{\"keys\":[null]}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        start("spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/nullkey");
+        assertUnavailable(get(rs256(key, claims().build())));
+    }
+
+    @Test
+    void outageToleranceCountsBeyondTheCacheTtl() throws Exception {
+        start("dc.platform.security.jwt.jwks.cache-ttl=1s", "dc.platform.security.jwt.jwks.refresh-cooldown=1ms",
+                "dc.platform.security.jwt.jwks.outage-tolerance=3s");
+        assertThat(get(rs256(key, claims().build())).statusCode()).isEqualTo(200);
+        behaviour = 1;
+        Thread.sleep(2500);
+        assertThat(get(rs256(key, claims().build())).statusCode()).as("1 s ttl + 3 s tolerance, at 2.5 s").isEqualTo(200);
+        Thread.sleep(3000);
+        assertUnavailable(get(rs256(key, claims().build())));
+    }
+
+    @Test
+    void aNullClaimIsNotAFailure() throws Exception {
+        start();
+        assertThat(get(rs256(key, claims().claim("roles", null).claim("tenant", null).build())).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void aCommandLineAudienceReplacesTheConfiguredList() throws Exception {
+        List<String> all = new ArrayList<>(List.of("server.port=0", "logging.level.root=WARN",
+                "spring.security.oauth2.resourceserver.jwt.issuer-uri=" + ISSUER,
+                "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:" + jwks.getAddress().getPort() + "/jwks",
+                "spring.security.oauth2.resourceserver.jwt.audiences[0]=legacy"));
+        app = new SpringApplicationBuilder(App.class).properties(all.toArray(String[]::new))
+                .run("--spring.security.oauth2.resourceserver.jwt.audiences=" + AUDIENCE);
+        assertThat(get(rs256(key, claims().build())).statusCode()).isEqualTo(200);
+        assertThat(get(rs256(key, claims().audience("legacy").build())).statusCode()).isEqualTo(401);
+    }
+
+    @Test
     void scopesOfTheWrongShapeGrantNothingAndAreNotAFailure() throws Exception {
         start();
         assertThat(get(rs256(key, claims().claim("scp", List.of(123)).build())).statusCode()).isEqualTo(200);

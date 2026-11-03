@@ -25,7 +25,7 @@ Business endpoints need a bearer token that your identity provider signed. The g
 service boots offline; override it to call authenticated endpoints:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://idp.example/jwks --spring.security.oauth2.resourceserver.jwt.issuer-uri=https://idp.example --spring.security.oauth2.resourceserver.jwt.audiences=my-service"/jwks
+mvn spring-boot:run -Dspring-boot.run.arguments="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://idp.example/jwks --spring.security.oauth2.resourceserver.jwt.issuer-uri=https://idp.example --spring.security.oauth2.resourceserver.jwt.audiences=my-service"
 curl -H "Authorization: Bearer <jwt>" "http://localhost:8080/hello?name=alice"
 ```
 

@@ -14,6 +14,7 @@ import ae.gov.dubaicustoms.platform.security.autoconfigure.internal.SecurityMetr
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.ServletContext;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
@@ -78,7 +79,8 @@ public class PlatformSecurityAutoConfiguration {
     @ConditionalOnMissingBean(SecurityFilterChain.class)
     @ConditionalOnProperty(prefix = "dc.platform.security", name = "mode", havingValue = "resource-server", matchIfMissing = true)
     SecurityFilterChain platformSecurityFilterChain(HttpSecurity http, SecurityProperties properties,
-            ObjectProvider<SecurityCustomizer> customizers, SecurityMetrics metrics, Environment environment) throws Exception {
+            ObjectProvider<SecurityCustomizer> customizers, SecurityMetrics metrics, Environment environment,
+            ObjectProvider<ServletContext> servletContext) throws Exception {
         // The errors capability owns the problem-type namespace; read its key (same default) so 401/403
         // types match every other platform error without depending on the errors module.
         String typeBaseUri = environment.getProperty("dc.platform.errors.type-base-uri", "urn:dc:problem:");
@@ -122,7 +124,7 @@ public class PlatformSecurityAutoConfiguration {
             auth.anyRequest().authenticated();
         });
         SecurityFilterChain chain = http.build();
-        AnonymousAccessProbe.check(chain);
+        AnonymousAccessProbe.check(chain, servletContext.getIfAvailable());
         return chain;
     }
 

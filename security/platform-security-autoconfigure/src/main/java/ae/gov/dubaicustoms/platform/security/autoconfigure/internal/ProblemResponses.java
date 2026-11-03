@@ -69,7 +69,8 @@ final class ProblemResponses {
                 case '"' -> escaped.append("\\\"");
                 case '\\' -> escaped.append("\\\\");
                 default -> {
-                    if (c < 0x20) {
+                    // Control characters and anything beyond ASCII as escapes: the body is then right in any charset a writer has.
+                    if (c < 0x20 || c > 0x7e) {
                         escaped.append(String.format("\\u%04x", (int) c));
                     } else {
                         escaped.append(c);

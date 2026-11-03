@@ -12,7 +12,7 @@ exposes the authenticated principal without coupling application code to JWT/cla
 - **Strict token validation** — signature, `iss`, `aud`, `exp` and `nbf` checked, `exp` and `sub` required, RS256 unless
   `jws-algorithms` says otherwise. **The application does not start** without `issuer-uri`, `jwk-set-uri` and `audiences`.
 - **Signing keys** — fetched on first use with 2 s timeouts, cached 5 min, refreshed for an unknown `kid` at most once per
-  30 s. During an outage cached keys work for 1 h more. A token that cannot be checked gets a 503 `DC-SEC-0503`, `retryable`.
+  30 s, which Nimbus's limiter allows twice per 30 s. During an outage cached keys work for 1 h more. A token that cannot be checked gets a 503 `DC-SEC-0503`, `retryable`.
 - **Roles** — `ROLE_x` from `roles`, Keycloak's `realm_access.roles`, and `resource_access.<client>.roles` of this service's
   own client only; `SCOPE_x` from `scope`.
 - **Fails closed** — startup fails if a request could match no filter chain.
@@ -82,7 +82,7 @@ principal derived from it.
 | `dc.platform.security.jwt.resource-client` | `spring.application.name` | The `resource_access` entry roles are read from. |
 | `dc.platform.security.jwt.jwks.connect-timeout`, `.read-timeout` | `2s` | One fetch of the keys. |
 | `dc.platform.security.jwt.jwks.cache-ttl` | `5m` | How long a key removed at the provider keeps working. |
-| `dc.platform.security.jwt.jwks.refresh-cooldown` | `30s` | Least time between fetches. |
+| `dc.platform.security.jwt.jwks.refresh-cooldown` | `30s` | The limiter's interval: at most 2 fetches in each. |
 | `dc.platform.security.jwt.jwks.outage-tolerance` | `1h` | How long past `cache-ttl` cached keys work while fetches fail. |
 
 (Hand-written until the generated reference lands in phase 14.)
@@ -106,6 +106,10 @@ that lets customizers add exceptions safely.
 
 - Define your own `SecurityFilterChain` bean to replace the baseline entirely. It replaces it for **all** paths, so your last
   chain must have no `securityMatcher`, or startup fails. With no resource-server keys set, no decoder is created.
+- The `@RequiresPermission` advisor cannot be replaced by a bean of the same name: that fails startup, so nothing can switch
+  enforcement off by accident. Replace the decision with a `PermissionEvaluatorProvider`.
+- `permit-paths` and `SecurityCustomizer` rules are checked at startup: an unnamed path open to anonymous callers with any method, or a
+  matcher that cannot answer the check, fails startup. The check cannot see a rule that opens a large but named area, such as `/api/**`.
 - Define your own `JwtDecoder` to replace all of the token validation, and your own `JwtAuthenticationConverter` to replace the
   role mapping. Boot's `authorities-claim-*` properties are not used unless you do.
 - Define your own `CurrentUserAccessor` bean to replace the JWT-claims-based default.

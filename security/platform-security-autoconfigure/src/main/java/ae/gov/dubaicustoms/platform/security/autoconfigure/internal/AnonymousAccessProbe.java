@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.security.autoconfigure.internal;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.Filter;
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletMapping;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.MappingMatch;
@@ -19,13 +20,18 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 /**
- * Asks the built platform chain whether an anonymous caller may reach a path nobody would have named. If so, {@code permit-paths}
- * or a {@code SecurityCustomizer} has opened everything, for instance with {@code /**}, and the application does not start.
- * An application meant to be open says so with its own chain or {@code dc.platform.security.mode=disabled}.
+ * Asks the built platform chain whether an anonymous caller may reach a path nobody would have named, two segments deep, with each
+ * method. If so, {@code permit-paths} or a {@code SecurityCustomizer} has opened everything, for instance with {@code /**} or
+ * {@code (POST, "/**")}, and the application does not start. A matcher that cannot answer for the stand-in request fails startup
+ * too, since the check would otherwise prove nothing. An application meant to be open says so with its own chain or
+ * {@code dc.platform.security.mode=disabled}.
+ *
+ * <p>A heuristic, not a proof: a rule that opens many paths without opening an unnamed one, such as {@code /api/**}, is not seen.
  */
 public final class AnonymousAccessProbe {
 
     private static final Logger log = LoggerFactory.getLogger(AnonymousAccessProbe.class);
+    private static final List<String> METHODS = List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE");
 
     private static final HttpServletMapping MAPPING = new HttpServletMapping() {
         @Override
@@ -58,23 +64,30 @@ public final class AnonymousAccessProbe {
      * @param chain the platform's built chain
      * @throws InvalidSecurityConfigurationException if it does
      */
-    public static void check(SecurityFilterChain chain) {
-        String path = "/platform-probe-" + UUID.randomUUID();
-        AuthorizationResult result;
-        try {
-            AuthorizationFilter filter = authorizationFilter(chain.getFilters());
-            result = filter == null ? null : filter.getAuthorizationManager().authorize(
-                    () -> new AnonymousAuthenticationToken("probe", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))),
-                    request(path));
-        } catch (RuntimeException e) {
-            // A custom matcher that cannot cope with this stand-in request. Not evidence of anything, so startup goes on.
-            log.warn("could not check the security chain for open paths: {}", e.getClass().getSimpleName());
+    public static void check(SecurityFilterChain chain, ServletContext servletContext) {
+        AuthorizationFilter filter = authorizationFilter(chain.getFilters());
+        if (filter == null) {
             return;
         }
-        if (result != null && result.isGranted()) {
-            throw new InvalidSecurityConfigurationException("dc.platform.security.permit-paths or a SecurityCustomizer opens every "
-                    + "path to anonymous callers, which removes authenticated-by-default.",
-                    "Permit only specific paths. If this application is meant to be open, define your own SecurityFilterChain.");
+        String path = "/platform-probe-" + UUID.randomUUID() + "/unnamed";
+        for (String method : METHODS) {
+            AuthorizationResult result;
+            try {
+                result = filter.getAuthorizationManager().authorize(
+                        () -> new AnonymousAuthenticationToken("probe", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))),
+                        request(method, path, servletContext));
+            } catch (RuntimeException e) {
+                log.debug("security chain probe failed", e);
+                throw new InvalidSecurityConfigurationException("A request matcher in the platform security chain failed on a check "
+                        + "request (" + e.getClass().getSimpleName() + "), so it cannot be shown that the chain is not open to "
+                        + "anonymous callers.", "Use path or method matchers in SecurityCustomizer rules, or define your own "
+                        + "SecurityFilterChain.");
+            }
+            if (result != null && result.isGranted()) {
+                throw new InvalidSecurityConfigurationException("dc.platform.security.permit-paths or a SecurityCustomizer opens every "
+                        + "path to anonymous " + method + " requests, which removes authenticated-by-default.",
+                        "Permit only specific paths. If this application is meant to be open, define your own SecurityFilterChain.");
+            }
         }
     }
 
@@ -87,11 +100,12 @@ public final class AnonymousAccessProbe {
         return null;
     }
 
-    private static HttpServletRequest request(String path) {
+    private static HttpServletRequest request(String httpMethod, String path, ServletContext servletContext) {
         Map<String, Object> attributes = new HashMap<>();
         return (HttpServletRequest) Proxy.newProxyInstance(AnonymousAccessProbe.class.getClassLoader(),
                 new Class<?>[] {HttpServletRequest.class}, (proxy, method, args) -> switch (method.getName()) {
-                    case "getMethod" -> "GET";
+                    case "getMethod" -> httpMethod;
+                    case "getServletContext" -> servletContext;
                     case "getRequestURI", "getServletPath" -> path;
                     case "getRequestURL" -> new StringBuffer("http://localhost" + path);
                     case "getContextPath" -> "";

@@ -127,7 +127,8 @@ public final class PlatformJwtDecoderFactory {
                 .cache(settings.cacheTtl().toMillis(), settings.connectTimeout().plus(settings.readTimeout()).toMillis())
                 .refreshAheadCache(false)
                 .rateLimited(settings.refreshCooldown().toMillis())
-                .outageTolerant(settings.outageTolerance().toMillis())
+                // Nimbus counts this from the last good fetch, and the promise is outage-tolerance beyond cache-ttl.
+                .outageTolerant(settings.cacheTtl().plus(settings.outageTolerance()).toMillis())
                 .retrying(false)
                 .build();
         return new RateLimitAsNoKey(source, retriever);
@@ -261,7 +262,8 @@ public final class PlatformJwtDecoderFactory {
             } catch (IOException | RuntimeException e) {
                 lastFailed = true;
                 count(false);
-                log.warn("could not fetch the JWKS from {}://{}: {}", url.getProtocol(), url.getAuthority(), e.getClass().getSimpleName());
+                log.warn("could not fetch the JWKS from {}://{}:{}: {}", url.getProtocol(), url.getHost(),
+                        url.getPort() < 0 ? url.getDefaultPort() : url.getPort(), e.getClass().getSimpleName());
                 throw e;
             }
         }
@@ -291,7 +293,7 @@ public final class PlatformJwtDecoderFactory {
                 if (JWKSet.parse(resource.getContent()).isEmpty()) {
                     throw new IOException("no keys in the response");
                 }
-            } catch (ParseException e) {
+            } catch (ParseException | RuntimeException e) {
                 throw new IOException("not a JWK set");
             }
         }
@@ -330,7 +332,9 @@ public final class PlatformJwtDecoderFactory {
             if (keys.isEmpty() && retriever.lastFailed) {
                 throw new RemoteKeySourceException("the signing keys cannot be fetched", null);
             }
-            return keys.stream().filter(key -> !(key instanceof RSAKey rsa) || rsa.size() >= MIN_RSA_BITS).toList();
+            return keys.stream()
+                    .filter(key -> !(key instanceof RSAKey rsa) || rsa.getModulus().decodeToBigInteger().bitLength() >= MIN_RSA_BITS)
+                    .toList();
         }
     }
 }

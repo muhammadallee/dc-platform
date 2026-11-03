@@ -16,3 +16,9 @@ On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offli
 ## Not run in step 2, by scope
 
 Container tests outside the certified capabilities were not run, and are **not certified**: Redis (`RedisPrefixRoundTripIT`, `RedisCacheDockerIT`, `RedisLockProviderIT`, `RedisRateLimiterProviderIT`), S3 (`S3ObjectStoreIT`), the JDBC lock TCK (`JdbcLockProviderTckTest`), and Kafka (`KafkaEventTransportIT`): no build contract requires Kafka's container tests.
+
+## Findings
+
+| ID | Step | Finding | Status |
+|---|---|---|---|
+| HI-0104 | 1 | The committed generated docs (`llms-full.txt`, the skill's resources, `docs/reference`) are behind the code; the full build rewrites them. The metadata is right; the generator lists removed keys without saying so | OPEN: regenerate from the final full build and commit before `release-decision.md` |

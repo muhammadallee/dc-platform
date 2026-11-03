@@ -7,8 +7,10 @@ import jakarta.servlet.http.HttpServletMapping;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.MappingMatch;
 import java.lang.reflect.Proxy;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -62,32 +64,47 @@ public final class AnonymousAccessProbe {
      * Fails if the chain lets an anonymous caller reach an unnamed path.
      *
      * @param chain the platform's built chain
+     * @param servletContext the application's servlet context, for matchers that need it; may be {@code null}
+     * @param skip skip the check, with a warning
      * @throws InvalidSecurityConfigurationException if it does
      */
-    public static void check(SecurityFilterChain chain, ServletContext servletContext) {
+    public static void check(SecurityFilterChain chain, ServletContext servletContext, boolean skip) {
         AuthorizationFilter filter = authorizationFilter(chain.getFilters());
         if (filter == null) {
             return;
         }
-        String path = "/platform-probe-" + UUID.randomUUID() + "/unnamed";
+        if (skip) {
+            log.warn("dc.platform.security.skip-open-path-check is set: the platform does not check its chain for open paths");
+            return;
+        }
+        // Two depths, both open: a rule such as /*/* opens one depth, and is not everything.
+        String id = UUID.randomUUID().toString();
+        List<String> paths = List.of("/platform-probe-" + id + "/unnamed", "/platform-probe-" + id + "/a/b/c/unnamed");
         for (String method : METHODS) {
-            AuthorizationResult result;
-            try {
-                result = filter.getAuthorizationManager().authorize(
-                        () -> new AnonymousAuthenticationToken("probe", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))),
-                        request(method, path, servletContext));
-            } catch (RuntimeException e) {
-                log.debug("security chain probe failed", e);
-                throw new InvalidSecurityConfigurationException("A request matcher in the platform security chain failed on a check "
-                        + "request (" + e.getClass().getSimpleName() + "), so it cannot be shown that the chain is not open to "
-                        + "anonymous callers.", "Use path or method matchers in SecurityCustomizer rules, or define your own "
-                        + "SecurityFilterChain.");
+            boolean open = true;
+            for (String path : paths) {
+                open &= granted(filter, method, path, servletContext);
             }
-            if (result != null && result.isGranted()) {
+            if (open) {
                 throw new InvalidSecurityConfigurationException("dc.platform.security.permit-paths or a SecurityCustomizer opens every "
                         + "path to anonymous " + method + " requests, which removes authenticated-by-default.",
                         "Permit only specific paths. If this application is meant to be open, define your own SecurityFilterChain.");
             }
+        }
+    }
+
+    private static boolean granted(AuthorizationFilter filter, String method, String path, ServletContext servletContext) {
+        try {
+            AuthorizationResult result = filter.getAuthorizationManager().authorize(
+                    () -> new AnonymousAuthenticationToken("probe", "anonymous", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))),
+                    request(method, path, servletContext));
+            return result != null && result.isGranted();
+        } catch (RuntimeException e) {
+            log.debug("security chain probe failed", e);
+            throw new InvalidSecurityConfigurationException("A request matcher in the platform security chain failed on a check "
+                    + "request (" + e.getClass().getSimpleName() + "), so it cannot be shown that the chain is not open to "
+                    + "anonymous callers.", "Use path or method matchers in SecurityCustomizer rules, define your own "
+                    + "SecurityFilterChain, or, having checked the chain yourself, set dc.platform.security.skip-open-path-check=true.");
         }
     }
 
@@ -109,6 +126,18 @@ public final class AnonymousAccessProbe {
                     case "getRequestURI", "getServletPath" -> path;
                     case "getRequestURL" -> new StringBuffer("http://localhost" + path);
                     case "getContextPath" -> "";
+                    case "getScheme" -> "http";
+                    case "getServerName", "getRemoteHost", "getLocalName" -> "localhost";
+                    case "getRemoteAddr", "getLocalAddr" -> "127.0.0.1";
+                    case "getServerPort", "getLocalPort" -> 80;
+                    case "getProtocol" -> "HTTP/1.1";
+                    case "getHeaderNames", "getHeaders", "getAttributeNames", "getParameterNames" -> Collections.emptyEnumeration();
+                    case "getParameterMap" -> Map.of();
+                    case "getCharacterEncoding" -> "UTF-8";
+                    case "getLocale" -> Locale.ROOT;
+                    case "getLocales" -> Collections.enumeration(List.of(Locale.ROOT));
+                    case "getDateHeader", "getContentLengthLong" -> -1L;
+                    case "getIntHeader", "getContentLength" -> -1;
                     case "getDispatcherType" -> DispatcherType.REQUEST;
                     case "getHttpServletMapping" -> MAPPING;
                     case "getAttribute" -> attributes.get(args[0]);

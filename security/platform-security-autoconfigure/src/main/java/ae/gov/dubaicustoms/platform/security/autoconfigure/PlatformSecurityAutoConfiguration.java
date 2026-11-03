@@ -124,7 +124,8 @@ public class PlatformSecurityAutoConfiguration {
             auth.anyRequest().authenticated();
         });
         SecurityFilterChain chain = http.build();
-        AnonymousAccessProbe.check(chain, servletContext.getIfAvailable());
+        AnonymousAccessProbe.check(chain, servletContext.getIfAvailable(),
+                environment.getProperty("dc.platform.security.skip-open-path-check", Boolean.class, false));
         return chain;
     }
 

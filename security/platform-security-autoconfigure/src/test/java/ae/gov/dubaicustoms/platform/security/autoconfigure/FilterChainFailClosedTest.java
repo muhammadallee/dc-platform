@@ -107,9 +107,23 @@ class FilterChainFailClosedTest {
     }
 
     @Test
+    void aMatcherReadingTheServerNameIsAnswered() throws Exception {
+        try (ConfigurableApplicationContext app = start(ServerNameMatcherApp.class, valid())) {
+            assertThat(status(app, "/closed")).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void theCheckCanBeSkippedExplicitly() throws Exception {
+        List<String> props = new ArrayList<>(List.of(valid()));
+        props.add("dc.platform.security.skip-open-path-check=true");
+        start(ThrowingMatcherApp.class, props.toArray(String[]::new)).close();
+    }
+
+    @Test
     void aSingleSegmentPermitIsNotMistakenForEverything() throws Exception {
         List<String> props = new ArrayList<>(List.of(valid()));
-        props.add("dc.platform.security.permit-paths=/*");
+        props.add("dc.platform.security.permit-paths=/*,/*/*");
         try (ConfigurableApplicationContext app = start(App.class, props.toArray(String[]::new))) {
             assertThat(status(app, "/open")).isEqualTo(200);
         }
@@ -324,6 +338,17 @@ class FilterChainFailClosedTest {
         @Bean
         SecurityCustomizer postWildcard() {
             return http -> http.authorizeHttpRequests(a -> a.requestMatchers(org.springframework.http.HttpMethod.POST, "/**").permitAll());
+        }
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import(Api.class)
+    static class ServerNameMatcherApp {
+
+        @Bean
+        SecurityCustomizer serverName() {
+            return http -> http.authorizeHttpRequests(a -> a.requestMatchers(r -> r.getServerName().equals("blocked.example")).denyAll());
         }
     }
 

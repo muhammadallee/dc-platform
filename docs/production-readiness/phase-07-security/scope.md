@@ -57,7 +57,7 @@ By reading (each gets a test at Gate B):
 ### R2 JWKS (G7-05)
 1. Fetch: 2 s connect, 2 s read, the sum as a limit on the whole fetch, 1 MiB limit, no redirects. A response with no keys or not JSON is a failed fetch. RSA keys under 2048 bits are ignored. Properties under `dc.platform.security.jwt.jwks.*`.
 2. Cached 5 min, so a rotated-out key stops working within that; refreshed on an unknown `kid`, at most twice per 30 s, which is how Nimbus's limiter works.
-3. JWKS down: cached keys keep working for up to 1 h beyond their TTL (`outage-tolerance`), then rejected.
+3. JWKS down: cached keys keep working for 1 h beyond their TTL (`outage-tolerance`), and for at most one more TTL, then rejected.
 4. Unknown `kid` and JWKS reachable, or rate limited: 401. Unknown `kid` and JWKS down, or no key ever fetched: **503 `DC-SEC-0503`, `retryable=true`**. Never reaches the application.
 5. Rotation: a new `kid` is accepted without a restart.
 

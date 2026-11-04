@@ -194,7 +194,7 @@
           <!-- Literal versions in the published BOM: a consumer passing -Drevision or
                -Dspring-boot.version for its own build must not redirect ours (hardening Phase 8). -->
           <pomElements>
-            <dependencyManagement>interpolate</dependencyManagement>
+            <dependencyManagement>extended_interpolate</dependencyManagement>
           </pomElements>
         </configuration>
       </plugin>

@@ -1,37 +1,62 @@
 package ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientCustomizer;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties;
+import io.github.resilience4j.bulkhead.Bulkhead;
+import io.github.resilience4j.bulkhead.BulkheadConfig;
+import io.github.resilience4j.bulkhead.BulkheadRegistry;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.micrometer.common.KeyValue;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder;
-import org.springframework.boot.http.client.HttpClientSettings;
-import org.springframework.http.client.ClientHttpRequestFactory;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.http.client.observation.ClientHttpObservationDocumentation;
 import org.springframework.http.client.observation.ClientRequestObservationContext;
 import org.springframework.http.client.observation.DefaultClientRequestObservationConvention;
 import org.springframework.web.client.RestClient;
 
 /**
- * Default {@link PlatformRestClientFactory}: JDK HttpClient request factory plus platform conventions,
- * including {@code http.client.requests} observations tagged {@code client.name=<clientName>}.
+ * Default {@link PlatformRestClientFactory}: JDK {@link HttpClient}s per client name under the platform's resilience,
+ * plus {@code http.client.requests} observations tagged {@code client.name=<clientName>} that leave out query strings and
+ * URL credentials. Closes its clients with the context.
  */
-public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory {
+public final class DefaultPlatformRestClientFactory implements PlatformRestClientFactory, DisposableBean {
 
-    /** Matches the default header name in {@code platform-core-autoconfigure}'s CoreProperties. */
-    private static final String CORRELATION_HEADER = "X-Correlation-Id";
+    private static final Logger log = LoggerFactory.getLogger(DefaultPlatformRestClientFactory.class);
+    private static final String ALL_METHOD_RETRY = "jdk.httpclient.enableAllMethodRetry";
+    private static final int MAX_ERROR_BODY_BYTES = 8 * 1024;
+    private static final Duration CLOSE_WAIT = Duration.ofSeconds(5);
 
     private final RestClientProperties properties;
     private final List<PlatformRestClientCustomizer> customizers;
     private final Supplier<ObservationRegistry> observationRegistry;
+    private final CircuitBreakerRegistry breakers = CircuitBreakerRegistry.ofDefaults();
+    private final BulkheadRegistry bulkheads = BulkheadRegistry.ofDefaults();
+    private final Map<String, Transport> transports = new ConcurrentHashMap<>();
+    private boolean closed;
+    private final List<BiConsumer<String, String>> attemptListeners = new CopyOnWriteArrayList<>();
 
     public DefaultPlatformRestClientFactory(RestClientProperties properties, List<PlatformRestClientCustomizer> customizers) {
         this(properties, customizers, () -> ObservationRegistry.NOOP);
@@ -46,48 +71,180 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         this.properties = Objects.requireNonNull(properties, "properties must not be null");
         this.customizers = List.copyOf(customizers);
         this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry must not be null");
+        refuseAllMethodRetry();
+    }
+
+    /**
+     * The JDK reads this from the system property, then from its {@code conf/net.properties}: empty or {@code true} turns it on.
+     */
+    private static void refuseAllMethodRetry() {
+        String value = System.getProperty(ALL_METHOD_RETRY);
+        if (value == null) {
+            Path file = Path.of(System.getProperty("java.home"), "conf", "net.properties");
+            if (Files.isReadable(file)) {
+                Properties net = new Properties();
+                try (InputStream in = Files.newInputStream(file)) {
+                    net.load(in);
+                } catch (IOException | IllegalArgumentException e) {
+                    // The JDK keeps what it read before a bad line, so this does too.
+                    log.debug("could not read all of {}", file, e);
+                }
+                value = net.getProperty(ALL_METHOD_RETRY);
+            }
+        }
+        if (value != null && (value.isEmpty() || Boolean.parseBoolean(value))) {
+            throw new IllegalStateException(ALL_METHOD_RETRY + " makes the JDK client re-send a POST after a lost connection, which "
+                    + "could apply it twice. Remove it from the JVM options and conf/net.properties");
+        }
     }
 
     @Override
     public RestClient.Builder builder(String clientName) {
         Objects.requireNonNull(clientName, "clientName must not be null");
-        RestClientProperties.Defaults timeouts = properties.timeoutsFor(clientName);
-        ClientHttpRequestFactory requestFactory = ClientHttpRequestFactoryBuilder.jdk()
-                .build(HttpClientSettings.defaults()
-                        .withConnectTimeout(timeouts.connectTimeout())
-                        .withReadTimeout(timeouts.readTimeout()));
+        if (clientName.isBlank()) {
+            throw new IllegalArgumentException("clientName must not be blank");
+        }
+        RestClientProperties.Defaults settings = properties.timeoutsFor(clientName);
+        Transport transport = transport(clientName, settings);
+        // Listeners read per attempt, so metrics bound after a client is built still count it.
+        ResilientRequestFactory requestFactory = new ResilientRequestFactory(clientName, transport.following(), transport.direct(),
+                settings,
+                breaker(clientName, settings), bulkhead(clientName, settings),
+                this::reportAttempt);
 
         RestClient.Builder builder = RestClient.builder()
                 .requestFactory(requestFactory)
                 .observationRegistry(observationRegistry.get())
-                .observationConvention(new ClientNameConvention(clientName));
-        if (properties.propagateCorrelation()) {
-            builder.requestInterceptor((request, body, execution) -> {
-                RequestContext.correlationId().ifPresent(id -> request.getHeaders().set(CORRELATION_HEADER, id.value()));
-                return execution.execute(request, body);
-            });
-        }
+                .observationConvention(new ClientNameConvention(clientName))
+                .configureMessageConverters(converters -> converters.registerDefaults());
+        // No correlation interceptor: the observation registry above propagates traceparent, the
+        // platform's only correlation id. No custom correlation header is sent or read.
         builder.defaultStatusHandler(org.springframework.http.HttpStatusCode::isError, (request, response) -> {
-            String body = readBody(response.getBody());
-            String remoteCorrelationId = response.getHeaders().getFirst(CORRELATION_HEADER);
-            throw new RemoteCallException(clientName, response.getStatusCode().value(), body, remoteCorrelationId, null);
+            throw new RemoteCallException(clientName, RemoteCallException.Kind.RESPONSE, response.getStatusCode().value(),
+                    readBody(response), ResilientRequestFactory.isIdempotent(request.getMethod()), null);
         });
         for (PlatformRestClientCustomizer customizer : customizers) {
             customizer.customize(clientName, builder);
         }
+        // After the customizers, so a converter one of them adds or swaps in is covered too.
+        builder.configureMessageConverters(converters -> converters.configureMessageConvertersList(UnquotedReadFailures::wrapAll));
         return builder;
     }
 
-    private static String readBody(java.io.InputStream in) {
-        try {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
+    /** Each listener alone, and none can fail a call: a registry refusing a meter must cost neither an outcome nor a permit. */
+    private void reportAttempt(String client, String outcome) {
+        for (BiConsumer<String, String> listener : attemptListeners) {
+            try {
+                listener.accept(client, outcome);
+            } catch (RuntimeException e) {
+                log.debug("attempt listener failed", e);
+            }
+        }
+    }
+
+    /** Reads what is needed and no more: the rest is dropped when the response closes. */
+    static String readBody(org.springframework.http.client.ClientHttpResponse response) {
+        try (InputStream in = response.getBody()) {
+            return new String(in.readNBytes(MAX_ERROR_BODY_BYTES), StandardCharsets.UTF_8);
+        } catch (IOException | RemoteCallException e) {
             return "";
         }
     }
 
+    private Transport transport(String clientName, RestClientProperties.Defaults settings) {
+        synchronized (transports) {
+            if (closed) {
+                throw new IllegalStateException("the REST client factory is closed");
+            }
+            return transports.computeIfAbsent(clientName, name -> new Transport(
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NORMAL).build(),
+                    HttpClient.newBuilder().connectTimeout(settings.connectTimeout()).followRedirects(HttpClient.Redirect.NEVER).build()));
+        }
+    }
+
+    private CircuitBreaker breaker(String clientName, RestClientProperties.Defaults settings) {
+        RestClientProperties.CircuitBreaker config = settings.circuitBreaker();
+        if (!Boolean.TRUE.equals(config.enabled())) {
+            return null;
+        }
+        return breakers.circuitBreaker(resilienceName(clientName), CircuitBreakerConfig.custom()
+                .failureRateThreshold(config.failureRateThreshold())
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(config.slidingWindowSize())
+                .minimumNumberOfCalls(config.minimumCalls())
+                .waitDurationInOpenState(config.openDuration())
+                .permittedNumberOfCallsInHalfOpenState(config.halfOpenCalls())
+                // Failures only: a call's time includes however long its caller keeps a streamed body open.
+                .slowCallDurationThreshold(Duration.ofDays(365))
+                .build());
+    }
+
+    private Bulkhead bulkhead(String clientName, RestClientProperties.Defaults settings) {
+        RestClientProperties.Bulkhead config = settings.bulkhead();
+        if (!Boolean.TRUE.equals(config.enabled())) {
+            return null;
+        }
+        return bulkheads.bulkhead(resilienceName(clientName), BulkheadConfig.custom()
+                .maxConcurrentCalls(config.maxConcurrent())
+                .maxWaitDuration(Duration.ZERO)
+                .build());
+    }
+
+    /** Apart from any Resilience4j instance of the same name an application configures itself. */
+    private static String resilienceName(String clientName) {
+        return "rest-" + clientName;
+    }
+
+    /** The registries, for metrics and health. */
+    public CircuitBreakerRegistry circuitBreakers() {
+        return breakers;
+    }
+
+    /** The registries, for metrics and health. */
+    public BulkheadRegistry bulkheads() {
+        return bulkheads;
+    }
+
+    /**
+     * Adds someone to hear of each attempt.
+     *
+     * @param listener receives the client name and the attempt's outcome
+     */
+    public void onAttempt(BiConsumer<String, String> listener) {
+        attemptListeners.add(Objects.requireNonNull(listener, "listener must not be null"));
+    }
+
+    /** Lets calls in flight finish, within one wait shared by all clients, then cuts them, so a stop is bounded. */
+    @Override
+    public void destroy() {
+        List<HttpClient> clients;
+        synchronized (transports) {
+            closed = true;
+            clients = transports.values().stream().flatMap(t -> Stream.of(t.following(), t.direct())).toList();
+        }
+        clients.forEach(HttpClient::shutdown);
+        long giveUpAt = System.nanoTime() + CLOSE_WAIT.toNanos();
+        for (HttpClient client : clients) {
+            try {
+                if (!client.awaitTermination(Duration.ofNanos(Math.max(1, giveUpAt - System.nanoTime())))) {
+                    client.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                clients.forEach(HttpClient::shutdownNow);
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    private record Transport(HttpClient following, HttpClient direct) {
+    }
+
     /** Tags observations with the logical platform client name instead of the remote host. */
     private static final class ClientNameConvention extends DefaultClientRequestObservationConvention {
+
+        private static final Pattern USER_INFO = Pattern.compile("//[^/@]*+@");
+        private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("(?s)[?#].*");
 
         private final KeyValue clientName;
 
@@ -98,6 +255,22 @@ public final class DefaultPlatformRestClientFactory implements PlatformRestClien
         @Override
         protected KeyValue clientName(ClientRequestObservationContext context) {
             return clientName;
+        }
+
+        @Override
+        protected KeyValue uri(ClientRequestObservationContext context) {
+            return stripped(super.uri(context));
+        }
+
+        @Override
+        protected KeyValue requestUri(ClientRequestObservationContext context) {
+            return stripped(super.requestUri(context));
+        }
+
+        private static KeyValue stripped(KeyValue value) {
+            String text = value.getValue();
+            String withoutSuffix = QUERY_OR_FRAGMENT.matcher(text).replaceFirst("");
+            return KeyValue.of(value.getKey(), USER_INFO.matcher(withoutSuffix).replaceFirst("//"));
         }
     }
 }

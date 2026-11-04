@@ -1,0 +1,1 @@
+{"check": "concurrent", "requests": 600, "rounds": 3, "bleed": 0, "examples": []}

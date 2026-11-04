@@ -1,0 +1,7 @@
+drop table HH_OWNER.platform_outbox
+                    *
+ERROR at line 1:
+ORA-01031: insufficient privileges
+Help: https://docs.oracle.com/error-help/db/ora-01031/
+
+

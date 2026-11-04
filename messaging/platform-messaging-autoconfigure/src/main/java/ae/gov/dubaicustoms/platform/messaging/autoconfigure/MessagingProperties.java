@@ -16,7 +16,6 @@ import org.springframework.validation.annotation.Validated;
  *     destinations (not enforced; a naming convention only)
  * @param handler handler-side retry policy applied by {@code EventHandlerRegistrar}
  * @param dlq dead-letter destination naming
- * @param correlation correlation-header propagation on publish
  * @param rabbit rabbit-provider-specific settings, read only by the kafka/rabbit nested transport
  *     configurations in {@code PlatformMessagingAutoConfiguration}
  * @since 0.2.0
@@ -32,8 +31,6 @@ public record MessagingProperties(
         Handler handler,
         /** Dead-letter destination naming. */
         Dlq dlq,
-        /** Correlation-header propagation on publish. */
-        Correlation correlation,
         /** Rabbit-provider-specific settings. */
         Rabbit rabbit) {
 
@@ -44,8 +41,7 @@ public record MessagingProperties(
     public MessagingProperties {
         handler = handler != null ? handler : new Handler(null);
         dlq = dlq != null ? dlq : new Dlq(null);
-        correlation = correlation != null ? correlation : new Correlation(true);
-        rabbit = rabbit != null ? rabbit : new Rabbit(false);
+        rabbit = rabbit != null ? rabbit : new Rabbit(true, null, 0, null, 0);
     }
 
     /**
@@ -58,7 +54,7 @@ public record MessagingProperties(
 
         /** Fills in {@link Retry} defaults when the group is present but empty. */
         public Handler {
-            retry = retry != null ? retry : new Retry(0, null);
+            retry = retry != null ? retry : new Retry(0, null, null);
         }
     }
 
@@ -66,20 +62,24 @@ public record MessagingProperties(
      * Bounded retry policy for {@code @EventHandler} method failures, applied by
      * {@code EventHandlerRegistrar} before a message is routed to the DLQ destination.
      *
-     * @param maxAttempts total delivery attempts before giving up and republishing to the DLQ
-     * @param backoff pause between attempts
+     * @param maxAttempts total attempts before the message is dead-lettered
+     * @param backoff pause before the second attempt; doubles per attempt
+     * @param maxBackoff the longest pause between attempts
      * @since 0.2.0
      */
     public record Retry(
-            /** Total delivery attempts before giving up and republishing to the DLQ destination. */
+            /** Total attempts before the message is dead-lettered. */
             @DefaultValue("3") int maxAttempts,
-            /** Pause between attempts. */
-            @DefaultValue("1s") Duration backoff) {
+            /** Pause before the second attempt; doubles per attempt. */
+            @DefaultValue("1s") Duration backoff,
+            /** The longest pause between attempts. */
+            @DefaultValue("30s") Duration maxBackoff) {
 
         /** Fills in defaults for any unset component (used when constructed programmatically). */
         public Retry {
             maxAttempts = maxAttempts > 0 ? maxAttempts : 3;
             backoff = backoff != null ? backoff : Duration.ofSeconds(1);
+            maxBackoff = maxBackoff != null ? maxBackoff : Duration.ofSeconds(30);
         }
     }
 
@@ -101,26 +101,35 @@ public record MessagingProperties(
     }
 
     /**
-     * Correlation-header propagation on publish.
-     *
-     * @param propagate publish the current {@code RequestContext} correlation id as the
-     *     {@code correlationId} header
-     * @since 0.2.0
-     */
-    public record Correlation(
-            /** Publish the current RequestContext correlation id as the correlationId header. */
-            @DefaultValue("true") boolean propagate) {
-    }
-
-    /**
      * Rabbit-provider-specific settings.
      *
-     * @param quorumQueues declare quorum queues instead of classic queues; opt-in for production
-     *     clusters
+     * @param quorumQueues declare quorum queues, the main and the dead-letter one; {@code false} for classic queues
+     * @param confirmTimeout how long a send waits for the broker's publisher confirm before it fails
+     * @param prefetch how many messages a consumer holds at once, and so how many a retrying handler can delay
+     * @param shutdownTimeout how long a stopping consumer waits for the handler in flight
+     * @param deliveryLimit returns a quorum queue allows before dead-lettering: catches a message that keeps killing its
+     *     consumer, which in-process retries cannot count. A message merely held by a stopping consumer counts too, so it
+     *     is well above what rolling restarts reach
      * @since 0.2.0
      */
     public record Rabbit(
-            /** Declare quorum queues instead of classic queues; opt-in for production clusters. */
-            @DefaultValue("false") boolean quorumQueues) {
+            /** Declare quorum queues, the main and the dead-letter one; false for classic queues. */
+            @DefaultValue("true") boolean quorumQueues,
+            /** How long a send waits for the broker's publisher confirm before it fails. */
+            @DefaultValue("5s") Duration confirmTimeout,
+            /** How many messages a consumer holds at once, and so how many a retrying handler can delay. */
+            @DefaultValue("10") int prefetch,
+            /** How long a stopping consumer waits for the handler in flight. */
+            @DefaultValue("30s") Duration shutdownTimeout,
+            /** Deliveries a quorum queue allows before dead-lettering a message that keeps killing its consumer. */
+            @DefaultValue("20") int deliveryLimit) {
+
+        /** Fills in the default timeout when unset (used when constructed programmatically). */
+        public Rabbit {
+            confirmTimeout = confirmTimeout != null ? confirmTimeout : Duration.ofSeconds(5);
+            prefetch = prefetch > 0 ? prefetch : 10;
+            shutdownTimeout = shutdownTimeout != null ? shutdownTimeout : Duration.ofSeconds(30);
+            deliveryLimit = deliveryLimit > 0 ? deliveryLimit : 20;
+        }
     }
 }

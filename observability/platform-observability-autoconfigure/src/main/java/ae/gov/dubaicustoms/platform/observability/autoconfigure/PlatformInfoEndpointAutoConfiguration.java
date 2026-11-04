@@ -15,9 +15,11 @@ import org.springframework.context.annotation.Bean;
 /*
  * Activates when: spring-boot-actuator on the classpath AND
  *                 dc.platform.observability.enabled != false
- * Backs off when: user defines a PlatformEndpoint bean
+ * Backs off when: user defines a PlatformEndpoint bean (by type); user defines a bean named
+ *                 observabilityCapabilityDescriptor (one-of-many type, D97)
  * Beans: platformEndpoint — actuator @Endpoint(id="platform") returning the CapabilityDescriptor
- *                           list as JSON (only when the endpoint is exposed AND
+ *                           list as JSON (only when the endpoint is exposed — not by the platform
+ *                           default, D105 — AND
  *                           dc.platform.observability.platform-endpoint.enabled != false);
  *        observabilityCapabilityDescriptor — reports observability[ACTIVE] into the banner with
  *                                            the metrics-export posture as detail
@@ -41,6 +43,7 @@ public class PlatformInfoEndpointAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(name = "observabilityCapabilityDescriptor")
     CapabilityDescriptor observabilityCapabilityDescriptor(ObservabilityProperties properties) {
         return new CapabilityDescriptor("observability", "ACTIVE",
                 properties.otlp().enabled() ? "prometheus+otlp" : "prometheus");

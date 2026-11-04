@@ -1,78 +1,78 @@
 package ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
+import ae.gov.dubaicustoms.platform.messaging.EventHeaders;
 import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
-import ae.gov.dubaicustoms.platform.messaging.autoconfigure.MessagingProperties;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.observation.Observation;
-import io.micrometer.observation.ObservationRegistry;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
- * Default {@link EventPublisher}: wraps the single configured {@link EventTransport}, adding
- * {@code correlationId}/{@code eventType}/{@code eventVersion} headers and instrumenting the send
- * with a Micrometer {@link Observation}.
+ * Default {@link EventPublisher}: wraps the single configured {@link EventTransport}, adding the {@code eventId},
+ * {@code eventType}, {@code eventVersion}, {@code producer} and trace headers, under an observation. Refuses a
+ * credential-named header. Thread-safe.
  */
 public final class DefaultEventPublisher implements EventPublisher {
 
     private static final String EVENT_TYPE_HEADER = "eventType";
     private static final String EVENT_VERSION_HEADER = "eventVersion";
-    private static final String CORRELATION_ID_HEADER = "correlationId";
 
     private final EventTransport transport;
-    private final EventSerializer serializer;
-    private final MessagingProperties properties;
-    private final ObservationRegistry observationRegistry;
-    private final MeterRegistry meterRegistry;
+    private final Supplier<EventSerializer> serializer;
+    private final MessagingInstrumentation instrumentation;
+    private final MessageTrace trace;
+    private final String producer;
 
-    public DefaultEventPublisher(EventTransport transport, EventSerializer serializer, MessagingProperties properties,
-            ObservationRegistry observationRegistry, MeterRegistry meterRegistry) {
+    /**
+     * Creates the publisher.
+     *
+     * @param transport sends the message; never {@code null}
+     * @param serializer supplies what serializes the payload, resolved at the first publish; never {@code null}
+     * @param instrumentation records the publish; never {@code null}
+     * @param trace supplies the trace headers; never {@code null}
+     * @param producer this service's name; never {@code null}
+     */
+    public DefaultEventPublisher(EventTransport transport, Supplier<EventSerializer> serializer,
+            MessagingInstrumentation instrumentation, MessageTrace trace, String producer) {
         this.transport = Objects.requireNonNull(transport, "transport must not be null");
         this.serializer = Objects.requireNonNull(serializer, "serializer must not be null");
-        this.properties = Objects.requireNonNull(properties, "properties must not be null");
-        this.observationRegistry = observationRegistry;
-        this.meterRegistry = meterRegistry;
+        this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation must not be null");
+        this.trace = Objects.requireNonNull(trace, "trace must not be null");
+        this.producer = Objects.requireNonNull(producer, "producer must not be null");
     }
 
     @Override
     public void publish(String destination, EventEnvelope<?> event) {
         Objects.requireNonNull(destination, "destination must not be null");
         Objects.requireNonNull(event, "event must not be null");
-        Observation observation = Observation.createNotStarted("platform.messaging.publish", observationRegistry)
-                .lowCardinalityKeyValue("destination", destination)
-                .lowCardinalityKeyValue("eventType", event.eventType());
-        observation.observe(() -> doPublish(destination, event));
+        event.headers().keySet().forEach(name -> {
+            if (EventHeaders.isCredentialName(name)) {
+                throw new IllegalArgumentException("Events must not hold credentials; refused header: " + name);
+            }
+        });
+        instrumentation.observePublish(destination, event.eventType(), () -> doPublish(destination, event));
     }
 
     private void doPublish(String destination, EventEnvelope<?> event) {
         Map<String, String> headers = new LinkedHashMap<>(event.headers());
+        headers.put(EventEnvelope.EVENT_ID_HEADER, event.eventId());
         headers.put(EVENT_TYPE_HEADER, event.eventType());
         headers.put(EVENT_VERSION_HEADER, String.valueOf(event.eventVersion()));
-        if (properties.correlation().propagate()) {
-            RequestContext.correlationId().ifPresent(id -> headers.put(CORRELATION_ID_HEADER, id.value()));
-        }
+        headers.put(EventHeaders.PRODUCER, producer);
+        headers.putAll(trace.currentHeaders());
         byte[] key = event.key() != null ? event.key().getBytes(StandardCharsets.UTF_8) : null;
-        byte[] value = serializer.serialize(event.payload());
+        byte[] value = serializer.get().serialize(event.payload());
         try {
             transport.send(destination, key, value, headers);
-            count(destination, "success");
+            instrumentation.count("platform.messaging.published", "destination", destination, "outcome", "success");
         } catch (RuntimeException e) {
-            count(destination, "failure");
+            instrumentation.count("platform.messaging.published", "destination", destination, "outcome", "failure");
             throw new EventPublishException("failed to publish to " + destination, e);
-        }
-    }
-
-    private void count(String destination, String outcome) {
-        if (meterRegistry != null) {
-            meterRegistry.counter("platform.messaging.published", "destination", destination, "outcome", outcome)
-                    .increment();
         }
     }
 }

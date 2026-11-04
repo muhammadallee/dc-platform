@@ -1,0 +1,1 @@
+{"type":"urn:dc:problem:DC-SEC-0401","title":"Unauthorized","status":401,"detail":"Full authentication is required to access this resource","instance":"/actuator/beans","code":"DC-SEC-0401","traceId":"8bc883882a73a2eba6aace63b9eea6d5","timestamp":"2026-11-01T21:16:09.191435457Z","retryable":false}

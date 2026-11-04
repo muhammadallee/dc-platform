@@ -1,0 +1,34 @@
+run_id=dch-20261104110032-31519
+phase=phase-07 scenario=security
+platform_commit=b3611d1d25311aec267dc509908c4c5394cc8d6d
+platform_tree_dirty_paths=3
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-07
+jre_image=eclipse-temurin:25-jre
+started=2026-11-04T11:00:42+04:00
+ready_seconds=12
+shutdown_seconds=3 exit_code=143
+ready_seconds=9
+ready_healthy=9s ready_idp_down=12s
+shutdown_seconds=4 exit_code=143
+ready_seconds=9
+shutdown_seconds=2 exit_code=143
+ready_seconds=9
+shutdown_seconds=2 exit_code=143
+no-issuer exit_code=1 exit_seconds=9
+no-audience exit_code=1 exit_seconds=9
+no-jwks exit_code=1 exit_seconds=9
+alg-none exit_code=1 exit_seconds=9
+alg-hs256 exit_code=1 exit_seconds=9
+big-skew exit_code=1 exit_seconds=9
+http-jwks exit_code=1 exit_seconds=9
+narrow-chain exit_code=1 exit_seconds=10
+wildcard exit_code=1 exit_seconds=10
+wide-permit exit_code=1 exit_seconds=11
+ready_seconds=11
+shutdown_seconds=2 exit_code=143
+ready_seconds=13
+shutdown_seconds=4 exit_code=143
+finished=2026-11-04T11:11:29+04:00
+assertions_passed=170 assertions_failed=0 script_rc=0
+verdict=PASS

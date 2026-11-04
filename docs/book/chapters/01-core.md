@@ -1,5 +1,12 @@
 # Chapter 1 — Core: Request Context and the Capability Model
 
+> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
+> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
+> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
+> validation errors omit `rejectedValue` by default. Where this chapter still describes the
+> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
+> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
+
 > **Capabilities covered:** `core`
 >
 > The request-scoped context every other capability reads from, and how the platform reports what is
@@ -270,8 +277,8 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 
 | Class | Activates when | Contributes | Backs off when |
 |---|---|---|---|
-| `CoreContextAutoConfiguration` | Servlet web app **and** `CorrelationId` on classpath **and** `core.enabled != false` | `correlationIdFilter`, `platformCorrelationFilterRegistration` | You define a `CorrelationIdFilter` bean (the platform registration then wraps *yours*), or a `FilterRegistrationBean` named `platformCorrelationFilterRegistration` |
-| `PlatformBannerAutoConfiguration` | `CorrelationId` on classpath **and** `core.enabled != false` | `coreCapabilityDescriptor`, `platformBannerRunner` | You define an `ApplicationRunner` bean named `platformBannerRunner`; the runner is additionally gated on `banner-enabled` |
+| `CoreContextAutoConfiguration` | Servlet web app **and** `CorrelationId` on classpath **and** `core.enabled != false` | `platformCorrelationFilterRegistration` | You define a `CorrelationIdFilter` bean or a `FilterRegistrationBean<CorrelationIdFilter>`, under any name (Boot then registers yours) |
+| `PlatformBannerAutoConfiguration` | `CorrelationId` on classpath **and** `core.enabled != false` | `coreCapabilityDescriptor`, `platformBannerRunner` | You define a `PlatformBannerRunner` bean (any name), or a bean named `coreCapabilityDescriptor`; the runner is additionally gated on `banner-enabled` |
 
 !!! note "The descriptor is contributed even when the banner is off"
     `coreCapabilityDescriptor` is not gated on `banner-enabled` — only the runner is. That way
@@ -288,9 +295,9 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 | Extension | How | Effect |
 |---|---|---|
 | Contribute a capability to the report | Declare a `CapabilityDescriptor` bean | Appears in the banner and `/actuator/platform` |
-| Replace the filter's behaviour | Declare a `CorrelationIdFilter` bean | The platform's registration wraps yours, at highest precedence |
-| Take over registration entirely | Declare a `FilterRegistrationBean` named `platformCorrelationFilterRegistration` | You control order and URL patterns |
-| Replace the banner | Declare an `ApplicationRunner` named `platformBannerRunner` | Your runner logs instead |
+| Replace the filter's behaviour | Declare a `CorrelationIdFilter` bean (any name) | Boot registers yours at the platform's order, on every dispatch type |
+| Take over registration entirely | Declare a `FilterRegistrationBean<CorrelationIdFilter>` (any name) | You control order and URL patterns |
+| Replace the banner | Declare a `PlatformBannerRunner` bean (any name) | Your runner logs instead |
 | Extend the exception taxonomy | Subclass `PlatformException` with your own `ErrorCode` | Rendered as a problem response by [errors](02-errors-validation.md) |
 
 ---
@@ -446,20 +453,17 @@ across versions — but it is deliberately usable from tests, because otherwise 
 would be untestable. Always try-with-resources:
 
 ```java
-try (AutoCloseable scope = RequestContext.open(CorrelationId.random(), Map.of("tenant", "dxb"))) {
+try (AutoCloseable scope = RequestContext.open(
+        new CorrelationId("0af7651916cd43dd8448eb211c80319c"), Map.of("tenant", "dxb"))) {
     invoiceService.archive("INV-1");
     // assertions run inside the scope
 }
 ```
 
-For controller tests, prefer the real filter — `@PlatformWebTest` wires it, or for a standalone
-`MockMvc` setup:
-
-```java
-MockMvcBuilders.standaloneSetup(controller)
-        .addFilters(new CorrelationIdFilter("X-Correlation-Id", true))
-        .build();
-```
+For a real request, send a W3C `traceparent` (`00-<32 hex trace id>-<16 hex span id>-01`) and assert
+the trace ID in the ProblemDetail's `traceId` or the JSON log's `traceId`. The correlation filter reads
+the trace from the tracer, so a standalone `MockMvc` without tracing establishes no context — open one
+explicitly as above.
 
 ---
 
@@ -634,14 +638,15 @@ You *can* still end up ahead of it:
 If you must run something before correlation — an APM agent is the usual legitimate case — be aware
 that its log lines will not carry an id, and check whether it can read the header itself.
 
-To replace the filter but keep its precedence, declare a `CorrelationIdFilter` bean; the platform's
-registration wraps yours. To control precedence too, declare the `FilterRegistrationBean` by name:
+To replace the filter but keep its precedence, declare a `CorrelationIdFilter` bean; Boot registers it
+at the platform's order. To control precedence too, declare a `FilterRegistrationBean<CorrelationIdFilter>`
+under any name:
 
 ```java
 @Bean
-FilterRegistrationBean<CorrelationIdFilter> platformCorrelationFilterRegistration(CorrelationIdFilter filter) {
-    FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
+    FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
+    registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
     registration.addUrlPatterns("/api/*");
     return registration;
 }

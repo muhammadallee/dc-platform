@@ -44,6 +44,13 @@
       <artifactId>logstash-logback-encoder</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- PlatformJsonEncoder extends the logstash encoder, whose Logback types the encoder declares
+         provided; Boot's logging starter supplies Logback at run time. -->
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Generates config metadata from the properties record at compile time. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

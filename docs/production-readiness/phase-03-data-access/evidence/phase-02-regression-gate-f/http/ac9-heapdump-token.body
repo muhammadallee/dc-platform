@@ -1,0 +1,1 @@
+{"detail":"No static resource actuator/heapdump.","instance":"/actuator/heapdump","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"a92f482ff1c7f9ff1fde452b3ae84bdb","timestamp":"2026-10-30T11:24:47.366684504Z","retryable":false}

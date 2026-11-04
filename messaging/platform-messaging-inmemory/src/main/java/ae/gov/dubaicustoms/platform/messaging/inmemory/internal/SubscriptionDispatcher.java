@@ -77,9 +77,17 @@ public final class SubscriptionDispatcher implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 return;
             }
-            if (message != null) {
-                deliver(message);
+            if (message == null) {
+                continue;
             }
+            // A poll that is signalled and interrupted at the same moment returns the element instead of
+            // throwing: re-check, and leave a message that arrived after close() for the group's other
+            // consumers instead of delivering it to an unsubscribed listener.
+            if (stopped) {
+                requeue(message);
+                return;
+            }
+            deliver(message);
         }
     }
 
@@ -87,6 +95,9 @@ public final class SubscriptionDispatcher implements AutoCloseable {
         try {
             listener.onMessage(message.key(), message.value(), message.headers());
             inFlight.decrementAndGet();
+        } catch (TransportListener.RequeueException e) {
+            // Nothing is wrong with the message: it does not use up an attempt.
+            requeue(message);
         } catch (RuntimeException e) {
             if (message.attempts() + 1 >= maxAttempts) {
                 log.error("[DC-MSG-0500] dropping message on destination={} group={} after {} attempt(s): {}",
@@ -95,7 +106,16 @@ public final class SubscriptionDispatcher implements AutoCloseable {
                 return;
             }
             sleepBackoff();
-            queue.offer(message.withAttemptIncremented());
+            requeue(message.withAttemptIncremented());
+        }
+    }
+
+    // This transport is for tests and local runs, and durable nowhere: a full queue loses the message, and says so.
+    private void requeue(QueuedMessage message) {
+        if (!queue.offer(message)) {
+            log.error("[DC-MSG-0500] dropping message on destination={} group={}: the queue is full and it cannot go back",
+                    destination, group);
+            inFlight.decrementAndGet();
         }
     }
 
@@ -111,5 +131,12 @@ public final class SubscriptionDispatcher implements AutoCloseable {
     public void close() {
         stopped = true;
         worker.interrupt();
+        // Return only once the worker has stopped, so nothing is delivered after unsubscribe returns
+        // (bounded: a listener stuck in user code must not hang the caller).
+        try {
+            worker.join(POLL_INTERVAL.multipliedBy(5));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

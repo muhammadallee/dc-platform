@@ -8,7 +8,7 @@ import org.springframework.http.ProblemDetail;
 
 /**
  * AssertJ assertion for RFC-9457 {@link ProblemDetail} bodies produced by the platform's error
- * handling, with first-class access to the platform extensions ({@code code}, {@code correlationId},
+ * handling, with first-class access to the platform extensions ({@code code}, {@code traceId},
  * {@code timestamp}).
  *
  * <pre>{@code
@@ -90,7 +90,7 @@ public final class ProblemDetailAssert extends AbstractAssert<ProblemDetailAsser
 
     /**
      * Asserts an extension property is present (non-null), for values that are non-deterministic
-     * (e.g. {@code correlationId}, {@code timestamp}).
+     * (e.g. {@code traceId}, {@code timestamp}).
      *
      * @param name the property name; never {@code null}
      * @return this assertion

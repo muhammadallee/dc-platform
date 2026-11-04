@@ -17,16 +17,24 @@ or RabbitMQ) via a starter.
   `@EventType` on the payload class, or fall back to the simple class name / version 1.
 - **`@EventHandler(destination, eventType)`** — marks a method as a handler; takes either the
   payload type or `EventEnvelope<T>` when headers/metadata are needed.
-- **Correlation propagation** — the current `RequestContext` correlation id is added as the
-  `correlationId` header on every publish (toggle with `correlation.propagate`).
-- **Bounded retry + DLQ** — failed handler deliveries retry
-  (`handler.retry.max-attempts`/`handler.retry.backoff`) then republish to
-  `destination + dlq.suffix` — this fallback is transport-agnostic and works identically over
-  every provider; Kafka and RabbitMQ additionally get their own broker-native DLQ.
+- **Structured headers** — every message carries `eventId`, `eventType`, `eventVersion`, `producer`, and
+  `traceparent` when a trace is active. A credential-named header is refused. A handler runs in a span continuing
+  the message's trace.
+- **Bounded retry + DLQ** — a failed handler is retried up to `handler.retry.max-attempts`, with a capped exponential
+  backoff, then dead-lettered: by the broker on RabbitMQ, by a republish to `destination + dlq.suffix` elsewhere. A payload
+  that cannot be read, or a newer version than the handler knows, goes there on the first attempt.
 - **Metrics** — `platform.messaging.published` (publish outcome) and `platform.messaging.handled`
   (handler outcome: success/retry/dlq), both via Micrometer when a `MeterRegistry` is present.
 - **`/actuator/platform`** reports `messaging[ACTIVE <provider>]`, or `INACTIVE` when no single
   `EventTransport` bean is configured.
+
+For a publish tied to a database change, use the [transactional outbox](outbox.md): `EventPublisher` sends immediately,
+so a crash right after your commit loses the event.
+
+Delivery is at-least-once: every message carries a stable `eventId` header, generated once when the envelope is built, and
+consumers deduplicate by it. On RabbitMQ a send waits for the broker's publisher confirm; an unroutable message, a nack or
+no confirm within `dc.platform.messaging.rabbit.confirm-timeout` (default `5s`) throws `EventPublishException`, so **a
+destination needs a bound queue before you publish to it**.
 
 ## Starter coordinates
 
@@ -87,11 +95,15 @@ class OrdersEventHandlers {
 |---|---|---|
 | `dc.platform.messaging.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.messaging.default-destination-prefix` | `dc.` | Naming convention only; not enforced. |
-| `dc.platform.messaging.handler.retry.max-attempts` | `3` | Total delivery attempts before a handler failure routes to the DLQ. |
-| `dc.platform.messaging.handler.retry.backoff` | `1s` | Pause between handler retry attempts. |
-| `dc.platform.messaging.dlq.suffix` | `.dlq` | Appended to a destination to form its DLQ destination. |
-| `dc.platform.messaging.correlation.propagate` | `true` | Publish the current correlation id as the `correlationId` header. |
-| `dc.platform.messaging.rabbit.quorum-queues` | `false` | Declare quorum queues instead of classic queues (rabbit provider only). |
+| `dc.platform.messaging.handler.retry.max-attempts` | `3` | Total attempts before a handler failure is dead-lettered. |
+| `dc.platform.messaging.handler.retry.backoff` | `1s` | Pause before the second attempt; doubles per attempt. |
+| `dc.platform.messaging.handler.retry.max-backoff` | `30s` | The longest pause between attempts. |
+| `dc.platform.messaging.dlq.suffix` | `.dlq` | The DLQ destination on transports without native dead-lettering. |
+| `dc.platform.messaging.rabbit.quorum-queues` | `true` | Declare quorum queues, main and dead-letter; `false` for classic. An existing queue of the other type fails its declaration: RabbitMQ does not convert queues. |
+| `dc.platform.messaging.rabbit.confirm-timeout` | `5s` | How long a send waits for the broker's confirm. |
+| `dc.platform.messaging.rabbit.prefetch` | `10` | Messages a consumer holds at once, and so how many a retrying handler can delay. |
+| `dc.platform.messaging.rabbit.shutdown-timeout` | `30s` | How long a stopping consumer waits for the handler in flight. Shutdown phases run in turn: with the defaults, keep the pod's grace period above about 95 s (web drain 30 s, outbox `stop-timeout` 30 s and its joins, this). |
+| `dc.platform.messaging.rabbit.delivery-limit` | `20` | Returns a quorum queue allows before dead-lettering a message that keeps killing its consumer. A message merely held by a stopping consumer counts too, hence well above what rolling restarts reach. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -114,8 +126,49 @@ spring:
 ### RabbitMQ: destination syntax
 
 Destinations are `"exchange"` (empty routing key) or `"exchange:routingKey"`, e.g.
-`"dc.orders:order.placed"`. Each subscription declares a durable topic exchange, a bound queue,
-and a dead-letter exchange + queue automatically.
+`"dc.orders:order.placed"`. Each subscription declares a durable topic exchange, a bound queue
+`<exchange>.<routingKey>.<group>` and a dead-letter exchange + queue `….dlq`. Declarations run on every new connection, so a
+service starts without the broker, and a broker that lost its definitions gets them back.
+
+### RabbitMQ: how a delivery ends
+
+The container acks after the handler returns, including any transaction the handler ran.
+
+| Outcome | What happens |
+|---|---|
+| Handler returns | Acked |
+| Handler keeps failing | `max-attempts` attempts in the consumer, then the broker dead-letters it. With the defaults, 3 s of backoff plus the handler's own time per poison message; other messages the consumer holds wait |
+| Unreadable payload, or a version newer than `@EventType` declares | The DLQ at once, with a WARN or ERROR that never quotes the payload. A replay delivers a newer version after upgrading |
+| Consumer stops | The handler in flight finishes, within `shutdown-timeout`; buffered messages go back; a retry backoff stops and puts its message back |
+| Consumer dies mid-handler | The broker redelivers; `delivery-limit` dead-letters a message that keeps doing this |
+
+Quorum queues dead-letter at-least-once (RabbitMQ 3.10 or later); classic queues do so at-most-once.
+
+Handler time is yours to bound: a handler that blocks holds its consumer and the messages it has buffered. Give it timeouts, as the
+data capability's transaction default does. Handlers belong on singletons created at startup: a bean with a handler created once
+consumers have started fails with an error, since a running consumer could already have acknowledged what it should receive.
+
+Consumers start before the outbox's drainer and stop after it, so a drained event finds its consumers. So a lifecycle bean a handler
+depends on needs a lower phase than `DEFAULT_PHASE - 8192`, or the handler can run before it starts and after it stops.
+
+Handlers on one destination share a queue: each message goes to the handler declaring its `eventType`, else to one declaring none.
+Two handlers that could receive the same message fail startup. A message no handler wants is acknowledged and counted as
+`outcome=ignored`.
+
+**Guarantees, and what they are not.** Delivery is at-least-once and unordered. **Deduplicate by `eventId`:** insert it in a
+processed-events table with a unique constraint, in the same transaction as the business write, and skip on a violation.
+`docs/samples/rabbitmq-messaging/` shows it. Use `OutboxPublisher` for any publish tied to a database change; a direct
+`EventPublisher.publish` fails if the broker is down or the message is unroutable, and the caller must handle that.
+
+**Schema rule.** Consumers tolerate unknown fields, so adding a field needs no version change. A change an old consumer cannot
+read raises `@EventType(version = …)`.
+
+### RabbitMQ: inspecting and replaying a DLQ
+
+`tooling/scripts/rabbit-dlq-replay.py inspect <queue>` prints headers and leaves the messages there; `replay <queue>` moves what
+is in the DLQ now back to the main queue, keeping event ids. It needs the `rabbitmq_shovel` and `rabbitmq_shovel_management`
+plugins. Fix the cause first, or the messages come straight back. Do not delete the main queue during a replay: the shovel would
+publish into nothing.
 
 ## Customize
 

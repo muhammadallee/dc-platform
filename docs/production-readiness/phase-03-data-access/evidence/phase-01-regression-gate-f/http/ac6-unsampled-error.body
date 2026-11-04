@@ -1,0 +1,1 @@
+{"detail":"An unexpected error occurred.","instance":"/probe/boom","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"5e9e0746e0c6896530afb96e939fcb0a","timestamp":"2026-10-30T11:22:24.221600530Z","retryable":false}

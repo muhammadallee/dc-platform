@@ -49,6 +49,13 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- ErrorController for the servlet error page; optional, the configuration is guarded by
+         @ConditionalOnClass and replaces Boot's BasicErrorController only when present. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-webmvc</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- ConstraintViolationException mapping; optional, guarded by @ConditionalOnClass. -->
     <dependency>
       <groupId>jakarta.validation</groupId>
@@ -83,6 +90,34 @@
     <dependency>
       <groupId>io.github.classgraph</groupId>
       <artifactId>classgraph</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Method-security denials thrown inside a controller must pass through to Spring Security. -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Data-access failures (D111) are classified by class name, so main code has no dependency on
+         these; the tests rebuild the exception chains observed on Oracle from the real types. -->
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-tx</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-jdbc</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-orm</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

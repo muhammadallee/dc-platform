@@ -91,13 +91,15 @@ class OrderNotifications {
 
 (Hand-written until the generated reference lands in phase 14.)
 
-## Relay: a lightweight outbox precursor
+## Relay, and when it is guaranteed
 
-The relay publishes the integration event on the same after-commit callback as
-`@DomainEventHandler` dispatch — a process crash between the local commit and the publish call
-still loses the integration event. This is intentional for phase 7: a true transactional outbox
-(durable staging row written in the same transaction, published by a separate process) is a
-documented future enhancement, not implemented here. See `docs/decisions/decision-log.md` (D32).
+With the [transactional outbox](outbox.md) on the classpath and a transaction on its database, the relay writes the
+integration event through the outbox **inside** the transaction, so it commits with the business write and survives a
+crash.
+
+Without the outbox, or outside such a transaction, the relay publishes on the same after-commit callback as
+`@DomainEventHandler` dispatch, and a process crash between the local commit and the publish call still loses the
+integration event (D32).
 
 To enable it, add a messaging starter (e.g. `platform-starter-messaging-inmemory`) alongside
 `platform-starter-events` and set `dc.platform.events.relay.enabled=true`.

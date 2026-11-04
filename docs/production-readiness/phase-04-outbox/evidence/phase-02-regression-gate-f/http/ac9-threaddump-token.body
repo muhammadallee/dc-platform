@@ -1,0 +1,1 @@
+{"detail":"No static resource actuator/threaddump.","instance":"/actuator/threaddump","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"1e343b452e9d80af11c6f58ca1b4d606","timestamp":"2026-10-31T21:31:41.105985727Z","retryable":false}

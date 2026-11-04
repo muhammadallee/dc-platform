@@ -1,0 +1,92 @@
+PASS	AC1 dependency tree has platform-starter-data-jpa-oracle
+PASS	AC1 dependency tree has com.oracle.database.jdbc:ojdbc11
+PASS	AC1 dependency tree has org.flywaydb:flyway-database-oracle
+PASS	owner HH_OWNER (create session/table/sequence/view) and runtime HH_RT (create session + role hh_rw) created
+PASS	app ready in 68s
+PASS	AC1 flyway_schema_history: V1 and V2 succeeded, installed by HH_OWNER
+PASS	ac9-identity status 200
+PASS	ac9-identity: connected as HH_RT, current schema HH_OWNER
+PASS	AC9 runtime user: ALTER, DROP and CREATE TABLE all refused with ORA-01031
+PASS	ac9-db-after status 200
+PASS	ac3-seed status 200
+PASS	ac3-unique-repository status 409
+PASS	ac3-unique-repository: on the inbound trace, retryable false
+PASS	ac3-unique-repository-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-unique-entity-manager status 409
+PASS	ac3-unique-entity-manager: on the inbound trace, retryable false
+PASS	ac3-unique-entity-manager-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-foreign-key-repository status 409
+PASS	ac3-foreign-key-repository: on the inbound trace, retryable false
+PASS	ac3-foreign-key-repository-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-foreign-key-entity-manager status 409
+PASS	ac3-foreign-key-entity-manager: on the inbound trace, retryable false
+PASS	ac3-foreign-key-entity-manager-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-not-null-repository status 409
+PASS	ac3-not-null-repository: on the inbound trace, retryable false
+PASS	ac3-not-null-repository-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-not-null-entity-manager status 409
+PASS	ac3-not-null-entity-manager: on the inbound trace, retryable false
+PASS	ac3-not-null-entity-manager-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-check-repository status 409
+PASS	ac3-check-repository: on the inbound trace, retryable false
+PASS	ac3-check-repository-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-check-entity-manager status 409
+PASS	ac3-check-entity-manager: on the inbound trace, retryable false
+PASS	ac3-check-entity-manager-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-empty-string-repository status 409
+PASS	ac3-empty-string-repository: on the inbound trace, retryable false
+PASS	ac3-empty-string-repository-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-empty-string-entity-manager status 409
+PASS	ac3-empty-string-entity-manager: on the inbound trace, retryable false
+PASS	ac3-empty-string-entity-manager-body {"code": "DC-DATA-0409", "detail": "The request conflicts with existing data.", "leaked": [], "ok": true}
+PASS	ac3-unique-count status 200
+PASS	ac3-unique-count: the duplicate was not stored
+PASS	ac11-anon status 401
+PASS	ac11-scrape status 200
+PASS	ac11-meters {"label_values": 85, "leaked": [], "missing": [], "ok": true, "sql_like": []}
+PASS	ac4-exhaust {"counts": {"200": 10, "503": 10}, "max_seconds": {"200": 8.1, "503": 5.0}, "ok": true, "problems": [], "requests": 20}
+PASS	AC4 pending connections back to 0 (timeouts total 10.0)
+PASS	ac4-recovered status 200
+PASS	ac6-db-down status 503
+PASS	ac6-db-down: 503 DC-DATA-0503 on the trace, retryable
+PASS	ac6-db-down-body {"code": "DC-DATA-0503", "detail": "An unexpected error occurred.", "leaked": [], "ok": true}
+PASS	AC6 DB request failed in 6s (connection-timeout 5 s)
+PASS	ac6-context-down status 200
+PASS	ac6-readiness-down status 200
+PASS	ac6-liveness-down status 200
+PASS	ac6-dependencies-down status 503
+PASS	ac6-dependencies-down: dependencies DOWN
+PASS	AC6 dependencies UP again within 60 s, no restart
+PASS	ac6-db-back status 200
+PASS	log line 'hold-started rt-a8b43e' seen
+PASS	backstop: silent peer ended by the read timeout, 503 DC-DATA-0503 after 63.132821s (3 s hold + 60 s)
+PASS	backstop: DB requests succeed again within 60 s of the peer returning
+PASS	ac5-slow {"counts": {"503": 20}, "max_seconds": {"503": 5.0}, "ok": true, "problems": [], "requests": 20}
+PASS	AC5 {"ok": true, "fast_503_within_12s": 20, "needed": 10}
+PASS	AC5 DB requests succeed again within 90 s of the latency ending
+PASS	AC5 live threads bounded (32 -> 42)
+PASS	AC5 pending connections 0 after recovery
+PASS	log line 'hold-started sg-6b0b26' seen
+PASS	app exited on SIGTERM (code 143) in 8s
+PASS	graceful shutdown completed (logged)
+PASS	AC13 in-flight request completed with 200 during shutdown
+PASS	AC13 the in-flight transaction's row is committed
+PASS	AC13 Hikari pool shut down (logged)
+PASS	app ready in 25s
+PASS	app exited on SIGTERM (code 143) in 4s
+PASS	graceful shutdown completed (logged)
+PASS	AC14 Oracle down: startup failed (exit 1) in 8s
+PASS	AC14 Oracle down: the log names the cause (Unable to obtain connection from database: ORA-12541: Cannot connect. No listener at host toxiproxy port 15)
+PASS	AC14 silent peer: startup failed (exit 1) in 610s
+PASS	ac3-unique-repository-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-unique-entity-manager-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-foreign-key-repository-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-foreign-key-entity-manager-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-not-null-repository-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-not-null-entity-manager-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-check-repository-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-check-entity-manager-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-empty-string-repository-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	ac3-empty-string-entity-manager-warn {"handler_warns": 1, "hibernate_statement_warns": 2, "ok": true, "ora_in_detail": true, "other_loggers": []}
+PASS	no database password in the evidence
+PASS	cleanup: no containers left for dch-20261030135936-47218

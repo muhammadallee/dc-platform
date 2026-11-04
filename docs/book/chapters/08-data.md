@@ -904,9 +904,11 @@ PersistenceConventions.CODE_LENGTH;      // 32 · NAME_LENGTH 255 · MONEY_LENGT
 **Diagnose it**
 
 ```bash
+# metrics and env are not exposed by default: add them locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,metrics,env
 curl -s localhost:8080/actuator/metrics/hikaricp.connections.pending | jq
 curl -s localhost:8080/actuator/env/spring.jpa.open-in-view | jq
-curl -s localhost:8080/actuator/health/readiness | jq          # db is a member
+curl -s localhost:8080/actuator/health/dependencies | jq       # db lives here, not in readiness
 # logging.level.org.hibernate.SQL=DEBUG   to count queries
 ```
 

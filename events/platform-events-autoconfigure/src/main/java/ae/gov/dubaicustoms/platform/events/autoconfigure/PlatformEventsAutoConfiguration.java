@@ -10,6 +10,8 @@ import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.DomainEventRel
 import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.ImmediateDispatcher;
 import ae.gov.dubaicustoms.platform.events.autoconfigure.internal.TransactionalDispatcher;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
+import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -35,9 +37,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *   EventPublisher is on the classpath AND an EventPublisher bean actually exists
  *   (@ConditionalOnBean) AND dc.platform.events.relay.enabled=true: re-publishes
  *   @EventType-annotated domain events as integration events after commit; eventsCapabilityDescriptor.
- * Order: none required.
+ * Order: after messaging and the outbox, or the relay's bean condition is evaluated before EventPublisher exists and
+ * the relay is silently absent.
  */
-@AutoConfiguration
+@AutoConfiguration(afterName = {
+        "ae.gov.dubaicustoms.platform.messaging.autoconfigure.PlatformMessagingAutoConfiguration",
+        "ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.OutboxAutoConfiguration"})
 @ConditionalOnClass(DomainEvent.class)
 @ConditionalOnProperty(prefix = "dc.platform.events", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(EventsProperties.class)
@@ -97,8 +102,10 @@ public class PlatformEventsAutoConfiguration {
         @ConditionalOnBean(EventPublisher.class)
         @ConditionalOnMissingBean
         DomainEventRelay domainEventRelay(
-                EventPublisher eventPublisher, AfterCommitDispatcher dispatcher, EventsProperties properties) {
-            return new DomainEventRelay(eventPublisher, dispatcher, properties.relay().destinationPrefix());
+                EventPublisher eventPublisher, AfterCommitDispatcher dispatcher, EventsProperties properties,
+                ObjectProvider<OutboxPublisher> outbox) {
+            return new DomainEventRelay(eventPublisher, dispatcher, properties.relay().destinationPrefix(),
+                    outbox.getIfAvailable());
         }
     }
 }

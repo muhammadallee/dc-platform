@@ -1,0 +1,3 @@
+# Names the action that fixes a missing outbox table.
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.OutboxTableMissingFailureAnalyzer

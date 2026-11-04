@@ -699,7 +699,7 @@ bypass, reproduced deliberately. Step 6 is the real exercise: a number, and a de
 
 **Hints.**
 
-- `curl -s localhost:8080/actuator/metrics/cache.gets | jq '.availableTags'`
+- `curl -s localhost:8080/actuator/metrics/cache.gets | jq '.availableTags'` (expose `metrics` first: it is not exposed by default)
 - If step 4 shows no meters, the `CacheManager` was replaced by a wrapper — §2.4.
 
 **How to verify.** A test asserting the method body executes once across two calls, and a second
@@ -829,6 +829,8 @@ redis.opsForValue().set("session:" + id, v, Duration.ofMinutes(30));   // wire k
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -s localhost:8080/actuator/metrics/cache.gets | jq '.availableTags'   # hit ratio
 curl -s localhost:8080/actuator/metrics/cache.size | jq
 redis-cli --scan --pattern 'orders-service:*' | head        # actual wire keys

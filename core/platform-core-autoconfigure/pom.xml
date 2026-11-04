@@ -43,6 +43,20 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- The correlation id IS the W3C trace id: the filter reads it from the Micrometer Tracer that
+         the observability starter's tracing bridge provides. Optional: without tracing on the
+         classpath no correlation context is established (documented in docs/modules/core.md). -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <!-- ThreadLocalAccessor SPI: RequestContext rides along with Boot's ContextPropagatingTaskDecorator. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>context-propagation</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Generates config metadata from the properties record at compile time. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -53,6 +67,23 @@
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Real W3C propagation (OpenTelemetry bridge + Boot's tracing/observation auto-configuration)
+         for the filter tests: no hand-rolled traceparent parsing anywhere, including in tests. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- MockMvc + servlet runtime for the filter behavior tests. -->

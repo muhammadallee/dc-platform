@@ -1,0 +1,16 @@
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.731 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.ArchConstitutionTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.258 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.ConvertersTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.064 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheckTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.026 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MissingFlywayFailureAnalyzerTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.597 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoConfigurationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.057 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaEnvironmentPostProcessorTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.009 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.FlywayMigrationSliceTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.676 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.JpaAuditingSliceTest
+[INFO] Tests run: 24, Failures: 0, Errors: 0, Skipped: 0
+06:32:10.555 [main] INFO tc.testcontainers/ryuk:0.14.0 -- Container testcontainers/ryuk:0.14.0 started in PT7.2012583S
+06:32:19.987 [main] INFO tc.postgres:16-alpine -- Container postgres:16-alpine started in PT9.420956S
+06:32:19.990 [main] INFO tc.postgres:16-alpine -- Container is started (JDBC URL: jdbc:postgresql://localhost:60995/test?loggerLevel=OFF)
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 27.62 s -- in ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.PostgresParityIT
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+66182d3f89a363445f6a31822e9776f9d2d960f2c6b2b153f86545f342b14960

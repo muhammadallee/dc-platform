@@ -1,0 +1,1 @@
+{"check": "collector", "spans": 5703, "metrics": 1379, "service_names": ["hardening-obs"], "spans_on_trace": 11, "client_spans_on_trace": 1}

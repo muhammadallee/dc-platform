@@ -8,12 +8,15 @@ import org.apiguardian.api.API;
 /**
  * Correlation identifier propagated across threads, HTTP, and messaging.
  *
- * <p>Format is 32 lowercase hex characters (a UUID without dashes), so it round-trips through
- * HTTP headers and message properties without escaping.
+ * <p>Since the hardening of the core capability, the platform's only correlation identifier is the
+ * W3C trace ID of the current span: the platform populates {@link RequestContext} with it, and it
+ * travels between services in the standard {@code traceparent} header (never in a custom header).
+ * The format, 32 lowercase hex characters, is exactly the W3C trace-id format.
  *
  * <pre>{@code
- * CorrelationId id = CorrelationId.random();
- * httpHeaders.set("X-Correlation-Id", id.value());
+ * RequestContext.correlationId()
+ *         .map(CorrelationId::value)   // == the current trace ID
+ *         .ifPresent(traceId -> problem.setProperty("traceId", traceId));
  * }</pre>
  *
  * <p>Value object; immutable and thread-safe; creation is cheap. The component is never
@@ -36,8 +39,10 @@ public record CorrelationId(String value) {
     public CorrelationId {
         Objects.requireNonNull(value, "value must not be null");
         if (!FORMAT.matcher(value).matches()) {
+            // The rejected value is deliberately not echoed: it often comes straight from a request
+            // header, and exception messages end up in logs (header/log injection).
             throw new IllegalArgumentException(
-                    "correlation id '" + value + "' must be 32 lowercase hex characters (UUID without dashes)");
+                    "correlation id must be 32 lowercase hex characters (got " + value.length() + " characters)");
         }
     }
 

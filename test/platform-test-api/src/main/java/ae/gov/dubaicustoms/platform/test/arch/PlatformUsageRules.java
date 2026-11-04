@@ -120,7 +120,7 @@ public final class PlatformUsageRules {
                     }
                 })
                 .because("throw PlatformException subtypes (BusinessException/NotFoundException/ConflictException) "
-                        + "with an ErrorCode — the platform maps them to RFC 9457 with correlation IDs; do not "
+                        + "with an ErrorCode — the platform maps them to RFC 9457 with trace IDs; do not "
                         + "write your own @RestControllerAdvice")
                 .allowEmptyShould(true);
     }
@@ -144,7 +144,7 @@ public final class PlatformUsageRules {
                     }
                 })
                 .because("subclassing ResponseEntityExceptionHandler is banned here → throw PlatformException "
-                        + "subtypes with an ErrorCode; the platform maps them to RFC 9457 with correlation IDs "
+                        + "subtypes with an ErrorCode; the platform maps them to RFC 9457 with trace IDs "
                         + "(docs/modules/errors.md)")
                 .allowEmptyShould(true);
     }

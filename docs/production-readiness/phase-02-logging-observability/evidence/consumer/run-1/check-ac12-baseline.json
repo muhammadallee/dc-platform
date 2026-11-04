@@ -1,0 +1,1 @@
+{"check": "latency", "n": 200, "statuses": {"200": 200}, "p50_ms": 6.4, "p99_ms": 11.2, "max_ms": 74.9}

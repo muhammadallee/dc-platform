@@ -60,4 +60,15 @@ public abstract class PlatformException extends RuntimeException {
     public ErrorCode code() {
         return code;
     }
+
+    /**
+     * Returns the HTTP status a ProblemDetail for this failure should carry, when it reaches an inbound request
+     * unhandled. A failure of infrastructure is 500 unless a subtype knows better.
+     *
+     * @return the HTTP status
+     * @since 1.0.0
+     */
+    public int problemStatus() {
+        return 500;
+    }
 }

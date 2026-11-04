@@ -919,6 +919,8 @@ Optional<Receipt> newFlow(...)        // Optional/boolean/void — NOT a bare ob
 **Diagnose it**
 
 ```bash
+# metrics is not exposed by default: add it locally with
+#   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
 curl -i localhost:8080/limited                                     # 429 + Retry-After?
 curl -s localhost:8080/actuator/metrics/dc.platform.ratelimit.decisions | jq '.availableTags'
 grep "DC-RATELIMIT-0500" app.log                                   # failing open RIGHT NOW

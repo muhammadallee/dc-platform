@@ -10,7 +10,7 @@
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
     <!-- Keep in lockstep with spring-boot.version in the aggregator (release checklist item). -->
-    <version>4.1.0</version>
+    <version>4.1.2</version>
     <relativePath/>
   </parent>
 
@@ -37,6 +37,11 @@
          (visible in review) to allow a directly-declared wrapped library. Discouraged; see
          docs/modules/dx.md. -->
     <platform.bans.skip>false</platform.bans.skip>
+    <!-- Security overrides (hardening HI-0105, decision D133), the same versions platform-dependencies pins. Boot's
+         starter-parent manages these itself, and its managed versions win over an imported BOM, so they are set
+         through Boot's own version properties. DELETE each once Boot manages a fixed version. -->
+    <rabbit-amqp-client.version>5.37.0</rabbit-amqp-client.version>
+    <opentelemetry.version>1.67.0</opentelemetry.version>
   </properties>
 
   <dependencyManagement>
@@ -86,6 +91,12 @@
                   <excludes><exclude>software.amazon.awssdk:s3</exclude></excludes>
                   <message>Do not depend on the AWS S3 SDK directly — add platform-starter-storage-s3 and use the
                     ObjectStore API (docs/modules/storage.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>io.opentelemetry:opentelemetry-exporter-zipkin</exclude></excludes>
+                  <message>The OpenTelemetry Zipkin exporter is discontinued (last 1.64.0) and fails at startup against the
+                    OpenTelemetry the platform manages (D133). Export traces over OTLP (docs/modules/observability.md).</message>
                 </bannedDependencies>
                 <bannedDependencies>
                   <searchTransitive>false</searchTransitive>

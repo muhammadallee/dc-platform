@@ -268,9 +268,10 @@ rotation.
 
 ## 9. The operational surface
 
-The platform exposes `health,info,platform,metrics,prometheus` over HTTP, and its security chain
-permits **only** `health` and `info`. Everything else — including `/actuator/env`,
-`/actuator/configprops`, `/actuator/metrics`, and `/actuator/platform` — requires authentication.
+The platform exposes `health,info,prometheus` over HTTP (generated services also expose `platform`;
+`metrics` is an opt-in), and its security chain permits **only** `health` and `info`. Everything else —
+`/actuator/prometheus`, `/actuator/platform`, and any endpoint you expose — requires authentication; an
+endpoint that is not exposed answers 401 without a token and 404 with one.
 
 Two consequences to plan for:
 

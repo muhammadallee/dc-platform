@@ -24,7 +24,7 @@ class PlatformBannerAutoConfigurationTest {
     @Test
     void activeByDefault() {
         runner.run(context -> {
-            assertThat(context).hasBean("platformBannerRunner");
+            assertThat(context).hasSingleBean(PlatformBannerRunner.class);
             assertThat(context).hasSingleBean(CapabilityDescriptor.class);
         });
     }
@@ -49,10 +49,59 @@ class PlatformBannerAutoConfigurationTest {
     }
 
     @Test
-    void backsOffWhenUserRunnerPresent() {
-        ApplicationRunner mine = args -> { };
-        runner.withBean("platformBannerRunner", ApplicationRunner.class, () -> mine)
-                .run(context -> assertThat(context).getBean("platformBannerRunner").isSameAs(mine));
+    void backsOffWhenUserRunnerPresentUnderAnyName() {
+        runner.withBean("myBanner", PlatformBannerRunner.class,
+                        () -> new PlatformBannerRunner(emptyProvider()) {
+                            @Override
+                            protected String describe(java.util.List<CapabilityDescriptor> active) {
+                                return "mine";
+                            }
+                        })
+                .run(context -> {
+                    assertThat(context).hasSingleBean(PlatformBannerRunner.class);
+                    assertThat(context).hasBean("myBanner").doesNotHaveBean("platformBannerRunner");
+                });
+    }
+
+    @Test
+    void unrelatedApplicationRunnersDoNotSuppressTheBanner() {
+        ApplicationRunner unrelated = args -> { };
+        runner.withBean("platformBannerRunner2", ApplicationRunner.class, () -> unrelated)
+                .run(context -> {
+                    assertThat(context).hasSingleBean(PlatformBannerRunner.class);
+                    assertThat(context.getBeansOfType(ApplicationRunner.class)).hasSize(2);
+                });
+    }
+
+    @Test
+    void unrelatedDescriptorsDoNotSuppressTheCoreOne() {
+        runner.withBean("ordersCapabilityDescriptor", CapabilityDescriptor.class,
+                        () -> new CapabilityDescriptor("orders", "ACTIVE", ""))
+                .run(context -> assertThat(context.getBeansOfType(CapabilityDescriptor.class))
+                        .containsOnlyKeys("coreCapabilityDescriptor", "ordersCapabilityDescriptor"));
+    }
+
+    @Test
+    void bannerKeepsItsLogCategory() {
+        // Consumers route or silence the banner by this category; moving the runner must not change it.
+        ch.qos.logback.classic.Logger category = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        category.addAppender(appender);
+        try {
+            runner.run(context -> context.getBean(PlatformBannerRunner.class).run(new DefaultApplicationArguments()));
+            assertThat(appender.list).singleElement()
+                    .satisfies(event -> assertThat(event.getFormattedMessage()).startsWith("platform: core[ACTIVE]"));
+        } finally {
+            category.detachAppender(appender);
+        }
+    }
+
+    private static org.springframework.beans.factory.ObjectProvider<CapabilityDescriptor> emptyProvider() {
+        return new org.springframework.beans.factory.support.DefaultListableBeanFactory()
+                .getBeanProvider(CapabilityDescriptor.class);
     }
 
     @Test
@@ -68,10 +117,22 @@ class PlatformBannerAutoConfigurationTest {
                 .withBean("alphaCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> new CapabilityDescriptor("alpha", "ACTIVE", ""))
                 .run(context -> {
-                    context.getBean("platformBannerRunner", ApplicationRunner.class)
-                            .run(new DefaultApplicationArguments());
+                    context.getBean(PlatformBannerRunner.class).run(new DefaultApplicationArguments());
                     assertThat(output.getOut())
                             .contains("platform: alpha[ACTIVE], core[ACTIVE], zeta[ACTIVE] (inmemory)");
                 });
+    }
+
+    @Test
+    void consumerCoreDescriptorReplacesThePlatformOne() {
+        ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor mine =
+                new ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor("core", "ACTIVE", "custom");
+        new org.springframework.boot.test.context.runner.ApplicationContextRunner()
+                .withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(
+                        PlatformBannerAutoConfiguration.class))
+                .withBean("coreCapabilityDescriptor", ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class,
+                        () -> mine)
+                .run(context -> assertThat(context)
+                        .getBean(ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class).isSameAs(mine));
     }
 }

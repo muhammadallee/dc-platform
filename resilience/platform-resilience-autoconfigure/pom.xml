@@ -63,6 +63,18 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Proves the default retry leaves a platform client's failures alone. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-restclient-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-spring-boot4</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Behavior test only: proves the default circuit-breaker config (50% over 10 calls) opens. -->
     <dependency>
       <groupId>io.github.resilience4j</groupId>

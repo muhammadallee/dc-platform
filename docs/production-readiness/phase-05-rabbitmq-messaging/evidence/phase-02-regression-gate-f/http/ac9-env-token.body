@@ -1,0 +1,1 @@
+{"detail":"No static resource actuator/env.","instance":"/actuator/env","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"ffc143584aeb85b8640ab7fd6abb289e","timestamp":"2026-11-01T21:16:08.725938226Z","retryable":false}

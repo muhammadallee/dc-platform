@@ -71,7 +71,7 @@ class OrdersEventsTest {
   ```
 
 - **`assertThatProblem(...)`** — AssertJ assertions over RFC-9457 `ProblemDetail` bodies, including
-  the platform `code`/`correlationId` extensions:
+  the platform `code`/`traceId` extensions:
 
   ```java
   assertThatProblem(response).hasStatus(404).hasCode("DC-ORD-0001");

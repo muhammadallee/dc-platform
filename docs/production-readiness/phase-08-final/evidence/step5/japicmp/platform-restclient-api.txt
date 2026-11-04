@@ -1,0 +1,29 @@
+Comparing source compatibility of C:\Users\Ali\.m2-hardening\phase-07\ae\gov\dubaicustoms\platform\platform-restclient-api\1.0.0-SNAPSHOT\platform-restclient-api-1.0.0-SNAPSHOT.jar against C:\Users\Ali\.m2-baseline\ae\gov\dubaicustoms\platform\platform-restclient-api\1.0.0-SNAPSHOT\platform-restclient-api-1.0.0-SNAPSHOT.jar
+WARNING: You are using the option '--ignore-missing-classes', i.e. superclasses and interfaces that could not be found on the classpath are ignored. Hence changes caused by these superclasses and interfaces are not reflected in the output.
+***  MODIFIED CLASS: PUBLIC FINAL ae.gov.dubaicustoms.platform.restclient.RemoteCallException  (not serializable)
+	===  CLASS FILE FORMAT VERSION: 69.0 <- 69.0
+	+++  NEW CONSTRUCTOR: PUBLIC(+) RemoteCallException(java.lang.String, ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind, int, java.lang.String, boolean, java.lang.Throwable)
+	+++  NEW METHOD: PUBLIC(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind kind()
+	+++  NEW METHOD: PUBLIC(+) int problemStatus()
+	===  UNCHANGED METHOD: PUBLIC java.util.Optional<java.lang.String><java.lang.String> remoteCorrelationId()
+		+++  NEW ANNOTATION: java.lang.Deprecated
+			+++  NEW ELEMENT: since=1.0.0 (+)
+	+++  NEW METHOD: PUBLIC(+) boolean retryable()
++++  NEW ENUM: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind  (compatible)
+	+++  CLASS FILE FORMAT VERSION: 69.0 <- n.a.
+	+++  NEW INTERFACE: java.lang.constant.Constable
+	+++  NEW INTERFACE: java.lang.Comparable
+	+++  NEW INTERFACE: java.io.Serializable
+	+++  NEW SUPERCLASS: java.lang.Enum
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind CONNECTION
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind DEADLINE
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind CIRCUIT_OPEN
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind TIMEOUT
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind BULKHEAD_FULL
+	+++  NEW FIELD: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind RESPONSE
+	+++  NEW METHOD: PUBLIC(+) STATIC(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind valueOf(java.lang.String)
+	+++  NEW METHOD: PUBLIC(+) STATIC(+) ae.gov.dubaicustoms.platform.restclient.RemoteCallException$Kind[] values()
+	+++  NEW ANNOTATION: org.apiguardian.api.API
+		+++  NEW ELEMENT: status=org.apiguardian.api.API$Status.STABLE (+)
+		+++  NEW ELEMENT: since=1.0.0 (+)
+

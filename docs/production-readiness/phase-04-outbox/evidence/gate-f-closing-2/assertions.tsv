@@ -1,0 +1,106 @@
+PASS	dependency tree has platform-starter-messaging-outbox
+PASS	dependency tree has platform-messaging-outbox-autoconfigure
+PASS	dependency tree has platform-messaging-outbox:
+PASS	dependency tree has platform-messaging-rabbit
+PASS	app ready in 76s
+PASS	AC15 the copied DDL migrated (V2) as the owner
+PASS	AC15 the runtime user cannot drop the outbox table
+PASS	ac1-commit status 200
+PASS	ac1-rollback status 500
+PASS	AC1 rollback: no business row, no outbox row, no delivery
+PASS	ac12-traced status 200
+PASS	AC12 the message carries the inbound trace
+PASS	ac12-principal status 200
+PASS	AC12 the message carries the subject, not a token (gate-user)
+PASS	AC12 no token in any stored row
+PASS	AC12 a credential-named header is refused (500)
+PASS	AC12 the refusal rolled the business write back
+PASS	ac16 status 200
+PASS	AC16 a relayed domain event is delivered
+PASS	AC16 it went through the outbox table
+PASS	AC5 30 requests all 200 with RabbitMQ down, slowest 0.142518s
+PASS	AC5 pending metric shows the backlog (30)
+PASS	AC5 the lag metric rises (23s)
+PASS	AC5 the outage parked nothing
+PASS	AC5: all 30 events delivered
+PASS	AC5: 0 duplicates (at most 30)
+PASS	AC6 {"ok": true, "requests": 20, "slowest_seconds": 0.052665}
+PASS	AC11 jvm_threads_live_threads is present with the common tags
+PASS	AC11 hikaricp_connections_max is present with the common tags
+PASS	AC11 platform_outbox_pending is present with the common tags
+PASS	AC10 the drainer's pool is capped at 2
+PASS	AC10 no request waits on the application pool
+PASS	AC6: all 20 events delivered
+PASS	AC6: 1 duplicates (at most 100)
+PASS	AC6 latency parked nothing
+PASS	ac9 status 200
+PASS	AC9 the row is parked after max-rejections
+PASS	log line 'parked (2 rejections)' seen
+PASS	AC9 the parked metric reads 1
+PASS	ac9-others status 200
+PASS	AC9 other rows keep flowing
+PASS	AC9 the documented replay sent it under the same id
+PASS	AC9 the replayed message reached the queue
+PASS	app ready in 21s
+PASS	ac8-1 status 200
+PASS	ac8-2 status 200
+PASS	ac8-3 status 200
+PASS	ac8-4 status 200
+PASS	ac8-5 status 200
+PASS	AC8: all 500 events delivered
+PASS	AC8: 0 duplicates (at most 0)
+PASS	AC8 both instances drained (250 + 250)
+PASS	ac7-a status 200
+PASS	AC7 the instance was killed (137)
+PASS	AC7-one-killed: all 300 events delivered
+PASS	AC7-one-killed: 17 duplicates (at most 50)
+PASS	ac7-b status 200
+PASS	app ready in 19s
+PASS	AC7-all-killed: all 200 events delivered
+PASS	AC7-all-killed: 30 duplicates (at most 50)
+PASS	ac14 status 200
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	app ready in 18s
+PASS	AC14: all 150 events delivered
+PASS	AC14: 0 duplicates (at most 0)
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	app ready in 19s
+PASS	app ready in 18s
+PASS	dblost status 200
+PASS	DB-lost the outage starts with rows still due
+PASS	dbdown-request status 503
+PASS	DB-lost a database request is refused within 12 s
+PASS	dbdown-liveness status 200
+PASS	DB-lost the drainer is still running
+PASS	DB-lost the backlog figures say they are stale (35s)
+PASS	DB-lost: all 200 events delivered
+PASS	DB-lost: 15 duplicates (at most 50)
+PASS	DB-lost the refused request wrote nothing
+PASS	DB-lost the outage parked nothing
+PASS	DB-lost requests recover without a restart
+PASS	DB-lost the drainer recovers without a restart
+PASS	dbslow status 200
+PASS	dbslow-request status 200
+PASS	DB-slow a request completes in 3s
+PASS	DB-slow the drainer holds at most its 2 connections
+PASS	DB-slow no request waits on the application pool
+PASS	DB-slow: all 100 events delivered
+PASS	DB-slow: 0 duplicates (at most 50)
+PASS	DB-slow the drainer is still running
+PASS	app exited on SIGTERM (code 143) in 3s
+PASS	graceful shutdown completed (logged)
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	app ready in 19s
+PASS	log line 'NO LONGER GUARANTEED' seen
+PASS	ac13 status 200
+PASS	AC13 published after commit
+PASS	AC13 no outbox row was written
+PASS	app exited on SIGTERM (code 143) in 2s
+PASS	graceful shutdown completed (logged)
+PASS	AC13 startup failed (exit 1) in 79s
+PASS	AC13 the failure names the DDL file
+PASS	no password in the evidence
+PASS	cleanup: no containers left for dch-20261101072140-19394

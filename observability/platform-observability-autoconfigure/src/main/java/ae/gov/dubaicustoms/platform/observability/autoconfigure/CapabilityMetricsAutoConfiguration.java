@@ -18,10 +18,14 @@ import org.springframework.context.annotation.Bean;
  * Backs off when: user defines a CapabilityGaugeRegistrar bean
  * Beans: platformCapabilityGaugeRegistrar — emits platform.capability.active{capability=...} (0/1)
  *        from the CapabilityDescriptor beans once all singletons exist (adoption telemetry, F.1)
- * Order: none — the registrar is a SmartInitializingSingleton, so it runs after every capability
- *        has contributed its descriptor regardless of configuration order.
+ * Order: after Boot's registry auto-configurations (MetricsAutoConfiguration and
+ *        CompositeMeterRegistryAutoConfiguration, which every export configuration precedes), so the
+ *        @ConditionalOnBean(MeterRegistry) sees the registry Boot creates; the registrar itself is a
+ *        SmartInitializingSingleton, so it runs after every capability has contributed its descriptor.
  */
-@AutoConfiguration
+@AutoConfiguration(afterName = {
+        "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration",
+        "org.springframework.boot.micrometer.metrics.autoconfigure.CompositeMeterRegistryAutoConfiguration"})
 @ConditionalOnClass(MeterRegistry.class)
 @ConditionalOnProperty(prefix = "dc.platform.observability", name = "enabled",
                        havingValue = "true", matchIfMissing = true)

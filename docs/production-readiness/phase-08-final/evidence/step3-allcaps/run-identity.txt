@@ -1,0 +1,21 @@
+run_id=dch-20261103215144-8980
+phase=phase-08 scenario=allcaps
+platform_commit=f0735c761782e80224bb5b8355a02509d0f2d225
+platform_tree_dirty_paths=4
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-07
+jre_image=eclipse-temurin:25-jre
+started=2026-11-03T21:51:49+04:00
+oracle_image=gvenzl/oracle-free@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+rabbit_image=rabbitmq@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
+toxiproxy_image=ghcr.io/shopify/toxiproxy@sha256:b44c283298cea49e2defaba1b3028783798346f2a926684e3a345fd8441af3b8
+ready_seconds=117
+M4 distinct=5 total=5
+M5 distinct=100 total=100
+m6 ordered_before_kill=30
+ready_seconds=28
+M6 distinct=30 total=30
+shutdown_seconds=5 exit_code=143
+finished=2026-11-03T22:05:02+04:00
+assertions_passed=63 assertions_failed=0 script_rc=0
+verdict=PASS

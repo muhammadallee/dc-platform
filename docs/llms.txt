@@ -32,6 +32,7 @@ Generated from the docs navigation. Each link is a clean Markdown page.
 - [Security](modules/security.md)
 - [Authorization](modules/authz.md)
 - [Messaging](modules/messaging.md)
+- [Transactional Outbox](modules/outbox.md)
 - [Events](modules/events.md)
 - [Data / JPA](modules/data.md)
 - [Cache](modules/cache.md)

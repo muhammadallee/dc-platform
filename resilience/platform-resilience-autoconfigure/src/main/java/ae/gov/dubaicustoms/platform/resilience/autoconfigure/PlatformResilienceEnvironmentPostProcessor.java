@@ -2,12 +2,14 @@ package ae.gov.dubaicustoms.platform.resilience.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.resilience.ResilienceDefaults;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
+import org.springframework.util.ClassUtils;
 
 /**
  * Contributes the platform's default Resilience4j tuning as {@code default}-instance configuration
@@ -33,6 +35,10 @@ public class PlatformResilienceEnvironmentPostProcessor implements EnvironmentPo
     /** Property-source name; keep stable — operators grep for it in /actuator/env. */
     static final String PROPERTY_SOURCE_NAME = "platform-resilience-defaults";
 
+    private static final List<String> PLATFORM_CLIENT_FAILURES = List.of(
+            "ae.gov.dubaicustoms.platform.restclient.RemoteCallException",
+            "org.springframework.web.client.RestClientException");
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         if (!environment.getProperty("dc.platform.resilience.enabled", Boolean.class, true)) {
@@ -49,6 +55,15 @@ public class PlatformResilienceEnvironmentPostProcessor implements EnvironmentPo
         defaults.put("resilience4j.retry.configs.default.enable-exponential-backoff", "true");
         defaults.put("resilience4j.retry.configs.default.exponential-backoff-multiplier",
                 String.valueOf(ResilienceDefaults.RETRY_BACKOFF_MULTIPLIER));
+
+        // A platform REST client has already retried what is safe to retry. Repeating its failure here could send
+        // a POST twice, and would multiply the retries of everything else.
+        int ignored = 0;
+        for (String type : PLATFORM_CLIENT_FAILURES) {
+            if (ClassUtils.isPresent(type, getClass().getClassLoader())) {
+                defaults.put("resilience4j.retry.configs.default.ignore-exceptions[" + ignored++ + "]", type);
+            }
+        }
 
         // Circuit breaker: a count-based window so behavior is deterministic under low traffic.
         defaults.put("resilience4j.circuitbreaker.configs.default.sliding-window-type", "COUNT_BASED");

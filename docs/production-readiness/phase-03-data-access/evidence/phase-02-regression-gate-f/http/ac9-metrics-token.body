@@ -1,0 +1,1 @@
+{"detail":"No static resource actuator/metrics.","instance":"/actuator/metrics","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"a171d2644f870ae218eb0129c0e06818","timestamp":"2026-10-30T11:24:48.209570878Z","retryable":false}

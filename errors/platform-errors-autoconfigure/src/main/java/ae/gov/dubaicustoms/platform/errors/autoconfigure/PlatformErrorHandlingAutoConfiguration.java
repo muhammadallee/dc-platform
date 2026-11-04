@@ -19,18 +19,23 @@ import org.springframework.web.servlet.DispatcherServlet;
 /*
  * Activates when: servlet web application AND platform-errors-api + spring-webmvc on the
  *                 classpath AND dc.platform.errors.enabled != false
- * Backs off when: user defines a bean named platformExceptionHandler (main advice) or
- *                 platformValidationExceptionHandler (constraint-violation advice)
+ * Backs off when: user defines a PlatformExceptionHandler bean or a bean named
+ *                 platformExceptionHandler (main advice); a PlatformConstraintViolationHandler bean or
+ *                 a bean named platformValidationExceptionHandler (constraint-violation advice); any
+ *                 ErrorController bean (servlet error page); a bean named errorsCapabilityDescriptor
  * Beans: platformExceptionHandler — maps PlatformException/fallback/request-body validation to
  *                 RFC-9457 ProblemDetail with code/correlationId/timestamp extensions;
  *        platformValidationExceptionHandler — maps jakarta ConstraintViolationException the same
  *                 way (only when jakarta.validation present AND map-validation != false);
+ *        platformErrorController — the servlet error dispatch (sendError, exceptions escaping the
+ *                 filter chain) as an RFC-9457 body, replacing Boot's BasicErrorController;
  *        errorsCapabilityDescriptor — one line in the startup capability banner
  * Order: the constraint advice is @Order(0), the main advice @Order(LOWEST_PRECEDENCE) — Spring
  *        picks the first advice with any matching handler, so the catch-all must always be last
- *        (application advice beans keep winning for their own exceptions).
+ *        (application advice beans keep winning for their own exceptions). Runs before Boot's
+ *        ErrorMvcAutoConfiguration so its BasicErrorController backs off.
  */
-@AutoConfiguration
+@AutoConfiguration(beforeName = "org.springframework.boot.webmvc.autoconfigure.error.ErrorMvcAutoConfiguration")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnClass({ProblemDetailCustomizer.class, DispatcherServlet.class})
 @ConditionalOnProperty(prefix = "dc.platform.errors", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -38,13 +43,15 @@ import org.springframework.web.servlet.DispatcherServlet;
 public class PlatformErrorHandlingAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(name = "platformExceptionHandler")
+    @ConditionalOnMissingBean(value = PlatformExceptionHandler.class, name = "platformExceptionHandler")
     PlatformExceptionHandler platformExceptionHandler(ErrorsProperties properties,
             ObjectProvider<ProblemDetailCustomizer> customizers, ObjectProvider<Clock> clock) {
         return new PlatformExceptionHandler(properties, factory(properties, customizers, clock));
     }
 
+    // CapabilityDescriptor is a shared type (one per capability), so the override is by name.
     @Bean
+    @ConditionalOnMissingBean(name = "errorsCapabilityDescriptor")
     CapabilityDescriptor errorsCapabilityDescriptor() {
         return new CapabilityDescriptor("errors", "ACTIVE", "rfc9457");
     }
@@ -54,6 +61,20 @@ public class PlatformErrorHandlingAutoConfiguration {
         // Applications rarely define a Clock bean; fall back to UTC (tests inject fixed clocks).
         return new ProblemDetailFactory(properties, customizers.orderedStream().toList(),
                 clock.getIfAvailable(Clock::systemUTC));
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.boot.webmvc.error.ErrorController")
+    static class ServletErrorPageConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(type = "org.springframework.boot.webmvc.error.ErrorController")
+        PlatformErrorController platformErrorController(ErrorsProperties properties,
+                ObjectProvider<ProblemDetailCustomizer> customizers, ObjectProvider<Clock> clock,
+                ObjectProvider<org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter> adapter) {
+            return new PlatformErrorController(factory(properties, customizers, clock),
+                    () -> adapter.getObject().getMessageConverters());
+        }
     }
 
     // Nested so the jakarta.validation types in the advice signature are only touched when the
@@ -66,7 +87,8 @@ public class PlatformErrorHandlingAutoConfiguration {
     static class ConstraintViolationMappingConfiguration {
 
         @Bean
-        @ConditionalOnMissingBean(name = "platformValidationExceptionHandler")
+        @ConditionalOnMissingBean(value = PlatformConstraintViolationHandler.class,
+                name = "platformValidationExceptionHandler")
         PlatformConstraintViolationHandler platformValidationExceptionHandler(ErrorsProperties properties,
                 ObjectProvider<ProblemDetailCustomizer> customizers, ObjectProvider<Clock> clock) {
             return new PlatformConstraintViolationHandler(factory(properties, customizers, clock));

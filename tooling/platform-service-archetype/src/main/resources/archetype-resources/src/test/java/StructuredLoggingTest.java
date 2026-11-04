@@ -2,7 +2,6 @@ package ${package};
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ${package}.hello.HelloService;
 import com.jayway.jsonpath.JsonPath;
 import java.net.http.HttpResponse;
@@ -21,8 +20,9 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 
 /**
  * Deployment-mode structured logging, asserted on the events this service actually emits: every event
- * is one JSON object on stdout carrying the agreed fields, the inbound correlation id reaches the
- * application log, pooled request threads never leak a previous request's id, and bearer tokens never
+ * is one JSON object on stdout carrying the agreed fields, the caller's W3C trace ID (sent in
+ * {@code traceparent}) reaches the application log as {@code traceId}, pooled request threads never
+ * leak a previous request's trace, no custom correlation header is echoed, and bearer tokens never
  * reach the log.
  */
 @ExtendWith(OutputCaptureExtension.class)
@@ -31,59 +31,65 @@ class StructuredLoggingTest extends HttpIntegrationTestSupport {
     private static final String GREETING_EVENT = "Composing greeting";
 
     @Test
-    void requestEventIsJsonWithServiceAndInboundCorrelation(CapturedOutput output) throws Exception {
-        String correlationId = CorrelationId.random().value();
+    void requestEventIsJsonWithServiceAndTheCallersTrace(CapturedOutput output) throws Exception {
+        String traceId = randomTraceId();
         String token = ISSUER.token("alice");
 
-        HttpResponse<String> response = get("/hello?name=alice", token, correlationId);
+        HttpResponse<String> response = get("/hello?name=alice", token, traceId);
 
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.headers().firstValue("X-Correlation-Id")).contains(correlationId);
-        Map<String, Object> event = singleEvent(output, GREETING_EVENT, correlationId);
+        assertThat(response.headers().firstValue("X-Correlation-Id")).isEmpty();
+        Map<String, Object> event = singleEvent(output, GREETING_EVENT, traceId);
         assertThat(event)
                 .containsEntry("level", "INFO")
                 .containsEntry("logger", HelloService.class.getName())
                 .containsEntry("service", "${artifactId}")
-                .containsEntry("message", GREETING_EVENT);
+                .containsEntry("message", GREETING_EVENT)
+                .doesNotContainKey("correlationId");
+        assertThat((String) event.get("spanId")).matches("[0-9a-f]{16}");
         assertThat(OffsetDateTime.parse((String) event.get("@timestamp"))).isNotNull();
         assertThat(output.getAll()).doesNotContain(token);
     }
 
     @Test
-    void invalidInboundCorrelationIdIsReplacedNotEchoed(CapturedOutput output) throws Exception {
-        HttpResponse<String> response = get("/hello", ISSUER.token("alice"), "not-a-valid-id");
+    void invalidTraceparentStartsANewTraceAndIsNeverLoggedRaw(CapturedOutput output) throws Exception {
+        String invalid = "00-not-a-trace-INJECTED-01";
+        HttpResponse<String> response = http().send(
+                java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port + "/hello"))
+                        .header("Authorization", "Bearer " + ISSUER.token("alice"))
+                        .header("traceparent", invalid)
+                        .GET().build(),
+                HttpResponse.BodyHandlers.ofString());
 
-        String issued = response.headers().firstValue("X-Correlation-Id").orElseThrow();
-        assertThat(issued).matches("[0-9a-f]{32}");
-        assertThat(singleEvent(output, GREETING_EVENT, issued)).isNotNull();
-        assertThat(output.getAll()).doesNotContain("\"correlationId\":\"not-a-valid-id\"");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(events(output).stream().filter(event -> GREETING_EVENT.equals(event.get("message"))))
+                .anySatisfy(event -> assertThat((String) event.get("traceId")).matches("[0-9a-f]{32}"));
+        assertThat(output.getAll()).doesNotContain(invalid).doesNotContain("INJECTED");
     }
 
     @Test
-    void concurrentRequestsKeepTheirOwnCorrelationAndPooledThreadsDoNotLeakIt(CapturedOutput output) {
+    void concurrentRequestsKeepTheirOwnTraceAndPooledThreadsDoNotLeakIt(CapturedOutput output) {
         String token = ISSUER.token("alice");
-        List<String> ids = IntStream.range(0, 8).mapToObj(i -> CorrelationId.random().value()).toList();
+        List<String> ids = IntStream.range(0, 8).mapToObj(i -> randomTraceId()).toList();
 
         List<HttpResponse<String>> responses = ids.stream()
                 .map(id -> http().sendAsync(request("/hello?name=c", token, id), HttpResponse.BodyHandlers.ofString()))
                 .toList().stream().map(CompletableFuture::join).toList();
 
-        for (int i = 0; i < ids.size(); i++) {
-            assertThat(responses.get(i).statusCode()).isEqualTo(200);
-            assertThat(responses.get(i).headers().firstValue("X-Correlation-Id")).contains(ids.get(i));
+        for (HttpResponse<String> response : responses) {
+            assertThat(response.statusCode()).isEqualTo(200);
         }
-        Set<String> logged = events(output).stream()
-                .filter(event -> GREETING_EVENT.equals(event.get("message")))
-                .map(event -> (String) event.get("correlationId"))
-                .filter(ids::contains)
-                .collect(Collectors.toSet());
-        assertThat(logged).containsExactlyInAnyOrderElementsOf(ids);
+        Set<String> logged = greetingTraceIds(output);
+        assertThat(logged).containsAll(ids);
 
-        // A follow-up request without the header gets a FRESH id on a reused worker thread.
-        String fresh = http().sendAsync(request("/hello", token, null), HttpResponse.BodyHandlers.ofString())
-                .join().headers().firstValue("X-Correlation-Id").orElseThrow();
-        assertThat(ids).doesNotContain(fresh);
-        assertThat(singleEvent(output, GREETING_EVENT, fresh)).isNotNull();
+        // A follow-up request without traceparent gets a FRESH trace on a reused worker thread.
+        http().sendAsync(request("/hello", token, null), HttpResponse.BodyHandlers.ofString()).join();
+        Set<String> after = greetingTraceIds(output);
+        after.removeAll(logged);
+        assertThat(after).singleElement().satisfies(fresh -> {
+            assertThat(fresh).matches("[0-9a-f]{32}");
+            assertThat(ids).doesNotContain(fresh);
+        });
     }
 
     @Test
@@ -102,12 +108,20 @@ class StructuredLoggingTest extends HttpIntegrationTestSupport {
                 .contains("\n");
     }
 
-    private static Map<String, Object> singleEvent(CapturedOutput output, String message, String correlationId) {
+    private static Set<String> greetingTraceIds(CapturedOutput output) {
+        return events(output).stream()
+                .filter(event -> GREETING_EVENT.equals(event.get("message")))
+                .map(event -> (String) event.get("traceId"))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+    }
+
+    private static Map<String, Object> singleEvent(CapturedOutput output, String message, String traceId) {
         List<Map<String, Object>> matches = events(output).stream()
                 .filter(event -> message.equals(event.get("message")))
-                .filter(event -> correlationId.equals(event.get("correlationId")))
+                .filter(event -> traceId.equals(event.get("traceId")))
                 .toList();
-        assertThat(matches).as("events '%s' with correlationId %s", message, correlationId).hasSize(1);
+        assertThat(matches).as("events '%s' with traceId %s", message, traceId).hasSize(1);
         return matches.getFirst();
     }
 

@@ -13,8 +13,11 @@ import org.slf4j.MDC;
 
 /**
  * Read-only static access to the current request context (correlation id plus platform-managed
- * extras). Backed by SLF4J's {@link MDC} so logging patterns like {@code %X{correlationId}} work
- * out of the box; Micrometer context-propagation is layered on later.
+ * extras). The correlation id is the W3C trace ID of the current span (see {@link CorrelationId}).
+ * Backed by SLF4J's {@link MDC}: the id is published under {@code traceId} (the key Spring Boot's
+ * tracing uses), so {@code %X{traceId}} and JSON logs carry it; platform auto-configuration
+ * propagates the context to {@code @Async} and Boot-built executors via Micrometer
+ * context-propagation.
  *
  * <p>Static access is READ-ONLY convenience for application code; population is done exclusively
  * by platform filters and interceptors via {@link #open(CorrelationId, Map)}.
@@ -32,8 +35,8 @@ import org.slf4j.MDC;
 @API(status = API.Status.STABLE, since = "0.1.0")
 public final class RequestContext {
 
-    /** MDC key under which the correlation id is published. */
-    private static final String CORRELATION_ID_KEY = "correlationId";
+    /** MDC key under which the correlation id (the trace ID) is published; Boot tracing's key. */
+    private static final String CORRELATION_ID_KEY = "traceId";
 
     // Stack of open scopes per thread; supports nested open() (e.g. a message handler inside a
     // web request) with innermost-wins reads and exact restoration on close.
@@ -49,7 +52,7 @@ public final class RequestContext {
      */
     public static Optional<CorrelationId> correlationId() {
         Scope scope = SCOPES.get().peek();
-        return scope == null ? Optional.empty() : Optional.of(scope.id);
+        return scope == null ? Optional.empty() : Optional.ofNullable(scope.id);
     }
 
     /**
@@ -63,12 +66,20 @@ public final class RequestContext {
         if (scopes.isEmpty()) {
             return Map.of();
         }
+        // Only scopes up to (and including) the innermost isolating one are visible.
+        Deque<Scope> visible = new ArrayDeque<>();
+        for (Scope scope : scopes) {
+            visible.push(scope);
+            if (scope.isolating) {
+                break;
+            }
+        }
         Map<String, String> merged = new LinkedHashMap<>();
-        // descendingIterator walks outermost -> innermost, so inner puts overwrite outer ones.
-        var outermostFirst = scopes.descendingIterator();
-        while (outermostFirst.hasNext()) {
-            Scope scope = outermostFirst.next();
-            merged.put(CORRELATION_ID_KEY, scope.id.value());
+        // visible is now outermost-first, so inner puts overwrite outer ones.
+        for (Scope scope : visible) {
+            if (scope.id != null) {
+                merged.put(CORRELATION_ID_KEY, scope.id.value());
+            }
             merged.putAll(scope.extras);
         }
         return Map.copyOf(merged);
@@ -88,32 +99,66 @@ public final class RequestContext {
     public static AutoCloseable open(CorrelationId id, Map<String, String> extras) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(extras, "extras must not be null");
-        Scope scope = new Scope(id, Map.copyOf(extras));
+        Scope scope = new Scope(id, Map.copyOf(extras), false);
         SCOPES.get().push(scope);
-        scope.publish();
+        scope.publish(Map.of());
         return scope;
     }
 
-    /** One open() invocation: its entries plus the MDC values it shadowed, for exact restore. */
+    /**
+     * Opens an isolating scope: for its lifetime the current thread sees exactly {@code id} and
+     * {@code extras} — every outer scope (its id, its extras and their MDC entries) is hidden — and
+     * closing it restores the previous context and MDC exactly. With a {@code null} id the thread runs
+     * with no correlation context at all. Used to apply a propagated context snapshot on a thread that
+     * may already carry another caller's context. Platform infrastructure only; always close.
+     *
+     * @param id the correlation id to publish, or {@code null} for "no context"
+     * @param extras the complete set of extras for the scope; never {@code null}, may be empty
+     * @return handle restoring the previous state
+     * @throws NullPointerException if {@code extras} is null
+     * @since 1.0.0
+     */
+    @PlatformInternal
+    public static AutoCloseable replace(CorrelationId id, Map<String, String> extras) {
+        Objects.requireNonNull(extras, "extras must not be null");
+        Map<String, String> hidden = asMap();
+        Scope scope = new Scope(id, Map.copyOf(extras), true);
+        SCOPES.get().push(scope);
+        scope.publish(hidden);
+        return scope;
+    }
+
+    /** One open()/replace() invocation: its entries plus the MDC values it shadowed, for exact restore. */
     private static final class Scope implements AutoCloseable {
 
         private final CorrelationId id;
         private final Map<String, String> extras;
+        private final boolean isolating;
         private final Map<String, String> shadowed = new HashMap<>();
 
-        private Scope(CorrelationId id, Map<String, String> extras) {
+        private Scope(CorrelationId id, Map<String, String> extras, boolean isolating) {
             this.id = id;
             this.extras = extras;
+            this.isolating = isolating;
         }
 
-        private void publish() {
-            put(CORRELATION_ID_KEY, id.value());
+        // hidden: the entries outer scopes published, which an isolating scope removes from the MDC.
+        private void publish(Map<String, String> hidden) {
+            hidden.keySet().forEach(this::remove);
+            if (id != null) {
+                put(CORRELATION_ID_KEY, id.value());
+            }
             extras.forEach(this::put);
         }
 
         private void put(String key, String value) {
             shadowed.putIfAbsent(key, MDC.get(key));
             MDC.put(key, value);
+        }
+
+        private void remove(String key) {
+            shadowed.putIfAbsent(key, MDC.get(key));
+            MDC.remove(key);
         }
 
         @Override

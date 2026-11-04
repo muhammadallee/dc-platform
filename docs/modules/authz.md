@@ -8,8 +8,8 @@ and the platform enforces it — anonymous callers get 401, callers lacking the 
 - **`@RequiresPermission("orders:read")`** — method or type level; enforced by a Spring AOP
   advisor bridging to the ordered `PermissionEvaluatorProvider` beans.
 - **`PermissionEvaluatorProvider` SPI** — pluggable evaluation strategy; the default
-  `RolesClaimPermissionProvider` reads a configurable claim (default `roles`) off `CurrentUser`,
-  falling back to the accessor-derived `roles()` set.
+  `RolesClaimPermissionProvider` grants `x` if it is in a configurable claim (default `roles`) or is a role, `ROLE_x`, which
+  includes Keycloak roles. A scope, `SCOPE_x`, is not a permission.
 - **Correct status codes** — unauthenticated callers get
   `InsufficientAuthenticationException` (401); authenticated callers without the permission get
   `AccessDeniedException` (403); both are translated to RFC-9457 bodies by the security
@@ -31,7 +31,8 @@ and the platform enforces it — anonymous callers get 401, callers lacking the 
 
 The authz starter does not pull in the security starter transitively (they are independently
 useful capabilities): the advisor bean only activates once a `CurrentUserAccessor` bean actually
-exists, so pair the two starters for a working setup.
+exists. **Without one, startup fails**, since `@RequiresPermission` would otherwise protect nothing: pair the two starters, supply
+your own `CurrentUserAccessor`, or set `dc.platform.authz.enabled=false`.
 
 ## Zero-config behavior
 
@@ -86,4 +87,4 @@ mockMvc.perform(get("/orders").with(jwt().jwt(b -> b.claim("roles", List.of("ord
 ## Local dev notes
 
 No Docker, no network. Depends on the security capability's `CurrentUserAccessor` bean being
-present at runtime (pair with `platform-starter-security`).
+present at runtime: without one, startup fails.

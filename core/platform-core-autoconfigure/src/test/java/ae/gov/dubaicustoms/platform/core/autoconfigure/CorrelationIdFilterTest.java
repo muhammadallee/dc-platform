@@ -1,110 +1,131 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.TraceContext;
+import io.micrometer.tracing.Tracer;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
-/** Behavior of the correlation filter through a real MockMvc filter chain. */
+/**
+ * Unit behaviour of the correlation filter: the rejected-traceparent marker follows the propagator's
+ * outcome (not a second set of rules) and never carries header content.
+ */
 class CorrelationIdFilterTest {
 
-    private static final String HEADER = "X-Correlation-Id";
-    private static final String INCOMING = "0123456789abcdef0123456789abcdef";
+    private static final String TRACE = "0af7651916cd43dd8448eb211c80319c";
 
-    private final CaptureController controller = new CaptureController();
-    private MockMvc mockMvc;
-
-    @RestController
-    static class CaptureController {
-
-        final AtomicReference<Map<String, String>> seenContext = new AtomicReference<>();
-        final AtomicReference<String> seenMdc = new AtomicReference<>();
-        final AtomicReference<Boolean> otherThreadSawContext = new AtomicReference<>();
-
-        @GetMapping("/probe")
-        String probe() throws Exception {
-            seenContext.set(RequestContext.asMap());
-            seenMdc.set(MDC.get("correlationId"));
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            try {
-                otherThreadSawContext.set(executor.submit(() -> RequestContext.correlationId().isPresent()).get());
-            } finally {
-                executor.shutdownNow();
-            }
-            return "ok";
-        }
-    }
+    private final Logger filterLogger = (Logger) LoggerFactory.getLogger(CorrelationIdFilter.class);
+    private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
 
     @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .addFilters(new CorrelationIdFilter(HEADER, true))
-                .build();
+    void captureFilterLog() {
+        appender.start();
+        filterLogger.addAppender(appender);
+        filterLogger.setLevel(Level.DEBUG);
     }
 
     @AfterEach
-    void mdcIsAlwaysCleanAfterTheRequest() {
-        assertThat(MDC.get("correlationId")).isNull();
+    void detach() {
+        filterLogger.detachAppender(appender);
+        filterLogger.setLevel(null);
+    }
+
+    // The tracer as the propagator left it: the current span's trace id.
+    private static Tracer tracerWithCurrentTrace(String traceId) {
+        Tracer tracer = mock(Tracer.class);
+        Span span = mock(Span.class);
+        TraceContext context = mock(TraceContext.class);
+        when(tracer.currentSpan()).thenReturn(span);
+        when(span.context()).thenReturn(context);
+        when(context.traceId()).thenReturn(traceId);
+        when(context.spanId()).thenReturn("b7ad6b7169203331");
+        return tracer;
+    }
+
+    private Map<String, String> run(Tracer tracer, String traceparent) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/x");
+        if (traceparent != null) {
+            request.addHeader("traceparent", traceparent);
+        }
+        Map<String, String> seen = new HashMap<>();
+        new CorrelationIdFilter(tracer).doFilter(request, new MockHttpServletResponse(),
+                (req, res) -> seen.putAll(RequestContext.asMap()));
+        return seen;
+    }
+
+    private List<String> lines() {
+        return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
     }
 
     @Test
-    void echoesIncomingCorrelationIdAndPopulatesContextDuringRequest() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, INCOMING))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).isEqualTo(INCOMING));
+    void aContinuedTraceIsNotMarkedAndOpensTheContext() throws Exception {
+        Map<String, String> seen = run(tracerWithCurrentTrace(TRACE), "00-" + TRACE + "-b7ad6b7169203331-01");
+        assertThat(seen).containsEntry("traceId", TRACE).containsEntry("spanId", "b7ad6b7169203331");
+        assertThat(lines()).isEmpty();
+    }
 
-        assertThat(controller.seenContext.get()).containsEntry("correlationId", INCOMING);
-        assertThat(controller.seenMdc.get()).isEqualTo(INCOMING);
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "deadbeef",                                                          // hex alphabet only
+            "00-00000000000000000000000000000000-b7ad6b7169203331-01",           // all-zero trace id
+            "00-0af7651916cd43dd8448eb211c80319c-0000000000000000-01",           // all-zero parent id
+            "ff-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",           // forbidden version
+            "00-0AF7651916CD43DD8448EB211C80319C-b7ad6b7169203331-01"})          // upper case
+    void aTraceparentThePropagatorDidNotContinueIsMarkedWithoutItsContent(String rejected) throws Exception {
+        // Whatever the reason, the propagator started a new trace: that outcome is the rejection.
+        run(tracerWithCurrentTrace("11111111111111111111111111111111"), rejected);
+        assertThat(lines()).singleElement().isEqualTo(
+                "rejected inbound traceparent (length=" + rejected.length() + "); a new trace was started");
     }
 
     @Test
-    void generatesFreshIdWhenHeaderMissing() throws Exception {
-        mockMvc.perform(get("/probe"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).matches("[0-9a-f]{32}"));
+    void hostileContentNeverReachesTheLog() throws Exception {
+        String hostile = "00-\r\nX-Injected: forged-log-line\u0007" + "f".repeat(300);
+        run(tracerWithCurrentTrace("11111111111111111111111111111111"), hostile);
+        assertThat(lines()).singleElement().satisfies(line -> {
+            assertThat(line).doesNotContain("\r", "\n", "\u0007", "X-Injected", "forged", "fff");
+            assertThat(line).contains("length=" + hostile.length());
+        });
     }
 
     @Test
-    void regeneratesWhenHeaderMalformed() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, "not-a-correlation-id"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER))
-                        .matches("[0-9a-f]{32}")
-                        .isNotEqualTo("not-a-correlation-id"));
+    void noTracerMeansNoContextAndNoMarker() throws Exception {
+        Map<String, String> seen = run(Tracer.NOOP, "garbage");
+        assertThat(seen).isEmpty();
+        assertThat(lines()).as("nothing to judge without a propagator").isEmpty();
     }
 
     @Test
-    void contextDoesNotLeakToOtherThreads() throws Exception {
-        mockMvc.perform(get("/probe").header(HEADER, INCOMING)).andExpect(status().isOk());
-
-        assertThat(controller.otherThreadSawContext.get())
-                .as("the request context must be confined to the request thread")
-                .isFalse();
+    void aNon128BitTraceIdIsNotACorrelationId() throws Exception {
+        Map<String, String> seen = run(tracerWithCurrentTrace("463ac35c9f6413ad"), null);
+        assertThat(seen).isEmpty();
     }
 
     @Test
-    void passesThroughWithoutContextWhenGenerationDisabled() throws Exception {
-        MockMvc noGeneration = MockMvcBuilders.standaloneSetup(controller)
-                .addFilters(new CorrelationIdFilter(HEADER, false))
-                .build();
-
-        noGeneration.perform(get("/probe"))
-                .andExpect(status().isOk())
-                .andExpect(result -> assertThat(result.getResponse().getHeader(HEADER)).isNull());
-
-        assertThat(controller.seenContext.get()).isEmpty();
+    void continuesComparesTheTraceIdFieldOnly() {
+        TraceContext context = mock(TraceContext.class);
+        when(context.traceId()).thenReturn(TRACE);
+        assertThat(CorrelationIdFilter.continues("00-" + TRACE + "-b7ad6b7169203331-01", context)).isTrue();
+        assertThat(CorrelationIdFilter.continues("00-" + TRACE, context)).isTrue();
+        assertThat(CorrelationIdFilter.continues("00-short", context)).isFalse();
+        assertThat(CorrelationIdFilter.continues("00-" + TRACE, null)).isFalse();
     }
 }

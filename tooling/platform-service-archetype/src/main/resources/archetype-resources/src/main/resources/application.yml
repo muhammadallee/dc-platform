@@ -9,6 +9,15 @@ spring:
   application:
     name: ${artifactId}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Platform default is health,info,prometheus; this service also exposes the platform
+        # capability report (/actuator/platform). Who may read it is decided by dc.platform.security
+        # permit-paths below (open outside prod, authenticated in prod).
+        include: health,info,prometheus,platform
+
 # Profiles: local (developer laptop, human-readable logs), test (CI slices), prod (real infrastructure).
 ---
 # Every profile EXCEPT prod (including no profile at all): offline-friendly development defaults. None of
@@ -26,13 +35,16 @@ spring:
           # this URL is never fetched until a request presents a token). To call authenticated endpoints
           # locally, override it with your IdP's (or a local test issuer's) JWKS URL.
           jwk-set-uri: https://example.test/.well-known/jwks.json
+          # Tokens are checked against these too. Placeholders, like the URL above.
+          issuer-uri: https://example.test/
+          audiences: ${artifactId}
 
 dc:
   platform:
     security:
-      # Open endpoints (no authentication). Health/info/openapi are open by platform default; outside
-      # prod the platform capability report is opened too, so local runs and the golden path can read
-      # it. In prod it falls back to the platform default list (authenticated).
+      # Open endpoints (no authentication). Only the two health probes are open by platform default;
+      # outside prod the rest of this list is opened too, for local runs and the golden path. In prod it
+      # falls back to the platform default.
       permit-paths:
         - /actuator/health
         - /actuator/health/**
@@ -73,6 +85,6 @@ spring:
     # supplied by the environment or the secrets source.
     embedded-database-connection: none
 #end
-# In prod, supply the identity provider (spring.security.oauth2.resourceserver.jwt.jwk-set-uri or
-# issuer-uri) and every datasource/downstream/broker coordinate externally (environment or the platform
+# In prod, supply the identity provider (spring.security.oauth2.resourceserver.jwt.issuer-uri, jwk-set-uri
+# and audiences) and every datasource/downstream/broker coordinate externally (environment or the platform
 # secrets property source), never in this file. A missing value fails startup with an actionable message.

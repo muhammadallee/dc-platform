@@ -53,11 +53,21 @@
       <artifactId>jakarta.servlet-api</artifactId>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Generates config metadata from the properties record at compile time. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>context-propagation</artifactId>
+      <scope>test</scope>
     </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>

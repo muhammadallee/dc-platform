@@ -62,7 +62,7 @@ public class PlatformConstraintViolationHandler {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("field", field);
             entry.put("message", violation.getMessage());
-            entry.put("rejectedValue", factory.redact(field, violation.getInvalidValue()));
+            factory.putRejectedValue(entry, field, violation.getInvalidValue());
             errors.add(entry);
         }
         ProblemDetail problem = factory.create(400, PlatformExceptionHandler.VALIDATION_FAILED,

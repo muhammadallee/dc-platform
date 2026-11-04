@@ -41,10 +41,23 @@ class OAuth2TokenRelayCustomizerTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(jwt, null));
 
         RestClient.Builder builder = RestClient.builder().baseUrl(server.url("/").toString());
-        new OAuth2TokenRelayCustomizer().customize("orders", builder);
+        new OAuth2TokenRelayCustomizer(java.util.List.of("relayed")).customize("relayed", builder);
         builder.build().get().uri("/widgets").retrieve().toBodilessEntity();
 
         assertThat(server.takeRequest().getHeader("Authorization")).isEqualTo("Bearer the-token");
+    }
+
+    @Test
+    void aClientThatIsNotNamedDoesNotCarryTheToken() throws Exception {
+        server.enqueue(new MockResponse());
+        Jwt jwt = Jwt.withTokenValue("the-token").header("alg", "none").claim("sub", "alice").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(jwt, null));
+
+        RestClient.Builder builder = RestClient.builder().baseUrl(server.url("/").toString());
+        new OAuth2TokenRelayCustomizer(java.util.List.of("relayed")).customize("third-party", builder);
+        builder.build().get().uri("/widgets").retrieve().toBodilessEntity();
+
+        assertThat(server.takeRequest().getHeader("Authorization")).isNull();
     }
 
     @Test
@@ -52,7 +65,7 @@ class OAuth2TokenRelayCustomizerTest {
         server.enqueue(new MockResponse());
 
         RestClient.Builder builder = RestClient.builder().baseUrl(server.url("/").toString());
-        new OAuth2TokenRelayCustomizer().customize("orders", builder);
+        new OAuth2TokenRelayCustomizer(java.util.List.of("relayed")).customize("relayed", builder);
         builder.build().get().uri("/widgets").retrieve().toBodilessEntity();
 
         assertThat(server.takeRequest().getHeader("Authorization")).isNull();

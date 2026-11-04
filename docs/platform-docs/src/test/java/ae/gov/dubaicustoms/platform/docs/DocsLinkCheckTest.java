@@ -31,6 +31,9 @@ class DocsLinkCheckTest {
         try (Stream<Path> tree = Files.walk(docs)) {
             tree.filter(p -> p.toString().endsWith(".md"))
                     .filter(p -> !p.toString().replace('\\', '/').contains("/site/"))
+                    // Hardening review records are verbatim reviewer I/O: they quote other files, whose
+                    // relative links resolve from the quoted file, not from the record.
+                    .filter(p -> !p.toString().replace('\\', '/').matches(".*/production-readiness/.*/codex/[^/]+\\.md"))
                     .forEach(md -> checkFile(md, broken));
         }
 

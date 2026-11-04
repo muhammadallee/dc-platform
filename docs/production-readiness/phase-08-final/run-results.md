@@ -1,0 +1,171 @@
+# Phase 8 — Final full-project verification: run results
+
+**Verdict: PASS, with step 7 BLOCKED (D134).** Final code `639e9d5`. Release decision: [`../release-decision.md`](../release-decision.md).
+
+Started on `f96ece6` (tag `hardening/phase-07-closed`); each run's commit is below. JDK 25.0.3 Corretto, Maven offline, `-T1`, Docker 29.9.2. Plan §10.
+
+| Step | Result | Evidence |
+|---|---|---|
+| 1 Clean full-reactor `verify` | **BUILD SUCCESS** in 17 min 39 s. 123 modules; 95 test suites with tests, 1,557 tests, 0 failures, 0 errors, **0 skipped**. Enforcer, ArchUnit, checkstyle, JaCoCo and japicmp all ran | `evidence-raw/step1-verify.log` |
+| 2 Container suite, in-scope providers | **BUILD SUCCESS** in 7 min 10 s with `-Pdocker` on the four modules holding in-scope container tests, after an `install -DskipTests` of the step 1 reactor. All 13 classes ran, none skipped: Oracle 9 (`OracleSmokeIT`, `-DialectIT`, `-ExceptionPathsIT`, `-FlywayPostureIT`, `-NullabilityCheckIT`, `-TimeoutDefaultsIT`, `-TimeoutLeversIT`, `-TransactionRulesIT`, `OutboxOracleIT`), RabbitMQ 3 (`RabbitEventTransportIT`, `RabbitTopologyIT`, `RabbitHandlerFailureIT`), PostgreSQL 1 (`PostgresParityIT`). Keycloak, the JWKS endpoint and Toxiproxy are exercised by the consumer runs (Phases 3 to 7), not by reactor tests | `evidence-raw/step2-docker.log` |
+| 3 Golden path, fresh all-capability app, C1 + C2 matrix | **PASS.** Golden path **9/9** (1,048 s). A fresh archetype app with all seven certified capabilities, nothing opened to anonymous callers, against Oracle, RabbitMQ and Toxiproxy in front of both: **63/63** (`allcaps-20261103-215144`). See below | [`evidence/step3-allcaps`](evidence/step3-allcaps/), [`evidence/golden-path-summary-f0735c7.tsv`](evidence/golden-path-summary-f0735c7.tsv), scenario `tooling/hardening/scenarios/phase-08-allcaps.sh` |
+| 4 Security, dependency, licence and secrets scans | **PASS after D133** (first run FAIL, HI-0105). Vulnerabilities (Trivy 0.68.2): a service built on the platform ships 7 Critical and 15 High, all in versions Spring Boot 4.1.0 manages. SBOM: CycloneDX 2.9.1 aggregate, 354 third-party components. Secrets (Trivy, tracked files at HEAD): none. Licences: no blocker, see below | `evidence-raw/bom.json`, `trivy-appjar.json`, `trivy-sbom.json`, `trivy-secrets.json` |
+| 5 Compatibility against the Phase 0 baseline | **PASS, differences listed below.** japicmp: 27 API and SPI modules, 1 binary-incompatible change, in the CHANGELOG. Config defaults: 50 added, 3 changed by design, 4 removed, each now with error-level deprecation metadata (one was missing it: fixed). BOM and parent parity: 16 key artifacts, the same through both routes | `evidence-raw/japicmp/`, `config-defaults.md`, `bom-parity.md` |
+| 6 Real-infrastructure cross-capability workflows | Covered by step 3's run (M1 to M7): outbox + RabbitMQ + Oracle, REST resilience + security, and one trace across the HTTP, database, broker and outbound boundaries | as step 3 |
+| 7 OpenShift (D7) | **BLOCKED** (owner, D134): the chart tool's location, invocation and a cluster were not supplied. Not skipped: a first-adopter condition | `decision-log.md` D134 |
+| 8 Release rehearsal | **PASS with conditions** (HI-0107, HI-0108). Two clean builds at `1.0.0-RC1`: all 112 platform artifacts byte-identical. Staging deploy (`-Plocal-release`): 119 artifacts, no examples, versions literal after a fix. Smoke matrix 6/6. No SBOM attached, no provenance | `evidence-raw/repro-*.sha256`, `repro-diff.txt`, `staging-b.log`, `smoke-matrix.out` |
+
+## Not run in step 2, by scope
+
+Container tests outside the certified capabilities were not run, and are **not certified**: Redis (`RedisPrefixRoundTripIT`, `RedisCacheDockerIT`, `RedisLockProviderIT`, `RedisRateLimiterProviderIT`), S3 (`S3ObjectStoreIT`), the JDBC lock TCK (`JdbcLockProviderTckTest`), and Kafka (`KafkaEventTransportIT`): no build contract requires Kafka's container tests.
+
+## Findings
+
+| ID | Step | Finding | Status |
+|---|---|---|---|
+| HI-0105 | 4 | 7 Critical and 15 High known vulnerabilities in what a service ships, all Boot-managed | FIXED (D133): 0 after |
+| HI-0106 | 4 | 14 High remain in build and tooling modules and the uncertified Kafka path; none shipped | ACCEPTED, release condition (D134) |
+| — | 5 | `dc.platform.messaging.correlation.propagate` was removed without deprecation metadata | FIXED in this phase |
+| — | 8 | The published `platform-bom` kept 111 `${revision}` references: a consumer building with `-Drevision` (CI-friendly versions) would redirect every platform artifact to its own version | FIXED: flatten interpolates `dependencyManagement` |
+| HI-0107 | 8 | Services' jars not reproducible; `platform-dependencies` keeps two property references | ACCEPTED, release condition (D134) |
+| HI-0108 | 8 | No SBOM attached, no provenance; `release.sh` hard-codes `-T1C` | ACCEPTED, before the first real release (D134) |
+| HI-0104 | 1 | The committed generated docs were behind the code | FIXED: regenerated by the final full build and committed |
+
+## Step 3: the all-capability matrix
+
+App: `features=data,messaging,restclient`, `-Ddatabase=oracle`, outbox and RabbitMQ adopted as `outbox.md` says; core, errors,
+logging, observability and security come with every generated app. A schema owner runs Flyway, a runtime user has DML only.
+
+| # | Scenario (plan §9 C1 and C2) | Result |
+|---|---|---|
+| — | Anonymous requests to the probe 401; readiness open | pass |
+| M1 | Authenticated request → DB write + outbox → RabbitMQ → handler → outbound call | One trace at every hop: request log, row, handler, both downstream calls. The request's call relays the token; the handler's carries none, and no principal is on the listener thread |
+| M2 | Downstream 401 and 503 | 401: 500 not retryable, sent once, no downstream body; 503: retried 3 times |
+| M3 | Database slow (700 ms), broker and downstream healthy | Outbound call 527 ms; orders and readiness 200; the event delivered |
+| M4 | Broker down, database healthy | 5 orders accepted, readiness up, nothing delivered while down, all 5 after, no duplicates |
+| M5 | Two principals, 100 concurrent chains | No wrong principal or repeated trace; 50 rows each; all 100 events, no duplicates; each principal's own token downstream; no token on a handler call; the pool never exhausted |
+| M6 | SIGKILL, then a new instance | All 30 events received, no duplicates. The kill may have come after most were sent; a kill mid-drain with 300 events is Phase 4's AC7 |
+| M7 | SIGTERM with a chain in flight | Answered, exit 143 in 5 s |
+| — | Logs | No principal, token or downstream body; the stored line carries the trace |
+
+Trial 1 was 61 of 62: my check expected `platform-starter-resilience`, which the archetype does not add; the REST client
+brings Resilience4j itself, as Phase 6 certified. The check was corrected.
+
+## Step 4: scans
+
+**Vulnerabilities in what a service ships** (the all-capability app's jar), Critical and High:
+
+| Component | Version | Fixed in | Critical | High | Boot 4.1.2 manages |
+|---|---|---|---|---|---|
+| Tomcat embed core | 11.0.22 | 11.0.25 | 4 | — | 11.0.27, fixed |
+| Spring WebMVC | 7.0.8 | 7.0.9 | 2 (one RCE, CVE-2026-47884) | — | 7.0.10, fixed |
+| Netty handler, codec-compression | 4.2.15 | 4.2.17 | 1 | 1 | 4.2.19, fixed |
+| Jackson 2 core, databind | 2.21.4 | 2.21.7 | — | 5 | 2.21.7, fixed |
+| Jackson 3 core, databind | 3.1.4 | 3.1.7 | — | 5 | 3.1.7, fixed |
+| RabbitMQ amqp-client | 5.30.0 | 5.36.1 | — | 4 | 5.30.0, **not fixed** |
+| OpenTelemetry API | 1.62.0 | 1.67.0 | — | — (Medium) | 1.62.0, **not fixed** |
+
+The reactor SBOM adds build and tooling dependencies (the MCP server's SDK, plexus-utils, guava, lz4, snappy): 3 Critical, 33
+High, 39 Medium in all.
+
+**Licences**, 354 third-party components: 293 Apache-2.0, then MIT and BSD. The rest are dual-licensed with a permissive or
+classpath-exception option (EPL/LGPL pairs: Logback, Jakarta APIs, JNA). Noted, not blocking: the Oracle JDBC driver's Oracle Free
+Use Terms, and `spotbugs-annotations` (LGPL-2.1, compile time only).
+
+**Secrets:** none in the tracked files at HEAD. Git history was not scanned; every phase scanned its evidence before committing.
+
+### After D133 (Boot 4.1.2, amqp-client 5.37.0, OpenTelemetry 1.67.0)
+
+| Check | Result |
+|---|---|
+| Full reactor `verify` | BUILD SUCCESS, 17 min 24 s, 1,557 tests, 0 skipped (`step1b-verify.log`) |
+| Container suites | 13 classes, 65 tests, 0 skipped (`step2b-docker.log`) |
+| All-capability app | 63/63 twice (`allcaps-20261104-080258`, `-082835`) |
+| What a service ships | **0 known vulnerabilities** (`trivy-appjar-c.json`) |
+| Reactor SBOM | 0 Critical, 14 High, all in build and tooling modules or Kafka (HI-0106) (`trivy-sbom-b.json`) |
+
+The first rescan still found the RabbitMQ client at 5.30.0 in the service: Boot's starter-parent, the service parent's parent,
+manages it, and that beats the platform BOM's pin. The service parent now sets Boot's own version properties
+(`rabbit-amqp-client.version`, `opentelemetry.version`).
+
+### Reruns on the upgraded platform, and Codex
+
+| Check | Result |
+|---|---|
+| Phase consumers 1 to 7 | 92, 76, 92, 106, 63, 182, 170 of the same, all passing ([`evidence/d133-regressions`](evidence/d133-regressions/)); Phase 5's service resolves `amqp-client` 5.37.0 |
+| Golden path | 9/9 (1,098 s) |
+| Codex on the change | Pass 1 REJECT, 2 High: a BOM-only consumer importing Boot's BOM first keeps Boot's versions; OpenTelemetry 1.67.0's BOM drops the discontinued Zipkin exporter, so Boot's 1.62.0 exporter would fail at startup. Pass 2 REJECT, 1 High: Boot's own parent keeps Boot's versions too. Fixed: the service parent refuses a direct Zipkin exporter dependency (checked: `validate` fails with the message), and the compatibility appendix covers both setups. **Pass 3 ACCEPT** ([`codex/`](codex/)) |
+
+## Step 5: compatibility against the Phase 0 baseline (`7b248e9`, `~/.m2-baseline`)
+
+**japicmp 0.26.1** (CLI; the plugin's `RELEASE` lookup finds nothing, since both are `1.0.0-SNAPSHOT`), every `*-api` and `*-spi`
+jar against the current build, `*.internal.*` excluded:
+
+| Module | Change | Compatible | Justified by |
+|---|---|---|---|
+| `platform-messaging-api` | `EventEnvelope` gains a first component, `eventId`; its old canonical constructor is gone | **No (binary and source)** | CHANGELOG phase 5: a stable id for deduplication. No users (HC7) |
+| `platform-messaging-api` | `EventEnvelope.Builder.eventId`, `EVENT_ID_HEADER`, `EventPublishException` constructor, header-name helpers | yes, added | phase 5 |
+| `platform-messaging-spi` | `EventTransport.deadLettersNatively()`, two listener exceptions | yes, added (default method) | phase 5 |
+| `platform-core-api` | `RequestContext.replace`, `PlatformException.problemStatus()`; default `serialVersionUID` changes | yes | phases 1, 6 |
+| `platform-restclient-api` | `RemoteCallException.kind()`, `retryable()`, `problemStatus()`, `Kind` | yes, added | phase 6 |
+| `platform-test-api` | `TestJwtIssuer.AUDIENCE` | yes, added | phase 7 |
+| 21 other modules | none | — | — |
+
+**Config defaults** (every `dc.platform.*` key in the jars' metadata): 72 at baseline, 121 now.
+
+| Change | Keys |
+|---|---|
+| Default changed, by design | `errors.type-base-uri` `https://errors.dc.com/` → `urn:dc:problem:` (phase 1); `messaging.rabbit.quorum-queues` `false` → `true` (phase 5); `security.permit-paths` → liveness and readiness only (phase 7) |
+| Removed, error-level deprecation | `core.correlation.generate-if-missing`, `core.correlation.header-name`, `restclient.propagate-correlation`, and `messaging.correlation.propagate`, which had **no** metadata: a consumer still setting it got no message. Added in this phase |
+| Added | 50, for the new behaviour of phases 1 to 7; listed in `config-defaults.md` |
+
+**BOM and parent parity:** two minimal projects, one on `platform-service-parent`, one importing `platform-bom`, declare 16 key
+artifacts without versions: Spring Boot, WebMVC, Tomcat, Hibernate, Jackson 2 and 3, Lettuce, Spring AMQP, amqp-client,
+Resilience4j, Flyway, the Oracle and PostgreSQL drivers, OpenTelemetry, Micrometer, Spring Security. **All resolve the same.**
+The routes that do not (Boot's own parent, or Boot's BOM imported first) are documented: see step 4.
+
+## Step 8: release rehearsal
+
+| Check | Result |
+|---|---|
+| Reproducible build | Two `clean package -Drevision=1.0.0-RC1` runs, 160 s each: 117 jars and flattened POMs hashed; **all 112 platform artifacts identical**. The 5 that differ are the examples' Boot executable jars, unpublished, built on `platform-service-parent`, which sets no `outputTimestamp` (HI-0107) |
+| Staging deploy | `deploy -Plocal-release -Drevision=1.0.0-RC1` to `target/staging-repo`: 119 artifacts with checksums; examples skipped. Deploy refuses offline mode even to `file://` |
+| Published versions | The staged `platform-bom` had 111 `${revision}` references, resolved by a property inside it; a consumer passing `-Drevision` would have redirected them. Fixed (flatten `interpolate`): 112 literal `1.0.0-RC1`. `platform-dependencies` keeps 3 references (HI-0107) |
+| Smoke matrix | 6/6 rows (`example-golden-path`, capability toggles) |
+| SBOM, provenance | Not produced by the release pipeline (HI-0108). Phase 8's SBOM was generated on demand |
+| Version and tag | `release.sh` was not run: it hard-codes `-T1C`, and its verify, golden path and smoke steps ran separately here. No tag was created |
+
+## Final full build, on the final code
+
+`clean verify`, offline, `-T1`: **BUILD SUCCESS** in 16 min 34 s; 95 suites, 1,557 tests, 0 failures, 0 errors, **0 skipped**
+(`evidence-raw/step1-final-verify.log`). It includes every Phase 8 change: Boot 4.1.2 and the two pins, the service parent's
+properties and Zipkin ban, the messaging deprecation metadata, and the interpolated BOMs. The generated docs it wrote are
+committed (HI-0104).
+
+## Which code each run used
+
+| Run | Commit recorded | What changed after it |
+|---|---|---|
+| Step 1 final verify | `b598416` (+ the regenerated docs, committed as `aa9c7f8`) | The two BOMs' flatten setting (below) |
+| Golden path, final | `639e9d5`: **9/9**, 1,046 s ([`evidence/golden-path-summary-639e9d5.tsv`](evidence/golden-path-summary-639e9d5.tsv)); an earlier run on `aa9c7f8` was also 9/9 | — |
+| Phase 1 to 7 consumers on Boot 4.1.2 | `b3611d1` | Deprecation metadata for one removed key (`16b1ded`); the BOMs' published form (`847bfd0`, then `extended_interpolate`). Neither changes a resolved version or runtime behaviour |
+| All-capability app, final | `f9e8d5a` with the service-parent properties uncommitted (committed as `bb20d90`) | The Zipkin ban, the metadata, the BOMs' published form |
+| Trivy rescan of the app jar | the jar of that run | as above; the versions it scanned are what `bom-parity.md` resolves now |
+| Reproducibility builds | `16b1ded` | The BOMs' published form; their flattened POMs were then hashed across two more builds: identical |
+| BOM and parent parity | rerun after the final BOM change | — |
+
+## The published BOMs, after Codex
+
+Codex (`codex/bom-verify.out.md`) rejected `847bfd0`: flatten's `interpolate` works on the module's own POM without inherited
+properties, so the literal versions seen on staging came from passing `-Drevision` to the release build; a plain `install`, as
+the golden path does, still published `${revision}`, and `platform-dependencies` kept `${spring-boot.version}` and
+`${archunit.version}`. Both now use `extended_interpolate`: a plain `install` publishes **no placeholders** in either BOM (112
+literal platform versions; Boot 4.1.2 literal), identical across two builds, and parity still holds for all 16 artifacts. HI-0107
+part (b) is thereby fixed. Not re-reviewed by Codex after this change.
+
+## Secrets in git history
+
+The repository is public, so its whole history was scanned (`git log -p --all`, added lines) for JWT-shaped strings, private
+keys and unmasked passwords. **No real secret.** Every JWT-shaped string is a fixture (`{"sub":"alice"}`, signature the text
+`signature-value`); no private key; the password-shaped values are test strings (`hunter2` to `hunter5`, base64 of `user:pass`),
+the local docker-compose and example defaults, and the harness's throwaway values.

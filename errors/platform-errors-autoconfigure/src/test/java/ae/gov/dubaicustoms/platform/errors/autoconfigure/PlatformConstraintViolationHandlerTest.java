@@ -26,7 +26,12 @@ class PlatformConstraintViolationHandlerTest {
     }
 
     private ProblemDetail handle(Object invalidBean) {
-        ErrorsProperties properties = new ErrorsProperties(true, false, "https://errors.dc.com/", true);
+        return handle(invalidBean, true);
+    }
+
+    private ProblemDetail handle(Object invalidBean, boolean includeRejectedValues) {
+        ErrorsProperties properties = new ErrorsProperties(true, false, "urn:dc:problem:", true,
+                includeRejectedValues);
         PlatformConstraintViolationHandler handler = new PlatformConstraintViolationHandler(
                 new ProblemDetailFactory(properties, List.of(), FIXED_CLOCK));
         try (var factory = Validation.buildDefaultValidatorFactory()) {
@@ -62,6 +67,18 @@ class PlatformConstraintViolationHandlerTest {
         assertThat(errors).singleElement().satisfies(entry -> {
             assertThat(entry).containsEntry("field", "apiToken");
             assertThat(entry).containsEntry("rejectedValue", "REDACTED");
+        });
+    }
+
+    @Test
+    void rejectedValuesAreOmittedByDefault() {
+        ProblemDetail problem = handle(new Credentials("", "0123456789ab"), false);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> errors = (List<Map<String, Object>>) problem.getProperties().get("errors");
+        assertThat(errors).singleElement().satisfies(entry -> {
+            assertThat(entry).containsEntry("field", "user");
+            assertThat(entry).doesNotContainKey("rejectedValue");
         });
     }
 }

@@ -1,0 +1,13 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.restclient.propagate-correlation",
+      "type": "java.lang.Boolean",
+      "description": "Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Correlation is the W3C trace ID, propagated in traceparent by the instrumented client."
+      }
+    }
+  ]
+}

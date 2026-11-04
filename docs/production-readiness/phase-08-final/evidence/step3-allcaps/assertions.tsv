@@ -1,0 +1,63 @@
+PASS	dependency tree has platform-starter-core
+PASS	dependency tree has platform-starter-errors
+PASS	dependency tree has platform-starter-logging
+PASS	dependency tree has platform-starter-observability
+PASS	dependency tree has platform-starter-data-jpa-oracle
+PASS	dependency tree has platform-starter-messaging-outbox
+PASS	dependency tree has platform-starter-messaging-rabbit
+PASS	dependency tree has platform-starter-restclient
+PASS	dependency tree has resilience4j-circuitbreaker
+PASS	dependency tree has resilience4j-bulkhead
+PASS	dependency tree has platform-starter-security
+PASS	app ready in 117s
+PASS	anon-orders status 401
+PASS	anon-received status 401
+PASS	anon-ready status 200
+PASS	chain status 200
+PASS	chain: principal in context before and after the call, trace kept
+PASS	M1 the handler ran on the request's trace
+PASS	M1 no principal on the listener thread
+PASS	M1 the handler's outbound call succeeded
+PASS	M1 the request's outbound call carried the trace
+PASS	M1 the request's outbound call relayed the token
+PASS	M1 the handler's outbound call carried the same trace
+PASS	M1 the handler's outbound call carried no token
+PASS	down-401 status 500
+PASS	down-401: generic body, not retryable
+PASS	M2 no downstream body in the response
+PASS	M2 401 not retried: 1 request(s) reached the downstream
+PASS	down-503 status 503
+PASS	M2 503 retried: 3 request(s) reached the downstream
+PASS	slow-remote status 200
+PASS	M3 an outbound call needs no database: 527 ms
+PASS	slow-order status 200
+PASS	slow-ready status 200
+PASS	M3 the event was delivered
+PASS	M4 5 orders accepted with the broker down
+PASS	m4-ready status 200
+PASS	M4 nothing delivered while the broker is down
+PASS	M4: all 5 events received
+PASS	M4: 0 duplicates (at most 5)
+PASS	M5 100 chains, no wrong principal, no repeated trace
+PASS	M5 principal-a owns 50 rows
+PASS	M5 principal-b owns 50 rows
+PASS	M5: all 100 events received
+PASS	M5: 0 duplicates (at most 10)
+PASS	M5 each principal's own token reached the downstream
+PASS	M5 no handler call carried a token
+PASS	M6 the instance was killed (137)
+PASS	app ready in 28s
+PASS	M6: all 30 events received
+PASS	M6: 0 duplicates (at most 50)
+PASS	M7 the call is in flight: 1 request(s) reached the downstream
+PASS	app exited on SIGTERM (code 143) in 5s
+PASS	graceful shutdown completed (logged)
+PASS	M7 the in-flight chain finished
+PASS	the stored line carries the trace
+PASS	'alice-all' not in a log
+PASS	'principal-a' not in a log
+PASS	'principal-b' not in a log
+PASS	'hhDownstreamBodyMarker' not in a log
+PASS	nothing JWT-shaped in a log
+PASS	the connection pool was never exhausted
+PASS	cleanup: no containers left for dch-20261103215144-8980

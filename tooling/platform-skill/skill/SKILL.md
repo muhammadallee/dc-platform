@@ -1,6 +1,6 @@
 ---
 name: dc-platform
-description: Use when building or modifying a service on the DC Platform (the internal Spring Boot chassis). Triggers on "DC platform", capability names (audit, authz, cache, core, data, errors, events, files, flags, idempotency, locking, logging, messaging, observability, openapi, ratelimit, redis, resilience, restclient, scheduling, security, storage, validation, testing), platform-starter-* ids, and dc.platform.* properties. Explains which starter to add, the config keys, and the error codes. Train version 1.0.0-SNAPSHOT.
+description: Use when building or modifying a service on the DC Platform (the internal Spring Boot chassis). Triggers on "DC platform", capability names (audit, authz, cache, core, data, errors, events, files, flags, idempotency, locking, logging, messaging, observability, openapi, outbox, ratelimit, redis, resilience, restclient, scheduling, security, storage, validation, testing), platform-starter-* ids, and dc.platform.* properties. Explains which starter to add, the config keys, and the error codes. Train version 1.0.0-SNAPSHOT.
 ---
 
 # DC Platform

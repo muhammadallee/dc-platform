@@ -39,7 +39,9 @@ class StartupBudgetTest {
 
         long start = System.nanoTime();
         try (ConfigurableApplicationContext context = application.run(
-                "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json")) {
+                "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
+                "--spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/",
+                "--spring.security.oauth2.resourceserver.jwt.audiences=example")) {
             assertThat(context.isRunning()).isTrue();
         }
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;

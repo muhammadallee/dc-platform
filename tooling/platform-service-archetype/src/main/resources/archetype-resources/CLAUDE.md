@@ -15,7 +15,7 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
 3. **Errors:** throw `PlatformException` subtypes (`BusinessException`, `NotFoundException`,
    `ConflictException`) with an `ErrorCode` (`DC-XX-NNNN`, where `XX` is this service's claimed
    namespace). NEVER write your own `@RestControllerAdvice` or build `ProblemDetail` by hand — the
-   platform maps everything to RFC 9457 with correlation IDs.
+   platform maps everything to RFC 9457 with the request's trace ID.
 4. **Security:** endpoints are authenticated by default. Use `@RequiresPermission("res:action")`
    for authorization and `CurrentUserAccessor` for identity. Do not define your own
    `SecurityFilterChain`; use `SecurityCustomizer` beans for adjustments.
@@ -31,7 +31,7 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
 9. **Resilience/scheduling/locking/idempotency/caching/flags/audit:** use the platform
    annotations and APIs (`@Retry`-style r4j config, `@LockedSchedule`, `@Idempotent`,
    `@Cacheable` + platform key convention, `FeatureFlags`, `@Audited`) — do not hand-roll.
-10. **Logging:** SLF4J, parameterized, no secrets/PII. Correlation IDs are automatic — never log
+10. **Logging:** SLF4J, parameterized, no secrets/PII. Trace IDs (the correlation id) are automatic — never log
     them manually or generate your own.
 
 ## Testing rules

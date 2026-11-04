@@ -1,0 +1,43 @@
+{
+  "realm": "hh",
+  "enabled": true,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [{"name": "clerk"}],
+    "client": {
+      "hardening-security": [{"name": "approver"}],
+      "billing": [{"name": "admin"}]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "hardening-security",
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {"included.custom.audience": "svc", "access.token.claim": "true", "id.token.claim": "false"}
+        }
+      ]
+    },
+    {"clientId": "billing", "publicClient": true, "standardFlowEnabled": false}
+  ],
+  "users": [
+    {
+      "username": "kc-alice",
+      "enabled": true,
+      "email": "kc-alice@example.test",
+      "firstName": "Kc",
+      "lastName": "Alice",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "hh-test-only", "temporary": false}],
+      "realmRoles": ["clerk"],
+      "clientRoles": {"hardening-security": ["approver"], "billing": ["admin"]}
+    }
+  ]
+}

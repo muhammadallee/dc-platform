@@ -1,0 +1,1 @@
+{"detail":"No static resource actuator/loggers.","instance":"/actuator/loggers","status":404,"title":"DC-CORE-0499","type":"urn:dc:problem:DC-CORE-0499","code":"DC-CORE-0499","traceId":"e4e78dbf0acc7b9bf69c2ce19a987cd8","timestamp":"2026-10-31T21:31:40.271994139Z","retryable":false}

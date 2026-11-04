@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.security.autoconfigure;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
@@ -11,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 import org.springframework.test.web.servlet.MockMvc;
@@ -25,7 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
  * controller, and a SecurityCustomizer-permitted path bypassing authentication.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, classes = PlatformSecurityWebTest.App.class,
-        properties = "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json")
+        properties = {"spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
+                "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/", "spring.security.oauth2.resourceserver.jwt.audiences=svc"})
 @AutoConfigureMockMvc
 class PlatformSecurityWebTest {
 
@@ -36,7 +38,24 @@ class PlatformSecurityWebTest {
     void anonymousRequestIsUnauthorizedWithProblemBody() throws Exception {
         mockMvc.perform(get("/secure"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().contentType("application/problem+json"));
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("DC-SEC-0401"))
+                .andExpect(jsonPath("$.retryable").value(false))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.traceId").doesNotExist());
+    }
+
+    @Test
+    void unauthorizedBodyCarriesTheTraceIdOfTheRequestContext() throws Exception {
+        // MockMvc runs the filter chain on the calling thread, so the open context is the request's.
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+        try (AutoCloseable scope = ae.gov.dubaicustoms.platform.core.context.RequestContext.open(
+                new ae.gov.dubaicustoms.platform.core.context.CorrelationId(traceId), java.util.Map.of())) {
+            mockMvc.perform(get("/secure"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value("DC-SEC-0401"))
+                    .andExpect(jsonPath("$.traceId").value(traceId));
+        }
     }
 
     @Test

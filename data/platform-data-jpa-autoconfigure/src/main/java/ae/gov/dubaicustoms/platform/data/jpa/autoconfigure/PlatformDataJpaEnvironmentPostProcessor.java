@@ -1,6 +1,8 @@
 package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
@@ -10,7 +12,9 @@ import org.springframework.core.env.MapPropertySource;
 
 /**
  * Contributes the platform's Hibernate tuning as standard {@code spring.jpa.*} defaults: open-in-view
- * off, batched inserts/updates (size 50), and a UTC jdbc time zone. Snake_case physical naming is
+ * off, batched inserts/updates (size 50), and a UTC jdbc time zone — plus pool and timeout bounds
+ * (D110: 5 s connection wait, 30 s transactions and queries, leak detection under {@code local}) and Flyway's
+ * safe settings pinned (D112). Snake_case physical naming is
  * Boot's own default, so it is deliberately left unset rather than pinned to a Boot-version-specific
  * strategy class.
  *
@@ -43,7 +47,49 @@ public class PlatformDataJpaEnvironmentPostProcessor implements EnvironmentPostP
         defaults.put("spring.jpa.properties.hibernate.order_updates", "true");
         // Persist and read timestamps in UTC regardless of the JVM/db session zone.
         defaults.put("spring.jpa.properties.hibernate.jdbc.time_zone", "UTC");
+        poolAndTimeoutDefaults(environment, defaults);
+        flywayDefaults(defaults);
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
+    }
+
+    /*
+     * D110, measured against Oracle (OracleExceptionPathsIT, OracleTimeoutLeversIT):
+     * - a request waits at most 5 s for a pooled connection (Hikari's 30 s lets request threads pile
+     *   up behind an exhausted pool); it then gets a 503 (D111);
+     * - every transaction — Spring Data repository methods included — is bounded at 30 s; Spring
+     *   hands the remaining time to each statement, which the driver cancels (ORA-01013);
+ * - a query outside any transaction (a declared repository query has none of its own, a non-transactional
+ *   service) is bounded at 30 s too: Hibernate's default query timeout and JdbcTemplate's; inside a
+ *   transaction Spring sets the remaining transaction time on each query it creates, which overrides
+ *   this default (not on Hibernate's SelectionQuery or a raw-delegate query: OracleTimeoutDefaultsIT);
+     * - the Oracle driver's read and connect timeouts are added to the pool itself, keyed on its own
+     *   URL (internal.OracleConnectionDefaults): the URL may come from a property source added after
+     *   this post-processor ran;
+ * - leak detection (a stack trace for a connection held over 20 s) only under the local profile, and
+ *   never when prod is active too.
+     * Hikari's own keepalive (2 min) and max lifetime (30 min) defaults are kept.
+     */
+    private static void poolAndTimeoutDefaults(ConfigurableEnvironment environment, Map<String, Object> defaults) {
+        defaults.put("spring.datasource.hikari.connection-timeout", "5000");
+        defaults.put("spring.transaction.default-timeout", "30s");
+        defaults.put("spring.jpa.properties.jakarta.persistence.query.timeout", "30000");
+        defaults.put("spring.jdbc.template.query-timeout", "30s");
+        List<String> profiles = Arrays.asList(environment.getActiveProfiles());
+        if (profiles.contains("local") && !profiles.contains("prod")) {
+            defaults.put("spring.datasource.hikari.leak-detection-threshold", "20000");
+        }
+    }
+
+    /*
+     * D112: Flyway's safe defaults pinned rather than inherited, so a Flyway upgrade cannot loosen them —
+     * never clean a database, validate applied migrations before migrating, apply in version order
+     * only, and reject files that do not follow V<version>__<description>.sql instead of skipping them.
+     */
+    private static void flywayDefaults(Map<String, Object> defaults) {
+        defaults.put("spring.flyway.clean-disabled", "true");
+        defaults.put("spring.flyway.validate-on-migrate", "true");
+        defaults.put("spring.flyway.out-of-order", "false");
+        defaults.put("spring.flyway.validate-migration-naming", "true");
     }
 
     @Override

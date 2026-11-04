@@ -1,7 +1,9 @@
 package ae.gov.dubaicustoms.platform.messaging.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
@@ -48,7 +50,10 @@ class ProviderTransportWiringTest {
     @Test
     void rabbitTransportConfigurationSuppliesRabbitEventTransport() {
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
+        when(rabbitTemplate.isMandatoryFor(any())).thenReturn(true);
         ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
+        when(connectionFactory.isPublisherConfirms()).thenReturn(true);
+        when(connectionFactory.isPublisherReturns()).thenReturn(true);
 
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))

@@ -23,6 +23,13 @@
     <requiredProperty key="features">
       <defaultValue>none</defaultValue>
     </requiredProperty>
+    <!-- Production database of the data feature (HD12): "h2" (default: H2 locally, bring your own
+         production database starter) or "oracle" (platform-starter-data-jpa-oracle: JDBC driver + Flyway's
+         Oracle module; H2 still backs local runs and tests). "oracle" requires the data feature; anything
+         else fails generation from the pom.xml template, like features. -->
+    <requiredProperty key="database">
+      <defaultValue>h2</defaultValue>
+    </requiredProperty>
     <!-- Backstage catalog owner (group or user), stamped into catalog-info.yaml. Default keeps
          non-interactive generation working; teams override with -Downer=<team> (phase-16 E). -->
     <requiredProperty key="owner">

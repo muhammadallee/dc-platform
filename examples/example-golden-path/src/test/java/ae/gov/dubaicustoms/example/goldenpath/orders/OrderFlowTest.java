@@ -43,7 +43,9 @@ class OrderFlowTest {
                 .andExpect(jsonPath("$.status", is("PLACED")))
                 .andReturn().getResponse().getHeader("Location");
 
-        assertThatEvents(transport).sentTo(OrderPlaced.DESTINATION).withType("OrderPlaced");
+        // Delivered by the outbox's drainer, just after the commit.
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(10)).untilAsserted(
+                () -> assertThatEvents(transport).sentTo(OrderPlaced.DESTINATION).withType("OrderPlaced"));
 
         mvc.perform(get(location).with(TestTokens.user("alice").roles("USER").jwt()))
                 .andExpect(status().isOk())

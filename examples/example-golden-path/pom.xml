@@ -63,6 +63,10 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-messaging-outbox</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-starter-cache-caffeine</artifactId>
     </dependency>
     <dependency>

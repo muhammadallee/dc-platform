@@ -1,0 +1,16 @@
+Comparing source compatibility of C:\Users\Ali\.m2-hardening\phase-07\ae\gov\dubaicustoms\platform\platform-messaging-spi\1.0.0-SNAPSHOT\platform-messaging-spi-1.0.0-SNAPSHOT.jar against C:\Users\Ali\.m2-baseline\ae\gov\dubaicustoms\platform\platform-messaging-spi\1.0.0-SNAPSHOT\platform-messaging-spi-1.0.0-SNAPSHOT.jar
+WARNING: You are using the option '--ignore-missing-classes', i.e. superclasses and interfaces that could not be found on the classpath are ignored. Hence changes caused by these superclasses and interfaces are not reflected in the output.
+***  MODIFIED INTERFACE: PUBLIC ABSTRACT ae.gov.dubaicustoms.platform.messaging.spi.EventTransport  (not serializable)
+	===  CLASS FILE FORMAT VERSION: 69.0 <- 69.0
+	+++  NEW METHOD: PUBLIC(+) boolean deadLettersNatively()
++++  NEW CLASS: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.messaging.spi.EventTransport$TransportListener$DeadLetterException  (compatible)
+	+++  CLASS FILE FORMAT VERSION: 69.0 <- n.a.
+	+++  NEW INTERFACE: java.io.Serializable
+	+++  NEW SUPERCLASS: java.lang.RuntimeException
+	+++  NEW CONSTRUCTOR: PUBLIC(+) EventTransport$TransportListener$DeadLetterException(java.lang.String)
++++  NEW CLASS: PUBLIC(+) STATIC(+) FINAL(+) ae.gov.dubaicustoms.platform.messaging.spi.EventTransport$TransportListener$RequeueException  (compatible)
+	+++  CLASS FILE FORMAT VERSION: 69.0 <- n.a.
+	+++  NEW INTERFACE: java.io.Serializable
+	+++  NEW SUPERCLASS: java.lang.RuntimeException
+	+++  NEW CONSTRUCTOR: PUBLIC(+) EventTransport$TransportListener$RequeueException(java.lang.String)
+

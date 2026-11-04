@@ -54,6 +54,17 @@ public interface EventTransport extends AutoCloseable {
     Subscription subscribe(String destination, String group, TransportListener listener);
 
     /**
+     * Whether this transport dead-letters a message itself when the listener throws. When {@code false}, the caller
+     * republishes an exhausted message to a dead-letter destination instead.
+     *
+     * @return {@code true} if a thrown exception ends with the message in a dead-letter queue
+     * @since 1.0.0
+     */
+    default boolean deadLettersNatively() {
+        return false;
+    }
+
+    /**
      * Cancels a subscription created by {@link #subscribe}.
      *
      * @since 0.2.0
@@ -68,6 +79,47 @@ public interface EventTransport extends AutoCloseable {
      */
     @FunctionalInterface
     interface TransportListener {
+
+        /**
+         * Thrown by a listener to put the message back rather than dead-letter it: the consumer is stopping, and
+         * nothing is wrong with the message. Immutable and thread-safe.
+         *
+         * @since 1.0.0
+         */
+        final class RequeueException extends RuntimeException {
+
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Creates the exception.
+             *
+             * @param message why the message goes back; never {@code null}
+             */
+            public RequeueException(String message) {
+                super(message);
+            }
+        }
+
+        /**
+         * Thrown by a listener on a transport that {@linkplain EventTransport#deadLettersNatively() dead-letters natively}
+         * to end a message there: retries are over, or it can never be handled. It carries no cause, so nothing in a
+         * handler's exception can change the outcome. Immutable and thread-safe.
+         *
+         * @since 1.0.0
+         */
+        final class DeadLetterException extends RuntimeException {
+
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Creates the exception.
+             *
+             * @param message why it is dead-lettered, never quoting the payload; never {@code null}
+             */
+            public DeadLetterException(String message) {
+                super(message);
+            }
+        }
 
         /**
          * Handles one message.

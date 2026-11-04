@@ -23,7 +23,7 @@ public class SecurityNoIssuerFailureAnalyzer extends AbstractFailureAnalyzer<NoS
         }
         String description = "The platform security resource-server chain requires a JwtDecoder, but none could be "
                 + "created because no JWT issuer is configured.";
-        String action = "Set spring.security.oauth2.resourceserver.jwt.issuer-uri (or .jwk-set-uri) to your "
+        String action = "Set spring.security.oauth2.resourceserver.jwt.issuer-uri, .jwk-set-uri and .audiences for your "
                 + "identity provider, or set dc.platform.security.mode=disabled to turn the platform security "
                 + "chain off. See docs/modules/security.md.";
         return new FailureAnalysis(description, action, cause);

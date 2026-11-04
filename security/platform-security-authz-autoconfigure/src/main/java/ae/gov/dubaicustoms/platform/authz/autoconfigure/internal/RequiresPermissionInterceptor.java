@@ -4,10 +4,12 @@ import ae.gov.dubaicustoms.platform.authz.RequiresPermission;
 import ae.gov.dubaicustoms.platform.authz.spi.PermissionEvaluatorProvider;
 import ae.gov.dubaicustoms.platform.security.CurrentUser;
 import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
@@ -30,10 +32,25 @@ final class RequiresPermissionInterceptor implements MethodInterceptor {
 
     @Override
     public Object invoke(MethodInvocation invocation) throws Throwable {
-        RequiresPermission annotation = AnnotatedElementUtils.findMergedAnnotation(invocation.getMethod(), RequiresPermission.class);
+        Class<?> target = invocation.getThis() == null ? null : AopUtils.getTargetClass(invocation.getThis());
+        // Method before class, and the implementing method first: a JDK proxy passes the interface method, and a weaker class
+        // permission must not stand in for the implementing method's own.
+        Method specific = target == null ? invocation.getMethod() : AopUtils.getMostSpecificMethod(invocation.getMethod(), target);
+        RequiresPermission annotation = AnnotatedElementUtils.findMergedAnnotation(specific, RequiresPermission.class);
+        if (annotation == null) {
+            annotation = AnnotatedElementUtils.findMergedAnnotation(invocation.getMethod(), RequiresPermission.class);
+        }
+        if (annotation == null && target != null) {
+            // The class the pointcut matched, which may be a subclass of the method's declaring class.
+            annotation = AnnotatedElementUtils.findMergedAnnotation(target, RequiresPermission.class);
+        }
         if (annotation == null) {
             annotation = AnnotatedElementUtils.findMergedAnnotation(
                     invocation.getMethod().getDeclaringClass(), RequiresPermission.class);
+        }
+        if (annotation == null) {
+            // Matched by the pointcut, yet no permission found: refuse rather than guess.
+            throw new AccessDeniedException("no permission could be determined");
         }
         String permission = annotation.value();
         CurrentUser user = currentUserAccessor.currentUser()

@@ -94,6 +94,12 @@
                 </bannedDependencies>
                 <bannedDependencies>
                   <searchTransitive>false</searchTransitive>
+                  <excludes><exclude>io.opentelemetry:opentelemetry-exporter-zipkin</exclude></excludes>
+                  <message>The OpenTelemetry Zipkin exporter is discontinued (last 1.64.0) and fails at startup against the
+                    OpenTelemetry the platform manages (D133). Export traces over OTLP (docs/modules/observability.md).</message>
+                </bannedDependencies>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
                   <excludes><exclude>io.github.resilience4j:*</exclude></excludes>
                   <message>Do not depend on Resilience4j directly — add platform-starter-resilience and use the
                     platform resilience annotations/properties (docs/modules/resilience.md).</message>

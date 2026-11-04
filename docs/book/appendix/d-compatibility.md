@@ -42,6 +42,12 @@ upgrade with one property change.
 </dependencies>
 ```
 
+!!! danger "Do not import Spring Boot's BOM yourself, or import it after `platform-bom`"
+    `platform-bom` already includes `spring-boot-dependencies`, and corrects some of Boot's versions for known
+    vulnerabilities (the RabbitMQ client and OpenTelemetry, at the time of writing). In Maven the first imported BOM wins,
+    so a `spring-boot-dependencies` import **above** `platform-bom` silently brings Boot's vulnerable versions back.
+    `platform-service-parent` handles this for you; the archetype uses it.
+
 ### Why a train rather than independent versioning
 
 The alternative — each capability versioned independently — produces an **N×M compatibility matrix**:

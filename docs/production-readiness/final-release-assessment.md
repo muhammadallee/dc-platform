@@ -1,6 +1,6 @@
 # Final release assessment
 
-Hardening initiative, plan v3, on `hardening/v1`. Baseline `7b248e9`; final code `aa9c7f8` plus the BOM fix that follows it (2026-11-04), Spring Boot 4.1.2,
+Hardening initiative, plan v3, on `hardening/v1`. Baseline `7b248e9`; final code `639e9d5` (2026-11-04), Spring Boot 4.1.2,
 JDK 25. Phase 8 results: [`phase-08-final/run-results.md`](phase-08-final/run-results.md). Decision:
 [`release-decision.md`](release-decision.md).
 

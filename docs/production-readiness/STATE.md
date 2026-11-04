@@ -7,7 +7,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline commit | `7b248e919a7ffed9b2ae36379c8e9a84105f0b75` (main) |
 | Branch | `hardening/v1` |
 | Current phase | 8 — Final full-project verification |
-| Current gate | Phase 8 complete on `aa9c7f8`: steps 1 to 6 and 8 pass, step 7 BLOCKED (D134). Release decision written: GO for 1.0.0-RC1 to first adopters, NO-GO for general production (`release-decision.md`) |
+| Current gate | Phase 8 complete on `639e9d5`: steps 1 to 6 and 8 pass, step 7 BLOCKED (D134). Release decision written: GO for 1.0.0-RC1 to first adopters, NO-GO for general production (`release-decision.md`) |
 | Last commit | see `git log -1 hardening/v1` |
 | Open blockers | none (owner decided A1, A3, HI-0010) |
 | Pending human decisions | The release decision itself (`release-decision.md`); HD7/D7 chart-tool details when OpenShift verification is wanted |
@@ -26,7 +26,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 5 | `dfb3524` | **PASS** (final code `5cafcf3`; consumer 3× 63/63, Phases 1-4 92/75/92/106, C1, golden path 9/9, CI green; HI-0087, HI-0093 accepted; HI-0088 accepted, review at the end of all phases) | `hardening/phase-05-closed` | 2026-11-02 |
 | 6 | `1162d99` | **PASS** (final code `78636c0`; consumer 3× 182/182, Phases 1, 2 92/75, golden path 9/9, CI green; HI-0094 to HI-0098 accepted, HI-0099 to Phase 7) | `hardening/phase-06-closed` | 2026-11-02 |
 | 7 | `c7373c6` | **PASS** (final code `d56d0a0`; consumer 3x 170/170, C2 61/61, Phases 1-6 92/76/92/106/63/182, golden path 9/9; Codex pass 3 ACCEPT; HI-0099 fixed; HI-0100 to HI-0103 accepted, D132) | `hardening/phase-07-closed` | 2026-11-03 |
-| 8 | `f96ece6` | **PASS with BLOCKED step 7** (final code `aa9c7f8`; reactor 1,557 tests; 13 container classes; all-capability app 63/63; phase consumers 1-7 rerun on Boot 4.1.2; golden path 9/9; 0 known vulnerabilities shipped; D133, D134) | `hardening/phase-08-closed` | 2026-11-04 |
+| 8 | `f96ece6` | **PASS with BLOCKED step 7** (final code `639e9d5`; reactor 1,557 tests; 13 container classes; all-capability app 63/63; phase consumers 1-7 rerun on Boot 4.1.2; golden path 9/9; 0 known vulnerabilities shipped; D133, D134) | `hardening/phase-08-closed` | 2026-11-04 |
 
 ## Environment notes for resumption
 

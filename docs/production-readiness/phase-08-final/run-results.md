@@ -1,6 +1,6 @@
 # Phase 8 — Final full-project verification: run results
 
-**Verdict: PASS, with step 7 BLOCKED (D134).** Final code `aa9c7f8`. Release decision: [`../release-decision.md`](../release-decision.md).
+**Verdict: PASS, with step 7 BLOCKED (D134).** Final code `639e9d5`. Release decision: [`../release-decision.md`](../release-decision.md).
 
 Started on `f96ece6` (tag `hardening/phase-07-closed`); each run's commit is below. JDK 25.0.3 Corretto, Maven offline, `-T1`, Docker 29.9.2. Plan §10.
 
@@ -147,7 +147,7 @@ committed (HI-0104).
 | Run | Commit recorded | What changed after it |
 |---|---|---|
 | Step 1 final verify | `b598416` (+ the regenerated docs, committed as `aa9c7f8`) | The two BOMs' flatten setting (below) |
-| Golden path, final | `aa9c7f8` | The two BOMs' flatten setting |
+| Golden path, final | `639e9d5`: **9/9**, 1,046 s ([`evidence/golden-path-summary-639e9d5.tsv`](evidence/golden-path-summary-639e9d5.tsv)); an earlier run on `aa9c7f8` was also 9/9 | — |
 | Phase 1 to 7 consumers on Boot 4.1.2 | `b3611d1` | Deprecation metadata for one removed key (`16b1ded`); the BOMs' published form (`847bfd0`, then `extended_interpolate`). Neither changes a resolved version or runtime behaviour |
 | All-capability app, final | `f9e8d5a` with the service-parent properties uncommitted (committed as `bb20d90`) | The Zipkin ban, the metadata, the BOMs' published form |
 | Trivy rescan of the app jar | the jar of that run | as above; the versions it scanned are what `bom-parity.md` resolves now |

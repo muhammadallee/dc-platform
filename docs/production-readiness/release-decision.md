@@ -3,7 +3,7 @@
 **Recommendation: GO for `1.0.0-RC1` to first adopters, under the conditions below. NO-GO for general production use until
 the parked outbox issues are fixed and OpenShift is verified.** The decision is the owner's.
 
-Final code `aa9c7f8` (2026-11-04). Evidence: [`final-release-assessment.md`](final-release-assessment.md),
+Final code `639e9d5` (2026-11-04). Evidence: [`final-release-assessment.md`](final-release-assessment.md),
 [`phase-08-final/run-results.md`](phase-08-final/run-results.md).
 
 ## Why GO for a release candidate

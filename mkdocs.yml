@@ -15,6 +15,8 @@ use_directory_urls: false
 # The docs module (pom + generators) physically lives under docs/ but is not site content.
 exclude_docs: |
   platform-docs/
+  production-readiness/**/codex/
+  *.stackdump
 
 theme:
   name: material
@@ -112,6 +114,13 @@ nav:
       - Adding a capability: runbooks/new-capability.md
       - Cutting a release: runbooks/release.md
       - Upgrading a service: runbooks/upgrade.md
+  - Production readiness:
+      - Release decision: production-readiness/release-decision.md
+      - Final release assessment: production-readiness/final-release-assessment.md
+      - Capability status: production-readiness/capability-status.md
+      - Issue register: production-readiness/issue-register.md
+      - Hardening decisions: production-readiness/decisions.md
+      - Hardening plan: production-readiness/plan-v3.md
   - Decisions:
       - Decision log: decisions/decision-log.md
       - ADR-001 Parent + BOM split: decisions/adr-001.md

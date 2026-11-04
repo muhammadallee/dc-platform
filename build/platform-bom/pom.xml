@@ -155,6 +155,11 @@
         <artifactId>flatten-maven-plugin</artifactId>
         <configuration>
           <flattenMode>bom</flattenMode>
+          <!-- Literal versions in the published BOM: a consumer passing -Drevision or
+               -Dspring-boot.version for its own build must not redirect ours (hardening Phase 8). -->
+          <pomElements>
+            <dependencyManagement>interpolate</dependencyManagement>
+          </pomElements>
         </configuration>
       </plugin>
     </plugins>

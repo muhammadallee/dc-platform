@@ -11,7 +11,7 @@ On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offli
 | 5 Compatibility against the Phase 0 baseline | **PASS, differences listed below.** japicmp: 27 API and SPI modules, 1 binary-incompatible change, in the CHANGELOG. Config defaults: 50 added, 3 changed by design, 4 removed, each now with error-level deprecation metadata (one was missing it: fixed). BOM and parent parity: 16 key artifacts, the same through both routes | `evidence-raw/japicmp/`, `config-defaults.md`, `bom-parity.md` |
 | 6 Real-infrastructure cross-capability workflows | Covered by step 3's run (M1 to M7): outbox + RabbitMQ + Oracle, REST resilience + security, and one trace across the HTTP, database, broker and outbound boundaries | as step 3 |
 | 7 OpenShift (D7) | pending: needs the chart tool's location, invocation and cluster access | |
-| 8 Release rehearsal | pending | |
+| 8 Release rehearsal | **PASS with conditions** (HI-0107, HI-0108). Two clean builds at `1.0.0-RC1`: all 112 platform artifacts byte-identical. Staging deploy (`-Plocal-release`): 119 artifacts, no examples, versions literal after a fix. Smoke matrix 6/6. No SBOM attached, no provenance | `evidence-raw/repro-*.sha256`, `repro-diff.txt`, `staging-b.log`, `smoke-matrix.out` |
 
 ## Not run in step 2, by scope
 
@@ -24,6 +24,9 @@ Container tests outside the certified capabilities were not run, and are **not c
 | HI-0105 | 4 | 7 Critical and 15 High known vulnerabilities in what a service ships, all Boot-managed | FIXED (D133): 0 after |
 | HI-0106 | 4 | 14 High remain in build and tooling modules and the uncertified Kafka path; none shipped | OPEN: owner |
 | — | 5 | `dc.platform.messaging.correlation.propagate` was removed without deprecation metadata | FIXED in this phase |
+| — | 8 | The published `platform-bom` kept 111 `${revision}` references: a consumer building with `-Drevision` (CI-friendly versions) would redirect every platform artifact to its own version | FIXED: flatten interpolates `dependencyManagement` |
+| HI-0107 | 8 | Services' jars not reproducible; `platform-dependencies` keeps two property references | OPEN: owner |
+| HI-0108 | 8 | No SBOM attached, no provenance; `release.sh` hard-codes `-T1C` | OPEN: owner, before the first release |
 | HI-0104 | 1 | The committed generated docs (`llms-full.txt`, the skill's resources, `docs/reference`) are behind the code; the full build rewrites them. The metadata is right; the generator lists removed keys without saying so | OPEN: regenerate from the final full build and commit before `release-decision.md` |
 
 ## Step 3: the all-capability matrix
@@ -118,3 +121,14 @@ jar against the current build, `*.internal.*` excluded:
 artifacts without versions: Spring Boot, WebMVC, Tomcat, Hibernate, Jackson 2 and 3, Lettuce, Spring AMQP, amqp-client,
 Resilience4j, Flyway, the Oracle and PostgreSQL drivers, OpenTelemetry, Micrometer, Spring Security. **All resolve the same.**
 The routes that do not (Boot's own parent, or Boot's BOM imported first) are documented: see step 4.
+
+## Step 8: release rehearsal
+
+| Check | Result |
+|---|---|
+| Reproducible build | Two `clean package -Drevision=1.0.0-RC1` runs, 160 s each: 117 jars and flattened POMs hashed; **all 112 platform artifacts identical**. The 5 that differ are the examples' Boot executable jars, unpublished, built on `platform-service-parent`, which sets no `outputTimestamp` (HI-0107) |
+| Staging deploy | `deploy -Plocal-release -Drevision=1.0.0-RC1` to `target/staging-repo`: 119 artifacts with checksums; examples skipped. Deploy refuses offline mode even to `file://` |
+| Published versions | The staged `platform-bom` had 111 `${revision}` references, resolved by a property inside it; a consumer passing `-Drevision` would have redirected them. Fixed (flatten `interpolate`): 112 literal `1.0.0-RC1`. `platform-dependencies` keeps 3 references (HI-0107) |
+| Smoke matrix | 6/6 rows (`example-golden-path`, capability toggles) |
+| SBOM, provenance | Not produced by the release pipeline (HI-0108). Phase 8's SBOM was generated on demand |
+| Version and tag | `release.sh` was not run: it hard-codes `-T1C`, and its verify, golden path and smoke steps ran separately here. No tag was created |

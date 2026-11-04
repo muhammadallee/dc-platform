@@ -5,6 +5,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Phase 8: final verification
+
+- **Spring Boot 4.1.2** (was 4.1.0), for known vulnerabilities in what a service ships: Spring Framework 7.0.10, Tomcat 11.0.27,
+  Netty 4.2.19, Jackson 2.21.7 and 3.1.7. The platform BOM pins `com.rabbitmq:amqp-client` 5.37.0 and OpenTelemetry 1.67.0, which
+  Boot 4.1.2 still manages at vulnerable versions. `platform-service-parent` follows Boot 4.1.2.
+
 ### Phase 7: security (breaking; HC7)
 
 - **The application no longer starts without `spring.security.oauth2.resourceserver.jwt.issuer-uri`, `jwk-set-uri` and `audiences`.** All

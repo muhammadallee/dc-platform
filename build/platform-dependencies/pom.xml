@@ -22,14 +22,14 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Phase 5, THE one sanctioned override (first import wins; decision D17): Boot 4.1.0
-           manages io.prometheus at 1.5.1 while its own micrometer 1.17 declares 1.7.0, which
-           fails the requireUpperBoundDeps gate. Aligned to micrometer's declared version.
-           Re-check on every Boot bump and DELETE once Boot catches up. -->
+      <!-- Security override (first import wins; hardening HI-0105, decision D133): Boot 4.1.2
+           manages OpenTelemetry at 1.62.0, which has CVE-2026-118259 (fixed 1.67.0). Re-check on
+           every Boot bump and DELETE once Boot manages 1.67.0 or later. (D17's prometheus override
+           is gone: Boot 4.1.2 manages 1.7.0.) -->
       <dependency>
-        <groupId>io.prometheus</groupId>
-        <artifactId>prometheus-metrics-bom</artifactId>
-        <version>1.7.0</version>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>1.67.0</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -101,14 +101,14 @@
         <version>4.12.0</version>
       </dependency>
 
-      <!-- Phase 7, another sanctioned override (decision D28): Boot 4.1.0 manages spring-amqp's
-           com.rabbitmq:amqp-client at 5.30.0, but testcontainers-rabbitmq (testcontainers-bom
-           2.0.5) pulls 5.31.0 transitively, failing requireUpperBoundDeps. Aligned to the higher
-           version. Re-check on every Boot/testcontainers bump and DELETE once they converge. -->
+      <!-- Security override (hardening HI-0105, decision D133; first set by D28 for
+           requireUpperBoundDeps): Boot 4.1.2 manages com.rabbitmq:amqp-client at 5.30.0, which has
+           four High CVEs (fixed by 5.34.0) and Medium ones up to 5.36.1. 5.37.0 is the newest 5.x.
+           Re-check on every Boot bump and DELETE once Boot manages a fixed version. -->
       <dependency>
         <groupId>com.rabbitmq</groupId>
         <artifactId>amqp-client</artifactId>
-        <version>5.31.0</version>
+        <version>5.37.0</version>
       </dependency>
 
       <!-- Phase 9: Resilience4j for the resilience capability. The 2.4.0 line is the first to ship

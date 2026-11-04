@@ -843,3 +843,8 @@ One line of context per decision; details live in the commit bodies referenced.
   in a token the trusted provider signed), HI-0101 (the `@RequiresPermission` advisor fails startup rather than back off to a bean
   of its name, against plan §7.1, since that back-off switched enforcement off in round 1), HI-0102 (a UTF-16 body after an earlier
   filter took a UTF-16 writer) and HI-0103 (test gaps, no defect shown) are accepted, all Low, as Codex agreed in passes 2 and 3.
+- **D133 — Spring Boot 4.1.2 and two security overrides (hardening phase 8, owner 2026-11-04).** Phase 8's scan (HI-0105) found 7
+  Critical and 15 High known vulnerabilities in what a service ships, all in versions Boot 4.1.0 manages, among them an RCE in
+  Spring WebMVC 7.0.8. Boot moves to 4.1.2 (Spring Framework 7.0.10, Tomcat 11.0.27, Netty 4.2.19, Jackson 2.21.7 and 3.1.7).
+  `amqp-client` is pinned to 5.37.0 and OpenTelemetry to 1.67.0, which Boot 4.1.2 still manages at vulnerable versions. D17's
+  Prometheus override is removed: Boot 4.1.2 manages 1.7.0. Phase 8 reruns on the new versions.

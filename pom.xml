@@ -19,7 +19,7 @@
 
     <!-- The one place the Spring Boot line is chosen. Bump here to move the whole platform.
          Boot 4.x baseline per decision D6 (docs/decisions/decision-log.md). -->
-    <spring-boot.version>4.1.0</spring-boot.version>
+    <spring-boot.version>4.1.2</spring-boot.version>
 
     <java.version>25</java.version>
     <maven.compiler.release>25</maven.compiler.release>

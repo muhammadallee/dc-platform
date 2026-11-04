@@ -7,7 +7,7 @@ On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offli
 | 1 Clean full-reactor `verify` | **BUILD SUCCESS** in 17 min 39 s. 123 modules; 95 test suites with tests, 1,557 tests, 0 failures, 0 errors, **0 skipped**. Enforcer, ArchUnit, checkstyle, JaCoCo and japicmp all ran | `evidence-raw/step1-verify.log` |
 | 2 Container suite, in-scope providers | **BUILD SUCCESS** in 7 min 10 s with `-Pdocker` on the four modules holding in-scope container tests, after an `install -DskipTests` of the step 1 reactor. All 13 classes ran, none skipped: Oracle 9 (`OracleSmokeIT`, `-DialectIT`, `-ExceptionPathsIT`, `-FlywayPostureIT`, `-NullabilityCheckIT`, `-TimeoutDefaultsIT`, `-TimeoutLeversIT`, `-TransactionRulesIT`, `OutboxOracleIT`), RabbitMQ 3 (`RabbitEventTransportIT`, `RabbitTopologyIT`, `RabbitHandlerFailureIT`), PostgreSQL 1 (`PostgresParityIT`). Keycloak, the JWKS endpoint and Toxiproxy are exercised by the consumer runs (Phases 3 to 7), not by reactor tests | `evidence-raw/step2-docker.log` |
 | 3 Golden path, fresh all-capability app, C1 + C2 matrix | **PASS.** Golden path **9/9** (1,048 s). A fresh archetype app with all seven certified capabilities, nothing opened to anonymous callers, against Oracle, RabbitMQ and Toxiproxy in front of both: **63/63** (`allcaps-20261103-215144`). See below | [`evidence/step3-allcaps`](evidence/step3-allcaps/), [`evidence/golden-path-summary-f0735c7.tsv`](evidence/golden-path-summary-f0735c7.tsv), scenario `tooling/hardening/scenarios/phase-08-allcaps.sh` |
-| 4 Security, dependency, licence and secrets scans | **FAIL: HI-0105.** Vulnerabilities (Trivy 0.68.2): a service built on the platform ships 7 Critical and 15 High, all in versions Spring Boot 4.1.0 manages. SBOM: CycloneDX 2.9.1 aggregate, 354 third-party components. Secrets (Trivy, tracked files at HEAD): none. Licences: no blocker, see below | `evidence-raw/bom.json`, `trivy-appjar.json`, `trivy-sbom.json`, `trivy-secrets.json` |
+| 4 Security, dependency, licence and secrets scans | **PASS after D133** (first run FAIL, HI-0105). Vulnerabilities (Trivy 0.68.2): a service built on the platform ships 7 Critical and 15 High, all in versions Spring Boot 4.1.0 manages. SBOM: CycloneDX 2.9.1 aggregate, 354 third-party components. Secrets (Trivy, tracked files at HEAD): none. Licences: no blocker, see below | `evidence-raw/bom.json`, `trivy-appjar.json`, `trivy-sbom.json`, `trivy-secrets.json` |
 | 5 Compatibility against the Phase 0 baseline | pending | |
 | 6 Real-infrastructure cross-capability workflows | Covered by step 3's run (M1 to M7): outbox + RabbitMQ + Oracle, REST resilience + security, and one trace across the HTTP, database, broker and outbound boundaries | as step 3 |
 | 7 OpenShift (D7) | pending: needs the chart tool's location, invocation and cluster access | |
@@ -21,7 +21,8 @@ Container tests outside the certified capabilities were not run, and are **not c
 
 | ID | Step | Finding | Status |
 |---|---|---|---|
-| HI-0105 | 4 | 7 Critical and 15 High known vulnerabilities in what a service ships, all Boot-managed | OPEN: owner decision |
+| HI-0105 | 4 | 7 Critical and 15 High known vulnerabilities in what a service ships, all Boot-managed | FIXED (D133): 0 after |
+| HI-0106 | 4 | 14 High remain in build and tooling modules and the uncertified Kafka path; none shipped | OPEN: owner |
 | HI-0104 | 1 | The committed generated docs (`llms-full.txt`, the skill's resources, `docs/reference`) are behind the code; the full build rewrites them. The metadata is right; the generator lists removed keys without saying so | OPEN: regenerate from the final full build and commit before `release-decision.md` |
 
 ## Step 3: the all-capability matrix
@@ -66,3 +67,17 @@ classpath-exception option (EPL/LGPL pairs: Logback, Jakarta APIs, JNA). Noted, 
 Use Terms, and `spotbugs-annotations` (LGPL-2.1, compile time only).
 
 **Secrets:** none in the tracked files at HEAD. Git history was not scanned; every phase scanned its evidence before committing.
+
+### After D133 (Boot 4.1.2, amqp-client 5.37.0, OpenTelemetry 1.67.0)
+
+| Check | Result |
+|---|---|
+| Full reactor `verify` | BUILD SUCCESS, 17 min 24 s, 1,557 tests, 0 skipped (`step1b-verify.log`) |
+| Container suites | 13 classes, 65 tests, 0 skipped (`step2b-docker.log`) |
+| All-capability app | 63/63 twice (`allcaps-20261104-080258`, `-082835`) |
+| What a service ships | **0 known vulnerabilities** (`trivy-appjar-c.json`) |
+| Reactor SBOM | 0 Critical, 14 High, all in build and tooling modules or Kafka (HI-0106) (`trivy-sbom-b.json`) |
+
+The first rescan still found the RabbitMQ client at 5.30.0 in the service: Boot's starter-parent, the service parent's parent,
+manages it, and that beats the platform BOM's pin. The service parent now sets Boot's own version properties
+(`rabbit-amqp-client.version`, `opentelemetry.version`).

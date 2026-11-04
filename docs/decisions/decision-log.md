@@ -848,3 +848,8 @@ One line of context per decision; details live in the commit bodies referenced.
   Spring WebMVC 7.0.8. Boot moves to 4.1.2 (Spring Framework 7.0.10, Tomcat 11.0.27, Netty 4.2.19, Jackson 2.21.7 and 3.1.7).
   `amqp-client` is pinned to 5.37.0 and OpenTelemetry to 1.67.0, which Boot 4.1.2 still manages at vulnerable versions. D17's
   Prometheus override is removed: Boot 4.1.2 manages 1.7.0. Phase 8 reruns on the new versions.
+- **D134 — Phase 8 decisions before the release decision (hardening phase 8, owner 2026-11-04).** Step 7 (OpenShift, D7) is
+  `BLOCKED`: the chart tool's location, invocation and a cluster were not supplied; it becomes a first-adopter condition, like
+  RAC (HD4). HI-0088 stays accepted (D125 review). HI-0106 (CVEs in build and tooling modules and the uncertified Kafka path),
+  HI-0107 (service jars not reproducible; two property references in `platform-dependencies`) and HI-0108 (no SBOM or
+  provenance in the release pipeline) are accepted as release conditions; HI-0108 is to be done before the first real release.

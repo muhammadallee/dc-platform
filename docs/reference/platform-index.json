@@ -19,13 +19,13 @@
   }, {
     "name" : "core",
     "doc" : "modules/core.md",
-    "oneLiner" : "The smallest useful chassis: correlation-id propagation, the platform exception model, and the",
+    "oneLiner" : "The smallest useful chassis: request correlation by W3C trace ID, context propagation, the platform",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-core" ]
   }, {
     "name" : "data",
     "doc" : "modules/data.md",
     "oneLiner" : "Tech-neutral persistence value objects (platform-data-api) plus opinionated Spring Data JPA",
-    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-data-jpa" ]
+    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-data-jpa", "ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle" ]
   }, {
     "name" : "errors",
     "doc" : "modules/errors.md",
@@ -59,7 +59,7 @@
   }, {
     "name" : "logging",
     "doc" : "modules/logging.md",
-    "oneLiner" : "Structured JSON logs on stdout with service identity and correlation, configured before the",
+    "oneLiner" : "Structured JSON logs on stdout with service identity and correlation, credentials and common PII",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-logging" ]
   }, {
     "name" : "messaging",
@@ -69,13 +69,18 @@
   }, {
     "name" : "observability",
     "doc" : "modules/observability.md",
-    "oneLiner" : "Metrics with a consistent identity, health probes that work on any platform, correlation that",
+    "oneLiner" : "Metrics with a consistent identity, health probes that answer \"can this pod serve\" without turning a",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-observability" ]
   }, {
     "name" : "openapi",
     "doc" : "modules/openapi.md",
     "oneLiner" : "A springdoc-generated OpenAPI document that already knows how the platform reports errors, so no",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-openapi" ]
+  }, {
+    "name" : "outbox",
+    "doc" : "modules/outbox.md",
+    "oneLiner" : "Guaranteed publish alongside a database change. The event is written to a table in the same transaction as your",
+    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-messaging-outbox" ]
   }, {
     "name" : "ratelimit",
     "doc" : "modules/ratelimit.md",
@@ -174,16 +179,16 @@
   }, {
     "name" : "dc.platform.core.correlation.generate-if-missing",
     "type" : "Boolean",
-    "default" : "true",
-    "description" : "generate a fresh id when the incoming request carries none",
-    "deprecation" : "",
+    "default" : "",
+    "description" : "Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id.",
+    "deprecation" : "error (The tracing bridge always starts a new trace when traceparent is missing or invalid.)",
     "capability" : "core"
   }, {
     "name" : "dc.platform.core.correlation.header-name",
     "type" : "String",
-    "default" : "X-Correlation-Id",
-    "description" : "HTTP header carrying the correlation id",
-    "deprecation" : "",
+    "default" : "",
+    "description" : "Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure.",
+    "deprecation" : "error (Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written.)",
     "capability" : "core"
   }, {
     "name" : "dc.platform.core.enabled",
@@ -200,6 +205,20 @@
     "deprecation" : "",
     "capability" : "data"
   }, {
+    "name" : "dc.platform.data.jpa.oracle.flyway-read-timeout",
+    "type" : "Duration",
+    "default" : "10m",
+    "description" : "read timeout on Flyway's own connection ({@code spring.flyway.user} or {@code url}), so a long migration statement (an index build) can finish while a silent database still fails startup",
+    "deprecation" : "",
+    "capability" : "data"
+  }, {
+    "name" : "dc.platform.data.jpa.oracle.read-timeout",
+    "type" : "Duration",
+    "default" : "60s",
+    "description" : "read timeout on every connection of an Oracle pool: the longest the driver waits for an answer; above the 30 s transaction default, so a slow statement is cancelled by that first. Raise it for a service whose transactions are longer",
+    "deprecation" : "",
+    "capability" : "data"
+  }, {
     "name" : "dc.platform.data.jpa.require-migrations",
     "type" : "Boolean",
     "default" : "true",
@@ -211,6 +230,13 @@
     "type" : "Boolean",
     "default" : "true",
     "description" : "master kill switch for the whole capability",
+    "deprecation" : "",
+    "capability" : "errors"
+  }, {
+    "name" : "dc.platform.errors.include-rejected-values",
+    "type" : "Boolean",
+    "default" : "false",
+    "description" : "echo each invalid value as {@code errors[].rejectedValue} (off by default: rejected values are raw user input and may be personal data; credential-shaped fields stay redacted even when on)",
     "deprecation" : "",
     "capability" : "errors"
   }, {
@@ -350,7 +376,28 @@
     "name" : "dc.platform.logging.include-mdc",
     "type" : "Boolean",
     "default" : "true",
-    "description" : "copy MDC entries (correlationId, …) into JSON log fields",
+    "description" : "copy MDC entries (traceId, spanId, …) into JSON log fields",
+    "deprecation" : "",
+    "capability" : "logging"
+  }, {
+    "name" : "dc.platform.logging.mdc.include",
+    "type" : "List<String>",
+    "default" : "",
+    "description" : "MDC keys written besides {@code traceId} and {@code spanId}; empty (the default) writes every MDC key, a non-empty list switches to strict mode and drops unlisted keys",
+    "deprecation" : "",
+    "capability" : "logging"
+  }, {
+    "name" : "dc.platform.logging.redaction.enabled",
+    "type" : "Boolean",
+    "default" : "true",
+    "description" : "mask values (on by default)",
+    "deprecation" : "",
+    "capability" : "logging"
+  }, {
+    "name" : "dc.platform.logging.redaction.patterns",
+    "type" : "List<String>",
+    "default" : "",
+    "description" : "additional regular expressions whose matches are masked",
     "deprecation" : "",
     "capability" : "logging"
   }, {
@@ -363,9 +410,9 @@
   }, {
     "name" : "dc.platform.messaging.correlation.propagate",
     "type" : "Boolean",
-    "default" : "true",
-    "description" : "publish the current {@code RequestContext} correlation id as the {@code correlationId} header",
-    "deprecation" : "",
+    "default" : "",
+    "description" : "Removed: messages carry the W3C traceparent, and a handler continues the producer's trace; there is no correlation header to switch off.",
+    "deprecation" : "error (Correlation is the W3C trace ID, carried in traceparent on every message.)",
     "capability" : "messaging"
   }, {
     "name" : "dc.platform.messaging.default-destination-prefix",
@@ -392,21 +439,147 @@
     "name" : "dc.platform.messaging.handler.retry.backoff",
     "type" : "Duration",
     "default" : "1s",
-    "description" : "pause between attempts",
+    "description" : "pause before the second attempt; doubles per attempt",
     "deprecation" : "",
     "capability" : "messaging"
   }, {
     "name" : "dc.platform.messaging.handler.retry.max-attempts",
     "type" : "Integer",
     "default" : "3",
-    "description" : "total delivery attempts before giving up and republishing to the DLQ",
+    "description" : "total attempts before the message is dead-lettered",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.handler.retry.max-backoff",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "the longest pause between attempts",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.batch-size",
+    "type" : "Integer",
+    "default" : "50",
+    "description" : "the most rows claimed in one transaction, and so the most duplicates a killed instance can cause",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.enabled",
+    "type" : "Boolean",
+    "default" : "true",
+    "description" : "{@code false} publishes after commit, no longer guaranteed, and logs a WARN saying so",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.gauge-interval",
+    "type" : "Duration",
+    "default" : "5s",
+    "description" : "how often the backlog metrics are refreshed",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.initial-backoff",
+    "type" : "Duration",
+    "default" : "1s",
+    "description" : "the first per-row retry delay; doubles per attempt",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.max-backoff",
+    "type" : "Duration",
+    "default" : "5m",
+    "description" : "the longest per-row retry delay and the longest pause after a failure",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.max-rejections",
+    "type" : "Integer",
+    "default" : "10",
+    "description" : "how many times the sink may reject a row before it is parked; outages do not count",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.poll-interval",
+    "type" : "Duration",
+    "default" : "1s",
+    "description" : "the pause when nothing is due",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.pool-size",
+    "type" : "Integer",
+    "default" : "2",
+    "description" : "the most database connections the drainer holds, on its own pool; at least 2",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.read-timeout",
+    "type" : "Duration",
+    "default" : "60s",
+    "description" : "the Oracle driver's read timeout on the drainer's connections, unless the application pool sets one",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.retention-interval",
+    "type" : "Duration",
+    "default" : "5m",
+    "description" : "how often sent rows are deleted",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.sent-retention",
+    "type" : "Duration",
+    "default" : "24h",
+    "description" : "how long a sent row is kept before deletion",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.statement-timeout",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "the timeout on each statement the drainer runs",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.outbox.stop-timeout",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "how long a shutdown waits for the batch in flight",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.rabbit.confirm-timeout",
+    "type" : "Duration",
+    "default" : "5s",
+    "description" : "how long a send waits for the broker's publisher confirm before it fails",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.rabbit.delivery-limit",
+    "type" : "Integer",
+    "default" : "20",
+    "description" : "returns a quorum queue allows before dead-lettering: catches a message that keeps killing its consumer, which in-process retries cannot count. A message merely held by a stopping consumer counts too, so it is well above what rolling restarts reach",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.rabbit.prefetch",
+    "type" : "Integer",
+    "default" : "10",
+    "description" : "how many messages a consumer holds at once, and so how many a retrying handler can delay",
     "deprecation" : "",
     "capability" : "messaging"
   }, {
     "name" : "dc.platform.messaging.rabbit.quorum-queues",
     "type" : "Boolean",
-    "default" : "false",
-    "description" : "declare quorum queues instead of classic queues; opt-in for production clusters",
+    "default" : "true",
+    "description" : "declare quorum queues, the main and the dead-letter one; {@code false} for classic queues",
+    "deprecation" : "",
+    "capability" : "messaging"
+  }, {
+    "name" : "dc.platform.messaging.rabbit.shutdown-timeout",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "how long a stopping consumer waits for the handler in flight",
     "deprecation" : "",
     "capability" : "messaging"
   }, {
@@ -539,7 +712,70 @@
     "name" : "dc.platform.restclient.clients",
     "type" : "Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride>",
     "default" : "",
-    "description" : "per-client timeout overrides, keyed by the name passed to {@link ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory#builder(String)}",
+    "description" : "per-client overrides, keyed by the name passed to {@link ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory#builder(String)} <p>{@code dc.platform.restclient.propagate-correlation} is gone: every client is instrumented with the observation registry, so the W3C {@code traceparent} (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated.",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.bulkhead.enabled",
+    "type" : "Boolean",
+    "default" : "",
+    "description" : "whether to use it",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.bulkhead.max-concurrent",
+    "type" : "Integer",
+    "default" : "",
+    "description" : "calls in flight at once",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.bulkhead.type",
+    "type" : "ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$BulkheadType",
+    "default" : "",
+    "description" : "{@link BulkheadType#SEMAPHORE}; {@link BulkheadType#THREAD_POOL} fails startup",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.enabled",
+    "type" : "Boolean",
+    "default" : "",
+    "description" : "whether to use it",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.failure-rate-threshold",
+    "type" : "Float",
+    "default" : "",
+    "description" : "failure percentage that opens it",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.half-open-calls",
+    "type" : "Integer",
+    "default" : "",
+    "description" : "trial calls after that",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.minimum-calls",
+    "type" : "Integer",
+    "default" : "",
+    "description" : "calls needed before it can open",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.open-duration",
+    "type" : "Duration",
+    "default" : "",
+    "description" : "how long it stays open",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.circuit-breaker.sliding-window-size",
+    "type" : "Integer",
+    "default" : "",
+    "description" : "calls measured",
     "deprecation" : "",
     "capability" : "restclient"
   }, {
@@ -550,10 +786,59 @@
     "deprecation" : "",
     "capability" : "restclient"
   }, {
+    "name" : "dc.platform.restclient.defaults.deadline",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "bound on one call, all attempts and waits included",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
     "name" : "dc.platform.restclient.defaults.read-timeout",
     "type" : "Duration",
     "default" : "10s",
-    "description" : "read timeout",
+    "description" : "bound on one attempt's whole response, body included",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.enabled",
+    "type" : "Boolean",
+    "default" : "",
+    "description" : "whether to retry",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.initial-backoff",
+    "type" : "Duration",
+    "default" : "",
+    "description" : "upper bound of the first wait; waits are jittered",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.max-attempts",
+    "type" : "Integer",
+    "default" : "",
+    "description" : "total attempts, the first included",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.max-backoff",
+    "type" : "Duration",
+    "default" : "",
+    "description" : "largest bound; a server's {@code Retry-After} is limited by the deadline instead",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.methods",
+    "type" : "Set<String>",
+    "default" : "",
+    "description" : "methods retried: a subset of GET, HEAD, OPTIONS, PUT, DELETE",
+    "deprecation" : "",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.defaults.retry.multiplier",
+    "type" : "Double",
+    "default" : "",
+    "description" : "growth of the bound between attempts",
     "deprecation" : "",
     "capability" : "restclient"
   }, {
@@ -566,8 +851,15 @@
   }, {
     "name" : "dc.platform.restclient.propagate-correlation",
     "type" : "Boolean",
-    "default" : "true",
-    "description" : "propagate the current {@code RequestContext} correlation id as an outbound header",
+    "default" : "",
+    "description" : "Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent.",
+    "deprecation" : "error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.)",
+    "capability" : "restclient"
+  }, {
+    "name" : "dc.platform.restclient.token-relay.clients",
+    "type" : "List<String>",
+    "default" : "",
+    "description" : "the client names the token is relayed to; none by default, since a token sent to a service can be replayed by it",
     "deprecation" : "",
     "capability" : "restclient"
   }, {
@@ -578,10 +870,73 @@
     "deprecation" : "",
     "capability" : "scheduling"
   }, {
+    "name" : "dc.platform.security.allow-partial-chains",
+    "type" : "Boolean",
+    "default" : "false",
+    "description" : "accept consumer filter chains that leave some requests unmatched, which Spring Security would then let through unauthenticated",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
     "name" : "dc.platform.security.enabled",
     "type" : "Boolean",
     "default" : "true",
     "description" : "master kill switch for the whole capability",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.allow-insecure-jwks",
+    "type" : "Boolean",
+    "default" : "false",
+    "description" : "accept a JWKS URL that is neither https nor loopback",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.clock-skew",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "tolerance on {@code exp} and {@code nbf}; at most 5 minutes",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.jwks.cache-ttl",
+    "type" : "Duration",
+    "default" : "5m",
+    "description" : "how long fetched keys are used before a refresh, so how long a removed key lasts",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.jwks.connect-timeout",
+    "type" : "Duration",
+    "default" : "2s",
+    "description" : "connection timeout of one fetch",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.jwks.outage-tolerance",
+    "type" : "Duration",
+    "default" : "1h",
+    "description" : "how long past {@code cacheTtl} cached keys keep working while fetches fail",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.jwks.read-timeout",
+    "type" : "Duration",
+    "default" : "2s",
+    "description" : "read timeout of one fetch",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.jwks.refresh-cooldown",
+    "type" : "Duration",
+    "default" : "30s",
+    "description" : "least time between fetches, so an unknown key id cannot hammer the provider",
+    "deprecation" : "",
+    "capability" : "security"
+  }, {
+    "name" : "dc.platform.security.jwt.resource-client",
+    "type" : "String",
+    "default" : "",
+    "description" : "the {@code resource_access} entry roles are read from; empty means {@code spring.application.name}",
     "deprecation" : "",
     "capability" : "security"
   }, {
@@ -594,7 +949,7 @@
   }, {
     "name" : "dc.platform.security.permit-paths",
     "type" : "List<String>",
-    "default" : "[/actuator/health, /actuator/health/**, /actuator/info, /v3/api-docs/**, /swagger-ui/**, /swagger-ui.html]",
+    "default" : "[/actuator/health/liveness, /actuator/health/readiness]",
     "description" : "request patterns open without authentication",
     "deprecation" : "",
     "capability" : "security"
@@ -632,9 +987,33 @@
     "capability" : "core",
     "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler"
   }, {
+    "code" : "DC-CORE-0410",
+    "capability" : "core",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler"
+  }, {
+    "code" : "DC-CORE-0499",
+    "capability" : "core",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler"
+  }, {
     "code" : "DC-CORE-0500",
     "capability" : "core",
     "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler"
+  }, {
+    "code" : "DC-DATA-0409",
+    "capability" : "data",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
+  }, {
+    "code" : "DC-DATA-0410",
+    "capability" : "data",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
+  }, {
+    "code" : "DC-DATA-0503",
+    "capability" : "data",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
+  }, {
+    "code" : "DC-TEST-0001",
+    "capability" : "test",
+    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactoryTest"
   } ],
   "apiTypes" : [ {
     "type" : "ae.gov.dubaicustoms.platform.audit.AuditEvent",
@@ -862,6 +1241,11 @@
     "status" : "STABLE",
     "since" : "0.1.0"
   }, {
+    "type" : "ae.gov.dubaicustoms.platform.messaging.EventHeaders",
+    "kind" : "class",
+    "status" : "STABLE",
+    "since" : "1.0.0"
+  }, {
     "type" : "ae.gov.dubaicustoms.platform.messaging.EventPublishException",
     "kind" : "class",
     "status" : "STABLE",
@@ -881,6 +1265,11 @@
     "kind" : "annotation",
     "status" : "STABLE",
     "since" : "0.1.0"
+  }, {
+    "type" : "ae.gov.dubaicustoms.platform.messaging.OutboxPublisher",
+    "kind" : "interface",
+    "status" : "STABLE",
+    "since" : "1.0.0"
   }, {
     "type" : "ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer",
     "kind" : "interface",
@@ -1070,11 +1459,11 @@
   "snippets" : [ {
     "capability" : "core",
     "id" : "core",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-core</artifactId>\n</dependency>"
+    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-core</artifactId>\r\n</dependency>"
   }, {
     "capability" : "errors",
     "id" : "errors",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-errors</artifactId>\n</dependency>"
+    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-errors</artifactId>\r\n</dependency>"
   }, {
     "capability" : "logging",
     "id" : "logging",
@@ -1086,7 +1475,7 @@
   }, {
     "capability" : "observability",
     "id" : "observability",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-observability</artifactId>\n</dependency>"
+    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-observability</artifactId>\r\n</dependency>"
   }, {
     "capability" : "openapi",
     "id" : "openapi",
@@ -1094,7 +1483,7 @@
   }, {
     "capability" : "restclient",
     "id" : "restclient",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-restclient</artifactId>\n</dependency>"
+    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-restclient</artifactId>\r\n</dependency>"
   }, {
     "capability" : "security",
     "id" : "security",
@@ -1108,13 +1497,17 @@
     "id" : "messaging-usage",
     "code" : "@EventType(\"OrderPlaced\")\nrecord OrderPlaced(String orderId) {}\n\n@Service\nclass OrdersService {\n    private final EventPublisher publisher;\n\n    OrdersService(EventPublisher publisher) {\n        this.publisher = publisher;\n    }\n\n    void place(String orderId) {\n        publisher.publish(\"dc.orders\", new OrderPlaced(orderId));\n    }\n}\n\n@Component\nclass OrdersEventHandlers {\n    @EventHandler(destination = \"dc.orders\", eventType = \"OrderPlaced\")\n    void onOrderPlaced(OrderPlaced event) {\n        // ...\n    }\n}"
   }, {
+    "capability" : "outbox",
+    "id" : "outbox",
+    "code" : "<dependency>\r\n     <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n     <artifactId>platform-starter-messaging-outbox</artifactId>\r\n   </dependency>\r\n   <dependency>\r\n     <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n     <artifactId>platform-starter-messaging-rabbit</artifactId>\r\n   </dependency>"
+  }, {
     "capability" : "events",
     "id" : "events-usage",
     "code" : "record OrderPlaced(String orderId) implements DomainEvent {}\n\n@Service\nclass OrdersService {\n    private final DomainEventPublisher publisher;\n\n    OrdersService(DomainEventPublisher publisher) {\n        this.publisher = publisher;\n    }\n\n    @Transactional\n    void place(String orderId) {\n        // ... persist the order ...\n        publisher.publish(new OrderPlaced(orderId));\n    }\n}\n\n@Component\nclass OrderNotifications {\n    @DomainEventHandler\n    void onOrderPlaced(OrderPlaced event) {\n        // runs only after the surrounding transaction commits\n    }\n}"
   }, {
     "capability" : "data",
     "id" : "data",
-    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-data-jpa</artifactId>\n</dependency>"
+    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-data-jpa-oracle</artifactId>\r\n</dependency>"
   }, {
     "capability" : "cache",
     "id" : "cache",
@@ -1162,6 +1555,6 @@
   }, {
     "capability" : "testing",
     "id" : "testing",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-test</artifactId>\r\n  <scope>test</scope>\r\n</dependency>"
+    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-test</artifactId>\n  <scope>test</scope>\n</dependency>"
   } ]
 }

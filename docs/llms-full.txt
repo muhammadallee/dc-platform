@@ -1064,6 +1064,8 @@ storage, and an opt-in endpoint that tells you which platform capabilities a run
   capabilities are ACTIVE in this running service, with provider detail. Generated services expose it.
 - **Prometheus locally, OTLP when you have a collector** — the starter ships both metric registries
   and the OTLP span exporter; OTLP export is OFF by default because laptops have no collector.
+  Zipkin is not supported: OpenTelemetry's Zipkin exporter is discontinued and fails against the OpenTelemetry the
+  platform manages, so `platform-service-parent` refuses it at build time. Export over OTLP.
 - **Bounded metric tags** — the trace ID never becomes a metric tag or observation key-value, and
   Boot's `uri` tag cap (`management.metrics.web.server.max-uri-tags` /
   `management.metrics.web.client.max-uri-tags`, default 100) stops a client that builds URIs by string
@@ -1276,8 +1278,8 @@ declares that status explicitly — the platform customizer never overwrites an 
 # REST Client
 
 Platform-conventional outbound REST calls: inject `PlatformRestClientFactory` instead of
-`RestClient.Builder` to get W3C trace propagation, sane timeouts, and error mapping on every
-outbound call for free.
+`RestClient.Builder` to get W3C trace propagation, timeouts and a deadline, safe retries, a circuit
+breaker, a bulkhead and one failure type on every outbound call.
 
 ## What you get
 
@@ -1286,25 +1288,24 @@ outbound call for free.
 - **Trace propagation** — every client is instrumented with the observation registry, so the
   current trace travels as the standard `traceparent` header (the platform's only correlation id).
   No custom correlation header is sent or read (the former `X-Correlation-Id` behaviour is gone).
-- **Per-client timeouts** — a `connect-timeout`/`read-timeout` default, overridable per client
-  name.
-- **Error mapping** — any non-2xx response throws `RemoteCallException` (status, 1KB-truncated
-  body). `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
+- **Per-client settings** — everything below has a default, overridable per client name.
+- **One failure type** — every failure throws `RemoteCallException`; `kind()` says which (see below).
+  At most 8 KiB of an error body is read. The 1KB snippet has common credential forms removed: authorization and
+  cookie lines, auth schemes, JWTs, and secret-named values in JSON and forms; a body with a secret-named XML element
+  loses its whole snippet. This is best effort, by pattern:
+  an encoded or oddly named secret, or personal or business data, can remain. It also errs the safe way, so
+  "basic validation failed" loses a word. Treat `bodySnippet()` as untrusted: never return it to your own callers.
+  `remoteCorrelationId()` is deprecated and always empty for platform-created exceptions:
   caller and callee share one trace, so the caller's own `traceId` joins both sides' logs.
+- **Retries, deadline, breaker, bulkhead** — see [Resilience](#resilience).
 - **`PlatformRestClientCustomizer` extension point** — ordered beans that further customize a
   named client's builder.
 - **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
   the application's `ObservationRegistry`), tagged `client.name=<clientName>`.
-- **Guarded token relay** — when the security capability is present and a request is
-  authenticated, the incoming bearer token is relayed to outbound calls automatically; a
-  restclient-only consumer never pulls in security. The auto-configuration is ordered after the
-  security capability's, so the relay registers in real applications (not only in tests that supply
-  a `CurrentUserAccessor` bean themselves). The relay applies to **every** client the factory builds —
-  use the factory for services that should see the caller's token, and a `PlatformRestClientCustomizer`
-  or a separate client for third parties. A redirect to another origin does not carry the header
+- **Token relay, opt-in per client** — name the clients that should carry the caller's bearer token in
+  `dc.platform.restclient.token-relay.clients`. None do by default, since whoever receives a token can replay it. A
+  restclient-only consumer never pulls in security. A redirect to another origin does not carry the header
   (JDK `HttpClient` behavior, covered by a test).
-- **Failure shapes** — non-2xx: `RemoteCallException`; read timeout, refused or reset connection:
-  Spring's `ResourceAccessException`. No retries are added (compose resilience explicitly).
 
 ## Starter coordinates
 
@@ -1330,11 +1331,84 @@ class OrdersClient {
         try {
             return client.get().uri("/orders/{id}", id).retrieve().body(Order.class);
         } catch (RemoteCallException e) {
-            throw new UpstreamOrdersFailure(e.status(), e.bodySnippet());
+            throw new UpstreamOrdersFailure(e.status());
         }
     }
 }
 ```
+
+## Resilience
+
+From the outside in: **deadline, retry, circuit breaker, bulkhead, HTTP**. Each attempt asks the breaker
+and the bulkhead separately. All of it runs below the client's interceptors, so every attempt carries
+the same token and `traceparent`, and one call is one `http.client.requests` observation.
+
+- **Retry.** GET, HEAD, OPTIONS, PUT and DELETE: on a connection failure, a timeout, or 429, 502, 503,
+  504. Not on other 4xx, and not on 500, which is usually a bug that repeating only loads further.
+  Default 3 attempts, waits jittered up to 200 ms, 400 ms, capped at 5 s. `Retry-After` replaces the wait;
+  if it passes the deadline the call stops at once.
+- **POST and PATCH are never retried**, with or without an `Idempotency-Key`, which passes through
+  unchanged. Listing them in `retry.methods` fails startup.
+- **PUT and DELETE are retried** because RFC 9110 calls them idempotent. If yours is not, remove them from
+  `retry.methods`.
+- **The JDK client re-sends a GET or HEAD once by itself** after a dropped connection, and this cannot be
+  switched off per client. So the worst case is 2 × `max-attempts` requests. POST is not re-sent, and
+  `jdk.httpclient.enableAllMethodRetry`, which would change that, stops the application from starting, as a system
+  property or in the JDK's `conf/net.properties`. The check reads the file when the context starts; restart the JVM after changing it.
+- **Only known idempotent methods follow redirects.** A POST, PATCH or custom method gets the 3xx back, since a 307 or
+  308 would send it again. Under HTTP/2, the JDK can re-send a stream the server said it never processed.
+- **Request bodies are held in memory** for the length of the call, so a streaming upload is buffered. Use something
+  else for large uploads.
+- **Deadline.** Always on. Covers all attempts and waits, from the moment a call reaches the client's transport: not
+  the time your own interceptors or a slow upload callback take first. An attempt's timeout is the smaller of `read-timeout` and
+  what remains. The read timeout covers the whole response, body included, so raise it for a large download.
+- **Circuit breaker.** Per client name: opens at 50% failures over 10 calls, stays open 30 s, then allows 3
+  trial calls. A failure is a connection failure, a timeout, or 500 and above. A 4xx is an answer. Open means
+  nothing is sent and nothing is retried.
+- **Bulkhead.** A semaphore per client name, default 25 calls and no waiting. The permit is held until the
+  response closes. A thread-pool bulkhead is refused: it would pin blocking calls to platform threads.
+
+A fallback is the caller's choice:
+
+```java
+try {
+    return client.get().uri("/orders/{id}", id).retrieve().body(Order.class);
+} catch (RemoteCallException e) {
+    if (e.kind() == RemoteCallException.Kind.CIRCUIT_OPEN) {
+        return cachedOrder(id);
+    }
+    throw e;
+}
+```
+
+### What the caller of your service sees
+
+An uncaught `RemoteCallException` becomes a ProblemDetail with code `DC-RCLIENT-0500` and a generic detail:
+
+| Failure | Status | `retryable` |
+|---|---|---|
+| 429, 502, 503, 504, idempotent method | 503 | true |
+| Any other 4xx, or 500 | 500 | false |
+| Timeout or connection failure, idempotent method | 503 | true |
+| Connection never made, any method | 503 | true |
+| Deadline ran out, idempotent method | 504 | true |
+| Breaker open, bulkhead full, any method: nothing was sent | 503 | true |
+| POST or PATCH that may have arrived: the outcome is unknown | 500 | false |
+
+### Metrics and health
+
+- `platform.restclient.attempts{client,outcome}`: one per attempt. Outcomes: `success`, `status_4xx`,
+  `status_5xx`, `timeout`, `connection`, `deadline`, `circuit_open`, `bulkhead_full`.
+- `resilience4j.circuitbreaker.*` and `resilience4j.bulkhead.*`, tagged `name=rest-<client>`.
+- The `restclient` health contributor is always `UP`, with each breaker's state in its details. It is in the
+  `dependencies` group and never in readiness: a remote being down must not take every replica out.
+
+Client names name breakers and tags, so take them from a fixed set. Query strings and URL credentials are left out of
+the `uri` tag and the span's `http.url`.
+
+A **success** body that cannot be parsed fails as Spring's `RestClientException`, with the parser's exception type and no text
+from the body (HI-0099), so a secret in a broken response stays out of your logs. Converters you add after `builder()` returns
+are not covered. A connection failure while reading a body is the `RemoteCallException` itself, and the table above applies.
 
 ## Properties
 
@@ -1343,9 +1417,26 @@ class OrdersClient {
 | `dc.platform.restclient.enabled` | `true` | Kill switch for the whole capability. |
 | ~~`dc.platform.restclient.propagate-correlation`~~ | — | Removed (deprecated, level `error`): `traceparent` is always propagated. |
 | `dc.platform.restclient.defaults.connect-timeout` | `2s` | Default connect timeout. |
-| `dc.platform.restclient.defaults.read-timeout` | `10s` | Default read timeout. |
-| `dc.platform.restclient.clients.<name>.connect-timeout` | (defaults) | Per-client connect timeout override. |
-| `dc.platform.restclient.clients.<name>.read-timeout` | (defaults) | Per-client read timeout override. |
+| `dc.platform.restclient.defaults.read-timeout` | `10s` | Bound on one attempt's whole response, body included. |
+| `dc.platform.restclient.defaults.deadline` | `30s` | Bound on one call, all attempts and waits included. |
+| `….retry.enabled` | `true` | Retry idempotent methods. |
+| `….retry.max-attempts` | `3` | Attempts, the first included. |
+| `….retry.initial-backoff` | `200ms` | Upper bound of the first wait. |
+| `….retry.multiplier` | `2.0` | Growth of the bound. |
+| `….retry.max-backoff` | `5s` | Largest bound. `Retry-After` is limited by the deadline instead. |
+| `….retry.methods` | `GET,HEAD,OPTIONS,PUT,DELETE` | A subset of these. |
+| `….circuit-breaker.enabled` | `true` | Use the breaker. |
+| `….circuit-breaker.failure-rate-threshold` | `50` | Percentage that opens it. |
+| `….circuit-breaker.sliding-window-size` | `10` | Calls measured. |
+| `….circuit-breaker.minimum-calls` | `10` | Calls needed before it can open. |
+| `….circuit-breaker.open-duration` | `30s` | How long it stays open. |
+| `….circuit-breaker.half-open-calls` | `3` | Trial calls after that. |
+| `….bulkhead.enabled` | `true` | Use the bulkhead. |
+| `….bulkhead.type` | `SEMAPHORE` | `THREAD_POOL` fails startup. |
+| `….bulkhead.max-concurrent` | `25` | Calls at once. A full bulkhead refuses at once. |
+| `dc.platform.restclient.clients.<name>.*` | (defaults) | Any of the above except `enabled` at the top, for one client. Unset values inherit. |
+
+`…` is `dc.platform.restclient.defaults` or `dc.platform.restclient.clients.<name>`.
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -1367,6 +1458,8 @@ PlatformRestClientCustomizer apiKeyCustomizer() {
 
 - Define your own `PlatformRestClientFactory` bean to replace the default entirely.
 - `dc.platform.restclient.enabled=false` switches the capability off wholesale.
+- Calling `requestFactory(...)` on a builder, or in a customizer, removes retry, deadline, breaker and bulkhead
+  from that client, along with the mapping of connection failures.
 
 ## Testing
 
@@ -1393,11 +1486,16 @@ exposes the authenticated principal without coupling application code to JWT/cla
 
 ## What you get
 
-- **Baseline `SecurityFilterChain`** — stateless (no session), permit-paths open (actuator
-  health/info, `/v3/api-docs/**`, swagger by default), everything else authenticated, security
+- **Baseline `SecurityFilterChain`** — stateless (no session), only the liveness and readiness probes open
+  by default, everything else authenticated, including `info`, `prometheus`, OpenAPI and swagger. Security
   headers on, method security enabled (`@EnableMethodSecurity`).
-- **JWT resource server** — wired off the standard `spring.security.oauth2.resourceserver.jwt.*`
-  properties (issuer-uri or jwk-set-uri); no platform-specific JWT configuration.
+- **Strict token validation** — signature, `iss`, `aud`, `exp` and `nbf` checked, `exp` and `sub` required, RS256 unless
+  `jws-algorithms` says otherwise. **The application does not start** without `issuer-uri`, `jwk-set-uri` and `audiences`.
+- **Signing keys** — fetched on first use with 2 s timeouts, cached 5 min, refreshed for an unknown `kid` at most twice per
+  30 s. During an outage cached keys work for 1 h beyond the cache time, and for up to one more cache time (5 min) after that. A token that cannot be checked gets a 503 `DC-SEC-0503`, `retryable`.
+- **Roles** — `ROLE_x` from `roles`, Keycloak's `realm_access.roles`, and `resource_access.<client>.roles` of this service's
+  own client only; `SCOPE_x` from `scope`.
+- **Fails closed** — startup fails if a request could match no filter chain.
 - **RFC-9457 401/403 bodies** — the security filter chain runs before the `DispatcherServlet`, so
   the errors capability's `@RestControllerAdvice` cannot shape these; a small internal
   entry-point/denied-handler pair writes the problem body directly, with the full platform contract
@@ -1432,7 +1530,9 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://issuer.example/
+          issuer-uri: https://issuer.example/realms/main
+          jwk-set-uri: https://issuer.example/realms/main/protocol/openid-connect/certs
+          audiences: orders-service
 ```
 
 ## Zero-config behavior
@@ -1455,7 +1555,16 @@ principal derived from it.
 |---|---|---|
 | `dc.platform.security.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.security.mode` | `resource-server` | `resource-server` builds the baseline chain; `disabled` leaves security to the application. Explicit only — never implied by a profile. |
-| `dc.platform.security.permit-paths` | actuator health/info, `/v3/api-docs/**`, swagger | Request patterns open without authentication. |
+| `dc.platform.security.permit-paths` | `/actuator/health/liveness`, `/actuator/health/readiness` | Request patterns open without authentication. |
+| `dc.platform.security.allow-partial-chains` | `false` | Accept consumer chains that leave requests unmatched. Those requests get **no security**. Also needed if your final chain has a custom matcher that does cover everything. |
+| `dc.platform.security.jwt.clock-skew` | `30s` | Tolerance on `exp` and `nbf`. At most 5 min. |
+| `dc.platform.security.jwt.allow-insecure-jwks` | `false` | Accept a JWKS URL that is neither https nor loopback. |
+| `dc.platform.security.jwt.resource-client` | `spring.application.name` | The `resource_access` entry roles are read from. |
+| `dc.platform.security.jwt.jwks.connect-timeout`, `.read-timeout` | `2s` | One fetch of the keys. |
+| `dc.platform.security.jwt.jwks.cache-ttl` | `5m` | How long a key removed at the provider keeps working. |
+| `dc.platform.security.jwt.jwks.refresh-cooldown` | `30s` | The limiter's interval: at most 2 fetches in each. |
+| `dc.platform.security.jwt.jwks.outage-tolerance` | `1h` | How long past `cache-ttl` cached keys work while fetches fail; up to one more `cache-ttl` on top. |
+| `dc.platform.security.skip-open-path-check` | `false` | Skip the startup check for paths open to anonymous callers, with a warning. Only for a custom matcher that cannot answer it. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -1476,10 +1585,18 @@ that lets customizers add exceptions safely.
 
 ## Replace / Disable
 
-- Define your own `SecurityFilterChain` bean to replace the baseline entirely.
+- Define your own `SecurityFilterChain` bean to replace the baseline entirely. It replaces it for **all** paths, so your last
+  chain must have no `securityMatcher`, or startup fails. With no resource-server keys set, no decoder is created.
+- The `@RequiresPermission` advisor cannot be replaced by a bean of the same name: that fails startup, so nothing can switch
+  enforcement off by accident. Replace the decision with a `PermissionEvaluatorProvider`.
+- `permit-paths` and `SecurityCustomizer` rules are checked at startup: an unnamed path open to anonymous callers with any method, or a
+  matcher that cannot answer the check, fails startup; `skip-open-path-check` turns the check off. The check cannot see a rule that opens a large but named area, such as `/api/**`.
+- Define your own `JwtDecoder` to replace all of the token validation, and your own `JwtAuthenticationConverter` to replace the
+  role mapping. Boot's `authorities-claim-*` properties are not used unless you do.
 - Define your own `CurrentUserAccessor` bean to replace the JWT-claims-based default.
-- `dc.platform.security.mode=disabled` leaves security to the application (explicit only).
-- `dc.platform.security.enabled=false` switches the capability off wholesale.
+- `dc.platform.security.mode=disabled` leaves security to the application (explicit only). With no chain of yours, Boot's
+  own default stays and requests get a 401.
+- `dc.platform.security.enabled=false` switches the capability off wholesale, with the same result. Tier: `DEFAULT_ON`.
 
 ## Testing
 
@@ -1496,6 +1613,7 @@ suite.
 ## Local dev notes
 
 No Docker, no network required for the default test suite (JWT decoding is mocked in tests).
+Debug logging on `org.springframework.security` is not covered by the platform's guarantee that tokens stay out of logs.
 Quick smoke check: `curl -i localhost:8080/whatever` — a `401` with an
 `application/problem+json` body proves the chain is active.
 
@@ -1514,8 +1632,8 @@ and the platform enforces it — anonymous callers get 401, callers lacking the 
 - **`@RequiresPermission("orders:read")`** — method or type level; enforced by a Spring AOP
   advisor bridging to the ordered `PermissionEvaluatorProvider` beans.
 - **`PermissionEvaluatorProvider` SPI** — pluggable evaluation strategy; the default
-  `RolesClaimPermissionProvider` reads a configurable claim (default `roles`) off `CurrentUser`,
-  falling back to the accessor-derived `roles()` set.
+  `RolesClaimPermissionProvider` grants `x` if it is in a configurable claim (default `roles`) or is a role, `ROLE_x`, which
+  includes Keycloak roles. A scope, `SCOPE_x`, is not a permission.
 - **Correct status codes** — unauthenticated callers get
   `InsufficientAuthenticationException` (401); authenticated callers without the permission get
   `AccessDeniedException` (403); both are translated to RFC-9457 bodies by the security
@@ -1537,7 +1655,8 @@ and the platform enforces it — anonymous callers get 401, callers lacking the 
 
 The authz starter does not pull in the security starter transitively (they are independently
 useful capabilities): the advisor bean only activates once a `CurrentUserAccessor` bean actually
-exists, so pair the two starters for a working setup.
+exists. **Without one, startup fails**, since `@RequiresPermission` would otherwise protect nothing: pair the two starters, supply
+your own `CurrentUserAccessor`, or set `dc.platform.authz.enabled=false`.
 
 ## Zero-config behavior
 
@@ -1592,7 +1711,7 @@ mockMvc.perform(get("/orders").with(jwt().jwt(b -> b.claim("roles", List.of("ord
 ## Local dev notes
 
 No Docker, no network. Depends on the security capability's `CurrentUserAccessor` bean being
-present at runtime (pair with `platform-starter-security`).
+present at runtime: without one, startup fails.
 
 
 ---
@@ -1618,12 +1737,12 @@ or RabbitMQ) via a starter.
   `@EventType` on the payload class, or fall back to the simple class name / version 1.
 - **`@EventHandler(destination, eventType)`** — marks a method as a handler; takes either the
   payload type or `EventEnvelope<T>` when headers/metadata are needed.
-- **Correlation propagation** — the current `RequestContext` correlation id is added as the
-  `correlationId` header on every publish (toggle with `correlation.propagate`).
-- **Bounded retry + DLQ** — failed handler deliveries retry
-  (`handler.retry.max-attempts`/`handler.retry.backoff`) then republish to
-  `destination + dlq.suffix` — this fallback is transport-agnostic and works identically over
-  every provider; Kafka and RabbitMQ additionally get their own broker-native DLQ.
+- **Structured headers** — every message carries `eventId`, `eventType`, `eventVersion`, `producer`, and
+  `traceparent` when a trace is active. A credential-named header is refused. A handler runs in a span continuing
+  the message's trace.
+- **Bounded retry + DLQ** — a failed handler is retried up to `handler.retry.max-attempts`, with a capped exponential
+  backoff, then dead-lettered: by the broker on RabbitMQ, by a republish to `destination + dlq.suffix` elsewhere. A payload
+  that cannot be read, or a newer version than the handler knows, goes there on the first attempt.
 - **Metrics** — `platform.messaging.published` (publish outcome) and `platform.messaging.handled`
   (handler outcome: success/retry/dlq), both via Micrometer when a `MeterRegistry` is present.
 - **`/actuator/platform`** reports `messaging[ACTIVE <provider>]`, or `INACTIVE` when no single
@@ -1696,11 +1815,15 @@ class OrdersEventHandlers {
 |---|---|---|
 | `dc.platform.messaging.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.messaging.default-destination-prefix` | `dc.` | Naming convention only; not enforced. |
-| `dc.platform.messaging.handler.retry.max-attempts` | `3` | Total delivery attempts before a handler failure routes to the DLQ. |
-| `dc.platform.messaging.handler.retry.backoff` | `1s` | Pause between handler retry attempts. |
-| `dc.platform.messaging.dlq.suffix` | `.dlq` | Appended to a destination to form its DLQ destination. |
-| `dc.platform.messaging.correlation.propagate` | `true` | Publish the current correlation id as the `correlationId` header. |
-| `dc.platform.messaging.rabbit.quorum-queues` | `false` | Declare quorum queues instead of classic queues (rabbit provider only). |
+| `dc.platform.messaging.handler.retry.max-attempts` | `3` | Total attempts before a handler failure is dead-lettered. |
+| `dc.platform.messaging.handler.retry.backoff` | `1s` | Pause before the second attempt; doubles per attempt. |
+| `dc.platform.messaging.handler.retry.max-backoff` | `30s` | The longest pause between attempts. |
+| `dc.platform.messaging.dlq.suffix` | `.dlq` | The DLQ destination on transports without native dead-lettering. |
+| `dc.platform.messaging.rabbit.quorum-queues` | `true` | Declare quorum queues, main and dead-letter; `false` for classic. An existing queue of the other type fails its declaration: RabbitMQ does not convert queues. |
+| `dc.platform.messaging.rabbit.confirm-timeout` | `5s` | How long a send waits for the broker's confirm. |
+| `dc.platform.messaging.rabbit.prefetch` | `10` | Messages a consumer holds at once, and so how many a retrying handler can delay. |
+| `dc.platform.messaging.rabbit.shutdown-timeout` | `30s` | How long a stopping consumer waits for the handler in flight. Shutdown phases run in turn: with the defaults, keep the pod's grace period above about 95 s (web drain 30 s, outbox `stop-timeout` 30 s and its joins, this). |
+| `dc.platform.messaging.rabbit.delivery-limit` | `20` | Returns a quorum queue allows before dead-lettering a message that keeps killing its consumer. A message merely held by a stopping consumer counts too, hence well above what rolling restarts reach. |
 
 (Hand-written until the generated reference lands in phase 14.)
 
@@ -1723,8 +1846,49 @@ spring:
 ### RabbitMQ: destination syntax
 
 Destinations are `"exchange"` (empty routing key) or `"exchange:routingKey"`, e.g.
-`"dc.orders:order.placed"`. Each subscription declares a durable topic exchange, a bound queue,
-and a dead-letter exchange + queue automatically.
+`"dc.orders:order.placed"`. Each subscription declares a durable topic exchange, a bound queue
+`<exchange>.<routingKey>.<group>` and a dead-letter exchange + queue `….dlq`. Declarations run on every new connection, so a
+service starts without the broker, and a broker that lost its definitions gets them back.
+
+### RabbitMQ: how a delivery ends
+
+The container acks after the handler returns, including any transaction the handler ran.
+
+| Outcome | What happens |
+|---|---|
+| Handler returns | Acked |
+| Handler keeps failing | `max-attempts` attempts in the consumer, then the broker dead-letters it. With the defaults, 3 s of backoff plus the handler's own time per poison message; other messages the consumer holds wait |
+| Unreadable payload, or a version newer than `@EventType` declares | The DLQ at once, with a WARN or ERROR that never quotes the payload. A replay delivers a newer version after upgrading |
+| Consumer stops | The handler in flight finishes, within `shutdown-timeout`; buffered messages go back; a retry backoff stops and puts its message back |
+| Consumer dies mid-handler | The broker redelivers; `delivery-limit` dead-letters a message that keeps doing this |
+
+Quorum queues dead-letter at-least-once (RabbitMQ 3.10 or later); classic queues do so at-most-once.
+
+Handler time is yours to bound: a handler that blocks holds its consumer and the messages it has buffered. Give it timeouts, as the
+data capability's transaction default does. Handlers belong on singletons created at startup: a bean with a handler created once
+consumers have started fails with an error, since a running consumer could already have acknowledged what it should receive.
+
+Consumers start before the outbox's drainer and stop after it, so a drained event finds its consumers. So a lifecycle bean a handler
+depends on needs a lower phase than `DEFAULT_PHASE - 8192`, or the handler can run before it starts and after it stops.
+
+Handlers on one destination share a queue: each message goes to the handler declaring its `eventType`, else to one declaring none.
+Two handlers that could receive the same message fail startup. A message no handler wants is acknowledged and counted as
+`outcome=ignored`.
+
+**Guarantees, and what they are not.** Delivery is at-least-once and unordered. **Deduplicate by `eventId`:** insert it in a
+processed-events table with a unique constraint, in the same transaction as the business write, and skip on a violation.
+`docs/samples/rabbitmq-messaging/` shows it. Use `OutboxPublisher` for any publish tied to a database change; a direct
+`EventPublisher.publish` fails if the broker is down or the message is unroutable, and the caller must handle that.
+
+**Schema rule.** Consumers tolerate unknown fields, so adding a field needs no version change. A change an old consumer cannot
+read raises `@EventType(version = …)`.
+
+### RabbitMQ: inspecting and replaying a DLQ
+
+`tooling/scripts/rabbit-dlq-replay.py inspect <queue>` prints headers and leaves the messages there; `replay <queue>` moves what
+is in the DLQ now back to the main queue, keeping event ids. It needs the `rabbitmq_shovel` and `rabbitmq_shovel_management`
+plugins. Fix the cause first, or the messages come straight back. Do not delete the main queue during a replay: the shovel would
+publish into nothing.
 
 ## Customize
 
@@ -2419,7 +2583,8 @@ model is Resilience4j's own annotations — the platform ships **no** wrapper an
   always wins):
   - retry: 3 attempts, exponential backoff (200ms × 2)
   - circuit breaker: opens at a 50% failure rate over a 10-call count window
-  - time limiter: 5s
+  - time limiter: 5s, for `CompletionStage` and `Future` returns only; **it does nothing to a blocking call**
+  - the default retry ignores `RemoteCallException` and Spring's `RestClientException` (see below)
 - **`RetryableOperation`** — a programmatic retry helper (`<T> T call(String name, Supplier<T>)`) for
   call sites that cannot use the `@Retry` annotation (dynamic policy names, non-Spring call sites).
   The `name` resolves against the same retry registry the annotations use.
@@ -2427,6 +2592,18 @@ model is Resilience4j's own annotations — the platform ships **no** wrapper an
   share one source of truth.
 - **Metrics** — Resilience4j's Micrometer binding is on by default, so retries, breaker state, and
   time-limiter events are instrumented when Micrometer/actuator are present.
+
+**A call through `PlatformRestClientFactory` needs none of this.** That client already has its own
+deadline, safe retries, breaker and bulkhead (see [REST Client](restclient.md)). Under the `default`
+config, `@Retry` and `RetryableOperation` leave its failures alone: repeating one could send a POST twice,
+and would multiply the retries of the rest. A retry instance of your own with `ignore-exceptions` changed loses
+that protection. Use this capability for everything else: a file, a cache, a third-party SDK.
+
+When several annotations are used together, Resilience4j's order, from the outside in, is
+Retry, CircuitBreaker, RateLimiter, TimeLimiter, Bulkhead.
+
+With `spring.threads.virtual.enabled=true`, configuring `resilience4j.thread-pool-bulkhead` fails startup: use
+`resilience4j.bulkhead`. An `@Bulkhead(type = THREADPOOL)` annotation is not detected, so don't use one.
 
 ## Starter coordinates
 
@@ -2450,7 +2627,7 @@ public InventoryLevel check(String sku) { ... }
 Programmatic — when a policy name is dynamic or the call site is not a Spring bean:
 
 ```java
-String body = retryableOperation.call("inventory", () -> restClient.get(uri).body(String.class));
+String stock = retryableOperation.call("stock-file", () -> readStockFile(path));
 ```
 
 Override any default with Resilience4j's native keys:
@@ -3544,12 +3721,13 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.messaging.correlation.propagate` | Boolean | `true` | publish the current RequestContext correlation id as the correlationId header |  |
+| `dc.platform.messaging.correlation.propagate` | Boolean |  | Removed: messages carry the W3C traceparent, and a handler continues the producer's trace; there is no correlation header to switch off. | error (Correlation is the W3C trace ID, carried in traceparent on every message.) |
 | `dc.platform.messaging.default-destination-prefix` | String | `dc.` | conventional prefix applications may use when naming destinations (not enforced; a naming convention only) |  |
 | `dc.platform.messaging.dlq.suffix` | String | `.dlq` | appended to a destination name to form its DLQ destination, e.g. orders" |  |
 | `dc.platform.messaging.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.messaging.handler.retry.backoff` | Duration | `1s` | pause between attempts |  |
-| `dc.platform.messaging.handler.retry.max-attempts` | Integer | `3` | total delivery attempts before giving up and republishing to the DLQ |  |
+| `dc.platform.messaging.handler.retry.backoff` | Duration | `1s` | pause before the second attempt; doubles per attempt |  |
+| `dc.platform.messaging.handler.retry.max-attempts` | Integer | `3` | total attempts before the message is dead-lettered |  |
+| `dc.platform.messaging.handler.retry.max-backoff` | Duration | `30s` | the longest pause between attempts |  |
 | `dc.platform.messaging.outbox.batch-size` | Integer | `50` | the most rows claimed in one transaction, and so the most duplicates a killed instance can cause |  |
 | `dc.platform.messaging.outbox.enabled` | Boolean | `true` | false publishes after commit, no longer guaranteed, and logs a WARN saying so |  |
 | `dc.platform.messaging.outbox.gauge-interval` | Duration | `5s` | how often the backlog metrics are refreshed |  |
@@ -3564,7 +3742,10 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.messaging.outbox.statement-timeout` | Duration | `30s` | the timeout on each statement the drainer runs |  |
 | `dc.platform.messaging.outbox.stop-timeout` | Duration | `30s` | how long a shutdown waits for the batch in flight |  |
 | `dc.platform.messaging.rabbit.confirm-timeout` | Duration | `5s` | how long a send waits for the broker's publisher confirm before it fails |  |
-| `dc.platform.messaging.rabbit.quorum-queues` | Boolean | `false` | declare quorum queues instead of classic queues; opt-in for production clusters |  |
+| `dc.platform.messaging.rabbit.delivery-limit` | Integer | `20` | returns a quorum queue allows before dead-lettering: catches a message that keeps killing its consumer, which in-process retries cannot count. A message merely held by a stopping consumer counts too, so it is well above what rolling restarts reach |  |
+| `dc.platform.messaging.rabbit.prefetch` | Integer | `10` | how many messages a consumer holds at once, and so how many a retrying handler can delay |  |
+| `dc.platform.messaging.rabbit.quorum-queues` | Boolean | `true` | declare quorum queues, the main and the dead-letter one; false for classic queues |  |
+| `dc.platform.messaging.rabbit.shutdown-timeout` | Duration | `30s` | how long a stopping consumer waits for the handler in flight |  |
 
 ## dc.platform.observability
 
@@ -3613,11 +3794,28 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
+| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
+| `dc.platform.restclient.defaults.bulkhead.enabled` | Boolean |  | whether to use it |  |
+| `dc.platform.restclient.defaults.bulkhead.max-concurrent` | Integer |  | calls in flight at once |  |
+| `dc.platform.restclient.defaults.bulkhead.type` | ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$BulkheadType |  | BulkheadType#SEMAPHORE; BulkheadType#THREAD_POOL fails startup |  |
+| `dc.platform.restclient.defaults.circuit-breaker.enabled` | Boolean |  | whether to use it |  |
+| `dc.platform.restclient.defaults.circuit-breaker.failure-rate-threshold` | Float |  | failure percentage that opens it |  |
+| `dc.platform.restclient.defaults.circuit-breaker.half-open-calls` | Integer |  | trial calls after that |  |
+| `dc.platform.restclient.defaults.circuit-breaker.minimum-calls` | Integer |  | calls needed before it can open |  |
+| `dc.platform.restclient.defaults.circuit-breaker.open-duration` | Duration |  | how long it stays open |  |
+| `dc.platform.restclient.defaults.circuit-breaker.sliding-window-size` | Integer |  | calls measured |  |
 | `dc.platform.restclient.defaults.connect-timeout` | Duration | `2s` | connection timeout |  |
-| `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | read timeout |  |
+| `dc.platform.restclient.defaults.deadline` | Duration | `30s` | bound on one call, all attempts and waits included |  |
+| `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | bound on one attempt's whole response, body included |  |
+| `dc.platform.restclient.defaults.retry.enabled` | Boolean |  | whether to retry |  |
+| `dc.platform.restclient.defaults.retry.initial-backoff` | Duration |  | upper bound of the first wait; waits are jittered |  |
+| `dc.platform.restclient.defaults.retry.max-attempts` | Integer |  | total attempts, the first included |  |
+| `dc.platform.restclient.defaults.retry.max-backoff` | Duration |  | largest bound; a server's Retry-After is limited by the deadline instead |  |
+| `dc.platform.restclient.defaults.retry.methods` | Set<String> |  | methods retried: a subset of GET, HEAD, OPTIONS, PUT, DELETE |  |
+| `dc.platform.restclient.defaults.retry.multiplier` | Double |  | growth of the bound between attempts |  |
 | `dc.platform.restclient.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.restclient.propagate-correlation` | Boolean |  | Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent. | error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.) |
+| `dc.platform.restclient.token-relay.clients` | List<String> |  | the client names the token is relayed to; none by default, since a token sent to a service can be replayed by it |  |
 
 ## dc.platform.scheduling
 
@@ -3629,9 +3827,18 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
+| `dc.platform.security.allow-partial-chains` | Boolean | `false` | accept consumer filter chains that leave some requests unmatched, which Spring Security would then let through unauthenticated |  |
 | `dc.platform.security.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
+| `dc.platform.security.jwt.allow-insecure-jwks` | Boolean | `false` | accept a JWKS URL that is neither https nor loopback |  |
+| `dc.platform.security.jwt.clock-skew` | Duration | `30s` | tolerance on exp and nbf; at most 5 minutes |  |
+| `dc.platform.security.jwt.jwks.cache-ttl` | Duration | `5m` | how long fetched keys are used before a refresh, so how long a removed key lasts |  |
+| `dc.platform.security.jwt.jwks.connect-timeout` | Duration | `2s` | connection timeout of one fetch |  |
+| `dc.platform.security.jwt.jwks.outage-tolerance` | Duration | `1h` | how long past cacheTtl cached keys keep working while fetches fail |  |
+| `dc.platform.security.jwt.jwks.read-timeout` | Duration | `2s` | read timeout of one fetch |  |
+| `dc.platform.security.jwt.jwks.refresh-cooldown` | Duration | `30s` | least time between fetches, so an unknown key id cannot hammer the provider |  |
+| `dc.platform.security.jwt.resource-client` | String |  | the resource_access entry roles are read from; empty means name |  |
 | `dc.platform.security.mode` | ae.gov.dubaicustoms.platform.security.autoconfigure.SecurityProperties$Mode | `resource-server` | Mode#RESOURCE_SERVER builds the baseline JWT resource-server chain; Mode#DISABLED leaves security entirely to the application (explicit only — never implied by a profile, so an accidental local-profile activation never disables security) |  |
-| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health, /actuator/health/**, /actuator/info, /v3/api-docs/**, /swagger-ui/**, /swagger-ui.html]` | request patterns open without authentication |  |
+| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health/liveness, /actuator/health/readiness]` | request patterns open without authentication |  |
 
 ## dc.platform.storage
 
@@ -4821,6 +5028,17 @@ One line of context per decision; details live in the commit bodies referenced.
   without DDL rights. The DDL ships as a resource the service copies, and a startup check names it when the table is
   missing. An archetype feature was dropped: the archetype can only render an unwanted file empty, and an empty V2 would
   collide with the service's next migration (scope amendment A2).
+- **D120 — One retry layer (hardening phase 5).** The registrar retries; a transport that dead-letters natively says so through
+  `EventTransport.deadLettersNatively()`. Two layers multiplied attempts (3 configured, 9 measured). No delayed-retry queues: they
+  need a plugin or more topology, and prefetch bounds what a backoff delays.
+- **D121 — Quorum queues by default, with `x-delivery-limit` (hardening phase 5).** The limit is only for a message that keeps killing
+  its consumer, which in-process retries cannot count.
+- **D122 — Topology on every connection (hardening phase 5).** A service starts without the broker, since the outbox absorbs an
+  outage, and a broker that lost its definitions gets them back.
+- **D123 — A newer `eventVersion` goes to the DLQ (hardening phase 5).** Delivering risks misreading it; dropping loses it. A replay
+  delivers it after upgrading. Unknown fields stay tolerated, so additive changes need no new version.
+- **D124 — Replay through a dynamic shovel (hardening phase 5).** The broker moves the messages with confirms; a custom consumer
+  could lose one mid-copy.
 - **D119 — Rabbit publisher confirms and the event id brought forward from Phase 5 (hardening phase 4).** A row marked sent
   on an unconfirmed send could be lost, so "no loss" would be false; a row needs an id before it can be deduplicated. The
   rest of Rabbit (topology, consumers, DLQ, `traceparent` on `DefaultEventPublisher`) stays in Phase 5.
@@ -4849,6 +5067,39 @@ One line of context per decision; details live in the commit bodies referenced.
 - **D106 — uri tag cardinality is Boot's.** Boot 4.1 caps `uri` values for server and client HTTP
   meters (`management.metrics.web.{server,client}.max-uri-tags`, 100, deny + log once). The platform adds
   no `uri` filter of its own and keeps a test that fails if the cap is lifted.
+- **D125 — Phase 5 residuals accepted (hardening phase 5, owner 2026-11-02).** HI-0087 and HI-0093 are accepted. HI-0088, a main queue
+  deleted during a replay losing what the shovel moves afterwards, is accepted for now and goes back to the owner at the end of all
+  phases, before the Phase 8 release decision: keep accepting it, or replace the shovel.
+- **D126 — REST resilience in a request factory (hardening phase 6).** Below the interceptors, not an interceptor or aspect: a retried
+  interceptor chain can skip later interceptors, such as the token relay, and the factory sees only real sends. One observation per call.
+- **D127 — Resilience4j for the breaker and bulkhead, a short loop for retry (hardening phase 6).** Retry must weigh `Retry-After`, the
+  deadline and the method together. Replacing the request factory removes all of it, documented. No `max-wait` on the bulkhead: a wait
+  could pass the deadline, and a refusal is more useful than a queue. Only known idempotent methods follow redirects.
+- **D128 — What is retried (hardening phase 6).** 429, 502, 503, 504, a timeout or a connection failure, on GET, HEAD, OPTIONS, PUT, DELETE
+  (RFC 9110). Never POST or PATCH (HD2). Not 500: usually a bug, and repeating adds load.
+- **D129 — `PlatformException.problemStatus()` (hardening phase 6).** A remote failure maps to 503, 504 or 500 through a hint on the core
+  type, so `errors` stays independent of `restclient`. `BusinessException` keeps its own status hint.
+- **D130 — An unknown outcome is never `retryable` (hardening phase 6).** A POST that may have arrived is 500, `retryable=false`, as a lost
+  commit is under HI-0071's rule. A connection never made, or a local refusal, is 503 for any method.
+- **D131 — Phase 6 residuals decided (hardening phase 6, owner 2026-11-02).** HI-0094, HI-0095, HI-0096, HI-0097 and HI-0098 are
+  accepted, including HI-0096, which Codex rated High: the JDK caches the value privately, and the gap needs a JDK file edited on a live JVM.
+  HI-0099 is **not** accepted and moves into Phase 7: the log encoder masks recognisable credentials in exception text, but a bare
+  token has nothing to match, so the quoted text is removed at its source. `bodySnippet()` is to be treated as untrusted; the module
+  docs' example no longer passes it on.
+- **D132 — Phase 7 residuals accepted (hardening phase 7, owner 2026-11-03).** HI-0100 (a numeric `sub` or an overflowing `nbf`
+  in a token the trusted provider signed), HI-0101 (the `@RequiresPermission` advisor fails startup rather than back off to a bean
+  of its name, against plan §7.1, since that back-off switched enforcement off in round 1), HI-0102 (a UTF-16 body after an earlier
+  filter took a UTF-16 writer) and HI-0103 (test gaps, no defect shown) are accepted, all Low, as Codex agreed in passes 2 and 3.
+- **D133 — Spring Boot 4.1.2 and two security overrides (hardening phase 8, owner 2026-11-04).** Phase 8's scan (HI-0105) found 7
+  Critical and 15 High known vulnerabilities in what a service ships, all in versions Boot 4.1.0 manages, among them an RCE in
+  Spring WebMVC 7.0.8. Boot moves to 4.1.2 (Spring Framework 7.0.10, Tomcat 11.0.27, Netty 4.2.19, Jackson 2.21.7 and 3.1.7).
+  `amqp-client` is pinned to 5.37.0 and OpenTelemetry to 1.67.0, which Boot 4.1.2 still manages at vulnerable versions. D17's
+  Prometheus override is removed: Boot 4.1.2 manages 1.7.0. Phase 8 reruns on the new versions.
+- **D134 — Phase 8 decisions before the release decision (hardening phase 8, owner 2026-11-04).** Step 7 (OpenShift, D7) is
+  `BLOCKED`: the chart tool's location, invocation and a cluster were not supplied; it becomes a first-adopter condition, like
+  RAC (HD4). HI-0088 stays accepted (D125 review). HI-0106 (CVEs in build and tooling modules and the uncertified Kafka path),
+  HI-0107 (service jars not reproducible; two property references in `platform-dependencies`) and HI-0108 (no SBOM or
+  provenance in the release pipeline) are accepted as release conditions; HI-0108 is to be done before the first real release.
 
 
 ---

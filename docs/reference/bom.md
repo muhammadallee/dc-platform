@@ -56,9 +56,12 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-messaging-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-messaging-kafka` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-messaging-rabbit` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-messaging-outbox` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-messaging-outbox-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-inmemory` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-kafka` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-rabbit` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-starter-messaging-outbox` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-messaging-test` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-events-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-events-autoconfigure` | `${revision}` |
@@ -66,6 +69,7 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-data-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-data-jpa-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-data-jpa` | `${revision}` |
+| `ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-cache-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-cache-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-cache-caffeine` | `${revision}` |

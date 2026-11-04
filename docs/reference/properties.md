@@ -39,6 +39,8 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.data.jpa.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
+| `dc.platform.data.jpa.oracle.flyway-read-timeout` | Duration | `10m` | read timeout on Flyway's own connection (user or url), so a long migration statement (an index build) can finish while a silent database still fails startup |  |
+| `dc.platform.data.jpa.oracle.read-timeout` | Duration | `60s` | read timeout on every connection of an Oracle pool: the longest the driver waits for an answer; above the 30 s transaction default, so a slow statement is cancelled by that first. Raise it for a service whose transactions are longer |  |
 | `dc.platform.data.jpa.require-migrations` | Boolean | `true` | fail startup when JPA is configured but Flyway is absent; set to false to run JPA without managed migrations |  |
 
 ## dc.platform.errors
@@ -106,13 +108,31 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.messaging.correlation.propagate` | Boolean | `true` | publish the current RequestContext correlation id as the correlationId header |  |
+| `dc.platform.messaging.correlation.propagate` | Boolean |  | Removed: messages carry the W3C traceparent, and a handler continues the producer's trace; there is no correlation header to switch off. | error (Correlation is the W3C trace ID, carried in traceparent on every message.) |
 | `dc.platform.messaging.default-destination-prefix` | String | `dc.` | conventional prefix applications may use when naming destinations (not enforced; a naming convention only) |  |
 | `dc.platform.messaging.dlq.suffix` | String | `.dlq` | appended to a destination name to form its DLQ destination, e.g. orders" |  |
 | `dc.platform.messaging.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.messaging.handler.retry.backoff` | Duration | `1s` | pause between attempts |  |
-| `dc.platform.messaging.handler.retry.max-attempts` | Integer | `3` | total delivery attempts before giving up and republishing to the DLQ |  |
-| `dc.platform.messaging.rabbit.quorum-queues` | Boolean | `false` | declare quorum queues instead of classic queues; opt-in for production clusters |  |
+| `dc.platform.messaging.handler.retry.backoff` | Duration | `1s` | pause before the second attempt; doubles per attempt |  |
+| `dc.platform.messaging.handler.retry.max-attempts` | Integer | `3` | total attempts before the message is dead-lettered |  |
+| `dc.platform.messaging.handler.retry.max-backoff` | Duration | `30s` | the longest pause between attempts |  |
+| `dc.platform.messaging.outbox.batch-size` | Integer | `50` | the most rows claimed in one transaction, and so the most duplicates a killed instance can cause |  |
+| `dc.platform.messaging.outbox.enabled` | Boolean | `true` | false publishes after commit, no longer guaranteed, and logs a WARN saying so |  |
+| `dc.platform.messaging.outbox.gauge-interval` | Duration | `5s` | how often the backlog metrics are refreshed |  |
+| `dc.platform.messaging.outbox.initial-backoff` | Duration | `1s` | the first per-row retry delay; doubles per attempt |  |
+| `dc.platform.messaging.outbox.max-backoff` | Duration | `5m` | the longest per-row retry delay and the longest pause after a failure |  |
+| `dc.platform.messaging.outbox.max-rejections` | Integer | `10` | how many times the sink may reject a row before it is parked; outages do not count |  |
+| `dc.platform.messaging.outbox.poll-interval` | Duration | `1s` | the pause when nothing is due |  |
+| `dc.platform.messaging.outbox.pool-size` | Integer | `2` | the most database connections the drainer holds, on its own pool; at least 2 |  |
+| `dc.platform.messaging.outbox.read-timeout` | Duration | `60s` | the Oracle driver's read timeout on the drainer's connections, unless the application pool sets one |  |
+| `dc.platform.messaging.outbox.retention-interval` | Duration | `5m` | how often sent rows are deleted |  |
+| `dc.platform.messaging.outbox.sent-retention` | Duration | `24h` | how long a sent row is kept before deletion |  |
+| `dc.platform.messaging.outbox.statement-timeout` | Duration | `30s` | the timeout on each statement the drainer runs |  |
+| `dc.platform.messaging.outbox.stop-timeout` | Duration | `30s` | how long a shutdown waits for the batch in flight |  |
+| `dc.platform.messaging.rabbit.confirm-timeout` | Duration | `5s` | how long a send waits for the broker's publisher confirm before it fails |  |
+| `dc.platform.messaging.rabbit.delivery-limit` | Integer | `20` | returns a quorum queue allows before dead-lettering: catches a message that keeps killing its consumer, which in-process retries cannot count. A message merely held by a stopping consumer counts too, so it is well above what rolling restarts reach |  |
+| `dc.platform.messaging.rabbit.prefetch` | Integer | `10` | how many messages a consumer holds at once, and so how many a retrying handler can delay |  |
+| `dc.platform.messaging.rabbit.quorum-queues` | Boolean | `true` | declare quorum queues, the main and the dead-letter one; false for classic queues |  |
+| `dc.platform.messaging.rabbit.shutdown-timeout` | Duration | `30s` | how long a stopping consumer waits for the handler in flight |  |
 
 ## dc.platform.observability
 
@@ -161,11 +181,28 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
-| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client timeout overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
+| `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> |  | per-client overrides, keyed by the name passed to PlatformRestClientFactory#builder(String) <p>propagate-correlation is gone: every client is instrumented with the observation registry, so the W3C traceparent (the platform's only correlation id) is always propagated and no custom header is sent. The key remains in the metadata as deprecated. |  |
+| `dc.platform.restclient.defaults.bulkhead.enabled` | Boolean |  | whether to use it |  |
+| `dc.platform.restclient.defaults.bulkhead.max-concurrent` | Integer |  | calls in flight at once |  |
+| `dc.platform.restclient.defaults.bulkhead.type` | ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$BulkheadType |  | BulkheadType#SEMAPHORE; BulkheadType#THREAD_POOL fails startup |  |
+| `dc.platform.restclient.defaults.circuit-breaker.enabled` | Boolean |  | whether to use it |  |
+| `dc.platform.restclient.defaults.circuit-breaker.failure-rate-threshold` | Float |  | failure percentage that opens it |  |
+| `dc.platform.restclient.defaults.circuit-breaker.half-open-calls` | Integer |  | trial calls after that |  |
+| `dc.platform.restclient.defaults.circuit-breaker.minimum-calls` | Integer |  | calls needed before it can open |  |
+| `dc.platform.restclient.defaults.circuit-breaker.open-duration` | Duration |  | how long it stays open |  |
+| `dc.platform.restclient.defaults.circuit-breaker.sliding-window-size` | Integer |  | calls measured |  |
 | `dc.platform.restclient.defaults.connect-timeout` | Duration | `2s` | connection timeout |  |
-| `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | read timeout |  |
+| `dc.platform.restclient.defaults.deadline` | Duration | `30s` | bound on one call, all attempts and waits included |  |
+| `dc.platform.restclient.defaults.read-timeout` | Duration | `10s` | bound on one attempt's whole response, body included |  |
+| `dc.platform.restclient.defaults.retry.enabled` | Boolean |  | whether to retry |  |
+| `dc.platform.restclient.defaults.retry.initial-backoff` | Duration |  | upper bound of the first wait; waits are jittered |  |
+| `dc.platform.restclient.defaults.retry.max-attempts` | Integer |  | total attempts, the first included |  |
+| `dc.platform.restclient.defaults.retry.max-backoff` | Duration |  | largest bound; a server's Retry-After is limited by the deadline instead |  |
+| `dc.platform.restclient.defaults.retry.methods` | Set<String> |  | methods retried: a subset of GET, HEAD, OPTIONS, PUT, DELETE |  |
+| `dc.platform.restclient.defaults.retry.multiplier` | Double |  | growth of the bound between attempts |  |
 | `dc.platform.restclient.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.restclient.propagate-correlation` | Boolean |  | Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent. | error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.) |
+| `dc.platform.restclient.token-relay.clients` | List<String> |  | the client names the token is relayed to; none by default, since a token sent to a service can be replayed by it |  |
 
 ## dc.platform.scheduling
 
@@ -177,9 +214,18 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
+| `dc.platform.security.allow-partial-chains` | Boolean | `false` | accept consumer filter chains that leave some requests unmatched, which Spring Security would then let through unauthenticated |  |
 | `dc.platform.security.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
+| `dc.platform.security.jwt.allow-insecure-jwks` | Boolean | `false` | accept a JWKS URL that is neither https nor loopback |  |
+| `dc.platform.security.jwt.clock-skew` | Duration | `30s` | tolerance on exp and nbf; at most 5 minutes |  |
+| `dc.platform.security.jwt.jwks.cache-ttl` | Duration | `5m` | how long fetched keys are used before a refresh, so how long a removed key lasts |  |
+| `dc.platform.security.jwt.jwks.connect-timeout` | Duration | `2s` | connection timeout of one fetch |  |
+| `dc.platform.security.jwt.jwks.outage-tolerance` | Duration | `1h` | how long past cacheTtl cached keys keep working while fetches fail |  |
+| `dc.platform.security.jwt.jwks.read-timeout` | Duration | `2s` | read timeout of one fetch |  |
+| `dc.platform.security.jwt.jwks.refresh-cooldown` | Duration | `30s` | least time between fetches, so an unknown key id cannot hammer the provider |  |
+| `dc.platform.security.jwt.resource-client` | String |  | the resource_access entry roles are read from; empty means name |  |
 | `dc.platform.security.mode` | ae.gov.dubaicustoms.platform.security.autoconfigure.SecurityProperties$Mode | `resource-server` | Mode#RESOURCE_SERVER builds the baseline JWT resource-server chain; Mode#DISABLED leaves security entirely to the application (explicit only — never implied by a profile, so an accidental local-profile activation never disables security) |  |
-| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health, /actuator/health/**, /actuator/info, /v3/api-docs/**, /swagger-ui/**, /swagger-ui.html]` | request patterns open without authentication |  |
+| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health/liveness, /actuator/health/readiness]` | request patterns open without authentication |  |
 
 ## dc.platform.storage
 

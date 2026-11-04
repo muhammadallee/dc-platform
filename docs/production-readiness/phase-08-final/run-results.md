@@ -8,7 +8,7 @@ On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offli
 | 2 Container suite, in-scope providers | **BUILD SUCCESS** in 7 min 10 s with `-Pdocker` on the four modules holding in-scope container tests, after an `install -DskipTests` of the step 1 reactor. All 13 classes ran, none skipped: Oracle 9 (`OracleSmokeIT`, `-DialectIT`, `-ExceptionPathsIT`, `-FlywayPostureIT`, `-NullabilityCheckIT`, `-TimeoutDefaultsIT`, `-TimeoutLeversIT`, `-TransactionRulesIT`, `OutboxOracleIT`), RabbitMQ 3 (`RabbitEventTransportIT`, `RabbitTopologyIT`, `RabbitHandlerFailureIT`), PostgreSQL 1 (`PostgresParityIT`). Keycloak, the JWKS endpoint and Toxiproxy are exercised by the consumer runs (Phases 3 to 7), not by reactor tests | `evidence-raw/step2-docker.log` |
 | 3 Golden path, fresh all-capability app, C1 + C2 matrix | **PASS.** Golden path **9/9** (1,048 s). A fresh archetype app with all seven certified capabilities, nothing opened to anonymous callers, against Oracle, RabbitMQ and Toxiproxy in front of both: **63/63** (`allcaps-20261103-215144`). See below | [`evidence/step3-allcaps`](evidence/step3-allcaps/), [`evidence/golden-path-summary-f0735c7.tsv`](evidence/golden-path-summary-f0735c7.tsv), scenario `tooling/hardening/scenarios/phase-08-allcaps.sh` |
 | 4 Security, dependency, licence and secrets scans | **PASS after D133** (first run FAIL, HI-0105). Vulnerabilities (Trivy 0.68.2): a service built on the platform ships 7 Critical and 15 High, all in versions Spring Boot 4.1.0 manages. SBOM: CycloneDX 2.9.1 aggregate, 354 third-party components. Secrets (Trivy, tracked files at HEAD): none. Licences: no blocker, see below | `evidence-raw/bom.json`, `trivy-appjar.json`, `trivy-sbom.json`, `trivy-secrets.json` |
-| 5 Compatibility against the Phase 0 baseline | pending | |
+| 5 Compatibility against the Phase 0 baseline | **PASS, differences listed below.** japicmp: 27 API and SPI modules, 1 binary-incompatible change, in the CHANGELOG. Config defaults: 50 added, 3 changed by design, 4 removed, each now with error-level deprecation metadata (one was missing it: fixed). BOM and parent parity: 16 key artifacts, the same through both routes | `evidence-raw/japicmp/`, `config-defaults.md`, `bom-parity.md` |
 | 6 Real-infrastructure cross-capability workflows | Covered by step 3's run (M1 to M7): outbox + RabbitMQ + Oracle, REST resilience + security, and one trace across the HTTP, database, broker and outbound boundaries | as step 3 |
 | 7 OpenShift (D7) | pending: needs the chart tool's location, invocation and cluster access | |
 | 8 Release rehearsal | pending | |
@@ -23,6 +23,7 @@ Container tests outside the certified capabilities were not run, and are **not c
 |---|---|---|---|
 | HI-0105 | 4 | 7 Critical and 15 High known vulnerabilities in what a service ships, all Boot-managed | FIXED (D133): 0 after |
 | HI-0106 | 4 | 14 High remain in build and tooling modules and the uncertified Kafka path; none shipped | OPEN: owner |
+| — | 5 | `dc.platform.messaging.correlation.propagate` was removed without deprecation metadata | FIXED in this phase |
 | HI-0104 | 1 | The committed generated docs (`llms-full.txt`, the skill's resources, `docs/reference`) are behind the code; the full build rewrites them. The metadata is right; the generator lists removed keys without saying so | OPEN: regenerate from the final full build and commit before `release-decision.md` |
 
 ## Step 3: the all-capability matrix
@@ -89,3 +90,31 @@ manages it, and that beats the platform BOM's pin. The service parent now sets B
 | Phase consumers 1 to 7 | 92, 76, 92, 106, 63, 182, 170 of the same, all passing ([`evidence/d133-regressions`](evidence/d133-regressions/)); Phase 5's service resolves `amqp-client` 5.37.0 |
 | Golden path | 9/9 (1,098 s) |
 | Codex on the change | Pass 1 REJECT, 2 High: a BOM-only consumer importing Boot's BOM first keeps Boot's versions; OpenTelemetry 1.67.0's BOM drops the discontinued Zipkin exporter, so Boot's 1.62.0 exporter would fail at startup. Pass 2 REJECT, 1 High: Boot's own parent keeps Boot's versions too. Fixed: the service parent refuses a direct Zipkin exporter dependency (checked: `validate` fails with the message), and the compatibility appendix covers both setups. **Pass 3 ACCEPT** ([`codex/`](codex/)) |
+
+## Step 5: compatibility against the Phase 0 baseline (`7b248e9`, `~/.m2-baseline`)
+
+**japicmp 0.26.1** (CLI; the plugin's `RELEASE` lookup finds nothing, since both are `1.0.0-SNAPSHOT`), every `*-api` and `*-spi`
+jar against the current build, `*.internal.*` excluded:
+
+| Module | Change | Compatible | Justified by |
+|---|---|---|---|
+| `platform-messaging-api` | `EventEnvelope` gains a first component, `eventId`; its old canonical constructor is gone | **No (binary and source)** | CHANGELOG phase 5: a stable id for deduplication. No users (HC7) |
+| `platform-messaging-api` | `EventEnvelope.Builder.eventId`, `EVENT_ID_HEADER`, `EventPublishException` constructor, header-name helpers | yes, added | phase 5 |
+| `platform-messaging-spi` | `EventTransport.deadLettersNatively()`, two listener exceptions | yes, added (default method) | phase 5 |
+| `platform-core-api` | `RequestContext.replace`, `PlatformException.problemStatus()`; default `serialVersionUID` changes | yes | phases 1, 6 |
+| `platform-restclient-api` | `RemoteCallException.kind()`, `retryable()`, `problemStatus()`, `Kind` | yes, added | phase 6 |
+| `platform-test-api` | `TestJwtIssuer.AUDIENCE` | yes, added | phase 7 |
+| 21 other modules | none | — | — |
+
+**Config defaults** (every `dc.platform.*` key in the jars' metadata): 72 at baseline, 121 now.
+
+| Change | Keys |
+|---|---|
+| Default changed, by design | `errors.type-base-uri` `https://errors.dc.com/` → `urn:dc:problem:` (phase 1); `messaging.rabbit.quorum-queues` `false` → `true` (phase 5); `security.permit-paths` → liveness and readiness only (phase 7) |
+| Removed, error-level deprecation | `core.correlation.generate-if-missing`, `core.correlation.header-name`, `restclient.propagate-correlation`, and `messaging.correlation.propagate`, which had **no** metadata: a consumer still setting it got no message. Added in this phase |
+| Added | 50, for the new behaviour of phases 1 to 7; listed in `config-defaults.md` |
+
+**BOM and parent parity:** two minimal projects, one on `platform-service-parent`, one importing `platform-bom`, declare 16 key
+artifacts without versions: Spring Boot, WebMVC, Tomcat, Hibernate, Jackson 2 and 3, Lettuce, Spring AMQP, amqp-client,
+Resilience4j, Flyway, the Oracle and PostgreSQL drivers, OpenTelemetry, Micrometer, Spring Security. **All resolve the same.**
+The routes that do not (Boot's own parent, or Boot's BOM imported first) are documented: see step 4.

@@ -1,0 +1,13 @@
+{
+  "properties": [
+    {
+      "name": "dc.platform.messaging.correlation.propagate",
+      "type": "java.lang.Boolean",
+      "description": "Removed: messages carry the W3C traceparent, and a handler continues the producer's trace; there is no correlation header to switch off.",
+      "deprecation": {
+        "level": "error",
+        "reason": "Correlation is the W3C trace ID, carried in traceparent on every message."
+      }
+    }
+  ]
+}

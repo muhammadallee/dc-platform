@@ -10,7 +10,8 @@ Final code `aa9c7f8` (2026-11-04). Evidence: [`final-release-assessment.md`](fin
 
 - All seven capabilities pass their consumer runs on the final dependency set, alone and together in one app (63/63), with the
   golden path at 9/9 and 1,557 reactor tests passing, none skipped.
-- What a service ships has no known vulnerability after D133 (it had 7 Critical and 15 High on Boot 4.1.0).
+- A service built on `platform-service-parent`, the archetype's route, ships no known vulnerability after D133 (it had 7
+  Critical and 15 High on Boot 4.1.0). Other routes must follow the compatibility appendix to get the same versions.
 - Builds are reproducible for every published platform artifact, and the published BOM pins literal versions.
 - HI-0088 was reviewed again as agreed (D125) and stays accepted (D134).
 
@@ -32,4 +33,5 @@ an identity provider configured, and OpenShift verified before production there.
 
 1. Close HI-0108 (SBOM and provenance in `release.yml`; `release.sh` without `-T1C`, or with a configurable thread count).
 2. `tooling/scripts/release.sh 1.0.0-RC1 --rehearse`, then the real run, per [`docs/runbooks/release.md`](../runbooks/release.md).
-3. Merge `hardening/v1` to `main` first (draft PR #2).
+
+`hardening/v1` is merged to `main` (PR #2) on completion of Phase 8; the release itself remains the owner's decision.

@@ -1,6 +1,6 @@
 # Final release assessment
 
-Hardening initiative, plan v3, on `hardening/v1`. Baseline `7b248e9`; final code `aa9c7f8` (2026-11-04), Spring Boot 4.1.2,
+Hardening initiative, plan v3, on `hardening/v1`. Baseline `7b248e9`; final code `aa9c7f8` plus the BOM fix that follows it (2026-11-04), Spring Boot 4.1.2,
 JDK 25. Phase 8 results: [`phase-08-final/run-results.md`](phase-08-final/run-results.md). Decision:
 [`release-decision.md`](release-decision.md).
 
@@ -20,8 +20,9 @@ Every capability was re-verified in Phase 8 on the final dependency set: its con
 
 Together: one generated app with all seven, against Oracle, RabbitMQ and Toxiproxy, ran the C1 and C2 scenarios and the
 request → outbox → broker → handler → outbound chain on one trace: **63/63**. Golden path **9/9**. Full reactor: 1,557 tests,
-none skipped. In-scope container suites: 13 classes. A service built on the platform has **no known vulnerability** (Trivy
-0.68.2, 2026-11-04).
+none skipped. In-scope container suites: 13 classes. A service built on `platform-service-parent` (the archetype's route) has
+**no known vulnerability** (Trivy 0.68.2, 2026-11-04). A service on Boot's own parent, or importing Boot's BOM ahead of
+`platform-bom`, keeps Boot's vulnerable RabbitMQ client and OpenTelemetry versions.
 
 ## Not certified
 
@@ -56,7 +57,7 @@ None approved under plan §5.2 ([`exceptions.md`](exceptions.md)). Two steps are
 |---|---|---|---|
 | HI-0108 | Medium | The release pipeline attaches no SBOM and produces no provenance; `release.sh` hard-codes `-T1C` | Before the first real release |
 | HI-0106 | Medium | 14 High known vulnerabilities in build and tooling modules (the Maven plugin, the MCP server) and Kafka's compression libraries; none on a service's classpath | Tracked |
-| HI-0107 | Low | A service's jar is not reproducible (no `outputTimestamp` in the service parent); two property references in `platform-dependencies` | Tracked |
+| HI-0107 | Low | A service's jar is not reproducible (no `outputTimestamp` in the service parent) | Tracked |
 | HI-0081 | Low | The japicmp gate compares against `RELEASE`, which does not exist until the first release; Phase 8 ran it by hand | Works from the first release on |
 | HI-0004 | Low | The book's narrative still describes the old `X-Correlation-Id` model in places | Docs |
 

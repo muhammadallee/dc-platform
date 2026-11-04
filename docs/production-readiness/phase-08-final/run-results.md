@@ -2,7 +2,7 @@
 
 **Verdict: PASS, with step 7 BLOCKED (D134).** Final code `aa9c7f8`. Release decision: [`../release-decision.md`](../release-decision.md).
 
-On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offline, `-T1`, Docker 29.9.2. Plan §10.
+Started on `f96ece6` (tag `hardening/phase-07-closed`); each run's commit is below. JDK 25.0.3 Corretto, Maven offline, `-T1`, Docker 29.9.2. Plan §10.
 
 | Step | Result | Evidence |
 |---|---|---|
@@ -141,3 +141,31 @@ The routes that do not (Boot's own parent, or Boot's BOM imported first) are doc
 (`evidence-raw/step1-final-verify.log`). It includes every Phase 8 change: Boot 4.1.2 and the two pins, the service parent's
 properties and Zipkin ban, the messaging deprecation metadata, and the interpolated BOMs. The generated docs it wrote are
 committed (HI-0104).
+
+## Which code each run used
+
+| Run | Commit recorded | What changed after it |
+|---|---|---|
+| Step 1 final verify | `b598416` (+ the regenerated docs, committed as `aa9c7f8`) | The two BOMs' flatten setting (below) |
+| Golden path, final | `aa9c7f8` | The two BOMs' flatten setting |
+| Phase 1 to 7 consumers on Boot 4.1.2 | `b3611d1` | Deprecation metadata for one removed key (`16b1ded`); the BOMs' published form (`847bfd0`, then `extended_interpolate`). Neither changes a resolved version or runtime behaviour |
+| All-capability app, final | `f9e8d5a` with the service-parent properties uncommitted (committed as `bb20d90`) | The Zipkin ban, the metadata, the BOMs' published form |
+| Trivy rescan of the app jar | the jar of that run | as above; the versions it scanned are what `bom-parity.md` resolves now |
+| Reproducibility builds | `16b1ded` | The BOMs' published form; their flattened POMs were then hashed across two more builds: identical |
+| BOM and parent parity | rerun after the final BOM change | — |
+
+## The published BOMs, after Codex
+
+Codex (`codex/bom-verify.out.md`) rejected `847bfd0`: flatten's `interpolate` works on the module's own POM without inherited
+properties, so the literal versions seen on staging came from passing `-Drevision` to the release build; a plain `install`, as
+the golden path does, still published `${revision}`, and `platform-dependencies` kept `${spring-boot.version}` and
+`${archunit.version}`. Both now use `extended_interpolate`: a plain `install` publishes **no placeholders** in either BOM (112
+literal platform versions; Boot 4.1.2 literal), identical across two builds, and parity still holds for all 16 artifacts. HI-0107
+part (b) is thereby fixed. Not re-reviewed by Codex after this change.
+
+## Secrets in git history
+
+The repository is public, so its whole history was scanned (`git log -p --all`, added lines) for JWT-shaped strings, private
+keys and unmasked passwords. **No real secret.** Every JWT-shaped string is a fixture (`{"sub":"alice"}`, signature the text
+`signature-value`); no private key; the password-shaped values are test strings (`hunter2` to `hunter5`, base64 of `user:pass`),
+the local docker-compose and example defaults, and the harness's throwaway values.

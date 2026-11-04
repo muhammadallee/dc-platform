@@ -94,5 +94,5 @@ code — the `PlatformConformanceTest` fails the build if you hand-roll what the
 ## 5. Keep it healthy
 
 The whole path — generate, build, boot, probe — is exercised for every feature combination by
-[`tooling/scripts/golden-path.sh`](../tooling/scripts/golden-path.sh), the CI `generator-gate` job.
+[`tooling/scripts/golden-path.sh`](https://github.com/muhammadallee/dc-platform/blob/main/tooling/scripts/golden-path.sh), the CI `generator-gate` job.
 See [`docs/modules/dx.md`](modules/dx.md) for the archetype, `upgrade-check`, and conformance rules.

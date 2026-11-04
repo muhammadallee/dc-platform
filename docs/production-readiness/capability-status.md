@@ -10,6 +10,8 @@
 | 6 | REST Client + Resilience | 6 | PASS (2026-11-02, `78636c0`) | SLICE + CONSUMER | No TLS, HTTP/2 or load run; the `@Retry` aspect not run. HI-0094 to HI-0098 accepted (D131); HI-0099 to fix in Phase 7 |
 | 7 | Security | 7 | PASS (2026-11-03, `d56d0a0`) | SLICE + CONSUMER | C2 passed. Real Keycloak and a scripted provider; no TLS, no spans, no Keycloak HA. HI-0099 fixed; HI-0100 to HI-0103 accepted (D132) |
 
+Phase 8 (2026-11-04, `aa9c7f8`): all seven re-verified on Spring Boot 4.1.2 (D133): phase consumers 92, 76, 92, 106, 63, 182, 170; one app with all seven 63/63; 0 known vulnerabilities in what a service ships. See [`final-release-assessment.md`](final-release-assessment.md).
+
 ## Not certified (ships in the BOM, outside this initiative)
 
 Kafka messaging, audit (all sinks — **services with regulated audit requirements must not rely on it

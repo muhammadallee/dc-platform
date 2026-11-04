@@ -1,5 +1,7 @@
 # Phase 8 — Final full-project verification: run results
 
+**Verdict: PASS, with step 7 BLOCKED (D134).** Final code `aa9c7f8`. Release decision: [`../release-decision.md`](../release-decision.md).
+
 On `f96ece6` (tag `hardening/phase-07-closed`), JDK 25.0.3 Corretto, Maven offline, `-T1`, Docker 29.9.2. Plan §10.
 
 | Step | Result | Evidence |

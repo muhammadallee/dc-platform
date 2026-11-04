@@ -81,3 +81,11 @@ Use Terms, and `spotbugs-annotations` (LGPL-2.1, compile time only).
 The first rescan still found the RabbitMQ client at 5.30.0 in the service: Boot's starter-parent, the service parent's parent,
 manages it, and that beats the platform BOM's pin. The service parent now sets Boot's own version properties
 (`rabbit-amqp-client.version`, `opentelemetry.version`).
+
+### Reruns on the upgraded platform, and Codex
+
+| Check | Result |
+|---|---|
+| Phase consumers 1 to 7 | 92, 76, 92, 106, 63, 182, 170 of the same, all passing ([`evidence/d133-regressions`](evidence/d133-regressions/)); Phase 5's service resolves `amqp-client` 5.37.0 |
+| Golden path | 9/9 (1,098 s) |
+| Codex on the change | Pass 1 REJECT, 2 High: a BOM-only consumer importing Boot's BOM first keeps Boot's versions; OpenTelemetry 1.67.0's BOM drops the discontinued Zipkin exporter, so Boot's 1.62.0 exporter would fail at startup. Pass 2 REJECT, 1 High: Boot's own parent keeps Boot's versions too. Fixed: the service parent refuses a direct Zipkin exporter dependency (checked: `validate` fails with the message), and the compatibility appendix covers both setups. **Pass 3 ACCEPT** ([`codex/`](codex/)) |

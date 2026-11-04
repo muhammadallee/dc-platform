@@ -1,0 +1,23 @@
+run_id=dch-20261104111908-34113
+phase=phase-05 scenario=rabbit
+platform_commit=b3611d1d25311aec267dc509908c4c5394cc8d6d
+platform_tree_dirty_paths=3
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-07
+jre_image=eclipse-temurin:25-jre
+started=2026-11-04T11:19:14+04:00
+oracle_ready_seconds=364
+oracle_image=gvenzl/oracle-free@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+rabbit_image=rabbitmq@sha256:606d8c0d6b3c18d1da9afc53bc7cdb2a8d5486df91b5a9830e9e07626c9ae281
+toxiproxy_image=ghcr.io/shopify/toxiproxy@sha256:b44c283298cea49e2defaba1b3028783798346f2a926684e3a345fd8441af3b8
+ready_seconds=88
+ac2 attempts=3
+ac9 naive=2 deduped=1
+shutdown_seconds=3 exit_code=143
+ac11 finished_before_stop=2
+ready_seconds=24
+AC11 distinct=6 total=6
+shutdown_seconds=5 exit_code=143
+finished=2026-11-04T11:32:50+04:00
+assertions_passed=63 assertions_failed=0 script_rc=0
+verdict=PASS

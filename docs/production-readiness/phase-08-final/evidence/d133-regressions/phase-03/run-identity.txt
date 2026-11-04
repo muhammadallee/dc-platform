@@ -1,0 +1,26 @@
+run_id=dch-20261104115637-38738
+phase=phase-03 scenario=data-access
+platform_commit=b3611d1d25311aec267dc509908c4c5394cc8d6d
+platform_tree_dirty_paths=3
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/phase-07
+jre_image=eclipse-temurin:25-jre
+started=2026-11-04T11:56:42+04:00
+oracle_ready_seconds=356
+oracle_image=gvenzl/oracle-free@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+toxiproxy_image=ghcr.io/shopify/toxiproxy@sha256:b44c283298cea49e2defaba1b3028783798346f2a926684e3a345fd8441af3b8
+ready_seconds=62
+pool_max=10
+backstop status=503 seconds=63.120235 code=DC-DATA-0503
+threads_live before=35 after=45
+shutdown_seconds=9 exit_code=143
+ready_seconds=34
+shutdown_seconds=6 exit_code=143
+downstart exit_code=1 exit_seconds=10
+silent_image=alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+silentstart exit_code=1 exit_seconds=610
+silentstart reason=ORA-17002: I/O error: Socket read timed out, connect lapse 600056 ms., Authentication lapse 0 ms.;
+startup_healthy_seconds=62 startup_slow_seconds=34 startup_down_seconds=10 startup_silent_seconds=610
+finished=2026-11-04T12:20:06+04:00
+assertions_passed=92 assertions_failed=0 script_rc=0
+verdict=PASS

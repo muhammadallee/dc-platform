@@ -1,15 +1,15 @@
 baseline 72 current 121 {'deprecated': 3, 'added': 50, 'default changed': 3, 'removed': 1}
 | Change | Property | Baseline | Now | Module |
 |---|---|---|---|---|
-| deprecated (error) | `dc.platform.core.correlation.generate-if-missing` | true | — | platform-core-autoconfigure |
-| deprecated (error) | `dc.platform.core.correlation.header-name` | "X-Correlation-Id" | — | platform-core-autoconfigure |
+| deprecated (error) | `dc.platform.core.correlation.generate-if-missing` | true | â€” | platform-core-autoconfigure |
+| deprecated (error) | `dc.platform.core.correlation.header-name` | "X-Correlation-Id" | â€” | platform-core-autoconfigure |
 | added | `dc.platform.data.jpa.oracle.flyway-read-timeout` |  | "10m" | platform-data-jpa-autoconfigure |
 | added | `dc.platform.data.jpa.oracle.read-timeout` |  | "60s" | platform-data-jpa-autoconfigure |
 | added | `dc.platform.errors.include-rejected-values` |  | false | platform-errors-autoconfigure |
 | default changed | `dc.platform.errors.type-base-uri` | "https://errors.dc.com/" | "urn:dc:problem:" | platform-errors-autoconfigure |
-| added | `dc.platform.logging.mdc.include` |  | — | platform-logging-autoconfigure |
+| added | `dc.platform.logging.mdc.include` |  | â€” | platform-logging-autoconfigure |
 | added | `dc.platform.logging.redaction.enabled` |  | true | platform-logging-autoconfigure |
-| added | `dc.platform.logging.redaction.patterns` |  | — | platform-logging-autoconfigure |
+| added | `dc.platform.logging.redaction.patterns` |  | â€” | platform-logging-autoconfigure |
 | removed | `dc.platform.messaging.correlation.propagate` | true |  | platform-messaging-autoconfigure |
 | added | `dc.platform.messaging.handler.retry.max-backoff` |  | "30s" | platform-messaging-autoconfigure |
 | added | `dc.platform.messaging.outbox.batch-size` |  | 50 | platform-messaging-outbox-autoconfigure |
@@ -30,24 +30,24 @@ baseline 72 current 121 {'deprecated': 3, 'added': 50, 'default changed': 3, 're
 | added | `dc.platform.messaging.rabbit.prefetch` |  | 10 | platform-messaging-autoconfigure |
 | default changed | `dc.platform.messaging.rabbit.quorum-queues` | false | true | platform-messaging-autoconfigure |
 | added | `dc.platform.messaging.rabbit.shutdown-timeout` |  | "30s" | platform-messaging-autoconfigure |
-| added | `dc.platform.restclient.defaults.bulkhead.enabled` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.bulkhead.max-concurrent` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.bulkhead.type` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.enabled` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.failure-rate-threshold` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.half-open-calls` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.minimum-calls` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.open-duration` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.circuit-breaker.sliding-window-size` |  | — | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.bulkhead.enabled` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.bulkhead.max-concurrent` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.bulkhead.type` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.enabled` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.failure-rate-threshold` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.half-open-calls` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.minimum-calls` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.open-duration` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.circuit-breaker.sliding-window-size` |  | â€” | platform-restclient-autoconfigure |
 | added | `dc.platform.restclient.defaults.deadline` |  | "30s" | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.enabled` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.initial-backoff` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.max-attempts` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.max-backoff` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.methods` |  | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.defaults.retry.multiplier` |  | — | platform-restclient-autoconfigure |
-| deprecated (error) | `dc.platform.restclient.propagate-correlation` | true | — | platform-restclient-autoconfigure |
-| added | `dc.platform.restclient.token-relay.clients` |  | — | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.enabled` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.initial-backoff` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.max-attempts` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.max-backoff` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.methods` |  | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.defaults.retry.multiplier` |  | â€” | platform-restclient-autoconfigure |
+| deprecated (error) | `dc.platform.restclient.propagate-correlation` | true | â€” | platform-restclient-autoconfigure |
+| added | `dc.platform.restclient.token-relay.clients` |  | â€” | platform-restclient-autoconfigure |
 | added | `dc.platform.security.allow-partial-chains` |  | false | platform-security-autoconfigure |
 | added | `dc.platform.security.jwt.allow-insecure-jwks` |  | false | platform-security-autoconfigure |
 | added | `dc.platform.security.jwt.clock-skew` |  | "30s" | platform-security-autoconfigure |

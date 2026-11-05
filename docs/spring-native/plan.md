@@ -42,7 +42,7 @@ section applies unchanged except where this plan states otherwise.
 
 | Capability | Modules kept | Modules dropped |
 |---|---|---|
-| Caching | `platform-cache-autoconfigure`, `platform-starter-cache-caffeine` (`platform-cache-api` per §9 Phase 7) | `platform-starter-cache-redis` |
+| Caching | `platform-cache-autoconfigure`, `platform-starter-cache-caffeine` (`platform-cache-api` per §9 Phase 8) | `platform-starter-cache-redis` |
 | Scheduling | `platform-scheduling-autoconfigure`, `platform-starter-scheduling` | — |
 | Locking (scheduling depends on it) | `platform-locking-api`, `-spi`, `-autoconfigure`, `-jdbc`, `platform-starter-locking-jdbc` | `platform-locking-redis`, `platform-starter-locking-redis` |
 | Validation | all (the archetype includes it in every service) | — |
@@ -126,6 +126,7 @@ v3 §3 applies in full, with these changes and additions:
    | Phase 5 RabbitMQ | 63 |
    | Phase 6 REST + Resilience | 182 |
    | Phase 7 Security | 170 |
+   | C1 composition (v3 Phase 5) | 106 (the Phase 4 harness run as C1) plus the Phase 5 consumer's AC1 and AC5 |
    | C2 composition | 61 |
    | Phase 8 all capabilities | 63 |
 
@@ -304,8 +305,10 @@ No production code changes in Phase 0 except tracking docs, spike tests (in a sc
 
    Confirm the list against the code (`find . -path '*-api/src/main/java' …`): this table may be stale.
 5. **Downstream and dependency map.** For each module that stays, its dependents (`mvn -pl X -amd` listing). Confirm that no kept
-   module depends on a cut one (checked once on 2026-11-05: none of the seven certified capabilities does; scheduling depends on
-   locking-api, locking-autoconfigure and locking-jdbc).
+   module depends on a cut one. Only a partial check exists (2026-11-04): a search of the seven certified capabilities' POMs for
+   `platform-*` artifacts of cut modules found none, and scheduling's POM depends on locking-api, locking-autoconfigure and
+   locking-jdbc. Not yet checked: validation, OpenAPI, cache and locking POMs, the archetype's transitive tree, and optional
+   third-party dependencies (for example Redis client code in `platform-cache-autoconfigure` or `platform-locking-autoconfigure`).
 6. **Expected-removals list.** japicmp against `~/.m2-native-baseline` will fail by design. Write
    `docs/spring-native/expected-removals.md` (one line per removed type, with its phase) and make the final compatibility check
    compare japicmp's output against it: an unlisted break is a finding. This also covers HI-0081.
@@ -432,9 +435,12 @@ removed), plus a verification pass if fixes follow.
 4. `CLAUDE.md`, the enforcer and the ArchUnit rules: apply ND3 (ADR-011). Remove rules that only concerned cut modules.
 5. Docs: delete the cut capabilities' `docs/modules/*.md`, their book chapters or sections (chapters 9 to 13 are affected; keep
    what covers caching and scheduling), their samples, their reference entries; update `mkdocs.yml`'s nav; regenerate
-   `docs/reference/*`, `llms-full.txt` and the skill resources from a full build; update the "Not certified" list in
-   `final-release-assessment.md` (cut capabilities are no longer shipped, so they leave that list) and the compatibility
-   appendix.
+   `docs/reference/*`, `llms-full.txt` and the skill resources from a full build; update the compatibility appendix. **Do not
+   edit the closed hardening record** (`docs/production-readiness/final-release-assessment.md`, `release-decision.md`, the
+   phase folders): it is the evidence of tag `hardening/phase-08-closed`. Add only a one-line banner at the top of the
+   assessment and the release decision: "Superseded by [`docs/spring-native/`](../spring-native/plan.md), ND1." The new
+   shipped and not-certified lists live in `docs/spring-native/capability-status.md`. If ND1 is "before RC1", v3's GO for
+   `1.0.0-RC1` is superseded too: say so in that banner.
 6. `tooling/platform-migrations/.../adopt-platform.yml` and the MCP server's resources: remove cut starters.
 7. Verify:
    - full `verify` (foreground, `-T1`): every remaining test passes, none newly skipped;

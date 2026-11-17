@@ -132,8 +132,11 @@ v3 §3 applies in full, with these changes and additions:
 
    A ported run keeps **at least** its v3 count, or `scope.md` lists every assertion dropped or changed and why (for example,
    one that asserted a platform type now removed, replaced by an assertion on the Spring type).
-6. **Main stays green at every merge.** Each phase merges to `main` on closure (§4.4). Between phases `main` holds a mix of old
-   and new APIs; the golden path, CI and every consumer run already ported must still pass on each merge.
+6. **`develop` stays green at every merge.** Each phase merges to `develop` on closure (§4.4); `main` is never touched by this
+   plan. Between phases `develop` holds a mix of old and new APIs; the golden path, CI and every consumer run and lab already
+   ported must still pass on each merge.
+8. **Every capability has a guided lab (owner, 2026-11-17; binding).** See §4.10. A capability's phase is not closed until its
+   lab has been executed exactly as written and passed.
 7. **Zero-config acceptance (new, binding).** Every capability ends its phase with a test in which an app containing only the
    starter (plus the declared fail-closed settings) starts and meets the capability's contract. The deliberate fail-closed
    requirements stay and are listed in the capability's doc page:
@@ -190,8 +193,14 @@ Everything here was learned the hard way in the hardening initiative.
 
 ### 4.4 Branches, commits, tags, PRs
 
-- One branch per phase off `main`: `native/phase-XX-<slug>`. One PR per phase. Merge without asking once the phase is closed and
-  CI is green (HC6). Tag the merge commit `native/phase-XX-closed`.
+- **Long-running branch `develop`** (owner, 2026-11-17), created from `main` at `bdf2845`. This realignment is a parallel stream:
+  **never open or merge a PR into `main`**, and never merge `develop` into `main`; the owner does that when ready.
+- One branch per phase off `develop`: `native/phase-XX-<slug>`. One PR per phase, **targeting `develop`**. Merge into `develop`
+  without asking once the phase is closed and CI is green (HC6, applied to `develop` only). Tag the merge commit on `develop`
+  `native/phase-XX-closed`. Plan amendments go through their own small PR into `develop`.
+- CI: `ci.yml` runs on pull requests to any branch and on pushes to `main` and `develop`. Scheduled workflows (the nightly
+  container job) run only on the default branch, so they never run against `develop`: the local container runs in each phase
+  cover that.
 - Conventional commits, one logical change each, with a trailer `[native phase-XX gate-Y]`, ending with:
 
   ```text
@@ -242,6 +251,50 @@ As v3 §4.3, with the existing harness:
 
 Each rewrite phase **ports** its v3 scenario: the probe app's code moves to Spring types; the infrastructure, faults and
 assertions stay. §3.5 applies.
+
+### 4.10 Guided labs (owner requirement, 2026-11-17)
+
+Every kept capability gets a guided lab: a step-by-step tutorial that takes a developer from nothing to a basic project, generated
+from the service archetype, that builds, starts and shows the capability working.
+
+- **Where:** `docs/labs/<capability>/index.md`, with a "Labs" section in the `mkdocs.yml` nav and an index page
+  `docs/labs/index.md` (prerequisites, the order to take the labs in). Labs are the tutorial; `docs/samples/<slug>/` stays the
+  hardening evidence pack. Each links to the other; neither copies the other.
+- **Shape of a lab:**
+  1. what you will build and what you need (JDK, Maven, Docker, and which containers);
+  2. step 0, getting the platform into a local Maven repository (nothing is published yet);
+  3. generating the project with `mvn archetype:generate` and the options the capability needs;
+  4. the minimum configuration, with each value explained;
+  5. the smallest code that uses the capability, using Spring types only (§7.12);
+  6. starting the app and seeing it work: the requests to send and the responses or log lines to expect;
+  7. one failure to try and what the platform does about it (a fault, a bad token, a missing table);
+  8. cleanup, and where to go next (the capability's module page, its sample).
+- **The lab text is the test.** Command blocks a reader must run are marked so a tool can pick them out, the way the docs already
+  mark `snippet:` blocks: ` ```bash lab-step ` for commands, ` ```bash lab-check ` for checks whose exit code must be 0.
+  `tooling/labs/run-lab.sh <capability>` extracts them in order and runs them in a fresh directory **outside the repository**,
+  against a clean dedicated local repository (`-Dmaven.repo.local=…`; never `~/.m2-baseline`), starts and stops any containers
+  the lab names, and returns one truthful exit code. Build it on `tooling/hardening/lib` and the golden-path machinery. A lab
+  that has not passed the runner on the phase's final commit is not done, and no command in it may be described as tested
+  otherwise (v3 Gate H).
+- **When:** each lab is written when its capability's code is final, in the phase that closes the capability:
+
+  | Lab | Phase |
+  |---|---|
+  | Core + errors | 2 |
+  | Data access (Oracle) | 2 (with ND7; data has no phase of its own) |
+  | Logging + observability | 3 |
+  | REST client + resilience | 4 |
+  | Security + authorization | 5 |
+  | Outbox + RabbitMQ messaging | 7 |
+  | Caching | 8 |
+  | Scheduling + locking | 9 |
+  | Validation + OpenAPI | 10 |
+
+  Phase 11 re-runs every lab on the final commit. A phase that changes a capability whose lab exists re-runs that lab.
+- **Fail-closed stays.** A lab never turns security off to make startup easy. How each lab gets a working identity provider,
+  database and broker is decided in ND11 (§6 step 8).
+- **Memory.** The Oracle Free container is the heaviest; low-memory kills ended runs in v3 Phases 3 and 4. A lab names its
+  containers and their memory, and the runner starts only what the lab needs.
 
 ---
 
@@ -333,6 +386,8 @@ No production code changes in Phase 0 except tracking docs, spike tests (in a sc
    | ND9 | Locking API (Phase 9) | **Decide in Phase 9 Gate A** between keeping `LockManager` (no Spring type exists for an explicit lock) and adopting Spring Integration's `LockRegistry` or ShedLock. Recommendation recorded then |
    | ND10 | Kafka portability is given up for messaging | **Accept.** Kafka is cut; messaging becomes RabbitMQ-specific Spring AMQP. A future Kafka capability is Spring Kafka, with its own phase |
 
+   | ND11 | How a lab (§4.10) gets the infrastructure it needs to start: identity provider, database, broker | Recommended in `decisions.md` once Phase 0 has checked what the archetype generates, what `docker-compose.local.yml` provides, and whether the golden path starts the app or only builds it |
+
    The plan continues with the defaults only for decisions the owner answers. An unanswered decision blocks the phase that needs
    it, not the whole plan.
 
@@ -413,6 +468,7 @@ As v3 Gate H, plus:
 - the book chapter for the capability is updated or marked for a later pass with an HI entry (HI-0004 shows what happens
   otherwise);
 - the samples in `docs/samples/<slug>/` are updated to Spring types;
+- the capability's guided lab is written or updated (§4.10) and passes the lab runner on the phase's final commit;
 - `mkdocs build --strict` and `DocsLinkCheckTest` pass (§4.8);
 - closure verdict in `docs/spring-native/phase-XX-<slug>/closure.md`, `STATE.md` and `capability-status.md` updated, PR merged
   on green, tag `native/phase-XX-closed`.
@@ -566,7 +622,7 @@ As v3 §10 steps 1–8, on the realigned platform:
 4. Scans: Trivy, CycloneDX SBOM, secrets (including the git history, as the repository is public).
 5. Compatibility: japicmp output against `expected-removals.md` (§6 step 6); config-default snapshot diff; BOM parity between
    `platform-service-parent` and a plain `platform-bom` import.
-6. Re-run each phase's ported consumer run on the final commit.
+6. Re-run each phase's ported consumer run on the final commit, and **every guided lab** through the lab runner (§4.10).
 7. OpenShift with the team's chart tool: `BLOCKED` unless the owner supplies the HD7 details.
 8. Release rehearsal: reproducible build, and close **HI-0108** (SBOM and provenance in `release.yml`; `release.sh` without a
    hard-coded `-T1C`).
@@ -585,7 +641,7 @@ docs/
   spring-native/
     plan.md                    # this file
     STATE.md
-    decisions.md               # ND1–ND10
+    decisions.md               # ND1–ND11
     capability-status.md
     exceptions.md
     expected-removals.md
@@ -610,6 +666,11 @@ docs/
     decision-log.md            # continues from D135
     adr-011.md                 # Spring types in service code (ND3)
   samples/<slug>/              # updated per phase; new: caching/, scheduling/
+  labs/
+    index.md                   # what a lab is, prerequisites, the order to take them in
+    <capability>/index.md      # one guided lab per capability (§4.10)
+tooling/
+  labs/run-lab.sh              # executes a lab's marked blocks in a fresh directory (§4.10)
 ```
 
 `evidence-raw/` directories are git-ignored.
@@ -618,8 +679,8 @@ docs/
 
 ## 11. End-of-phase report
 
-As v3 §12, plus: the carry-over table with each row's proof, the removed types, and the ported consumer count against its v3
-floor.
+As v3 §12, plus: the carry-over table with each row's proof, the removed types, the ported consumer count against its v3
+floor, and the lab-runner result for each lab the phase wrote or touched.
 
 ---
 
@@ -629,10 +690,11 @@ floor.
    which this plan inherits, and [`../production-readiness/STATE.md`](../production-readiness/STATE.md) for where the hardening
    initiative ended.
 2. Set up the environment per §4.1. Check `git status`: never stage the files §4.2 lists.
-3. Create `native/phase-00-baseline` from `main`. Record the baseline SHA, tag `pre-spring-native`.
+3. Work on `develop` (§4.4). Create `native/phase-00-baseline` from `develop`. The baseline is `bdf2845`, tagged
+   `pre-spring-native` (done 2026-11-17).
 4. Execute Phase 0 steps 1–7, starting with spike S1. Write `decisions.md` (step 8) and **stop** for the owner's answers.
-5. After the answers: update `STATE.md`, run the Phase 0 Codex round, merge on green, tag, then execute Phase 1 through all of
-   its steps.
+5. After the answers: update `STATE.md`, run the Phase 0 Codex round, merge into `develop` on green, tag, then execute Phase 1
+   through all of its steps.
 6. Continue phase by phase. Respect the stops in §4.6. Never begin Phase 7 before the owner has confirmed ND5 on the Phase 6
    evidence; never begin Phase 11 before Phases 1–10 qualify.
 7. If anything here conflicts with the repository (module names, existing behaviour, tooling), do not improvise silently: record

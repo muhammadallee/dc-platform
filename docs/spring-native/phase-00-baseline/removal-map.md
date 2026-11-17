@@ -1,8 +1,9 @@
 # Removal map
 
 Plan §6 step 4.
-- **Source:** the public types in every kept `*-api` module, listed from `src/main/java` (excluding `package-info.java`) on
-  2026-11-17 at `bdf2845`. The plan's table matched the code; nothing was missing.
+- **Source:** the public types in every `*-api` module, listed from `src/main/java` (excluding `package-info.java`) on
+  2026-11-18 at `bc58c4a`, whose code is identical to `bdf2845`. The listing is
+  [`evidence/api-types.txt`](evidence/api-types.txt). The plan's table matched the code; nothing was missing.
 - **Replacements** are as verified by the spikes ([`spikes.md`](spikes.md)) where a spike covers them, and are otherwise
   proposals for the phase's Gate A.
 

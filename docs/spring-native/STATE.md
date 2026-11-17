@@ -10,7 +10,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Current phase | 0 — Baseline, framework spikes, decisions |
 | Current gate | Steps 1–7 done. Step 8: **stopped for the owner's answers** to ND1–ND11 ([`decisions.md`](decisions.md)) |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | Owner decisions ND1–ND11. Not blocking: HI-0109, push builds on `develop` fail on Maven Central 429s while PR builds pass (Phase 1 investigates) |
+| Open blockers | Owner decisions ND1–ND11. HI-0109: `develop` push builds are red (Maven Central 429s, cause unknown) while PR builds pass; first item of Phase 1 |
 | Pending human decisions | ND1–ND11 (ND5 rule now, choice after Phase 6; ND9 at Phase 9) |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
 | Next action | After the answers: record them in `decisions.md`, run the Phase 0 Codex round over `spikes.md` and `removal-map.md`, merge the Phase 0 PR into `develop` on green, tag `native/phase-00-closed`, start Phase 1 |

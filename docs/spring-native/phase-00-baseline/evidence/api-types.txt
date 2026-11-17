@@ -1,0 +1,20 @@
+./audit/platform-audit-api [4]: AuditEvent Audited Auditor Outcome 
+./cache/platform-cache-api [2]: CacheKeyConvention CacheNames 
+./core/platform-core-api [7]: CapabilityDescriptor CorrelationId ErrorCode PlatformApi PlatformException PlatformInternal RequestContext 
+./data/platform-data-api [3]: EntityId Money PersistenceConventions 
+./errors/platform-errors-api [5]: BusinessException ConflictException HttpStatusHint NotFoundException ProblemDetailCustomizer 
+./events/platform-events-api [3]: DomainEvent DomainEventHandler DomainEventPublisher 
+./files/platform-files-api [3]: ContentTypeValidator FileUploadPolicy SafeFilename 
+./flags/platform-flags-api [2]: FeatureFlags FeatureGate 
+./idempotency/platform-idempotency-api [2]: IdempotencyStore Idempotent 
+./locking/platform-locking-api [2]: LockException LockManager 
+./logging/platform-logging-api [2]: Kv LogSanitizer 
+./messaging/platform-messaging-api [8]: EventEnvelope EventHandler EventHeaders EventPublishException EventPublisher EventSerializationException EventType OutboxPublisher 
+./ratelimit/platform-ratelimit-api [4]: Decision RateLimitExceededException RateLimited RateLimiter 
+./resilience/platform-resilience-api [2]: ResilienceDefaults RetryableOperation 
+./restclient/platform-restclient-api [3]: PlatformRestClientCustomizer PlatformRestClientFactory RemoteCallException 
+./security/platform-security-api [3]: CurrentUser CurrentUserAccessor SecurityCustomizer 
+./security/platform-security-authz-api [1]: RequiresPermission 
+./storage/platform-storage-api [6]: ObjectMetadata ObjectRef ObjectStore ObjectStoreException ObjectSummary StoredObject 
+./test/platform-test-api [11]: Containers DockerAvailable PlatformAssertions PlatformDataTest PlatformMessagingTest PlatformTest PlatformUsageRules PlatformWebTest ProblemDetailAssert TestJwtIssuer TestTokens 
+./validation/platform-validation-api [8]: FutureInstant FutureInstantValidator NotBlankTrimmed NotBlankTrimmedValidator SafeText SafeTextValidator Ulid UlidValidator 

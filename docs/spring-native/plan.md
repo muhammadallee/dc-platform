@@ -203,6 +203,10 @@ These carry over from v3 §3 (summarised here), with the changes this plan makes
 
     REST API (Phase 8) and C2 (Phase 9) are new: the v3 counts came from JWT security and do not apply. Their floor is set at
     Gate A.
+
+    **The v3 runs all used JWT.** The archetype put the JWT security starter into every service, so every v3 scenario sends
+    bearer tokens, and some assert the JWT subject as `createdBy` or as the relayed token. Phase 1 removes those parts and lists
+    each dropped or changed assertion. From then on, a run's floor is its v3 count minus those listed drops.
 15. **`develop` stays green.**
     - **Each merge:** every phase merges into `develop` when it closes. The golden path, CI, and every consumer run and lab
       already ported must pass.
@@ -601,8 +605,9 @@ current phase.
 10. **Verify:**
     - a full `verify`, with no test newly skipped;
     - the golden path (its count may drop where a step covered a cut module, with each dropped step justified);
-    - the kept v3 consumer runs at their v3 counts: core + errors, logging + observability, data, outbox, RabbitMQ, C1 and
-      REST client (still runs while parked);
+    - the kept v3 consumer runs: core + errors, logging + observability, data, outbox, RabbitMQ, C1 and REST client (it
+      still runs while parked). They lose their token, platform-constraint and JWT-auditor parts. Each dropped or changed
+      assertion is listed in `scope.md`, with why, and each run must reach its v3 count minus those listed drops (rule 14);
     - the docs checks;
     - Trivy on a generated service: still no Critical or High.
 11. **Review:** one Codex round. Its question: does anything kept depend on, document or ship anything removed?
@@ -612,7 +617,9 @@ current phase.
 **Specific to this phase:**
 - **Errors:**
   - The platform `@RestControllerAdvice` handles Spring's `ErrorResponse` types and `@ResponseStatus`.
-  - It adds `code`, `traceId`, `timestamp` and `retryable` to every `ProblemDetail` (proven by S7).
+  - It adds `code`, `traceId`, `timestamp` and `retryable` to every `ProblemDetail`. Spike S7 showed that a platform advice
+    can enrich Spring's own `ErrorResponseException` this way, with the service setting its code as a `ProblemDetail`
+    property.
   - It maps Bean Validation failures (`MethodArgumentNotValidException`, `HandlerMethodValidationException`) to a 400 with
     field paths and no internal detail. This replaces what the cut validation module did.
   - Gate A decides how a service sets its own error code without a platform type: a `ProblemDetail` property set by the
@@ -637,7 +644,8 @@ current phase.
 
 **Specific to this phase:**
 - **Logging:**
-  - Remove `Kv` and `LogSanitizer`. Services log key-value pairs with SLF4J's fluent `addKeyValue` (S5).
+  - Remove `Kv` and `LogSanitizer`. Services log key-value pairs with SLF4J's fluent `addKeyValue`. Spike S5 showed these
+    render in Boot's structured JSON logging, and that a members customizer can mask values.
   - Gate A decides between the platform's Logback configuration and Boot's structured logging with masking as a Logback
     component.
   - Masking is carried either way: JWTs, `Authorization` headers (now including `Basic`), passwords and personal data,
@@ -753,7 +761,9 @@ Then write `phase-07-iteration-1/run-results.md`, `iteration-1-release-assessmen
 - what is certified, and the open issues;
 - the known limits, and the conditions for a first adopter;
 - carried forward explicitly: HI-0071, HI-0079, HI-0086 (or Modulith's equivalents), HI-0106, HI-0107, Oracle RAC
-  (`BLOCKED`), OpenShift (`BLOCKED` unless run).
+  (`BLOCKED`), OpenShift (`BLOCKED` unless run);
+- the main known limit, stated plainly: **1.0.0 does not secure application endpoints.** A service that exposes an API
+  waits for iteration 2, or puts its own Spring Security configuration in place.
 
 **Stop for the owner:** release 1.0.0, continue to iteration 2, or stop here.
 
@@ -797,7 +807,8 @@ auth. The service checks only that basic-auth credential.
 Unpark `restclient/*` and `resilience/*`, and rewrite them.
 
 **Specific to this phase:**
-- **Using it:** services inject Boot's `RestClient.Builder` or declare `@HttpExchange` interfaces (S3).
+- **Using it:** services inject Boot's `RestClient.Builder` or declare `@HttpExchange` interfaces. Spike S3 showed that Boot 4
+  HTTP service clients take per-group properties, and that a `RestClientCustomizer` bean reaches each group's client.
 - **What the platform contributes,** as `RestClientCustomizer` beans:
   - timeouts and the overall deadline;
   - tracing;
@@ -812,7 +823,8 @@ Unpark `restclient/*` and `resilience/*`, and rewrite them.
 - **Retries (carried, HD2):**
   - POST and PATCH are **never** retried, with or without an `Idempotency-Key`;
   - a 4xx is not retried; `Retry-After` is honoured;
-  - this holds whichever mechanism S4 selects.
+  - this holds whichever retry mechanism Gate A picks: Resilience4j, or Spring Framework 7's `@Retryable`. Spike S4 showed
+    `@Retryable` works once enabled and takes include and exclude lists.
 - **Errors:**
   - downstream failures surface as Spring's `RestClientResponseException` / `ResourceAccessException`;
   - the errors advice maps them to a `ProblemDetail` with `retryable`, never leaking the downstream body.
@@ -838,8 +850,14 @@ Unpark `restclient/*` and `resilience/*`, and rewrite them.
 
 ### Phase 10 — Iteration 2 release check
 
-As Phase 7, over the iteration 1 and 2 capabilities together. Iteration 1's labs and consumer runs are re-run too, since
-Phase 8 touched data and outbox. Write the iteration 2 release assessment and decision.
+The same checks as Phase 7, over the iteration 1 and 2 capabilities together:
+- a clean build;
+- the container suites, now with a token endpoint;
+- the archetype with the golden path, and one app holding every capability running C1 and C2;
+- every lab and consumer run, including iteration 1's (Phase 8 touched data and outbox);
+- the scans, compatibility, docs and a release rehearsal.
+
+Write the iteration 2 release assessment and decision. Iteration 1's known limit on unsecured endpoints is closed here.
 
 **Stop for the owner:** release 1.1.0, or stop.
 

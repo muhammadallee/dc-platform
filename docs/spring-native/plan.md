@@ -6,7 +6,8 @@
 
 - The goal is release **1.0.0**, delivered in **iterations**. Each iteration ends in a state you can ship and stop at.
 - Scope is now seven capabilities, not fourteen. JWT security, authorization, caching, scheduling, locking, validation and
-  OpenAPI are cut. REST APIs are secured with **basic auth only**.
+  the platform validation constraints are cut. REST APIs are secured with **basic auth only** and documented with OpenAPI
+  (Swagger UI).
 - Every capability, now and later, is built with one repeatable recipe (§8).
 
 Predecessor: the hardening initiative ([`../production-readiness/plan-v3.md`](../production-readiness/plan-v3.md), closed
@@ -49,7 +50,7 @@ Every module directory in the repository lands in exactly one of five bands.
 
 | Capability | What a service uses | Modules |
 |---|---|---|
-| REST API | Spring MVC controllers, Bean Validation; every path behind **HTTP basic auth** (the API gateway checks JWT or OAuth client credentials and then calls the service with basic auth) | new: `rest-api/*` (Phase 8 decides the layout) |
+| REST API | Spring MVC controllers, Bean Validation; every path behind **HTTP basic auth** (the API gateway checks JWT or OAuth client credentials and then calls the service with basic auth); an OpenAPI document and Swagger UI generated from the controllers by springdoc | new: `rest-api/*`, built from today's `openapi/*` (layout per ND15) |
 | REST client | Boot `RestClient.Builder` or `@HttpExchange` interfaces; outbound **basic auth** or **OAuth2 client credentials**; timeouts and safe retries | `restclient/*`, `resilience/*` |
 
 ### 2.3 Foundation — kept because the chassis needs it
@@ -71,10 +72,10 @@ Not a capability you pick: it is in every generated service. Re-certified in Pha
 Iteration 2 code lives in the repository during iteration 1, but must not ship in 1.0.0: shipping today's REST client API
 and breaking it in 1.1.0 would break semantic versioning.
 
-- **Modules:** `restclient/*`, `resilience/*`.
+- **Modules:** `restclient/*`, `resilience/*`, `openapi/*` (reworked into the REST API in Phase 8).
 - **While parked:** they compile and their tests run, they are **not** in `platform-bom`, **not** deployed
   (`maven.deploy.skip`), **not** offered by the archetype, and their doc pages carry a "coming in iteration 2" note.
-- **Unparked** in Phase 9.
+- **Unparked** in Phase 8 (`openapi/*`) and Phase 9 (`restclient/*`, `resilience/*`).
 
 ### 2.5 Cut — deleted from `develop` in Phase 1
 
@@ -84,14 +85,13 @@ Restore point: tag `pre-spring-native` (ND8).
 |---|---|
 | JWT security and authorization | `security/*` (8 modules) |
 | Validation (platform constraints) | `validation/*`. Spring's own Bean Validation stays; errors maps its failures (§2.3) |
-| OpenAPI | `openapi/*` |
 | Caching | `cache/*`, `redis/*` |
 | Scheduling and locking | `scheduling/*`, `locking/*` (ND9: nothing kept needs a lock; the outbox uses `SKIP LOCKED`, not the locking module) |
 | In-process events | `events/*` (Spring's `ApplicationEventPublisher` replaces it) |
 | Kafka messaging | `messaging/platform-messaging-kafka`, `platform-starter-messaging-kafka` |
 | Audit, idempotency, rate limiting, storage, files, feature flags | `audit/*`, `idempotency/*`, `ratelimit/*`, `storage/*`, `files/*`, `flags/*` |
 | Their contract tests | `test/tck/*` except `platform-tck-messaging` (which goes in Phase 6, with the messaging API) |
-| Their docs | their `docs/modules/*.md`, book chapters 04, 05, 09–13, `docs/samples/security` |
+| Their docs | their `docs/modules/*.md`, book chapters 05 and 09–13, `docs/samples/security` (chapter 04, OpenAPI, is parked with its module and rewritten in Phase 8) |
 
 Also cut, in the phase that rewrites their area:
 - `messaging/platform-messaging-api`, `-spi`, `-inmemory`, `platform-starter-messaging-inmemory`, `platform-tck-messaging`
@@ -168,6 +168,8 @@ These carry over from v3 §3 (summarised here), with the changes this plan makes
    - **Stays:** BOM, parents, conditional auto-configuration, kill switches (`dc.platform.<cap>.enabled`), and
      `@ConditionalOnMissingBean` back-off.
    - **Removed:** a platform API module, wherever Spring already has the type (ND3, ADR-011).
+   - **Module layout:** per ND15 once answered. Recommended: one `platform-<cap>-autoconfigure` module (code) and one
+     `platform-starter-<cap>` (POM only) per capability; no `-api` or `-spi` module unless an ND decision needs one.
    - **Needs a recorded decision:** a new module.
 7. **Evidence before status.** Every "passes", "works" or "secure" names the command, its exit code, the evidence file and the
    evidence level (§6).
@@ -576,7 +578,7 @@ current phase.
 
 1. Delete the cut modules (§2.5): from the reactor `pom.xml`, from `build/platform-bom` and `build/platform-dependencies`,
    and their directories. Remove third-party versions that only cut modules used (Kafka, Redis/Lettuce, AWS SDK,
-   OpenFeature, springdoc, …), and confirm with a dependency tree of every kept module.
+   OpenFeature, …; springdoc stays for the parked OpenAPI module), and confirm with a dependency tree of every kept module.
 2. Remove the optional JWT-security links from data, outbox and restclient. Their tests that used `CurrentUser` assert the
    fallback instead.
 3. Park `restclient/*` and `resilience/*` (§2.4): out of the BOM, `maven.deploy.skip=true`, out of the archetype, with a
@@ -591,7 +593,7 @@ current phase.
 6. **Rules:** apply ND3 (ADR-011) to `CLAUDE.md` rules 4, 5 and 9, the enforcer and the ArchUnit rules. Remove rules about
    cut modules.
 7. **Docs:**
-   - Delete the cut module pages, book chapters 04, 05 and 09–13, `docs/samples/security` and their reference entries.
+   - Delete the cut module pages, book chapters 05 and 09–13, `docs/samples/security` and their reference entries.
    - Update `mkdocs.yml` and the compatibility appendix. Regenerate `docs/reference/*`, `llms-full.txt` and the skill resources
      from a full build.
    - Do **not** edit the closed hardening record (`../production-readiness/final-release-assessment.md`,
@@ -791,16 +793,28 @@ auth. The service checks only that basic-auth credential.
 - **Principal back in context:**
   - the JPA auditor and the outbox principal now read the authenticated user from `SecurityContextHolder`;
   - the masking covers `Authorization: Basic`.
-- **Gate A decides:** whether more than one credential (one per calling gateway) is needed, and the module layout under
-  `rest-api/`.
+- **OpenAPI documentation (owner, 2026-11-19):**
+  - springdoc generates the document from the controllers: `/v3/api-docs` (JSON and YAML) and Swagger UI at
+    `/swagger-ui.html`;
+  - the document declares the **basic** security scheme (today's module declares bearer JWT; that changes), and the
+    title and version default from the build;
+  - both are on by default and sit **behind the same basic auth** as the API: no open docs path. A property turns the UI
+    off for production while keeping `/v3/api-docs` for the gateway or portal (ND14);
+  - a service's own `OpenAPI` bean or `OpenApiCustomizer` backs the platform's off or adds to it (contract 13);
+  - no internal path (actuator, error controller) and no secret appears in the document;
+  - the first request is slow while springdoc builds the document, so it is never used as a health check.
+- **Gate A decides:** whether more than one credential (one per calling gateway) is needed.
 - **Consumer floor:** set at Gate A. It must at least cover:
   - no credential, a wrong credential and the right one;
   - every path except probes is protected;
   - no password in logs;
   - the failure to start without a configured credential;
-  - concurrency with two credentials and no principal bleed.
+  - concurrency with two credentials and no principal bleed;
+  - the OpenAPI document: served with a credential, refused without one, lists the controller's operations and the basic
+    scheme, contains no actuator path.
 - **Lab "REST API":** generate a service with `features=rest-api`, set a credential, call an endpoint with and without it,
-  and send an invalid body to read the validation `ProblemDetail`.
+  send an invalid body to read the validation `ProblemDetail`, then open Swagger UI, log in, and try the endpoint from
+  there.
 
 ### Phase 9 — REST client + resilience, Spring-native, with outbound auth
 

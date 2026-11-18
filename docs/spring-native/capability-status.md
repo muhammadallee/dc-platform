@@ -3,16 +3,13 @@
 Updated at each phase closure. Until a capability's phase closes, its v3 status
 ([`../production-readiness/capability-status.md`](../production-readiness/capability-status.md)) describes the code.
 
-| Capability | v3 verdict | Realignment phase | Spring-native | Lab | Status |
+| Capability | Iteration | v3 verdict | Phase | Lab | Status |
 |---|---|---|---|---|---|
-| Core + Errors | PASS | 2 | — | — | not started |
-| Data access (Oracle) | PASS, RAC `BLOCKED` | 2 (ND7) | — | — | not started |
-| Logging + Observability | PASS | 3 | — | — | not started |
-| REST client + Resilience | PASS | 4 | — | — | not started |
-| Security + Authorization | PASS | 5 | — | — | not started |
-| Outbox | PASS with parked issues | 6 (trial), 7 | — | — | not started |
-| RabbitMQ messaging | PASS | 7 | — | — | not started |
-| Caching (Caffeine) | not certified | 8 | — | — | not started |
-| Scheduling + JDBC locking | not certified | 9 | — | — | not started |
-| Validation + OpenAPI | not certified (archetype fixtures) | 10 | — | — | not started |
-| Cut (plan §1.3) | not certified | 1 | — | — | to be removed |
+| Foundation: core + errors | 1 | PASS | 2 | first service | not started |
+| Logging + observability | 1 | PASS | 3 | logging and observability | not started |
+| Data (Spring Data JPA, Oracle) | 1 | PASS, RAC `BLOCKED` | 4 | data | not started |
+| Outbox (RabbitMQ) | 1 | PASS with parked issues | 5 (trial), 6 | outbox | not started |
+| Messaging (RabbitMQ) | 1 | PASS | 6 | messaging | not started |
+| REST API (basic auth) | 2 | new (v3 certified JWT security, which is cut) | 8 | REST API | not started |
+| REST client + resilience | 2 | PASS | 9 | REST client | parked during iteration 1 |
+| Cut (plan §2.5) | — | — | 1 | — | to be removed |

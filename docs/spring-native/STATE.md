@@ -10,10 +10,10 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Current phase | 0 — Baseline, framework spikes, decisions |
 | Current gate | Decisions answered 2026-11-19 ([`decisions.md`](decisions.md)); plan rewritten as v2. Closing: removal map to new scope, Codex round, merge PR #7 |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | Owner review of plan v2 and the cut list (plan §2.5) before Phase 1 deletes anything. HI-0109: `develop` push builds hit Maven Central 429s; fixed in Phase 1 |
-| Pending human decisions | ND12 (version per iteration; by Phase 7), ND13 (actuator port; by Phase 3), ND5 (after the Phase 5 trial), ND11b (Phase 9), ND14 (OpenAPI exposure; Phase 8), ND15 (module layout; Phase 1) |
+| Open blockers | HI-0109: `develop` push builds hit Maven Central 429s; fixed in Phase 1 |
+| Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Owner confirms plan v2. Then: update `removal-map.md` and `expected-removals.md` to the new scope, Codex round (plan §9), merge PR #7, tag `native/phase-00-closed`, start Phase 1 |
+| Next action | Phase 0 Codex round (plan §9), merge PR #7 on green, tag `native/phase-00-closed`, start Phase 1 |
 
 ## Phase log
 

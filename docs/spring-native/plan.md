@@ -168,7 +168,7 @@ These carry over from v3 §3 (summarised here), with the changes this plan makes
    - **Stays:** BOM, parents, conditional auto-configuration, kill switches (`dc.platform.<cap>.enabled`), and
      `@ConditionalOnMissingBean` back-off.
    - **Removed:** a platform API module, wherever Spring already has the type (ND3, ADR-011).
-   - **Module layout:** per ND15 once answered. Recommended: one `platform-<cap>-autoconfigure` module (code) and one
+   - **Module layout (ND15):** one `platform-<cap>-autoconfigure` module (code) and one
      `platform-starter-<cap>` (POM only) per capability; no `-api` or `-spi` module unless an ND decision needs one.
    - **Needs a recorded decision:** a new module.
 7. **Evidence before status.** Every "passes", "works" or "secure" names the command, its exit code, the evidence file and the

@@ -83,8 +83,8 @@ Restore point: tag `pre-spring-native` (ND8).
 
 | Removed | Module directories |
 |---|---|
-| JWT security and authorization | `security/*` (8 modules) |
-| Validation (platform constraints) | `validation/*`. Spring's own Bean Validation stays; errors maps its failures (§2.3) |
+| JWT security and authorization | `security/*` (7 modules) |
+| Validation (platform constraints) | `validation/*`. Spring's own Bean Validation stays: `spring-boot-starter-validation` replaces the platform starter wherever it was used, and errors maps its failures (§2.3) |
 | Caching | `cache/*`, `redis/*` |
 | Scheduling and locking | `scheduling/*`, `locking/*` (ND9: nothing kept needs a lock; the outbox uses `SKIP LOCKED`, not the locking module) |
 | In-process events | `events/*` (Spring's `ApplicationEventPublisher` replaces it) |
@@ -188,6 +188,12 @@ These carry over from v3 §3 (summarised here), with the changes this plan makes
     4. a platform type in service code, only with an ND decision explaining why no Spring type fits.
 
     A `BeanPostProcessor` that rewrites a user's bean is not allowed: the user's bean wins, unchanged.
+
+    **One exception, recorded:** `OracleConnectionDefaults` (data) is a `BeanPostProcessor` that adds Oracle driver timeouts
+    to a pool **only where the user set none**, and never overwrites a value. It is the proven fix for HI-0061, with HI-0063
+    and HI-0070 around it; without it a hung Oracle connection blocks a request forever. It stays. Phase 4 proves it with
+    parity tests for a Boot-created pool, a user-created pool, and a URL supplied late by a property source. Any other
+    processor of this kind needs its own ND decision.
 13. **Carry every guarantee.** Each phase that rewrites a capability builds a carry-over table (§8, Gate A) and proves each row
     with a test before it closes.
 14. **Consumer counts are a floor.** A ported consumer run keeps at least its v3 assertion count, or `scope.md` lists every
@@ -584,12 +590,15 @@ current phase.
 3. Park `restclient/*` and `resilience/*` (§2.4): out of the BOM, `maven.deploy.skip=true`, out of the archetype, with a
    note on their doc pages.
 4. **Archetype:**
-   - Remove the starters for validation, OpenAPI and security.
+   - Remove the starters for OpenAPI (parked) and security.
+   - Replace `platform-starter-validation` with `spring-boot-starter-validation`, here and in the kept examples. Without it a
+     service has the constraint annotations but no validator, so its constraints silently stop being checked (Codex P0-R1
+     finding 1). A consumer-run assertion on an ordinary `@NotBlank` failure stays; only platform-constraint assertions go.
    - Remove the in-memory messaging default: messaging becomes RabbitMQ.
    - Keep the `database=h2|oracle` and `features=data,messaging,outbox` options.
 5. **Examples:** keep `example-minimal` and `example-golden-path` (pruned to kept capabilities). Delete
-   `example-extension-provider` (it shows an SPI that goes) and `example-event-driven` (it uses the cut in-process events and
-   Kafka) unless Gate A finds it uses only kept modules.
+   `example-extension-provider` (it extends the cut storage SPI). `example-event-driven` uses the platform messaging API with
+   in-memory and RabbitMQ profiles: keep it with the RabbitMQ profile only, and port it to Spring AMQP in Phase 6.
 6. **Rules:** apply ND3 (ADR-011) to `CLAUDE.md` rules 4, 5 and 9, the enforcer and the ArchUnit rules. Remove rules about
    cut modules.
 7. **Docs:**
@@ -598,6 +607,11 @@ current phase.
      from a full build.
    - Do **not** edit the closed hardening record (`../production-readiness/final-release-assessment.md`,
      `release-decision.md`, the phase folders): it is the evidence behind tag `hardening/phase-08-closed`.
+   - **Two permitted edits** to that record, and only these:
+     - the banner below;
+     - a link that points at a deleted file (for example `docs/samples/security/…`) is rewritten to the same file at tag
+       `pre-spring-native` on GitHub. The text around it stays word for word. Without this, `DocsLinkCheckTest` fails on
+       the record's links to deleted samples (Codex P0-R1 finding 4).
    - Add one line at the top of the assessment and of the release decision: "Superseded on `develop` by
      [`docs/spring-native/`](../spring-native/plan.md): the realigned platform targets 1.0.0 (ND1)."
 8. **Compose file** (ND11):
@@ -626,8 +640,21 @@ current phase.
     field paths and no internal detail. This replaces what the cut validation module did.
   - Gate A decides how a service sets its own error code without a platform type: a `ProblemDetail` property set by the
     thrower, the `type` URI, or a resolver bean.
+  - **Customizing an error body.** Today a service adds to the finished body with `ProblemDetailCustomizer`, which receives
+    the populated body and the originating exception (HI-0014). A second `@RestControllerAdvice` does **not** replace it:
+    advice picks one handler and does not chain them, so a service advice would bypass the platform's code, trace and
+    sanitising. Gate A names a mechanism that composes, with access to the originating exception, and covers framework
+    and error-dispatch errors. If no Spring type fits, keep a narrow platform hook under rule 12 step 4, with an ND
+    decision.
 - **Core:** remove the API types in the removal map. The correlation filter, the executor context propagation and the banner
   are already auto-configuration.
+  - `RequestContextHolder` is **not** a replacement for `RequestContext`: it holds only web-request attributes, and a
+    RabbitMQ listener or the outbox drainer has none. Trace identity moves to Micrometer `Tracer`. The isolation behaviour
+    (an explicitly empty context propagated to a context-free task, the previous scope restored afterwards: HI-0016,
+    HI-0023) moves into an internal context-propagation accessor in the autoconfigure module. Port the empty-context,
+    nested-scope, async and error-dispatch, and listener/drainer tests before deleting the type.
+- **Parked modules follow the foundation.** Parking does not exempt them from foundation changes: `RemoteCallException`
+  extends `PlatformException`, so the parked REST client is adapted here to keep compiling.
 - **Data value types (ND7):** delete `EntityId`, `Money` and `PersistenceConventions` here, since errors and data both used
   them in tests.
 - **Carried from v3 (to confirm at Gate A):**
@@ -670,6 +697,8 @@ current phase.
 - **Already Spring-native:** data was certified on Oracle in v3, with `JpaRepository`, `@Transactional` and Flyway. This
   phase confirms it with the new recipe instead of rewriting it.
 - **Auditing:** the JPA auditor uses `"system"` until iteration 2 adds a principal. Document it.
+- **Oracle driver timeouts:** `OracleConnectionDefaults` stays (rule 12's recorded exception). Carry HI-0061, HI-0063 and
+  HI-0070 with the parity tests named there.
 - **Carried from v3:**
   - transaction boundaries;
   - pool sizing and the slow-database behaviour (a slow database must not exhaust the pool and hang requests);
@@ -708,7 +737,9 @@ A time-boxed comparison, not a rewrite.
 - **Using it:** services publish with `RabbitTemplate` (or through the outbox ND5 chose) and consume with `@RabbitListener`.
 - **What the platform supplies:**
   - a message converter;
-  - publisher confirms and returns (an unroutable message is an error, not silence);
+  - publisher confirms and returns (an unroutable message is an error, not silence). Plain `RabbitTemplate.convertAndSend`
+    does not wait for a confirm: the bounded confirm-and-return wait that `RabbitEventTransport` does today must be kept,
+    not just switched on;
   - header post-processors (event ID, type, version, `traceparent`);
   - a listener container factory with bounded retry, backoff and dead-lettering;
   - quorum queues by default.
@@ -789,7 +820,7 @@ auth. The service checks only that basic-auth credential.
 - **Fail-closed:** no credential configured means the app does **not** start, with a `FailureAnalyzer` message naming the
   property. Boot's generated default password must never be active.
 - **Open paths:** only the health probes. A startup check fails the app if a configured permit path opens anything else
-  (carried from v3's HI-0099 idea).
+  (the idea of v3 Phase 7's open-path startup check).
 - **Principal back in context:**
   - the JPA auditor and the outbox principal now read the authenticated user from `SecurityContextHolder`;
   - the masking covers `Authorization: Basic`.
@@ -838,10 +869,24 @@ Unpark `restclient/*` and `resilience/*`, and rewrite them.
   - POST and PATCH are **never** retried, with or without an `Idempotency-Key`;
   - a 4xx is not retried; `Retry-After` is honoured;
   - this holds whichever retry mechanism Gate A picks: Resilience4j, or Spring Framework 7's `@Retryable`. Spike S4 showed
-    `@Retryable` works once enabled and takes include and exclude lists.
+    `@Retryable` works once enabled and takes include and exclude lists;
+  - **an outer retry must not repeat a POST.** A client interceptor alone is not enough: `@Retryable` (or a Resilience4j
+    retry) on a service method re-runs the **whole method**, so a POST whose response was lost is sent again. Today the
+    resilience defaults exclude `RemoteCallException` from method retries for exactly this reason. The rewrite needs the
+    same exclusion for the Spring exception types a non-idempotent call raises, applied by default to every retry
+    mechanism the platform enables;
+  - proof: a POST takes effect downstream, its response is lost, and the downstream sees **exactly one** call under every
+    supported retry mechanism (Codex P0-R1 finding 3).
 - **Errors:**
   - downstream failures surface as Spring's `RestClientResponseException` / `ResourceAccessException`;
   - the errors advice maps them to a `ProblemDetail` with `retryable`, never leaking the downstream body.
+- **Per-client settings.** The platform's `PlatformRestClientCustomizer` receives the client name; Boot's
+  `RestClientCustomizer` does not, and applies to every client. Credentials and headers for one downstream go through that
+  client's HTTP service group (`spring.http.serviceclient.<group>.*` and a group configurer). Gate A defines how a directly
+  injected builder picks its settings. Proof: two downstreams with different credentials, and neither sees the other's.
+- **Timeouts per group.** Spike S3 showed group properties bind, but not that the read timeout fires. Gate A adds a
+  slow-server test with a timeout exception and an elapsed-time bound.
+- **Carried HI-0099:** a malformed successful response must not leak secrets through the conversion error. Re-test it.
 - **Contract 13 matters most here:** a service that builds its own `RestClient` without the builder loses the platform's
   timeouts. Document it, and consider a startup WARN.
 - **Consumer floor:** 182, plus the new auth scenarios:

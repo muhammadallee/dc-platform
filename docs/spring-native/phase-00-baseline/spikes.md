@@ -3,7 +3,7 @@
 Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.1.2 (JDK 25.0.3, 2026-11-17).
 
 - **S1** was checked against the published artifacts and the docs; it is a feasibility check, and the outbox trial
-  (Phase 6) is the real test.
+  (plan v2 Phase 5) is the real test. Phase numbers below follow plan v2 (2026-11-19).
 - **S2 to S7** were checked with a throwaway Boot 4.1.2 project, [`spikes/`](spikes/pom.xml), outside the reactor.
   - Command: `mvn -B -ntp test` in `docs/spring-native/phase-00-baseline/spikes/`.
   - Result: exit 0, 12 tests, 0 failures, 0 skipped. Raw log: `evidence-raw/spikes.log`, not committed.
@@ -39,7 +39,7 @@ Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.
     docs say it is "usually not recommended in multi-instance deployments".
   - **Externalisation:** `spring.modulith.events.externalization.mode` takes `module-listener` (the default) or `outbox`.
 
-**Open items:** each becomes a carry-over row tested in the Phase 6 trial. None of them pre-answers ND5.
+**Open items:** each becomes a carry-over row tested in the Phase 5 trial. None of them pre-answers ND5.
 
 | # | Item | Why it matters |
 |---|---|---|
@@ -58,9 +58,9 @@ Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.
     while `/closed` still returns 401.
   - The customizer is applied **before** Boot's `anyRequest().authenticated()`, so `requestMatchers(…)` in a customizer is
     legal.
-- **Not yet checked (Phase 5):**
+- **Not yet checked (Phase 8):**
   - Whether the bean also applies to a `SecurityFilterChain` built by the platform's own auto-configuration from the
-    `HttpSecurity` prototype. Expected yes; Phase 5 proves it.
+    `HttpSecurity` prototype. Expected yes; Phase 8 proves it.
   - How a service-defined chain interacts with the platform's chain.
 
 ## S3 — HTTP service clients
@@ -68,7 +68,8 @@ Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.
 - **What passed:**
   - `@ImportHttpServices(group = "orders", types = OrdersApi.class)` with
     `spring.http.serviceclient.orders.base-url` and `spring.http.serviceclient.orders.read-timeout` calls a local server
-    successfully.
+    successfully. **Not proven:** that the read timeout fires; the server answers at once. Phase 9 Gate A adds a
+    slow-server test.
   - A `RestClientCustomizer` bean's default header arrives at that server. Boot applies customizers to groups through
     `RestClientCustomizerHttpServiceGroupConfigurer`.
 - **Property names, from `spring-boot-http-client` 4.1.2 metadata:**
@@ -81,10 +82,12 @@ Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.
   `spring-boot-autoconfigure`). A platform auto-configuration annotated `@EnableResilientMethods` switches them on. With it:
   - `@Retryable(maxRetries = 2, delay = 0, includes = IllegalStateException.class)` makes 3 calls;
   - an excluded exception makes 1.
-- **Not yet checked (Phase 4):**
+- **Not yet checked (Phase 9):**
   - how `@Retryable` combines with Resilience4j's annotations on one method;
   - whether the never-retry-POST rule (HD2) can be enforced when a service puts `@Retryable` on a method that POSTs. A
-    method-level annotation cannot see the HTTP verb, so the rule must stay in the client (a `RestClient` interceptor).
+    method-level annotation cannot see the HTTP verb. An interceptor in the client is necessary but **not sufficient**: a
+    method-level retry re-runs the whole method, so the platform must also exclude non-idempotent failures from method
+    retries (plan v2 Phase 9; Codex P0-R1 finding 3).
 
 ## S5 — Structured logging
 
@@ -114,10 +117,11 @@ Plan §6 step 3. Each claim the realignment relies on, checked on Spring Boot 4.
     - a `@PreAuthorize("hasAuthority('orders:read')")` on the **implementing** method is enforced through the interface;
     - a stricter method rule wins over a weaker class rule (`@PreAuthorize("permitAll()")` on the class).
 
-    This is the evidence Phase 5 needs before it can retire the v3 Phase 7 interface-proxy fix.
+    In plan v1 this was the evidence for retiring the v3 Phase 7 interface-proxy fix; plan v2 cuts authorization (ND4), so
+    it is no longer needed.
   - **Startup listing:** walking bean target classes with `AnnotatedElementUtils` finds every guarded method and its
     expression.
-- **Not yet checked (Phase 5):**
+- **No longer needed** (plan v2 has no authorization layer, ND4). Left as recorded:
   - deny by default for methods with no annotation;
   - checking expressions against a declared permission set (`NEW RISK`: typos);
   - the open-path startup check against `@PreAuthorize`.

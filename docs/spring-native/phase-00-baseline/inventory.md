@@ -45,6 +45,12 @@ Plan §6 steps 1, 2 and 5. Recorded 2026-11-17.
 
 ## What the cut removes (step 5)
 
+> **Superseded by plan v2 (2026-11-19).** This section and `evidence/depmap.py` describe the v1 cut. The v2 cut is wider
+> (plan §2.5: also security, validation, events, cache, locking and scheduling). Codex's Phase 0 review lists every kept
+> module's reference to a v2-cut module, by file and line ([`codex/r1-review.out.md`](codex/r1-review.out.md), question 2).
+> Phase 1 Gate A regenerates this inventory from an explicit v2 module manifest and checks every dependency scope and
+> Java reference.
+
 **Modules (44):**
 
 | Area | Modules |

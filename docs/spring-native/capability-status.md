@@ -5,7 +5,7 @@ Updated at each phase closure. Until a capability's phase closes, its v3 status
 
 | Capability | Iteration | v3 verdict | Phase | Lab | Status |
 |---|---|---|---|---|---|
-| Foundation: core + errors | 1 | PASS | 2 | first service | not started |
+| Foundation: core + errors | 1 | PASS | 2 | first service | in progress (Gate B) |
 | Logging + observability | 1 | PASS | 3 | logging and observability | not started |
 | Data (Spring Data JPA, Oracle) | 1 | PASS, RAC `BLOCKED` | 4 | data | not started |
 | Outbox (RabbitMQ) | 1 | PASS with parked issues | 5 (trial), 6 | outbox | not started |

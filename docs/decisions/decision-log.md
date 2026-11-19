@@ -868,3 +868,14 @@ One line of context per decision; details live in the commit bodies referenced.
   that as "not published": no BOM entry needed, and a BOM entry for one fails. (3) `platform-service-parent` drops its
   Resilience4j and springdoc bans while those starters are parked, rather than pointing services at a starter that is not
   released. (4) Without web security the generated `/actuator/platform` is exposed outside `prod` only, as before.
+- **D138 — Phase 2 foundation choices (Spring-native Phase 2 Gate A, 2026-11-19).** (1) A service customizes error
+  bodies with Spring's `ErrorResponse.Interceptor` (added through `WebMvcConfigurer`). The platform advice returns an
+  `ErrorResponseException` whose cause is the original exception on every path, and the platform error controller applies
+  the same interceptors on the error dispatch, so each interceptor sees the originating exception; `ProblemDetailCustomizer`
+  is deleted. (2) A service's error code is the `code` property of its `ProblemDetail`; a `String` the thrower set is kept,
+  otherwise `DC-CORE-0499`/`0500`. (3) `CapabilityDescriptor` moves into `platform-core-autoconfigure`, and the enforcer
+  lets an autoconfigure module depend on `platform-core-autoconfigure` in place of `platform-core-api`. (4) Trace identity
+  comes from Micrometer's `Tracer`, falling back to the request's observation on an ERROR dispatch. (5) The platform
+  exceptions of the parked REST client and of messaging become `ErrorResponseException` subclasses with their codes and
+  statuses. (6) The core + errors consumer floor is 77 (92 less Phase 1's 15 JWT drops). Evidence:
+  `docs/spring-native/phase-02-foundation/scope.md`.

@@ -6,14 +6,14 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-02-foundation` |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-02-foundation`, PR #9 |
 | Current phase | 2 — Foundation: core + errors |
-| Current gate | Gate A done: baseline recorded at `516f54c`, `phase-02-foundation/scope.md` written (D138). Next: Gate B |
+| Current gate | Gate B done (`04e7e29`, `940e55b`; evidence `phase-02-foundation/evidence/gateB-builds.txt`). Next: Gate C, Codex round 1 |
 | Last commit | see `git log -1 native/phase-00-baseline` |
 | Open blockers | None |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Gate B: core first (trace helper, internal MDC accessor, descriptor move), then errors (interceptor design), then the call sites in the removal list |
+| Next action | Codex round 1 on `516f54c..HEAD` from a worktree (prompt: scope.md, the diff, paths); then rounds 2, Gate E, consumer run (`native-repo.sh native-02`, floor 77), lab, Gate H |
 
 ## Phase log
 

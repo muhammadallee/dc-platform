@@ -67,11 +67,10 @@ Recorded as D138 in [`../../decisions/decision-log.md`](../../decisions/decision
 |---|---|---|
 | Correlation from `traceparent` | 3 | `FilterRegistrationBean<CorrelationIdFilter>`, backs off to a user registration or filter bean; kill switch `dc.platform.core.enabled` |
 | Trace in the MDC on REQUEST, ASYNC, ERROR dispatch | 3 | the same filter |
-| Context to `@Async` and Boot-built executors, isolated | 3 | a Micrometer `ThreadLocalAccessor` (internal, `META-INF/services`) that captures the MDC trace keys, "none" included |
+| Context to `@Async` and Boot-built executors, isolated | 3 | a `ContextPropagatingTaskDecorator` bean whose snapshot factory clears missing values (backs off to any `TaskDecorator`), plus a Micrometer `ThreadLocalAccessor` (internal, `META-INF/services`) that captures the MDC trace keys, "none" included (D139) |
 | Error body contract | 3 | `@RestControllerAdvice` bean `platformExceptionHandler` (replaceable by name) and an `ErrorController` bean (backs off to the user's) |
 | Customizing an error body | Spring | the service's own `ErrorResponse.Interceptor` |
 | A service's error code | Spring | `ProblemDetail` property `code` |
-| Property defaults (core) | 1 | `PlatformCoreEnvironmentPostProcessor`, lowest precedence |
 
 No step-4 type remains in service code.
 
@@ -161,7 +160,7 @@ existing test is rewritten onto the new types.
 | C29 | The parked REST client and messaging keep their error codes and statuses in the body | HI-0008 and the modules' own tests | `PlatformException` subclasses | `ErrorResponseException` subclasses (D138.5) | their modules' existing tests | CARRIED |
 | R1 | `CorrelationId` format check (32 lowercase hex) | HI-0007 | `CorrelationId` | Micrometer's `TraceContext`: the filter accepts only a 32-character trace ID from the tracer, never a header value | C10 | RETIRED |
 | R2 | `ErrorCode` format check `DC-<CAP>-<NNNN>` for platform codes | `ErrorCode` | `ErrorCode` | the uniqueness scan rejects a platform literal of any other form | C24 | RETIRED |
-| N1 | Trace bleed through `Tracer`: services now read the trace from `Tracer`. If Micrometer's observation accessor shows the executing thread's span to a context-free task (Boot's decorator does not clear missing values), the old isolation is lost for `Tracer` readers | new | — | Gate B tests what `tracer.currentSpan()` shows in that case. If it bleeds, the platform supplies a `TaskDecorator` bean built with a snapshot factory that clears missing values (rule 12 step 3, backs off to the user's) | new case in the accessor test | NEW RISK |
+| N1 | Trace bleed through `Tracer`: services now read the trace from `Tracer`. Micrometer's observation accessor shows the executing thread's span to a context-free task under Boot's decorator, which does not clear missing values | new | — | **Confirmed at Gate B** (the test failed with Boot's decorator: the task saw the caller's trace in `Tracer`, not in the MDC). Fixed: `CoreContextPropagationAutoConfiguration` supplies a `ContextPropagatingTaskDecorator` over a snapshot factory that clears missing values, replacing the `spring.task.execution.propagate-context=true` default (D139). It backs off to any `TaskDecorator`; the module page states the cost | `TraceCorrelationIntegrationTest.aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`, `CoreContextPropagationAutoConfigurationTest` | NEW RISK |
 | N2 | A throwing interceptor is swallowed by Spring without a log, and the interceptors after it do not run | new | — | documented limit on the module page; the platform's error controller logs a WARN; a test shows the response is still the platform's | `ErrorResponseInterceptorTest` | NEW RISK |
 | N3 | A service sets `code` to a non-`String` value or forgets it | new | — | the platform keeps only a `String`; otherwise sets `DC-CORE-0499`/`0500`. Tested | `PlatformExceptionHandlerTest` | NEW RISK |
 
@@ -180,6 +179,9 @@ From the Phase 0 removal map. Every call site, from a `grep` at `516f54c`:
 | `BusinessException`, `NotFoundException`, `ConflictException`, `HttpStatusHint` | `platform-errors-api` | errors handler, examples, OpenAPI (parked), test-api | Spring's `ErrorResponseException`, `ResponseStatusException` |
 | `ProblemDetailCustomizer` | `platform-errors-api` | errors factory and tests | Spring's `ErrorResponse.Interceptor` |
 | `EntityId`, `Money`, `PersistenceConventions` | `platform-data-api` | data `MoneyConverter`, data tests | deleted with their converter (ND7) |
+
+Also removed at Gate B: `PlatformCoreEnvironmentPostProcessor`, whose only default (`spring.task.execution.propagate-context=true`)
+the task decorator replaces (row N1).
 
 **Modules removed:** `platform-core-api`, `platform-errors-api`, `platform-data-api`. They go into
 [`../expected-removals.md`](../expected-removals.md), the BOM and `platform-dependencies`.

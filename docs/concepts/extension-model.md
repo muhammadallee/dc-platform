@@ -1,5 +1,9 @@
 # Extension model
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > From the architecture design §6. One pattern for all extension (ADR-008): **implement the SPI, ship
 > your own auto-configuration, register it, order it before the platform's default.** Platform
 > defaults are all `@ConditionalOnMissingBean`, so your bean wins. **No platform module is ever

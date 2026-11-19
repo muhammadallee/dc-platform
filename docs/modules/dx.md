@@ -43,7 +43,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 | `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
 | `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
-Rules match banned types by fully-qualified name, so a service that pulls neither Kafka nor Rabbit
+Rules match banned types by fully-qualified name, so a service that does not pull in Rabbit
 still compiles the test.
 
 **Escape hatch (discouraged):** a team with a documented reason may delete `PlatformConformanceTest`

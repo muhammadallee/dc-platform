@@ -216,6 +216,18 @@ class ErrorCodeSourceUniquenessTest {
                                 problem.setProperty(D.ONLY_IN_D, "QUALIFIED_NOT_CODE");
                                 problem.setProperty("code", D.D_CODE);
                             }
+                            void variableNamedLikeAType(org.springframework.http.ProblemDetail problem, Keys E) {
+                                problem.setProperty(E.ONLY_IN_E, "VARIABLE_RECEIVER");
+                            }
+                            void localClassField(org.springframework.http.ProblemDetail problem) {
+                                new Runnable() {
+                                    String fieldKey = "detail";
+                                    public void run() {
+                                        this.fieldKey = "code";
+                                        problem.setProperty(fieldKey, "LOCAL_CLASS_FIELD");
+                                    }
+                                };
+                            }
                             void innerKey(org.springframework.http.ProblemDetail problem) {
                                 { String inner = "detail"; problem.setProperty(inner, "IN_SCOPE_NOT_A_CODE"); }
                             }
@@ -242,6 +254,11 @@ class ErrorCodeSourceUniquenessTest {
                         class D {
                             static final String ONLY_IN_D = "detail";
                             static final String D_CODE = "DC-TST-0006";
+                        }
+                        """),
+                source("E", """
+                        class E {
+                            static final String ONLY_IN_E = "detail";
                         }
                         """)));
 
@@ -270,6 +287,8 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("INSTANCE_FIELD"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BARE_FIELD"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CROSS_FILE"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("VARIABLE_RECEIVER"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("LOCAL_CLASS_FIELD"))
                 .noneSatisfy(entry -> assertThat(entry).contains("QUALIFIED_NOT_CODE"))
                 .noneSatisfy(entry -> assertThat(entry).contains("D_CODE"))
                 .noneSatisfy(entry -> assertThat(entry).contains("IN_SCOPE_NOT_A_CODE"))
@@ -344,11 +363,15 @@ class ErrorCodeSourceUniquenessTest {
                         outer.keySet().forEach(name -> locals.put(name, null));
                         declaredNames(node).forEach(name -> locals.put(name, null));
                     }
+                    int outerDepth = methodDepth;
+                    // A class body's fields are fields, never locals, even inside a method.
+                    methodDepth = 0;
                     constants.enclosing().push(node);
                     try {
                         return super.visitClass(node, unused);
                     } finally {
                         constants.enclosing().pop();
+                        methodDepth = outerDepth;
                         locals = outer;
                     }
                 }
@@ -564,7 +587,7 @@ class ErrorCodeSourceUniquenessTest {
             return constants.lookup(name);
         }
         if (expression instanceof MemberSelectTree member) {
-            return constants.lookupIn(member.getExpression(), member.getIdentifier().toString());
+            return constants.lookupIn(member.getExpression(), member.getIdentifier().toString(), locals);
         }
         return Set.of();
     }
@@ -574,7 +597,7 @@ class ErrorCodeSourceUniquenessTest {
      * class of the scanned sources. A field's values are its literal if it is a {@code static final String} (or an
      * interface's {@code String}) initialised with one, and unknown (empty) for any other field.
      */
-    private record Constants(Deque<ClassTree> enclosing, Map<String, List<ClassTree>> byName) {
+    private record Constants(Deque<ClassTree> enclosing, Map<String, List<ClassTree>> byName, Set<String> variables) {
 
         static Constants of(List<CompilationUnitTree> units) {
             Map<String, List<ClassTree>> byName = new HashMap<>();
@@ -589,7 +612,9 @@ class ErrorCodeSourceUniquenessTest {
                     }
                 }.scan(unit, null);
             }
-            return new Constants(new ArrayDeque<>(), byName);
+            Set<String> variables = new java.util.HashSet<>();
+            units.forEach(unit -> variables.addAll(declaredNames(unit)));
+            return new Constants(new ArrayDeque<>(), byName, variables);
         }
 
         // A simple name: the field of the innermost enclosing class that declares it. Past a class that inherits
@@ -608,10 +633,22 @@ class ErrorCodeSourceUniquenessTest {
         }
 
         // Type.NAME or a.b.Type.NAME: the field of every scanned class with that simple name, all of them constants,
-        // or unknown. Any other receiver (this, a variable, a call) is unknown.
-        Set<String> lookupIn(ExpressionTree owner, String name) {
+        // or unknown. Java reads the leftmost name as a variable when one is in scope, so if that name is a local or
+        // any variable declared in the scanned sources, the receiver is unknown; so is any other receiver (this, a
+        // call). Accepted limit: a field inherited from a type outside the scanned sources and named exactly like a
+        // scanned class (Java's naming conventions and the platform's checkstyle rule out such names).
+        Set<String> lookupIn(ExpressionTree owner, String name, Map<String, Set<String>> locals) {
             ExpressionTree type = unwrap(owner);
             if (!(type instanceof IdentifierTree || type instanceof MemberSelectTree)) {
+                return Set.of();
+            }
+            ExpressionTree leftmost = type;
+            while (leftmost instanceof MemberSelectTree qualified) {
+                leftmost = unwrap(qualified.getExpression());
+            }
+            if (!(leftmost instanceof IdentifierTree first)
+                    || locals.containsKey(first.getName().toString())
+                    || variables.contains(first.getName().toString())) {
                 return Set.of();
             }
             List<ClassTree> types = byName.getOrDefault(lastName(type), List.of());

@@ -50,13 +50,6 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
     </dependency>
-    <!-- Supplies the stored principal, guarded by @ConditionalOnClass (CLAUDE.md rule 5). -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-security-api</artifactId>
-      <version>${revision}</version>
-      <optional>true</optional>
-    </dependency>
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>

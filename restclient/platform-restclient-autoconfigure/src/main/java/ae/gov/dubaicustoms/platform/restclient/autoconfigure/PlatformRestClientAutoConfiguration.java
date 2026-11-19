@@ -4,8 +4,6 @@ import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientCustomizer;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.DefaultPlatformRestClientFactory;
-import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.OAuth2TokenRelayCustomizer;
-import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import io.github.resilience4j.bulkhead.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.micrometer.tagged.TaggedBulkheadMetrics;
@@ -18,7 +16,6 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,7 +24,6 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.client.RestClient;
 
 /*
@@ -45,21 +41,11 @@ import org.springframework.web.client.RestClient;
  *                 platform.restclient.attempts, when Micrometer is present;
  *        restclientHealthIndicator (nested) — reports each breaker's state. Always UP: a remote being down is not
  *                 this pod being unwell. Sits in the dependencies group, never readiness (HD6);
- *        platformTokenRelayCustomizer (nested config) — relays the current bearer token to
- *                 the outbound calls of clients named in token-relay.clients; activates ONLY when a Jwt-shaped resource server is on the
- *                 classpath AND the security capability's CurrentUserAccessor bean is actually
- *                 registered — a guarded, optional edge to the security capability's api
- *                 (CLAUDE.md rule 5), never a hard dependency for a restclient-only consumer.
- * Order: afterName PlatformSecurityAutoConfiguration (by string, not class literal: autoconfigure ->
- *        autoconfigure of another capability is forbidden) — @ConditionalOnBean(CurrentUserAccessor) is
- *        evaluated when this class is processed, so the security capability must register its accessor
- *        FIRST. Without the ordering the alphabetical default processes "restclient" before "security"
- *        and the token relay silently never registers in a real application.
  */
-@AutoConfiguration(afterName = "ae.gov.dubaicustoms.platform.security.autoconfigure.PlatformSecurityAutoConfiguration")
+@AutoConfiguration
 @ConditionalOnClass(RestClient.class)
 @ConditionalOnProperty(prefix = "dc.platform.restclient", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableConfigurationProperties({RestClientProperties.class, TokenRelayProperties.class})
+@EnableConfigurationProperties(RestClientProperties.class)
 public class PlatformRestClientAutoConfiguration {
 
     @Bean
@@ -115,17 +101,6 @@ public class PlatformRestClientAutoConfiguration {
                 }
                 return health.build();
             };
-        }
-    }
-
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(Jwt.class)
-    static class TokenRelayConfiguration {
-
-        @Bean
-        @ConditionalOnBean(CurrentUserAccessor.class)
-        PlatformRestClientCustomizer platformTokenRelayCustomizer(TokenRelayProperties relay) {
-            return new OAuth2TokenRelayCustomizer(relay.clients());
         }
     }
 }

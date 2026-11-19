@@ -1,20 +1,16 @@
 package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
-import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.AuditorAwareProvider;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleFlywayConnectionDefaults;
-import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.Optional;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
@@ -30,11 +26,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway checks /
  *                 the Oracle defaults / dataJpaCapabilityDescriptor) or
  *                 already enables JPA auditing themselves (jpaAuditingHandler present).
- * Beans: platformAuditorAware — AuditorAware<String>; resolves the current user's subject when the
- *                 security capability is present and a request is authenticated, otherwise "system".
- *                 Two mutually exclusive definitions keyed on whether CurrentUserAccessor is on the
- *                 classpath (@ConditionalOnClass / @ConditionalOnMissingClass), so a data-only
- *                 consumer never loads a security type;
+ * Beans: platformAuditorAware — AuditorAware<String> that records "system". There is no web security
+ *                 capability in iteration 1 of the Spring-native plan; the REST API capability
+ *                 (iteration 2) brings the authenticated principal back;
  *        platformFlywayPresenceCheck — fails startup when require-migrations is on but Flyway is
  *                 absent, with an actionable message;
  *        dataJpaCapabilityDescriptor — one line in the startup capability banner;
@@ -68,16 +62,10 @@ public class PlatformDataJpaAutoConfiguration {
         return new CapabilityDescriptor("data-jpa", "ACTIVE", "");
     }
 
-    /**
-     * The auditor when the security capability is NOT on the classpath: everything is audited as
-     * {@code "system"}. Kept free of any security type so a data-only consumer never loads one.
-     */
+    /** The auditor: every write is audited as {@code "system"}. A service's own bean of this name wins. */
     @Bean
     @ConditionalOnMissingBean(name = "platformAuditorAware")
-    @ConditionalOnMissingClass("ae.gov.dubaicustoms.platform.security.CurrentUserAccessor")
     AuditorAware<String> platformAuditorAware() {
-        // The "system" literal is inlined (not AuditorAwareProvider.SYSTEM) so this path never loads
-        // AuditorAwareProvider, whose signature references the possibly-absent CurrentUserAccessor.
         return () -> Optional.of("system");
     }
 
@@ -127,21 +115,6 @@ public class PlatformDataJpaAutoConfiguration {
         @ConditionalOnMissingBean(name = "platformOracleFlywayConnectionDefaults")
         static OracleFlywayConnectionDefaults platformOracleFlywayConnectionDefaults(Environment environment) {
             return new OracleFlywayConnectionDefaults(environment);
-        }
-    }
-
-    /*
-     * Security-aware auditor: contributed only when CurrentUserAccessor is on the classpath. Uses an
-     * ObjectProvider so an absent accessor bean falls back to "system".
-     */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(CurrentUserAccessor.class)
-    static class SecurityAuditorConfiguration {
-
-        @Bean
-        @ConditionalOnMissingBean(name = "platformAuditorAware")
-        AuditorAware<String> platformAuditorAware(ObjectProvider<CurrentUserAccessor> accessors) {
-            return new AuditorAwareProvider(accessors.getIfAvailable());
         }
     }
 }

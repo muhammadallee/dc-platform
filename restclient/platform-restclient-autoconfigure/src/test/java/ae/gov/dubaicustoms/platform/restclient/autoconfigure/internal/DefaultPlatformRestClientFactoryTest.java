@@ -137,7 +137,7 @@ class DefaultPlatformRestClientFactoryTest {
 
     @Test
     void credentialsSetByAnInterceptorAreNotForwardedToAnotherOriginOnRedirect() throws Exception {
-        // The token relay sets Authorization in a request interceptor; a redirect to a different origin
+        // An auth interceptor sets Authorization; a redirect to a different origin
         // (different port here) must not carry it along.
         try (MockWebServer elsewhere = new MockWebServer()) {
             elsewhere.start();

@@ -14,12 +14,17 @@
   <artifactId>platform-restclient-autoconfigure</artifactId>
   <packaging>jar</packaging>
 
+  <properties>
+    <!-- Parked (Spring-native plan v2 §2.4): built and tested, but not released, not in platform-bom and
+         not offered by the archetype until its iteration-2 phase. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
   <name>DC Platform :: REST Client :: Auto Configuration</name>
   <description>
     Auto-configuration for the REST client capability: PlatformRestClientFactory builds
     RestClient.Builder instances on the JDK HttpClient request factory with correlation
-    propagation, per-client timeouts, and non-2xx responses mapped to RemoteCallException; an
-    optional token-relay customizer activates only when the security capability is present.
+    propagation, per-client timeouts, and non-2xx responses mapped to RemoteCallException.
   </description>
 
   <dependencies>
@@ -33,16 +38,6 @@
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-core-api</artifactId>
       <version>${revision}</version>
-    </dependency>
-    <!-- Guarded optional edge to the security capability's api (CLAUDE.md rule 5): the token-relay
-         customizer activates only when CurrentUserAccessor is actually registered as a bean
-         (@ConditionalOnBean), so this dependency never forces security onto a restclient-only
-         consumer. -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-security-api</artifactId>
-      <version>${revision}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -82,18 +77,6 @@
       <artifactId>spring-boot-health</artifactId>
       <optional>true</optional>
     </dependency>
-    <!-- Reads the bearer token off the JWT principal for the guarded token-relay customizer;
-         optional so a restclient-only consumer (no security capability) never needs it. -->
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-core</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-oauth2-jose</artifactId>
-      <optional>true</optional>
-    </dependency>
     <!-- Generates config metadata from the properties record at compile time. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -104,21 +87,6 @@
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <!-- The REAL security auto-configuration, test scope only (the layer rule exempts test scope): proves
-         the token relay registers under Boot's actual auto-configuration ordering, not just when a test
-         hands in a CurrentUserAccessor bean up front. -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-security-autoconfigure</artifactId>
-      <version>${revision}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Servlet API for that test's WebApplicationContextRunner (security's servlet chain types). -->
-    <dependency>
-      <groupId>jakarta.servlet</groupId>
-      <artifactId>jakarta.servlet-api</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- A real JSON converter, for a failure inside a JSON body. -->

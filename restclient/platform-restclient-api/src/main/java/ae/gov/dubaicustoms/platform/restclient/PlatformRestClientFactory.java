@@ -7,11 +7,11 @@ import org.springframework.web.client.RestClient;
  * Factory for platform-conventional {@link RestClient.Builder}s. Inject this instead of
  * {@link RestClient.Builder} directly.
  *
- * <p>Conventions applied by the returned builder: W3C {@code traceparent} propagation, auth token
- * relay when a security provider is present, {@code Observation} instrumentation, timeouts and an overall
- * deadline, retries of idempotent methods only, a circuit breaker and a bulkhead per client name (all
- * overridable), and every failure surfaced as a {@link RemoteCallException}. Replacing the request factory
- * through the returned builder removes the retries, deadline, breaker and bulkhead.
+ * <p>Conventions applied by the returned builder: W3C {@code traceparent} propagation,
+ * {@code Observation} instrumentation, timeouts and an overall deadline, retries of idempotent methods
+ * only, a circuit breaker and a bulkhead per client name (all overridable), and every failure surfaced
+ * as a {@link RemoteCallException}. Replacing the request factory through the returned builder removes
+ * the retries, deadline, breaker and bulkhead.
  *
  * <pre>{@code
  * @Service

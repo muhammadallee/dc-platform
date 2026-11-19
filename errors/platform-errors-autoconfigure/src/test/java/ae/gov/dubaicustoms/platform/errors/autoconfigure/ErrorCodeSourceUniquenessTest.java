@@ -75,7 +75,9 @@ class ErrorCodeSourceUniquenessTest {
             // respond() forwards its code parameter to factory.create(); every respond(...) call site is checked.
             "PlatformExceptionHandler.java|code#create",
             // A DataAccessFailure's code is one of its constants, each checked at the enum constant.
-            "PlatformExceptionHandler.java|failure.code()");
+            "PlatformExceptionHandler.java|failure.code()",
+            // copyOf() copies a body's existing properties; a code among them was checked where it was set.
+            "ProblemDetailFactory.java|deepCopy(value)");
 
     record Declaration(String code, String file) {
     }
@@ -119,6 +121,21 @@ class ErrorCodeSourceUniquenessTest {
                             ProblemDetailFactory held;
                             void qualified() {
                                 this.held.create(500, lookupLater(), null, null, null, null);
+                                (this.held).create(500, lookupParenthesised(), null, null, null, null);
+                            }
+                            static final String shadowedLater = "DC-TST-0005";
+                            void shadowed(org.springframework.http.ProblemDetail problem) {
+                                String shadowedLater = "NOT-A-CODE";
+                                shadowedLater = lookupShadowed();
+                                problem.setProperty("code", shadowedLater);
+                            }
+                            void reassignedKey(org.springframework.http.ProblemDetail problem) {
+                                String key = "code";
+                                key = "code";
+                                problem.setProperty(key, lookupKeyed());
+                            }
+                            void otherObject(java.util.Properties properties) {
+                                properties.setProperty("code", lookupIgnored());
                             }
                             void broken(org.springframework.http.ProblemDetail problem) {
                                 problem.setProperty(KEY, "BROKEN");
@@ -142,13 +159,17 @@ class ErrorCodeSourceUniquenessTest {
 
         assertThat(scan.declarations()).extracting(Declaration::code)
                 .as("multi-line, a conditional's literal, and a unicode escape resolving to the same runtime value")
-                .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0003", "DC-TST-0001");
+                .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0003", "DC-TST-0005", "DC-TST-0001");
         assertThat(duplicates(scan)).containsOnlyKeys("DC-TST-0001");
         assertThat(scan.unsupported())
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BROKEN"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupCode()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code later "))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupLater()"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupParenthesised()"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code shadowedLater "))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupKeyed()"))
+                .noneSatisfy(entry -> assertThat(entry).contains("lookupIgnored()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
                 .anySatisfy(entry -> assertThat(entry).contains("C.java").contains("DC-TST-12"))
@@ -175,15 +196,18 @@ class ErrorCodeSourceUniquenessTest {
             throw new java.io.UncheckedIOException(e);
         }
         Constants constants = Constants.of(units);
-        Set<String> factoryNames = factoryNames(units);
+        Set<String> factoryNames = namesDeclaredAs(units, "ProblemDetailFactory");
+        factoryNames.add("factory");
+        Set<String> problemNames = namesDeclaredAs(units, "ProblemDetail");
         List<Declaration> declarations = new ArrayList<>();
         List<String> unsupported = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
             String file = fileName(unit);
             new TreeScanner<Void, Void>() {
 
+                // Local names of the current method (parameters included). A null value means "not known
+                // statically" (reassigned, no initialiser, a parameter): such a name never falls back to a constant.
                 private Map<String, ExpressionTree> locals = new HashMap<>();
-                // Names assigned after their declaration: their value is not known statically.
                 private Set<String> reassigned = new java.util.HashSet<>();
 
                 @Override
@@ -203,11 +227,8 @@ class ErrorCodeSourceUniquenessTest {
                 @Override
                 public Void visitVariable(VariableTree node, Void unused) {
                     String name = node.getName().toString();
-                    if (node.getInitializer() != null && !reassigned.contains(name)) {
-                        locals.put(name, node.getInitializer());
-                    } else {
-                        locals.remove(name);
-                    }
+                    boolean known = node.getInitializer() != null && !reassigned.contains(name);
+                    locals.put(name, known ? node.getInitializer() : null);
                     return super.visitVariable(node, unused);
                 }
 
@@ -227,8 +248,8 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     String name = methodName(node);
                     List<? extends ExpressionTree> args = node.getArguments();
-                    if (name.equals("setProperty") && args.size() == 2
-                            && resolve(args.get(0), file, constants, locals).contains("code")) {
+                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, problemNames)
+                            && mayBeCodeKey(resolve(args.get(0), file, constants, locals))) {
                         check(args.get(1), file, "", constants, locals, unsupported);
                     } else if ((name.equals("create") || name.equals("decorate")) && args.size() >= 2
                             && isFactoryCall(node, factoryNames)) {
@@ -251,28 +272,57 @@ class ErrorCodeSourceUniquenessTest {
         return new Scan(declarations, unsupported);
     }
 
-    // A call on anything declared as a ProblemDetailFactory (field, parameter, local), however qualified
-    // (factory.create, this.factory.create, holder.factory.create), or decorate() called by the factory itself.
+    // A call on anything declared as a ProblemDetailFactory (field, parameter, local), however qualified or
+    // parenthesised (factory.create, this.factory.create, (this.held).create), or decorate() called by the factory itself.
     private static boolean isFactoryCall(MethodInvocationTree node, Set<String> factoryNames) {
         ExpressionTree select = node.getMethodSelect();
         if (select instanceof MemberSelectTree member) {
-            ExpressionTree receiver = member.getExpression();
-            String last = receiver instanceof MemberSelectTree qualified ? qualified.getIdentifier().toString()
-                    : receiver instanceof IdentifierTree identifier ? identifier.getName().toString() : "";
+            String last = lastName(member.getExpression());
             return factoryNames.contains(last) || last.equals("ProblemDetailFactory");
         }
         return select instanceof IdentifierTree;
     }
 
-    // Every name declared with the type ProblemDetailFactory in the scanned sources, plus "factory".
-    private static Set<String> factoryNames(List<CompilationUnitTree> units) {
-        Set<String> names = new java.util.HashSet<>(Set.of("factory"));
+    // setProperty on something declared as a ProblemDetail, or on an ErrorResponse's getBody().
+    private static boolean onProblemDetail(MethodInvocationTree node, Set<String> problemNames) {
+        if (!(node.getMethodSelect() instanceof MemberSelectTree member)) {
+            return false;
+        }
+        ExpressionTree receiver = unwrap(member.getExpression());
+        if (receiver instanceof MethodInvocationTree call) {
+            return methodName(call).equals("getBody");
+        }
+        return problemNames.contains(lastName(receiver));
+    }
+
+    // A key whose values are all known and none is "code" is not a code key; anything else may be.
+    private static boolean mayBeCodeKey(Set<String> keys) {
+        return keys.isEmpty() || keys.contains("code");
+    }
+
+    private static ExpressionTree unwrap(ExpressionTree expression) {
+        ExpressionTree current = expression;
+        while (current instanceof ParenthesizedTree parenthesized) {
+            current = parenthesized.getExpression();
+        }
+        return current;
+    }
+
+    private static String lastName(ExpressionTree expression) {
+        ExpressionTree receiver = unwrap(expression);
+        return receiver instanceof MemberSelectTree qualified ? qualified.getIdentifier().toString()
+                : receiver instanceof IdentifierTree identifier ? identifier.getName().toString() : "";
+    }
+
+    // Every name declared with the given simple type (or a qualified name ending in it) in the scanned sources.
+    private static Set<String> namesDeclaredAs(List<CompilationUnitTree> units, String simpleType) {
+        Set<String> names = new java.util.HashSet<>();
         for (CompilationUnitTree unit : units) {
             new TreeScanner<Void, Void>() {
                 @Override
                 public Void visitVariable(VariableTree node, Void unused) {
                     String type = node.getType() == null ? "" : node.getType().toString();
-                    if (type.endsWith("ProblemDetailFactory")) {
+                    if (type.equals(simpleType) || type.endsWith("." + simpleType)) {
                         names.add(node.getName().toString());
                     }
                     return super.visitVariable(node, unused);
@@ -349,14 +399,15 @@ class ErrorCodeSourceUniquenessTest {
         }
         if (expression instanceof IdentifierTree identifier) {
             String name = identifier.getName().toString();
-            ExpressionTree local = locals.get(name);
-            if (local != null && local != expression) {
-                Map<String, ExpressionTree> withoutSelf = new HashMap<>(locals);
-                withoutSelf.remove(name);
-                Set<String> fromLocal = resolve(local, file, constants, withoutSelf);
-                if (!fromLocal.isEmpty()) {
-                    return fromLocal;
+            if (locals.containsKey(name)) {
+                // A local never falls back to a same-named constant: it is its initialiser, or unknown.
+                ExpressionTree local = locals.get(name);
+                if (local == null || local == expression) {
+                    return Set.of();
                 }
+                Map<String, ExpressionTree> withoutSelf = new HashMap<>(locals);
+                withoutSelf.put(name, null);
+                return resolve(local, file, constants, withoutSelf);
             }
             return constants.lookup(file, name);
         }

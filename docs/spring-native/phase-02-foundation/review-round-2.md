@@ -43,4 +43,9 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   not locals (`f6c9862`); `this.D.KEY` still escaped, as only the leftmost name was checked.
 - [`r2-verify9.out.md`](codex/r2-verify9.out.md): every name of a qualified receiver is checked (`155ba21`); a local
   in an initialiser block was not recorded.
+- [`r2-verify10.out.md`](codex/r2-verify10.out.md): the gate stopped resolving names by hand (`24fb384`): javac
+  resolves them, and a key is skipped only when it is a literal other than `code`. Asked for every escape at once, Codex
+  listed six classes: factory receivers, constants built by concatenation, an unresolved grandparent type, method
+  references, file-wide forwarding exemptions, and unanchored directory exclusions.
+- Verification 11: each name is followed to a literal; the six classes are closed.
 

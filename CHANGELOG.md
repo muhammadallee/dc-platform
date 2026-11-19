@@ -25,7 +25,8 @@ The platform is cut to the plan v2 scope ([`docs/spring-native/plan.md`](docs/sp
   `spring-kafka`, the AWS S3 SDK, Resilience4j or springdoc.
 - **Archetype.** Generated services get no security, OpenAPI or REST-client starter and no `restclient` feature; they get
   `spring-boot-starter-validation`, and `/actuator/platform` is exposed outside `prod` only.
-- **Build.** `check-bom` skips modules that set `maven.deploy.skip=true` and fails if the BOM manages one.
+- **Build.** `check-bom` skips modules that set `maven.deploy.skip=true` and fails if the BOM manages one. That rule
+  found `platform-docs` (never deployed) in the BOM; it is removed from it.
 
 ### Phase 8: final verification
 

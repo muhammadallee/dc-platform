@@ -32,25 +32,10 @@
     "oneLiner" : "Metrics with a consistent identity, health probes that answer \"can this pod serve\" without turning a",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-observability" ]
   }, {
-    "name" : "openapi",
-    "doc" : "modules/openapi.md",
-    "oneLiner" : "A springdoc-generated OpenAPI document that already knows how the platform reports errors, so no",
-    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-openapi" ]
-  }, {
     "name" : "outbox",
     "doc" : "modules/outbox.md",
     "oneLiner" : "Guaranteed publish alongside a database change. The event is written to a table in the same transaction as your",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-messaging-outbox" ]
-  }, {
-    "name" : "resilience",
-    "doc" : "modules/resilience.md",
-    "oneLiner" : "Fault-tolerance for calls to unreliable dependencies, built on Resilience4j(https://resilience4j.readme.io/).",
-    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-resilience" ]
-  }, {
-    "name" : "restclient",
-    "doc" : "modules/restclient.md",
-    "oneLiner" : "Platform-conventional outbound REST calls: inject PlatformRestClientFactory instead of",
-    "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-restclient" ]
   }, {
     "name" : "testing",
     "doc" : "testing.md",
@@ -863,14 +848,6 @@
     "id" : "observability",
     "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-observability</artifactId>\r\n</dependency>"
   }, {
-    "capability" : "openapi",
-    "id" : "openapi",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-openapi</artifactId>\r\n</dependency>"
-  }, {
-    "capability" : "restclient",
-    "id" : "restclient",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-restclient</artifactId>\r\n</dependency>"
-  }, {
     "capability" : "messaging",
     "id" : "messaging-usage",
     "code" : "@EventType(\"OrderPlaced\")\r\nrecord OrderPlaced(String orderId) {}\r\n\r\n@Service\r\nclass OrdersService {\r\n    private final EventPublisher publisher;\r\n\r\n    OrdersService(EventPublisher publisher) {\r\n        this.publisher = publisher;\r\n    }\r\n\r\n    void place(String orderId) {\r\n        publisher.publish(\"dc.orders\", new OrderPlaced(orderId));\r\n    }\r\n}\r\n\r\n@Component\r\nclass OrdersEventHandlers {\r\n    @EventHandler(destination = \"dc.orders\", eventType = \"OrderPlaced\")\r\n    void onOrderPlaced(OrderPlaced event) {\r\n        // ...\r\n    }\r\n}"
@@ -882,10 +859,6 @@
     "capability" : "data",
     "id" : "data",
     "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-data-jpa-oracle</artifactId>\r\n</dependency>"
-  }, {
-    "capability" : "resilience",
-    "id" : "resilience",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-resilience</artifactId>\r\n</dependency>"
   }, {
     "capability" : "testing",
     "id" : "testing",

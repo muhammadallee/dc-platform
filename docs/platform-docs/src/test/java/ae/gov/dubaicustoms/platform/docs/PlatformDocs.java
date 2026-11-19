@@ -83,6 +83,19 @@ final class PlatformDocs {
         return starters;
     }
 
+    /**
+     * Whether a starter is released: listed in {@code platform-bom}. A parked starter builds in the reactor
+     * but is not in the BOM, so a consumer cannot resolve it and the shipped catalogs must not offer it.
+     */
+    static boolean isReleased(String starterArtifactId) {
+        try {
+            String bom = Files.readString(repoRoot().resolve("build/platform-bom/pom.xml"));
+            return bom.contains("<artifactId>" + starterArtifactId + "</artifactId>");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** The capability page a starter must be documented on, or {@code null} if unmapped. */
     static Path pageForStarter(String starterArtifactId) {
         String page = STARTER_TO_PAGE.get(starterArtifactId);

@@ -1697,7 +1697,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 
 | Rule | Banned | Use instead |
 |---|---|---|
-| `noDirectMessagingInfrastructure` | `KafkaTemplate` / `RabbitTemplate` / listener containers | `EventPublisher` / `@EventHandler` |
+| `noDirectMessagingInfrastructure` | `RabbitTemplate` / RabbitMQ listener containers | `EventPublisher` / `@EventHandler` |
 | `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
 | `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
@@ -2185,7 +2185,8 @@ class OrdersEventsTest {
 
 ## Fixtures
 
-- **`TestTokens`** — JWT identities for `MockMvc` (the platform is an OAuth2 resource server):
+- **`TestTokens`** — JWT identities for `MockMvc`, for a service that adds Spring Security's OAuth2
+  resource server itself (1.0.0 ships no web security):
 
   ```java
   mvc.perform(get("/orders/42").with(TestTokens.user("alice").roles("VIEWER").jwt()))
@@ -2219,12 +2220,12 @@ class OrdersEventsTest {
   ```java
   @PlatformTest
   @Tag("docker")
-  class OrdersKafkaIT {
+  class OrdersRepositoryIT {
       @BeforeAll static void docker() { assumeTrue(DockerAvailable.check()); }
 
       @TestConfiguration
       static class Infra {
-          @Bean @ServiceConnection KafkaContainer kafka() { return Containers.kafka(); }
+          @Bean @ServiceConnection PostgreSQLContainer<?> postgres() { return Containers.postgres(); }
       }
   }
   ```
@@ -2236,11 +2237,7 @@ inherit the whole contract suite. A provider is *platform-certified* iff the TCK
 
 | Capability | TCK | Certified docker-free | Under `@Tag("docker")` |
 |---|---|---|---|
-| messaging | `EventTransportTck` | in-memory transport | Kafka, RabbitMQ |
-| storage | `ObjectStoreTck` | filesystem store | S3 / LocalStack |
-| locking | `LockProviderTck` | JDBC on H2 | Redis, PostgreSQL |
-| feature flags | `FlagProviderTck` | in-memory provider | — |
-| rate limiting | `RateLimiterProviderTck` | in-memory sliding window | Redis |
+| messaging | `EventTransportTck` | in-memory transport | RabbitMQ |
 
 ```java
 class MyTransportTckTest extends EventTransportTck {
@@ -2249,18 +2246,14 @@ class MyTransportTckTest extends EventTransportTck {
 ```
 
 Some invariants are **relaxable** for backends that genuinely cannot meet them, via a protected
-`boolean` hook the subclass overrides (documented on each TCK). For example the JDBC lock provider
-relaxes strict *concurrent* exclusion on H2 — whose in-memory engine does not reliably serialize the
-reclaim-then-insert acquisition across connections — while the deterministic sequential-exclusion and
-fencing invariants still prove mutual exclusion docker-free; strict concurrent exclusion is certified
-against PostgreSQL under `@Tag("docker")`.
+`boolean` hook the subclass overrides (documented on each TCK). 
 
 The TCK jars are published (Test Support category), so enterprise providers built on the platform SPIs
 self-certify by depending on the TCK in test scope.
 
 ## Running
 
-- Default (docker-free): `mvn -T1C verify` — every in-memory/fs/JDBC provider passes its TCK.
+- Default (docker-free): `mvn -T1C verify` — the in-memory transport passes its TCK.
 - Full matrix (Docker running): `mvn -Pdocker verify` — adds the `@Tag("docker")` certifications.
 
 
@@ -2297,18 +2290,15 @@ path is always exercised. See [`ProblemResponseTest`](modules/errors.md) for the
 ## example-golden-path — the canonical reference
 
 The service to read first. A small **orders** domain (`POST /orders`, `GET /orders/{id}`) wired through
-the full golden-path stack: REST + validation + security
-(authenticated by default) + [OpenAPI](modules/openapi.md) + [observability](modules/observability.md)
-+ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally) +
-cache + [resilience](modules/resilience.md) + audit. Every
+the 1.0.0 stack: REST + Spring validation + [observability](modules/observability.md)
++ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally). It has no web
+security: in 1.0.0 the API gateway authenticates callers. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
-actually calls (`EventPublisher`, `RetryableOperation`, `@Audited`, `@Cacheable`, `@Transactional`),
+actually calls (`OutboxPublisher`, `@Transactional`, `NotFoundException`),
 and the class deliberately contains no error, security, or serialization code.
 
-Run it with `mvn -pl examples/example-golden-path spring-boot:run`; build the prod-sim variant against
-PostgreSQL with `-Ppg` (Kafka messaging is deferred until the infrastructure supports it — the
-in-memory transport is the local default, and `example-event-driven` demonstrates a real broker over
-RabbitMQ).
+Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is in-memory here;
+`example-event-driven` shows a real broker over RabbitMQ.
 
 Tests, all through the platform slices and Docker-free:
 
@@ -2348,16 +2338,13 @@ The **retry/DLQ** behaviour is the headline. `ShipmentHandler` throws for a ship
 republished the message to the DLQ destination (`dc.shipments.dlq`) — all Docker-free over the
 in-memory `TestEventTransport`. `ShipmentRoundTripTest` covers the happy path.
 
-The default transport is in-memory (the `local` Maven profile). Run against real **RabbitMQ** with the
-`rabbit` profile after `docker compose up rabbitmq`:
+Both services run on **RabbitMQ**, the only transport (the tests need no broker). Start it, then the two services:
 
 ```
-mvn -Prabbit -pl examples/example-event-driven/producer spring-boot:run
-mvn -Prabbit -pl examples/example-event-driven/consumer spring-boot:run
+docker compose -f docker-compose.local.yml up -d rabbitmq
+mvn -pl examples/example-event-driven/producer spring-boot:run
+mvn -pl examples/example-event-driven/consumer spring-boot:run
 ```
-
-Kafka is deferred until the infrastructure supports it; the messaging API is transport-agnostic, so
-adding it later is a starter swap, not a code change.
 
 
 ---
@@ -3154,12 +3141,14 @@ A consumer run proves the capability from the outside: a service generated by th
 infrastructure, by a script.
 
 - **Scenarios:** `tooling/hardening/scenarios/<scenario>.sh`, probe code in `tooling/hardening/scenarios/phase-0X/`.
-- **Local repository:** a fresh one per phase, via `bash tooling/hardening/phase-repo.sh <phase> <modules>`. It checks the
-  baseline manifest and copies it to `~/.m2-hardening/<phase>`.
+- **Local repository:** a fresh one per phase, via `bash tooling/hardening/native-repo.sh native-<NN>`. It copies a seed
+  repository for third-party artifacts, deletes every platform artifact from the copy and installs this checkout into
+  `~/.m2-hardening/native-<NN>`, so no cut module can satisfy a leftover dependency. (The v3 `phase-repo.sh` copied
+  `~/.m2-baseline`, which still holds the cut modules; it is kept only for the closed record.)
   - Never install into `~/.m2-baseline` or `~/.m2-native-baseline`.
 - **Generate outside the repository:** runs land in `~/dc-hardening-runs/native-<phase>/`.
-- **Check the install:** install only the parents, BOM, archetype and the starters under test plus their upstream modules.
-  Then check one installed POM has no unresolved `${revision}`.
+- **Check the install:** the script installs the whole reactor, then checks the installed BOM has no unresolved
+  `${revision}`.
 - **Ported runs:** the probe app's code moves to Spring types; infrastructure, faults and assertions stay (rule 14).
 
 ### 5.10 Guided labs
@@ -3907,20 +3896,21 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-00-baseline` |
-| Current phase | 0 — Baseline, framework spikes, decisions |
-| Current gate | Phase 0 closing: Codex round done (4 High, 5 Medium, 1 Low; all fixed in the plan, verification pass accepted). Merge PR #7 on green, tag |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-01-scope-cut`, PR #8 |
+| Current phase | 1 — Scope cut |
+| Current gate | Gate F done: all seven kept consumer runs and C1 pass at their floors (drop ledger in `phase-01-scope-cut/scope.md`); golden path 6/6; smoke 3/3; Trivy 0 findings; CI green on `451420b`. Gate C: Codex round pending |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | HI-0109: `develop` push builds hit Maven Central 429s; fixed in Phase 1 |
+| Open blockers | Codex usage limit (2026-11-19 06:55): the Phase 1 review waits for the reset at 08:33 (plan §5.3: wait, never buy credits) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Merge PR #7 into `develop` on green, tag `native/phase-00-closed`, start Phase 1 (Gate A: regenerate the dependency inventory from a v2 module manifest; start from Codex P0-R1 question 2) |
+| Next action | After 08:33: rerun `phase-01-scope-cut/codex/r1-review.prompt.md` against `451420b`, settle findings, write `closure.md`, merge PR #8 on green, tag `native/phase-01-closed` |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
-| 0 | `6666618` (`develop`) | in progress | — | — |
+| 0 | `6666618` (`develop`) | PASS | `native/phase-00-closed` | 2026-11-19 |
+| 1 | `085d752` (`develop`) | in progress | — | — |
 
 ## Environment notes for resumption
 

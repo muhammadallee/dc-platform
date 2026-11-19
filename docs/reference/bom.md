@@ -53,7 +53,6 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-test-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-test` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-messaging` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-docs` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-mcp-server` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-skill` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-migrations` | `${revision}` |

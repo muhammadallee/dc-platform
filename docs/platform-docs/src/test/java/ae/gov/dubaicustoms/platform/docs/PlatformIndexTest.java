@@ -45,14 +45,21 @@ class PlatformIndexTest {
     }
 
     @Test
-    void everyStarterAppearsInTheIndex() {
+    void everyReleasedStarterAndNoParkedOneAppearsInTheIndex() {
         List<String> indexed = new ArrayList<>();
         index.get("capabilities").forEach(cap -> cap.get("starters").forEach(s -> indexed.add(s.asText())));
 
-        assertThat(PlatformDocs.starterModules()).allSatisfy(starter ->
+        assertThat(PlatformDocs.starterModules()).allSatisfy(starter -> {
+            if (PlatformDocs.isReleased(starter)) {
                 assertThat(indexed)
-                        .as("starter %s is not represented in platform-index.json capabilities", starter)
-                        .anyMatch(coord -> coord.endsWith(":" + starter)));
+                        .as("released starter %s is not in platform-index.json capabilities", starter)
+                        .anyMatch(coord -> coord.endsWith(":" + starter));
+            } else {
+                assertThat(indexed)
+                        .as("parked starter %s must not be offered in platform-index.json", starter)
+                        .noneMatch(coord -> coord.endsWith(":" + starter));
+            }
+        });
     }
 
     private static JsonNode capability(String name) {

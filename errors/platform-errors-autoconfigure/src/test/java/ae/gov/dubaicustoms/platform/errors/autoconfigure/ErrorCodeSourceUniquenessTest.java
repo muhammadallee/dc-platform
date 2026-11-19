@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
@@ -20,7 +21,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,9 +51,10 @@ import org.junit.jupiter.api.Test;
  *       with a key that resolves to {@code "code"}; {@code factory.create} and {@code factory.decorate} (argument 1);
  *       the handler's {@code respond} (argument 1); {@code DataAccessFailure}'s constants (argument 1). A value
  *       resolves through string literals, conditional expressions, {@code static final String} constants with a literal
- *       initialiser (same file first, then by unique name), and local variables initialised from those. Anything else
- *       is reported, unless it is one of the audited forwarding paths in {@link #FORWARDING}, whose upstream is checked
- *       here.</li>
+ *       initialiser, and local variables initialised from those, each name meaning what Java says it means at that
+ *       point: a local in scope, else a field of an enclosing class (unknown past a class that inherits members), or
+ *       {@code Type.NAME} for a type declared in the scanned sources. Anything else is unknown and reported, unless it
+ *       is one of the audited forwarding paths in {@link #FORWARDING}, whose upstream is checked here.</li>
  *   <li>A minimum count stops an empty scan from passing.</li>
  * </ol>
  * Consumer examples and the archetype are excluded (separate services, with codes of their own).
@@ -91,6 +95,7 @@ class ErrorCodeSourceUniquenessTest {
     /** Trees that open a scope for local names. */
     private static final Set<Tree.Kind> SCOPES = java.util.EnumSet.of(Tree.Kind.BLOCK, Tree.Kind.FOR_LOOP,
             Tree.Kind.ENHANCED_FOR_LOOP, Tree.Kind.TRY, Tree.Kind.CATCH, Tree.Kind.LAMBDA_EXPRESSION, Tree.Kind.CLASS,
+            Tree.Kind.INTERFACE, Tree.Kind.ENUM, Tree.Kind.RECORD, Tree.Kind.ANNOTATION_TYPE,
             Tree.Kind.SWITCH, Tree.Kind.SWITCH_EXPRESSION, Tree.Kind.CASE, Tree.Kind.IF, Tree.Kind.WHILE_LOOP,
             Tree.Kind.DO_WHILE_LOOP);
 
@@ -183,6 +188,34 @@ class ErrorCodeSourceUniquenessTest {
                                     }
                                 };
                             }
+                            void capturedAlias(org.springframework.http.ProblemDetail problem) {
+                                String aliasKey = "code";
+                                String captured = aliasKey;
+                                new Runnable() {
+                                    String aliasKey = "detail";
+                                    public void run() {
+                                        problem.setProperty(captured, "ALIASED");
+                                    }
+                                };
+                            }
+                            static final String DETAIL_KEY = "detail";
+                            void inheritedKey(org.springframework.http.ProblemDetail problem) {
+                                new Base() {
+                                    void run() {
+                                        problem.setProperty(DETAIL_KEY, "INHERITED");
+                                    }
+                                };
+                            }
+                            String instanceKey = "detail";
+                            void fieldKey(org.springframework.http.ProblemDetail problem) {
+                                problem.setProperty(this.instanceKey, "INSTANCE_FIELD");
+                                problem.setProperty(instanceKey, "BARE_FIELD");
+                            }
+                            void otherFilesKey(org.springframework.http.ProblemDetail problem) {
+                                problem.setProperty(ONLY_IN_D, "CROSS_FILE");
+                                problem.setProperty(D.ONLY_IN_D, "QUALIFIED_NOT_CODE");
+                                problem.setProperty("code", D.D_CODE);
+                            }
                             void innerKey(org.springframework.http.ProblemDetail problem) {
                                 { String inner = "detail"; problem.setProperty(inner, "IN_SCOPE_NOT_A_CODE"); }
                             }
@@ -204,11 +237,17 @@ class ErrorCodeSourceUniquenessTest {
                         class C {
                             static final String SHORT = "DC-TST-12";
                         }
+                        """),
+                source("D", """
+                        class D {
+                            static final String ONLY_IN_D = "detail";
+                            static final String D_CODE = "DC-TST-0006";
+                        }
                         """)));
 
         assertThat(scan.declarations()).extracting(Declaration::code)
                 .as("multi-line, a conditional's literal, and a unicode escape resolving to the same runtime value")
-                .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0003", "DC-TST-0005", "DC-TST-0001");
+                .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0003", "DC-TST-0005", "DC-TST-0006", "DC-TST-0001");
         assertThat(duplicates(scan)).containsOnlyKeys("DC-TST-0001");
         assertThat(scan.unsupported())
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BROKEN"))
@@ -226,6 +265,13 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("LOOPED"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("EARLY"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CAPTURED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("ALIASED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("INHERITED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("INSTANCE_FIELD"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BARE_FIELD"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CROSS_FILE"))
+                .noneSatisfy(entry -> assertThat(entry).contains("QUALIFIED_NOT_CODE"))
+                .noneSatisfy(entry -> assertThat(entry).contains("D_CODE"))
                 .noneSatisfy(entry -> assertThat(entry).contains("IN_SCOPE_NOT_A_CODE"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
@@ -262,16 +308,16 @@ class ErrorCodeSourceUniquenessTest {
             new TreeScanner<Void, Void>() {
 
                 // Local names of the enclosing methods (parameters included). A name declared anywhere in a method is
-                // a local for the whole method: inside its scope it is its initialiser; before its declaration, after
-                // its scope closes, or when reassigned, never initialised or a parameter, it is unknown (null). A
-                // local never falls back to a same-named constant.
-                private Map<String, ExpressionTree> locals = new HashMap<>();
+                // a local for the whole method: inside its scope it holds the values its initialiser had where it was
+                // declared; before its declaration, after its scope closes, or when reassigned, never initialised or a
+                // parameter, it is unknown (null). A local never falls back to a same-named constant.
+                private Map<String, Set<String>> locals = new HashMap<>();
                 private Set<String> reassigned = new java.util.HashSet<>();
                 private int methodDepth;
 
                 @Override
                 public Void visitMethod(MethodTree node, Void unused) {
-                    Map<String, ExpressionTree> outer = locals;
+                    Map<String, Set<String>> outer = locals;
                     Set<String> outerReassigned = reassigned;
                     // A nested class's method still sees the captured locals of the method around it.
                     locals = new HashMap<>(outer);
@@ -289,12 +335,22 @@ class ErrorCodeSourceUniquenessTest {
                 }
 
                 @Override
-                public Void visitClass(com.sun.source.tree.ClassTree node, Void unused) {
+                public Void visitClass(ClassTree node, Void unused) {
+                    Map<String, Set<String>> outer = locals;
                     if (methodDepth > 0) {
-                        // A local or anonymous class's fields shadow the method's names wherever they are declared.
+                        // In a local or anonymous class, an inherited or declared member can shadow any of the
+                        // method's names: none of them is known inside the class body.
+                        locals = new HashMap<>();
+                        outer.keySet().forEach(name -> locals.put(name, null));
                         declaredNames(node).forEach(name -> locals.put(name, null));
                     }
-                    return super.visitClass(node, unused);
+                    constants.enclosing().push(node);
+                    try {
+                        return super.visitClass(node, unused);
+                    } finally {
+                        constants.enclosing().pop();
+                        locals = outer;
+                    }
                 }
 
                 @Override
@@ -302,7 +358,9 @@ class ErrorCodeSourceUniquenessTest {
                     if (methodDepth > 0) {
                         String name = node.getName().toString();
                         boolean known = node.getInitializer() != null && !reassigned.contains(name);
-                        locals.put(name, known ? node.getInitializer() : null);
+                        // Resolved now, in the scope of the declaration: a later shadowing name cannot change it.
+                        Set<String> values = known ? resolve(node.getInitializer(), file, constants, locals) : Set.of();
+                        locals.put(name, values.isEmpty() ? null : values);
                     }
                     return super.visitVariable(node, unused);
                 }
@@ -313,7 +371,7 @@ class ErrorCodeSourceUniquenessTest {
                     if (tree == null || !SCOPES.contains(tree.getKind())) {
                         return super.scan(tree, unused);
                     }
-                    Map<String, ExpressionTree> before = new HashMap<>(locals);
+                    Map<String, Set<String>> before = new HashMap<>(locals);
                     try {
                         return super.scan(tree, unused);
                     } finally {
@@ -463,7 +521,7 @@ class ErrorCodeSourceUniquenessTest {
     }
 
     private static void check(ExpressionTree value, String file, String site, Constants constants,
-            Map<String, ExpressionTree> locals, List<String> unsupported) {
+            Map<String, Set<String>> locals, List<String> unsupported) {
         String text = value.toString();
         if (FORWARDING.contains(file + "|" + text + site) || FORWARDING.contains(file + "|" + text)) {
             return;
@@ -479,7 +537,7 @@ class ErrorCodeSourceUniquenessTest {
 
     // The string values an expression can have, or empty when it cannot be resolved statically.
     private static Set<String> resolve(ExpressionTree expression, String file, Constants constants,
-            Map<String, ExpressionTree> locals) {
+            Map<String, Set<String>> locals) {
         if (expression instanceof ParenthesizedTree parenthesized) {
             return resolve(parenthesized.getExpression(), file, constants, locals);
         }
@@ -499,61 +557,95 @@ class ErrorCodeSourceUniquenessTest {
         if (expression instanceof IdentifierTree identifier) {
             String name = identifier.getName().toString();
             if (locals.containsKey(name)) {
-                // A local never falls back to a same-named constant: it is its initialiser, or unknown.
-                ExpressionTree local = locals.get(name);
-                if (local == null || local == expression) {
-                    return Set.of();
-                }
-                Map<String, ExpressionTree> withoutSelf = new HashMap<>(locals);
-                withoutSelf.put(name, null);
-                return resolve(local, file, constants, withoutSelf);
+                // A local never falls back to a same-named constant: it is its declared values, or unknown.
+                Set<String> values = locals.get(name);
+                return values == null ? Set.of() : values;
             }
-            return constants.lookup(file, name);
+            return constants.lookup(name);
         }
         if (expression instanceof MemberSelectTree member) {
-            String owner = member.getExpression().toString();
-            String ownerFile = owner.substring(owner.lastIndexOf('.') + 1) + ".java";
-            Set<String> inOwner = constants.lookup(ownerFile, member.getIdentifier().toString());
-            return inOwner.isEmpty() ? constants.lookup(file, member.getIdentifier().toString()) : inOwner;
+            return constants.lookupIn(member.getExpression(), member.getIdentifier().toString());
         }
         return Set.of();
     }
 
-    /** {@code static final String NAME = "literal"} constants, by file and by name. */
-    private record Constants(Map<String, Map<String, String>> byFile, Map<String, Set<String>> byName) {
+    /**
+     * Field lookups as Java resolves them: the classes enclosing the current point (innermost first) and every named
+     * class of the scanned sources. A field's values are its literal if it is a {@code static final String} (or an
+     * interface's {@code String}) initialised with one, and unknown (empty) for any other field.
+     */
+    private record Constants(Deque<ClassTree> enclosing, Map<String, List<ClassTree>> byName) {
 
         static Constants of(List<CompilationUnitTree> units) {
-            Map<String, Map<String, String>> byFile = new HashMap<>();
-            Map<String, Set<String>> byName = new HashMap<>();
+            Map<String, List<ClassTree>> byName = new HashMap<>();
             for (CompilationUnitTree unit : units) {
-                String file = fileName(unit);
                 new TreeScanner<Void, Void>() {
                     @Override
-                    public Void visitVariable(VariableTree node, Void unused) {
-                        Set<Modifier> modifiers = node.getModifiers().getFlags();
-                        if (modifiers.contains(Modifier.STATIC) && modifiers.contains(Modifier.FINAL)
-                                && node.getType().toString().equals("String")
-                                && node.getInitializer() instanceof LiteralTree literal
-                                && literal.getValue() instanceof String value) {
-                            String name = node.getName().toString();
-                            byFile.computeIfAbsent(file, f -> new HashMap<>()).put(name, value);
-                            byName.computeIfAbsent(name, n -> new LinkedHashSet<>()).add(value);
+                    public Void visitClass(ClassTree node, Void unused) {
+                        if (!node.getSimpleName().isEmpty()) {
+                            byName.computeIfAbsent(node.getSimpleName().toString(), n -> new ArrayList<>()).add(node);
                         }
-                        return super.visitVariable(node, unused);
+                        return super.visitClass(node, unused);
                     }
                 }.scan(unit, null);
             }
-            return new Constants(byFile, byName);
+            return new Constants(new ArrayDeque<>(), byName);
         }
 
-        // Same file first; otherwise only a name that means one value everywhere.
-        Set<String> lookup(String file, String name) {
-            String local = byFile.getOrDefault(file, Map.of()).get(name);
-            if (local != null) {
-                return Set.of(local);
+        // A simple name: the field of the innermost enclosing class that declares it. Past a class that inherits
+        // members (a superclass, interfaces, or an anonymous class) the name could be inherited: unknown.
+        Set<String> lookup(String name) {
+            for (ClassTree type : enclosing) {
+                Set<String> values = fields(type).get(name);
+                if (values != null) {
+                    return values;
+                }
+                if (inherits(type)) {
+                    return Set.of();
+                }
             }
-            Set<String> values = byName.getOrDefault(name, Set.of());
-            return values.size() == 1 ? values : Set.of();
+            return Set.of();
+        }
+
+        // Type.NAME or a.b.Type.NAME: the field of every scanned class with that simple name, all of them constants,
+        // or unknown. Any other receiver (this, a variable, a call) is unknown.
+        Set<String> lookupIn(ExpressionTree owner, String name) {
+            ExpressionTree type = unwrap(owner);
+            if (!(type instanceof IdentifierTree || type instanceof MemberSelectTree)) {
+                return Set.of();
+            }
+            List<ClassTree> types = byName.getOrDefault(lastName(type), List.of());
+            Set<String> values = new LinkedHashSet<>();
+            for (ClassTree candidate : types) {
+                Set<String> declared = fields(candidate).get(name);
+                if (declared == null || declared.isEmpty()) {
+                    return Set.of();
+                }
+                values.addAll(declared);
+            }
+            return values;
+        }
+
+        private static boolean inherits(ClassTree type) {
+            return type.getSimpleName().isEmpty() || type.getExtendsClause() != null
+                    || !type.getImplementsClause().isEmpty();
+        }
+
+        private static Map<String, Set<String>> fields(ClassTree type) {
+            Map<String, Set<String>> fields = new HashMap<>();
+            for (Tree member : type.getMembers()) {
+                if (member instanceof VariableTree field) {
+                    Set<Modifier> modifiers = field.getModifiers().getFlags();
+                    boolean constant = (type.getKind() == Tree.Kind.INTERFACE
+                            || modifiers.contains(Modifier.STATIC) && modifiers.contains(Modifier.FINAL))
+                            && field.getType().toString().equals("String")
+                            && field.getInitializer() instanceof LiteralTree literal
+                            && literal.getValue() instanceof String;
+                    fields.put(field.getName().toString(), constant
+                            ? Set.of((String) ((LiteralTree) field.getInitializer()).getValue()) : Set.of());
+                }
+            }
+            return fields;
         }
     }
 

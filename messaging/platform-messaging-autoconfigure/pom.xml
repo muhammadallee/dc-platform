@@ -37,7 +37,7 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
+      <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
     <!-- autoconfigure -> same-capability impl is allowed (CLAUDE.md rule 5); all optional and

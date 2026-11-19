@@ -1,10 +1,5 @@
 package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.oracle;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.data.Money;
-import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.CorrelationIdConverter;
-import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MoneyConverter;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
@@ -42,11 +37,9 @@ class OracleWidget {
 
     OffsetDateTime offsetAt;
 
-    @Convert(converter = MoneyConverter.class)
-    Money price;
+    String price;
 
-    @Convert(converter = CorrelationIdConverter.class)
-    CorrelationId correlationId;
+    String correlationId;
 
     @Version
     long version;

@@ -1,6 +1,5 @@
 package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import java.sql.SQLException;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -86,16 +85,16 @@ public enum DataAccessFailure {
     // Static constants (not enum fields) so the error-code registry gate sees them; a nested holder
     // because an enum constructor cannot read the enum's own static fields.
     private static final class Codes {
-        static final ErrorCode INTEGRITY_CONFLICT = new ErrorCode("DC-DATA-0409");
-        static final ErrorCode CONCURRENT_UPDATE = new ErrorCode("DC-DATA-0410");
-        static final ErrorCode UNAVAILABLE = new ErrorCode("DC-DATA-0503");
+        static final String INTEGRITY_CONFLICT = "DC-DATA-0409";
+        static final String CONCURRENT_UPDATE = "DC-DATA-0410";
+        static final String UNAVAILABLE = "DC-DATA-0503";
     }
 
     private final int status;
-    private final ErrorCode code;
+    private final String code;
     private final String detail;
 
-    DataAccessFailure(int status, ErrorCode code, String detail) {
+    DataAccessFailure(int status, String code, String detail) {
         this.status = status;
         this.code = code;
         this.detail = detail;
@@ -107,7 +106,7 @@ public enum DataAccessFailure {
     }
 
     /** @return the stable error code */
-    public ErrorCode code() {
+    public String code() {
         return code;
     }
 

@@ -3,7 +3,6 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice.oracle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
-import ae.gov.dubaicustoms.platform.data.Money;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoConfiguration;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -216,7 +215,7 @@ class OracleExceptionPathsIT {
     private static OracleWidget widget(String reference) {
         OracleWidget widget = new OracleWidget();
         widget.referenceCode = reference;
-        widget.price = Money.of("1.00", "AED");
+        widget.price = "1.00 AED";
         return widget;
     }
 

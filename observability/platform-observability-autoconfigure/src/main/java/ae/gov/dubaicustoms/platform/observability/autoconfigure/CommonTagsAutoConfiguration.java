@@ -50,7 +50,7 @@ public class CommonTagsAutoConfiguration {
      * manifest is available.
      */
     private static String platformVersion() {
-        String version = ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class
+        String version = ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor.class
                 .getPackage().getImplementationVersion();
         return version != null ? version : UNKNOWN_VERSION;
     }

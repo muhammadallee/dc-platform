@@ -1,76 +1,125 @@
 package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
-import ae.gov.dubaicustoms.platform.errors.ProblemDetailCustomizer;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.ErrorsProperties;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
 
-// Shared ProblemDetail assembly for the platform advice beans: one place sets type/title/detail/
-// instance and the code/traceId/timestamp/retryable extensions, and applies customizers in order.
+// Shared ProblemDetail assembly for the platform advice beans and the error controller: one place sets type/title/
+// detail/instance and the code/traceId/timestamp/retryable extensions, and wraps the body as the ErrorResponse that
+// Spring's ErrorResponse.Interceptors receive, with the originating exception as its cause (D138).
 public final class ProblemDetailFactory {
 
     /** Generic body detail for every 5xx: server-side messages routinely carry internals. */
     public static final String GENERIC_SERVER_ERROR_DETAIL = "An unexpected error occurred.";
 
+    /** The {@code ProblemDetail} property holding the stable error code. */
+    public static final String CODE = "code";
+
     // Statuses a client may retry the identical request on (after backing off).
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
 
+    private static final URI ABOUT_BLANK = URI.create("about:blank");
+
     private final ErrorsProperties properties;
-    private final List<ProblemDetailCustomizer> customizers;
+    private final TraceIdSource traceIds;
     private final Clock clock;
 
-    public ProblemDetailFactory(ErrorsProperties properties, List<ProblemDetailCustomizer> customizers, Clock clock) {
+    public ProblemDetailFactory(ErrorsProperties properties, TraceIdSource traceIds, Clock clock) {
         this.properties = properties;
-        this.customizers = List.copyOf(customizers);
+        this.traceIds = traceIds;
         this.clock = clock;
     }
 
     /**
-     * Builds the fully populated problem body and applies the customizers in order.
-     * Timestamp/trace extensions are ISO-8601 / hex strings, not temporal objects, so the JSON
-     * shape does not depend on which Jackson generation/modules the application runs.
+     * Builds a fully populated problem body. Timestamp and trace extensions are ISO-8601 and hex strings, not temporal
+     * objects, so the JSON shape does not depend on the application's Jackson modules.
      */
-    public ProblemDetail create(int status, ErrorCode code, String detail, String instancePath, Throwable source) {
+    public ProblemDetail create(int status, String code, String detail, String instancePath, Throwable source,
+            HttpServletRequest request) {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setDetail(status >= 500 ? GENERIC_SERVER_ERROR_DETAIL : detail);
         if (instancePath != null) {
             problem.setInstance(URI.create(instancePath));
         }
-        return decorate(problem, code, source);
+        return decorate(problem, code, source, request);
     }
 
     /**
-     * Adds the platform contract to a problem body built elsewhere (e.g. by Spring MVC for a 404,
-     * 405 or unreadable body): type/title from the code, plus {@code code}, {@code traceId},
-     * {@code timestamp} and {@code retryable}. A 5xx body's detail is replaced by the generic text.
+     * Adds the platform contract to a body built elsewhere (by the service's {@code ErrorResponseException}, or by
+     * Spring MVC for a 404, 405 or unreadable body):
+     * <ul>
+     *   <li>{@code code}: a {@code String} the thrower set is kept; anything else is replaced by {@code defaultCode};</li>
+     *   <li>{@code type} and {@code title} from the code, unless the thrower set its own {@code type};</li>
+     *   <li>{@code traceId}, {@code timestamp}, {@code retryable}; a 5xx detail becomes the generic text.</li>
+     * </ul>
      */
-    public ProblemDetail decorate(ProblemDetail problem, ErrorCode code, Throwable source) {
-        problem.setType(URI.create(properties.typeBaseUri() + code.value()));
-        problem.setTitle(code.value());
+    public ProblemDetail decorate(ProblemDetail problem, String defaultCode, Throwable source, HttpServletRequest request) {
+        String code = serviceCode(problem);
+        if (code == null) {
+            code = defaultCode;
+        }
+        if (problem.getType() == null || ABOUT_BLANK.equals(problem.getType())) {
+            problem.setType(URI.create(properties.typeBaseUri() + code));
+            problem.setTitle(code);
+        }
         if (problem.getStatus() >= 500) {
             problem.setDetail(GENERIC_SERVER_ERROR_DETAIL);
         }
-        problem.setProperty("code", code.value());
-        RequestContext.correlationId().map(CorrelationId::value)
-                .ifPresent(id -> problem.setProperty("traceId", id));
+        if (problem.getInstance() == null && request != null) {
+            problem.setInstance(URI.create(request.getRequestURI()));
+        }
+        problem.setProperty(CODE, code);
+        String traceId = traceIds.traceId(request);
+        if (traceId != null) {
+            problem.setProperty("traceId", traceId);
+        }
         problem.setProperty("timestamp", Instant.now(clock).toString());
         problem.setProperty("retryable", RETRYABLE_STATUSES.contains(problem.getStatus()));
         if (properties.includeStacktrace() && source != null) {
             problem.setProperty("stacktrace", stackTraceOf(source));
         }
-        customizers.forEach(customizer -> customizer.customize(problem, source));
         return problem;
+    }
+
+    /**
+     * Wraps a finished body as the {@link ErrorResponse} the advice returns: Spring MVC writes it and hands it to every
+     * {@code ErrorResponse.Interceptor}, whose {@code getCause()} is then the originating exception.
+     *
+     * @param problem the finished body
+     * @param headers response headers to carry (for example {@code Allow} on a 405); may be {@code null}
+     * @param source the originating exception; may be {@code null} (a bare {@code sendError})
+     * @return the error response
+     */
+    public static ErrorResponseException wrap(ProblemDetail problem, HttpHeaders headers, Throwable source) {
+        PlatformErrorResponse response = new PlatformErrorResponse(problem, source);
+        if (headers != null) {
+            response.getHeaders().addAll(headers);
+        }
+        return response;
+    }
+
+    /**
+     * Returns the code a thrower set on the body, or {@code null}.
+     *
+     * @param problem the body
+     * @return the {@code code} property when it is a non-blank {@code String}
+     */
+    public static String serviceCode(ProblemDetail problem) {
+        Map<String, Object> extensions = problem.getProperties();
+        Object code = extensions == null ? null : extensions.get(CODE);
+        return code instanceof String text && !text.isBlank() ? text : null;
     }
 
     /**
@@ -100,5 +149,24 @@ public final class ProblemDetailFactory {
         StringWriter buffer = new StringWriter();
         source.printStackTrace(new PrintWriter(buffer));
         return buffer.toString();
+    }
+
+    // The ErrorResponse the platform hands to Spring. Its message never includes the body (Spring's default message
+    // does), so a log line about it cannot leak a detail; no stack trace of its own.
+    private static final class PlatformErrorResponse extends ErrorResponseException {
+
+        private PlatformErrorResponse(ProblemDetail problem, Throwable source) {
+            super(HttpStatusCode.valueOf(problem.getStatus()), problem, source);
+        }
+
+        @Override
+        public String getMessage() {
+            return "platform error response, status " + getStatusCode().value();
+        }
+
+        @Override
+        public synchronized Throwable fillInStackTrace() {
+            return this;
+        }
     }
 }

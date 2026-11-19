@@ -2,7 +2,7 @@ package ae.gov.dubaicustoms.platform.restclient.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;

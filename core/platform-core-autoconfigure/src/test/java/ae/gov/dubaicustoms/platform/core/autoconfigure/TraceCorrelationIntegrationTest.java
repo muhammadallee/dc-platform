@@ -2,8 +2,7 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.internal.MdcContext;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.servlet.Filter;
 import java.net.URI;
@@ -119,7 +118,9 @@ class TraceCorrelationIntegrationTest {
         private final RestClient selfClient;
         private final WebServerApplicationContext context;
 
-        ProbeController(AsyncProbe asyncProbe, RestClient selfClient, WebServerApplicationContext context) {
+        ProbeController(AsyncProbe asyncProbe, RestClient selfClient, WebServerApplicationContext context,
+                io.micrometer.tracing.Tracer tracer) {
+            TRACER = tracer;
             this.asyncProbe = asyncProbe;
             this.selfClient = selfClient;
             this.context = context;
@@ -141,6 +142,13 @@ class TraceCorrelationIntegrationTest {
             return body;
         }
 
+        // Runs a task the test decorated on its own thread (no trace), here on a request thread (caller-runs).
+        @GetMapping("/caller-runs")
+        Map<String, String> callerRuns() {
+            CALLER_RUNS.get().run();
+            return snapshot();
+        }
+
         @GetMapping("/callable")
         java.util.concurrent.Callable<Map<String, String>> callable() {
             return TraceCorrelationIntegrationTest::snapshot;
@@ -154,9 +162,19 @@ class TraceCorrelationIntegrationTest {
         }
     }
 
+    static volatile io.micrometer.tracing.Tracer TRACER;
+
+    static final java.util.concurrent.atomic.AtomicReference<Runnable> CALLER_RUNS =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
     static Map<String, String> snapshot() {
         Map<String, String> values = new HashMap<>();
-        RequestContext.correlationId().map(CorrelationId::value).ifPresent(id -> values.put("context", id));
+        MdcContext.traceId().ifPresent(id -> values.put("context", id));
+        // What a service sees: the trace from Micrometer's Tracer.
+        io.micrometer.tracing.Tracer tracer = TRACER;
+        if (tracer != null && tracer.currentSpan() != null && !tracer.currentSpan().context().traceId().isEmpty()) {
+            values.put("tracer", tracer.currentSpan().context().traceId());
+        }
         Optional.ofNullable(MDC.get("traceId")).ifPresent(id -> values.put("mdcTraceId", id));
         Optional.ofNullable(MDC.get("spanId")).ifPresent(id -> values.put("mdcSpanId", id));
         Optional.ofNullable(MDC.get("correlationId")).ifPresent(id -> values.put("mdcCorrelationId", id));
@@ -226,6 +244,22 @@ class TraceCorrelationIntegrationTest {
             assertThat(body).containsEntry("context", traceId).containsEntry("mdcTraceId", traceId);
             assertThat(body.get("mdcSpanId")).asString().matches("[0-9a-f]{16}");
             assertThat(body).doesNotContainKey("mdcCorrelationId");
+        }
+
+        // HI-0016/HI-0023 and Phase 2 risk N1: a task captured with no trace, decorated by the application's task
+        // decorator (the one Boot's executors use) and run on a thread serving caller A, must see neither A's MDC nor
+        // A's span in the Tracer. Boot's own decorator does not clear missing values and fails the Tracer half.
+        @Test
+        void aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer() throws Exception {
+            Map<String, String> seen = new java.util.concurrent.ConcurrentHashMap<>();
+            CALLER_RUNS.set(context.getBean(org.springframework.core.task.TaskDecorator.class)
+                    .decorate(() -> seen.putAll(snapshot())));
+            String traceId = randomTraceId();
+            Map<String, Object> caller = get("/caller-runs", Map.of("traceparent", traceparent(traceId)));
+            assertThat(caller).as("the caller's own context is restored afterwards")
+                    .containsEntry("context", traceId).containsEntry("mdcTraceId", traceId).containsEntry("tracer", traceId);
+            assertThat(seen).as("the task's view").containsKey("thread")
+                    .doesNotContainKey("context").doesNotContainKey("mdcTraceId").doesNotContainKey("tracer");
         }
 
         @Test

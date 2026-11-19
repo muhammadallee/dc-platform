@@ -2,14 +2,11 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -105,12 +102,6 @@ class PlatformBannerAutoConfigurationTest {
     }
 
     @Test
-    void inactiveWhenCoreApiMissing() {
-        runner.withClassLoader(new FilteredClassLoader(CorrelationId.class))
-                .run(context -> assertThat(context).doesNotHaveBean(PlatformBannerAutoConfiguration.class));
-    }
-
-    @Test
     void bannerLogsOneSortedLine(CapturedOutput output) {
         runner.withBean("zetaCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> new CapabilityDescriptor("zeta", "ACTIVE", "inmemory"))
@@ -125,14 +116,14 @@ class PlatformBannerAutoConfigurationTest {
 
     @Test
     void consumerCoreDescriptorReplacesThePlatformOne() {
-        ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor mine =
-                new ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor("core", "ACTIVE", "custom");
+        CapabilityDescriptor mine =
+                new CapabilityDescriptor("core", "ACTIVE", "custom");
         new org.springframework.boot.test.context.runner.ApplicationContextRunner()
                 .withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(
                         PlatformBannerAutoConfiguration.class))
-                .withBean("coreCapabilityDescriptor", ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class,
+                .withBean("coreCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> mine)
                 .run(context -> assertThat(context)
-                        .getBean(ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class).isSameAs(mine));
+                        .getBean(CapabilityDescriptor.class).isSameAs(mine));
     }
 }

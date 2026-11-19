@@ -298,9 +298,12 @@
 
   <properties>
     <platform.test.excludedGroups>docker</platform.test.excludedGroups>
-    <!-- Active since 0.1.0 exists (phase-4 milestone M1): compares against the latest release in
-         the repository; api/spi modules set breakBuild=true so ONLY contract artifacts break. -->
-    <platform.japicmp.skip>false</platform.japicmp.skip>
+    <!-- Off during the Spring-native realignment (D139): its breaks are deliberate and listed in
+         docs/spring-native/expected-removals.md, and japicmp runs at each iteration's release check
+         against the pre-spring-native baseline instead. A per-build comparison would only meet stale
+         local release candidates (CI has none). api/spi modules keep breakBuild=true for when it
+         is switched back on. -->
+    <platform.japicmp.skip>true</platform.japicmp.skip>
     <platform.japicmp.breakBuild>false</platform.japicmp.breakBuild>
   </properties>
 

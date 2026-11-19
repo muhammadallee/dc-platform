@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;

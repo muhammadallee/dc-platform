@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * The smallest possible platform service: it depends on {@code platform-starter-core},
  * {@code -errors}, and {@code -logging} and nothing else. Booting it proves the platform floor —
  * every request is correlated by its W3C trace ID, logs are structured JSON, and any thrown
- * {@link ae.gov.dubaicustoms.platform.errors.BusinessException} renders as an RFC-9457
+ * Spring {@code ErrorResponseException} renders as an RFC-9457
  * {@code application/problem+json} response — without the service writing a single line of
  * cross-cutting code.
  */

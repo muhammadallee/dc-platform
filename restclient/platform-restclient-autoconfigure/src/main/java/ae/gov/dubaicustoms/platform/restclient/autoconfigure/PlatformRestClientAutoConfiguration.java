@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.restclient.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientCustomizer;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.internal.DefaultPlatformRestClientFactory;

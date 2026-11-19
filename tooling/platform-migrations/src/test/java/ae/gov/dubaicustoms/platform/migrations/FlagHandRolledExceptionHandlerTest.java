@@ -30,7 +30,7 @@ class FlagHandRolledExceptionHandlerTest implements RewriteTest {
                 """
                 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-                /*~~(TODO(DC Platform): platform maps exceptions to RFC 9457 already; prefer PlatformException subtypes and remove this advice (docs/modules/errors.md).)~~>*/@RestControllerAdvice
+                /*~~(TODO(DC Platform): platform maps exceptions to RFC 9457 already; throw Spring's ErrorResponseException with a code property and remove this advice (docs/modules/errors.md).)~~>*/@RestControllerAdvice
                 class MyExceptionHandler {
                 }
                 """));

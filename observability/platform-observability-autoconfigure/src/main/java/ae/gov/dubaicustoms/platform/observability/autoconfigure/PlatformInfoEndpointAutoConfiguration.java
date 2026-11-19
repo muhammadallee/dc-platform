@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.observability.autoconfigure.internal.PlatformEndpoint;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnAvailableEndpoint;

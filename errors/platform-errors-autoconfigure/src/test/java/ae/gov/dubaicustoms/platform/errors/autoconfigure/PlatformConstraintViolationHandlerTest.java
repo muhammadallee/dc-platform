@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
+import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.TraceIdSource;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -33,7 +34,7 @@ class PlatformConstraintViolationHandlerTest {
         ErrorsProperties properties = new ErrorsProperties(true, false, "urn:dc:problem:", true,
                 includeRejectedValues);
         PlatformConstraintViolationHandler handler = new PlatformConstraintViolationHandler(
-                new ProblemDetailFactory(properties, List.of(), FIXED_CLOCK));
+                new ProblemDetailFactory(properties, TraceIdSource.NONE, FIXED_CLOCK));
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             Validator validator = factory.getValidator();
             ConstraintViolationException exception =

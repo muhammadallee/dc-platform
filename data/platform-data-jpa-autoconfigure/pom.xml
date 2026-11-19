@@ -23,15 +23,10 @@
   </description>
 
   <dependencies>
-    <!-- autoconfigure -> same-capability api (+ core-api for CorrelationId/CapabilityDescriptor). -->
+    <!-- autoconfigure -> platform-core-autoconfigure for CapabilityDescriptor (D138). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-data-api</artifactId>
-      <version>${revision}</version>
-    </dependency>
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
+      <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
     <!-- Spring Data JPA: EntityManagerFactory, AuditorAware, @EnableJpaAuditing, Hibernate. -->

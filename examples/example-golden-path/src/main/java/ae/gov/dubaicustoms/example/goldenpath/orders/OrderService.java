@@ -1,11 +1,12 @@
 package ae.gov.dubaicustoms.example.goldenpath.orders;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.errors.NotFoundException;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.ErrorResponseException;
 
 /**
  * The orders business logic — and a tour of the platform APIs a service actually calls:
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class OrderService {
 
-    private static final ErrorCode ORDER_NOT_FOUND = new ErrorCode("DC-XMPL-0404");
+    private static final String ORDER_NOT_FOUND = "DC-XMPL-0404";
 
     private final OrderRepository repository;
     private final OutboxPublisher outbox;
@@ -48,12 +49,19 @@ public class OrderService {
      *
      * @param id the order id
      * @return the order
-     * @throws NotFoundException if no order has that id
+     * @throws ErrorResponseException a 404 with code {@code DC-XMPL-0404} if no order has that id
      */
     @Transactional(readOnly = true)
     public OrderResponse get(Long id) {
         return repository.findById(id)
                 .map(OrderResponse::of)
-                .orElseThrow(() -> new NotFoundException(ORDER_NOT_FOUND, "order %d not found".formatted(id)));
+                .orElseThrow(() -> notFound(id));
+    }
+
+    // A service's own error: Spring's ErrorResponseException with its code; the platform adds the rest.
+    private static ErrorResponseException notFound(Long id) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "order %d not found".formatted(id));
+        problem.setProperty("code", ORDER_NOT_FOUND);
+        return new ErrorResponseException(HttpStatus.NOT_FOUND, problem, null);
     }
 }

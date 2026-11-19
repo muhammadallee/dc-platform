@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -51,10 +51,10 @@ public class PlatformConstraintViolationHandler {
      *
      * @param exception the violation set; never {@code null}
      * @param request the current request; never {@code null}
-     * @return the 400 problem response with an {@code errors[]} extension
+     * @return the 400 problem response with an {@code errors[]} extension; its cause is {@code exception}
      */
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException exception,
+    public ErrorResponse handleConstraintViolation(ConstraintViolationException exception,
             HttpServletRequest request) {
         List<Map<String, Object>> errors = new ArrayList<>();
         for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {
@@ -66,8 +66,8 @@ public class PlatformConstraintViolationHandler {
             errors.add(entry);
         }
         ProblemDetail problem = factory.create(400, PlatformExceptionHandler.VALIDATION_FAILED,
-                "Validation failed.", request.getRequestURI(), exception);
+                "Validation failed.", request.getRequestURI(), exception, request);
         problem.setProperty("errors", errors);
-        return ResponseEntity.badRequest().body(problem);
+        return ProblemDetailFactory.wrap(problem, null, exception);
     }
 }

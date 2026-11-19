@@ -1,9 +1,10 @@
 package ae.gov.dubaicustoms.platform.messaging;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
 import org.apiguardian.api.API;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponseException;
 
 /**
  * Thrown when {@link EventPublisher#publish} fails: the transport rejected the send or did not
@@ -14,9 +15,11 @@ import org.apiguardian.api.API;
  * @since 0.2.0
  */
 @API(status = API.Status.STABLE, since = "0.1.0")
-public final class EventPublishException extends PlatformException {
+public final class EventPublishException extends ErrorResponseException {
 
-    private static final ErrorCode CODE = new ErrorCode("DC-MSG-0001");
+    private static final String CODE = "DC-MSG-0001";
+
+    private final String message;
 
     private final boolean rejected;
 
@@ -40,7 +43,8 @@ public final class EventPublishException extends PlatformException {
      * @throws NullPointerException if {@code message} is null
      */
     public EventPublishException(String message, Throwable cause, boolean rejected) {
-        super(CODE, Objects.requireNonNull(message, "message must not be null"), cause);
+        super(HttpStatus.INTERNAL_SERVER_ERROR, problem(), cause);
+        this.message = Objects.requireNonNull(message, "message must not be null");
         this.rejected = rejected;
     }
 
@@ -52,5 +56,22 @@ public final class EventPublishException extends PlatformException {
      */
     public boolean rejected() {
         return rejected;
+    }
+
+    /**
+     * Returns the detail message given at construction (never the error body).
+     *
+     * @return the message; never {@code null}
+     */
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    // A 500 with the stable code; the platform's error handler replaces the detail with its generic text.
+    private static ProblemDetail problem() {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problem.setProperty("code", CODE);
+        return problem;
     }
 }

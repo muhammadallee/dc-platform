@@ -3,7 +3,7 @@ package ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.PlatformMessagingAutoConfiguration;

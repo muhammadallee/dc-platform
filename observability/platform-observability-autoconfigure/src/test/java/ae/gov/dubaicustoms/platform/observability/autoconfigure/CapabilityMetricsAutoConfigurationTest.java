@@ -2,7 +2,7 @@ package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.observability.autoconfigure.internal.CapabilityGaugeRegistrar;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

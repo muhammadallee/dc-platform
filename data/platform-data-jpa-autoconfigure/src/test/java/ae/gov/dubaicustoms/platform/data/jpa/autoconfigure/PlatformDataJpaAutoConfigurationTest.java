@@ -2,7 +2,7 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayOutOfOrderGuard;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.FlywayPresenceCheck;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.OracleConnectionDefaults;

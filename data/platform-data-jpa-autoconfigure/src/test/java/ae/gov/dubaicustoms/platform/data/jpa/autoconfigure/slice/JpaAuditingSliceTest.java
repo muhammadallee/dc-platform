@@ -2,8 +2,6 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.data.Money;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoConfiguration;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -13,8 +11,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 /**
  * H2 slice proving the JPA auto-configuration end to end against a real EntityManagerFactory:
- * auditing populates the created/modified fields with the {@code "system"} auditor, the Money and
- * CorrelationId converters round-trip, and snake_case physical naming is in effect.
+ * auditing populates the created/modified fields with the {@code "system"} auditor, the value
+ * value columns round-trip, and snake_case physical naming is in effect.
  */
 @DataJpaTest(properties = {
         "spring.flyway.enabled=false",
@@ -30,8 +28,8 @@ class JpaAuditingSliceTest {
     void auditingPopulatesCreatedAndModifiedFields() {
         AuditedWidget widget = new AuditedWidget();
         widget.referenceCode = "ABC-1";
-        widget.price = Money.of("19.99", "AED");
-        widget.correlationId = CorrelationId.random();
+        widget.price = "19.99 AED";
+        widget.correlationId = java.util.UUID.randomUUID().toString().replace("-", "");
 
         em.persist(widget);
         em.flush();
@@ -45,11 +43,11 @@ class JpaAuditingSliceTest {
     }
 
     @Test
-    void convertersRoundTripThroughTheDatabase() {
-        CorrelationId correlationId = CorrelationId.random();
+    void valueColumnsRoundTripThroughTheDatabase() {
+        String correlationId = java.util.UUID.randomUUID().toString().replace("-", "");
         AuditedWidget widget = new AuditedWidget();
         widget.referenceCode = "ABC-2";
-        widget.price = Money.of("42.50", "USD");
+        widget.price = "42.50 USD";
         widget.correlationId = correlationId;
 
         em.persist(widget);
@@ -57,10 +55,9 @@ class JpaAuditingSliceTest {
         em.clear();
 
         AuditedWidget loaded = em.find(AuditedWidget.class, widget.id);
-        assertThat(loaded.price).isEqualTo(Money.of("42.50", "USD"));
+        assertThat(loaded.price).isEqualTo("42.50 USD");
         assertThat(loaded.correlationId).isEqualTo(correlationId);
 
-        // Money is stored as its single-column canonical string.
         Object stored = em.createNativeQuery(
                         "select price from audited_widget where reference_code = 'ABC-2'")
                 .getSingleResult();

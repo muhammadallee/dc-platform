@@ -38,12 +38,6 @@
       <groupId>org.apiguardian</groupId>
       <artifactId>apiguardian-api</artifactId>
     </dependency>
-    <!-- api -> core-api only (CLAUDE.md rule 5): PlatformException/ErrorCode live there. -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
-      <version>${revision}</version>
-    </dependency>
     <!-- Sanctioned exception to "no 3rd-party types in api signatures": RestClient.Builder is the
          model this factory hands back, not an implementation detail (same precedent as errors-api
          / ProblemDetail, decision D11). ArchUnit whitelist admits org.springframework.web.client

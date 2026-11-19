@@ -12,10 +12,11 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
 2. **Messaging:** publish via `ae.gov.dubaicustoms.platform.messaging.EventPublisher` and consume via
    `@EventHandler`. NEVER inject `RabbitTemplate` or write listener containers
    directly — retry, DLQ, correlation, serialization and metrics are already handled.
-3. **Errors:** throw `PlatformException` subtypes (`BusinessException`, `NotFoundException`,
-   `ConflictException`) with an `ErrorCode` (`DC-XX-NNNN`, where `XX` is this service's claimed
-   namespace). NEVER write your own `@RestControllerAdvice` or build `ProblemDetail` by hand — the
-   platform maps everything to RFC 9457 with the request's trace ID.
+3. **Errors:** throw Spring's `ErrorResponseException` (or `ResponseStatusException`) and put this
+   service's error code on its body: `problem.setProperty("code", "ORD-0001")`. NEVER write your own
+   `@RestControllerAdvice` — the platform maps every exception to RFC 9457 and adds `traceId`,
+   `timestamp` and `retryable`. To add a field to every error body, register a Spring
+   `ErrorResponse.Interceptor` through `WebMvcConfigurer.addErrorResponseInterceptors`.
 4. **Security:** the platform does not secure endpoints yet (basic auth arrives with the REST API
    capability). Do not add your own security scheme in the meantime; keep the service inside the
    cluster.

@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.logging.Kv;
 import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LogSanitizerRegistry;

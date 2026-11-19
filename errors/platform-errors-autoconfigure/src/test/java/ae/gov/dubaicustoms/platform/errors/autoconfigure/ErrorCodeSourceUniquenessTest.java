@@ -3,11 +3,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.NewClassTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreeScanner;
 import java.io.IOException;
@@ -27,16 +23,22 @@ import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 
 /**
- * Build-time uniqueness of error codes across EVERY platform module (phase-01 scope R3.7, decision D92).
- * {@link ErrorCodeRegistryTest} only sees the classes on this module's test classpath, which misses codes
- * declared in modules this one does not depend on. This gate parses the production sources of the whole
- * repository with the JDK's own Java parser, so formatting, comments, qualified names and escapes cannot
- * hide a declaration, and fails closed: an {@code ErrorCode} constructed from anything but a string
- * literal is reported, not skipped. Consumer examples and the archetype are excluded (separate services).
+ * Build-time uniqueness of error codes across EVERY platform module (phase-01 scope R3.7, decision D92; carried by
+ * Spring-native Phase 2, row C24). A platform error code is a {@code String} literal of the form
+ * {@code DC-<CAP>-<NNNN>}, normally a {@code static final String} constant set as the {@code code} property of a
+ * {@code ProblemDetail} (D138). This gate parses the production sources of the whole repository with the JDK's own
+ * Java parser, so formatting, comments, escapes and line breaks cannot hide a declaration, and fails closed: a literal
+ * that starts like a code but is not one ({@code "DC-TST-"} concatenated with a number, {@code "DC-TST-12"}) is
+ * reported, not skipped. Every code value may be declared once. A minimum count stops an empty scan from passing.
+ * Consumer examples and the archetype are excluded (separate services).
  */
 class ErrorCodeSourceUniquenessTest {
 
     private static final Pattern FORMAT = Pattern.compile("^DC-[A-Z]{2,8}-\\d{4}$");
+    private static final String PREFIX = "DC-";
+
+    /** The platform's codes at Phase 2: errors (7), messaging (2), the parked REST client (1). */
+    private static final int MINIMUM_CODES = 10;
 
     record Declaration(String code, String file) {
     }
@@ -48,40 +50,46 @@ class ErrorCodeSourceUniquenessTest {
     void everyPlatformErrorCodeIsWellFormedAndDeclaredOnce() throws IOException {
         Scan scan = scan(platformSources(repositoryRoot()));
 
-        assertThat(scan.unsupported()).as("ErrorCode must be constructed from a string literal").isEmpty();
+        assertThat(scan.unsupported()).as("an error code must be one whole DC-<CAP>-<NNNN> literal").isEmpty();
         // A near-empty result means the gate stopped looking, not that the platform has no codes.
+        assertThat(scan.declarations()).hasSizeGreaterThanOrEqualTo(MINIMUM_CODES);
         assertThat(scan.declarations()).extracting(Declaration::code)
                 .contains("DC-CORE-0500", "DC-CORE-0400", "DC-CORE-0410", "DC-CORE-0499",
-                        "DC-DATA-0409", "DC-MSG-0001", "DC-RCLIENT-0500");
-        assertThat(scan.declarations()).allSatisfy(d -> assertThat(d.code()).as("format in %s", d.file()).matches(FORMAT));
+                        "DC-DATA-0409", "DC-DATA-0410", "DC-DATA-0503", "DC-MSG-0001", "DC-RCLIENT-0500");
         assertThat(duplicates(scan)).as("error codes are contracts and must be unique platform-wide").isEmpty();
     }
 
     @Test
-    void theScannerSeesEveryFormattingAndRejectsNonLiterals() {
+    void theScannerSeesEveryFormattingAndRejectsPartialCodes() {
         Scan scan = scan(List.of(
                 source("A", """
                         class A {
-                            static final ae.gov.dubaicustoms.platform.core.ErrorCode QUALIFIED =
-                                    new ae.gov.dubaicustoms.platform.core.ErrorCode(
-                                            "DC-TST-0001");
-                            // new ErrorCode("DC-TST-9999") in a comment is not a declaration
-                            String text = "new ErrorCode(\\"DC-TST-8888\\") inside a string is not one either";
+                            static final String SPLIT_OVER_LINES =
+                                    "DC-TST-0001";
+                            // "DC-TST-9999" in a comment is not a declaration
+                            String text = "the code DC-TST-8888 inside a sentence is not one either";
                         }
                         """),
                 source("B", """
                         class B {
-                            static final ErrorCode ESCAPED = new ErrorCode("DC-TST-\\u0030001");
-                            static final ErrorCode FROM_CONSTANT = new ErrorCode(PREFIX + "0002");
+                            static final String ESCAPED = "DC-TST-\\u0030001";
+                            static final String FROM_CONSTANT = PREFIX + "0002";
                             static final String PREFIX = "DC-TST-";
+                        }
+                        """),
+                source("C", """
+                        class C {
+                            static final String SHORT = "DC-TST-12";
                         }
                         """)));
 
         assertThat(scan.declarations()).extracting(Declaration::code)
-                .as("multi-line + qualified, and a unicode escape resolving to the same runtime value")
+                .as("multi-line, and a unicode escape resolving to the same runtime value")
                 .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0001");
         assertThat(duplicates(scan)).containsOnlyKeys("DC-TST-0001");
-        assertThat(scan.unsupported()).singleElement().asString().contains("B");
+        assertThat(scan.unsupported()).hasSize(2)
+                .anySatisfy(entry -> assertThat(entry).contains("B").contains("DC-TST-"))
+                .anySatisfy(entry -> assertThat(entry).contains("C").contains("DC-TST-12"));
     }
 
     private static Map<String, List<String>> duplicates(Scan scan) {
@@ -103,16 +111,15 @@ class ErrorCodeSourceUniquenessTest {
                 String file = unit.getSourceFile().getName();
                 new TreeScanner<Void, Void>() {
                     @Override
-                    public Void visitNewClass(NewClassTree node, Void unused) {
-                        if (isErrorCode(node.getIdentifier())) {
-                            ExpressionTree argument = node.getArguments().size() == 1 ? node.getArguments().get(0) : null;
-                            if (argument instanceof LiteralTree literal && literal.getValue() instanceof String code) {
-                                declarations.add(new Declaration(code, file));
+                    public Void visitLiteral(LiteralTree node, Void unused) {
+                        if (node.getValue() instanceof String text && text.startsWith(PREFIX)) {
+                            if (FORMAT.matcher(text).matches()) {
+                                declarations.add(new Declaration(text, file));
                             } else {
-                                unsupported.add(file + ": " + node);
+                                unsupported.add(file + ": \"" + text + "\"");
                             }
                         }
-                        return super.visitNewClass(node, unused);
+                        return super.visitLiteral(node, unused);
                     }
                 }.scan(unit, null);
             }
@@ -120,11 +127,6 @@ class ErrorCodeSourceUniquenessTest {
             throw new java.io.UncheckedIOException(e);
         }
         return new Scan(declarations, unsupported);
-    }
-
-    private static boolean isErrorCode(ExpressionTree type) {
-        return (type instanceof IdentifierTree identifier && identifier.getName().contentEquals("ErrorCode"))
-                || (type instanceof MemberSelectTree select && select.getIdentifier().contentEquals("ErrorCode"));
     }
 
     private static JavaFileObject source(String name, String code) {

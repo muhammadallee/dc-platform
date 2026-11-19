@@ -3,8 +3,6 @@ package ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.EventPublishException;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.MessagingProperties;
@@ -77,7 +75,7 @@ class DefaultEventPublisherTest {
 
         assertThatThrownBy(() -> publisher.publish("dc.orders", EventEnvelope.of(new OrderPlaced("o-1")).build()))
                 .isInstanceOf(EventPublishException.class)
-                .extracting(e -> ((EventPublishException) e).code().value())
+                .extracting(e -> ((EventPublishException) e).getBody().getProperties().get("code"))
                 .isEqualTo("DC-MSG-0001");
     }
 

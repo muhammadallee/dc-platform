@@ -879,3 +879,13 @@ One line of context per decision; details live in the commit bodies referenced.
   exceptions of the parked REST client and of messaging become `ErrorResponseException` subclasses with their codes and
   statuses. (6) The core + errors consumer floor is 77 (92 less Phase 1's 15 JWT drops). Evidence:
   `docs/spring-native/phase-02-foundation/scope.md`.
+- **D139 — Phase 2 Gate B choices (Spring-native Phase 2, 2026-11-19).** (1) Per-build japicmp is off
+  (`platform.japicmp.skip=true`) for the realignment: its breaks are deliberate and listed in
+  `docs/spring-native/expected-removals.md`, japicmp runs at each iteration's release check against the
+  `pre-spring-native` baseline, and the per-build run only met stale local release candidates (CI has none). (2) The
+  ArchUnit api-package rule lets the messaging and REST-client api packages use Spring's error model
+  (`org.springframework.web`, `org.springframework.http`) until Phases 6 and 9 remove them. (3) Context propagation to
+  executors is a `ContextPropagatingTaskDecorator` bean over a snapshot factory that clears missing values, replacing
+  the `spring.task.execution.propagate-context=true` default: Boot's own decorator lets a context-free task see another
+  caller's observation through `Tracer` (Phase 2 risk N1, test `aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`).
+  It backs off to any `TaskDecorator`, Boot's included, because Boot's executor builder applies only a unique one.

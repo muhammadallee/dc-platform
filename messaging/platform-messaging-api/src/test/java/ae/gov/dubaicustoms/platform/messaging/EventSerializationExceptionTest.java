@@ -13,7 +13,8 @@ class EventSerializationExceptionTest {
 
         var exception = new EventSerializationException("serialize failed", cause);
 
-        assertThat(exception.code().value()).isEqualTo("DC-MSG-0002");
+        assertThat(exception.getBody().getProperties()).containsEntry("code", "DC-MSG-0002");
+        assertThat(exception.getStatusCode().value()).isEqualTo(500);
         assertThat(exception.getMessage()).isEqualTo("serialize failed");
         assertThat(exception.getCause()).isSameAs(cause);
     }

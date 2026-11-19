@@ -2,13 +2,11 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.FieldInfo;
 import io.github.classgraph.ScanResult;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,9 +16,10 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * The error-code registry gate (phase-04 spec): scans the classpath for {@code ErrorCode}
- * constants, asserts format and platform-wide uniqueness, and writes
- * {@code target/error-codes.csv} for the phase-14 docs build.
+ * The error-code registry gate (phase-04 spec): scans this module's classpath for {@code static final String}
+ * constants holding a platform error code ({@code DC-<CAP>-<NNNN>}, D138), asserts their platform-wide uniqueness,
+ * and writes {@code target/error-codes.csv} for the docs build. Constants are read from the class files, so no class
+ * is loaded or initialized. {@link ErrorCodeSourceUniquenessTest} covers the modules this one does not depend on.
  */
 class ErrorCodeRegistryTest {
 
@@ -37,10 +36,8 @@ class ErrorCodeRegistryTest {
         // the gate silently stopped gating.
         assertThat(registrations)
                 .extracting(Registration::code)
-                .contains("DC-CORE-0500", "DC-CORE-0400");
-
-        assertThat(registrations)
-                .allSatisfy(registration -> assertThat(registration.code()).matches(FORMAT));
+                .contains("DC-CORE-0500", "DC-CORE-0400", "DC-CORE-0410", "DC-CORE-0499",
+                        "DC-DATA-0409", "DC-DATA-0410", "DC-DATA-0503");
 
         assertThat(registrations)
                 .extracting(Registration::code)
@@ -64,34 +61,24 @@ class ErrorCodeRegistryTest {
                 .rejectPackages("ae.gov.dubaicustoms.platform.build")
                 .enableClassInfo()
                 .enableFieldInfo()
+                .enableStaticFinalFieldConstantInitializerValues()
                 .ignoreClassVisibility()
                 .ignoreFieldVisibility()
                 .scan()) {
             for (ClassInfo classInfo : scan.getAllClasses()) {
+                // Test fixtures in this module declare sample codes; only production classes count.
+                if (classInfo.getClasspathElementFile() != null
+                        && classInfo.getClasspathElementFile().toString().replace('\\', '/').contains("/test-classes")) {
+                    continue;
+                }
                 for (FieldInfo fieldInfo : classInfo.getDeclaredFieldInfo()) {
-                    if (!fieldInfo.isStatic()
-                            || !ErrorCode.class.getName()
-                                    .equals(fieldInfo.getTypeSignatureOrTypeDescriptor().toString())) {
-                        continue;
-                    }
-                    ErrorCode value = readConstant(classInfo.loadClass(), fieldInfo.getName());
-                    if (value != null) {
-                        registrations.add(new Registration(value.value(), classInfo.getName()));
+                    if (fieldInfo.isStatic() && fieldInfo.getConstantInitializerValue() instanceof String value
+                            && FORMAT.matcher(value).matches()) {
+                        registrations.add(new Registration(value, classInfo.getName()));
                     }
                 }
             }
         }
         return registrations;
-    }
-
-    private static ErrorCode readConstant(Class<?> declaringClass, String fieldName) {
-        try {
-            Field field = declaringClass.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return (ErrorCode) field.get(null);
-        } catch (ReflectiveOperationException | SecurityException e) {
-            throw new AssertionError(
-                    "cannot read ErrorCode constant " + declaringClass.getName() + "." + fieldName, e);
-        }
     }
 }

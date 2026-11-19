@@ -255,11 +255,11 @@ class DataAccessFailureTest {
     @Test
     void codesAndDetailsNameNoInternals() {
         assertThat(DataAccessFailure.INTEGRITY_CONFLICT.status()).isEqualTo(409);
-        assertThat(DataAccessFailure.INTEGRITY_CONFLICT.code().value()).isEqualTo("DC-DATA-0409");
+        assertThat(DataAccessFailure.INTEGRITY_CONFLICT.code()).isEqualTo("DC-DATA-0409");
         assertThat(DataAccessFailure.CONCURRENT_UPDATE.status()).isEqualTo(409);
-        assertThat(DataAccessFailure.CONCURRENT_UPDATE.code().value()).isEqualTo("DC-DATA-0410");
+        assertThat(DataAccessFailure.CONCURRENT_UPDATE.code()).isEqualTo("DC-DATA-0410");
         assertThat(DataAccessFailure.UNAVAILABLE.status()).isEqualTo(503);
-        assertThat(DataAccessFailure.UNAVAILABLE.code().value()).isEqualTo("DC-DATA-0503");
+        assertThat(DataAccessFailure.UNAVAILABLE.code()).isEqualTo("DC-DATA-0503");
         for (DataAccessFailure failure : DataAccessFailure.values()) {
             assertThat(failure.detail()).doesNotContainIgnoringCase("sql").doesNotContain("ORA-");
         }

@@ -1,17 +1,16 @@
-package ae.gov.dubaicustoms.platform.core.report;
+package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.PlatformApi;
 import java.util.Objects;
-import org.apiguardian.api.API;
 
 /**
- * One active platform capability as reported in the startup banner: contributed as a bean by each
- * capability's auto-configuration and collected by {@code PlatformBannerAutoConfiguration}.
+ * One active platform capability as reported in the startup banner and {@code /actuator/platform}: contributed as
+ * a bean by each capability's auto-configuration and collected by {@code PlatformBannerAutoConfiguration}. Platform
+ * infrastructure: services do not declare one, except to replace a platform descriptor by its bean name.
  *
  * <pre>{@code
  * @Bean
  * CapabilityDescriptor messagingCapabilityDescriptor() {
- *     return new CapabilityDescriptor("messaging", "ACTIVE", "kafka");
+ *     return new CapabilityDescriptor("messaging", "ACTIVE", "rabbit");
  * }
  * }</pre>
  *
@@ -22,8 +21,6 @@ import org.apiguardian.api.API;
  * @param detail one-line detail such as the selected provider; may be empty
  * @since 0.1.0
  */
-@PlatformApi
-@API(status = API.Status.STABLE, since = "0.1.0")
 public record CapabilityDescriptor(String name, String status, String detail) {
 
     /**

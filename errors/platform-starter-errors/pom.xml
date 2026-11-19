@@ -22,8 +22,7 @@
   </description>
 
   <dependencies>
-    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5); errors-api arrives
-         transitively. No web starter here: the consuming service picks its own web stack and
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5). No web starter here: the consuming service picks its own web stack and
          the advice backs off outside servlet apps anyway (mirrors starter-core, decision D10). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

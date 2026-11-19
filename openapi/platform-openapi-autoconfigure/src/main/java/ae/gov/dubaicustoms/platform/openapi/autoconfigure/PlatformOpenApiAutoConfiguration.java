@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.openapi.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.openapi.autoconfigure.internal.ProblemDetailOpenApiCustomizer;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;

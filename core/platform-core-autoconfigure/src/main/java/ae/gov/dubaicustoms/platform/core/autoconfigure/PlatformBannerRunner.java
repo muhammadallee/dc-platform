@@ -1,7 +1,6 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.autoconfigure.internal.PlatformBanner;
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;

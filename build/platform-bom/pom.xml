@@ -34,10 +34,8 @@
 
       <!-- ==== platform artifacts (appended per phase) ==== -->
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-build-tools</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-core</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-errors</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-api</artifactId><version>${revision}</version></dependency>
@@ -56,7 +54,6 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-rabbit</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-outbox</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-test</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-jpa-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-data-jpa</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-data-jpa-oracle</artifactId><version>${revision}</version></dependency>

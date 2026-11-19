@@ -137,6 +137,9 @@ class ErrorCodeSourceUniquenessTest {
                             void otherObject(java.util.Properties properties) {
                                 properties.setProperty("code", lookupIgnored());
                             }
+                            <T extends org.springframework.http.ProblemDetail> void bounded(T customBody) {
+                                customBody.setProperty("code", "BOUNDED");
+                            }
                             void chained() {
                                 org.springframework.http.ProblemDetail.forStatus(500).setProperty("code", "CHAINED");
                             }
@@ -173,6 +176,7 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code shadowedLater "))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupKeyed()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CHAINED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BOUNDED"))
                 .noneSatisfy(entry -> assertThat(entry).contains("lookupIgnored()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
@@ -202,8 +206,6 @@ class ErrorCodeSourceUniquenessTest {
         Constants constants = Constants.of(units);
         Set<String> factoryNames = namesDeclaredAs(units, "ProblemDetailFactory");
         factoryNames.add("factory");
-        Set<String> problemNames = namesDeclaredAs(units, "ProblemDetail");
-        Set<String> otherNames = namesDeclaredOtherThan(units, "ProblemDetail");
         List<Declaration> declarations = new ArrayList<>();
         List<String> unsupported = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -214,11 +216,15 @@ class ErrorCodeSourceUniquenessTest {
                 // statically" (reassigned, no initialiser, a parameter): such a name never falls back to a constant.
                 private Map<String, ExpressionTree> locals = new HashMap<>();
                 private Set<String> reassigned = new java.util.HashSet<>();
+                // Declared types of the current method's locals and parameters.
+                private Map<String, String> localTypes = new HashMap<>();
 
                 @Override
                 public Void visitMethod(MethodTree node, Void unused) {
                     Map<String, ExpressionTree> outer = locals;
                     Set<String> outerReassigned = reassigned;
+                    Map<String, String> outerTypes = localTypes;
+                    localTypes = new HashMap<>();
                     locals = new HashMap<>();
                     reassigned = assignedNames(node);
                     try {
@@ -226,6 +232,7 @@ class ErrorCodeSourceUniquenessTest {
                     } finally {
                         locals = outer;
                         reassigned = outerReassigned;
+                        localTypes = outerTypes;
                     }
                 }
 
@@ -234,6 +241,7 @@ class ErrorCodeSourceUniquenessTest {
                     String name = node.getName().toString();
                     boolean known = node.getInitializer() != null && !reassigned.contains(name);
                     locals.put(name, known ? node.getInitializer() : null);
+                    localTypes.put(name, node.getType() == null ? "" : node.getType().toString());
                     return super.visitVariable(node, unused);
                 }
 
@@ -253,7 +261,7 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     String name = methodName(node);
                     List<? extends ExpressionTree> args = node.getArguments();
-                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, problemNames, otherNames)
+                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, localTypes)
                             && mayBeCodeKey(resolve(args.get(0), file, constants, locals))) {
                         check(args.get(1), file, "", constants, locals, unsupported);
                     } else if ((name.equals("create") || name.equals("decorate")) && args.size() >= 2
@@ -288,18 +296,18 @@ class ErrorCodeSourceUniquenessTest {
         return select instanceof IdentifierTree;
     }
 
-    // Conservative: every setProperty counts unless its receiver is a name declared only with some other type
-    // (a java.util.Properties, say). Method-call receivers (ProblemDetail.forStatus(500), getBody()) always count.
-    private static boolean onProblemDetail(MethodInvocationTree node, Set<String> problemNames, Set<String> otherNames) {
+    // Fails closed: every setProperty counts, except on a local or parameter of the same method declared as
+    // java.util.Properties (the one other setProperty the platform calls). Fields, subtypes, type parameters and
+    // method-call receivers all count.
+    private static boolean onProblemDetail(MethodInvocationTree node, Map<String, String> localTypes) {
         if (!(node.getMethodSelect() instanceof MemberSelectTree member)) {
             return true;
         }
-        ExpressionTree receiver = unwrap(member.getExpression());
-        if (receiver instanceof MethodInvocationTree) {
-            return true;
+        if (unwrap(member.getExpression()) instanceof IdentifierTree identifier) {
+            String type = localTypes.getOrDefault(identifier.getName().toString(), "");
+            return !(type.equals("Properties") || type.equals("java.util.Properties"));
         }
-        String name = lastName(receiver);
-        return problemNames.contains(name) || !otherNames.contains(name);
+        return true;
     }
 
     // A key whose values are all known and none is "code" is not a code key; anything else may be.
@@ -330,24 +338,6 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitVariable(VariableTree node, Void unused) {
                     String type = node.getType() == null ? "" : node.getType().toString();
                     if (type.equals(simpleType) || type.endsWith("." + simpleType)) {
-                        names.add(node.getName().toString());
-                    }
-                    return super.visitVariable(node, unused);
-                }
-            }.scan(unit, null);
-        }
-        return names;
-    }
-
-    // Every name declared with a type other than the given simple type.
-    private static Set<String> namesDeclaredOtherThan(List<CompilationUnitTree> units, String simpleType) {
-        Set<String> names = new java.util.HashSet<>();
-        for (CompilationUnitTree unit : units) {
-            new TreeScanner<Void, Void>() {
-                @Override
-                public Void visitVariable(VariableTree node, Void unused) {
-                    String type = node.getType() == null ? "" : node.getType().toString();
-                    if (!type.isEmpty() && !type.equals(simpleType) && !type.endsWith("." + simpleType)) {
                         names.add(node.getName().toString());
                     }
                     return super.visitVariable(node, unused);

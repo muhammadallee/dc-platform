@@ -137,6 +137,9 @@ class ErrorCodeSourceUniquenessTest {
                             void otherObject(java.util.Properties properties) {
                                 properties.setProperty("code", lookupIgnored());
                             }
+                            void chained() {
+                                org.springframework.http.ProblemDetail.forStatus(500).setProperty("code", "CHAINED");
+                            }
                             void broken(org.springframework.http.ProblemDetail problem) {
                                 problem.setProperty(KEY, "BROKEN");
                                 factory.create(500, lookupCode(), null, null, null, null);
@@ -169,6 +172,7 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupParenthesised()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code shadowedLater "))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupKeyed()"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CHAINED"))
                 .noneSatisfy(entry -> assertThat(entry).contains("lookupIgnored()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
@@ -199,6 +203,7 @@ class ErrorCodeSourceUniquenessTest {
         Set<String> factoryNames = namesDeclaredAs(units, "ProblemDetailFactory");
         factoryNames.add("factory");
         Set<String> problemNames = namesDeclaredAs(units, "ProblemDetail");
+        Set<String> otherNames = namesDeclaredOtherThan(units, "ProblemDetail");
         List<Declaration> declarations = new ArrayList<>();
         List<String> unsupported = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -248,7 +253,7 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     String name = methodName(node);
                     List<? extends ExpressionTree> args = node.getArguments();
-                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, problemNames)
+                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, problemNames, otherNames)
                             && mayBeCodeKey(resolve(args.get(0), file, constants, locals))) {
                         check(args.get(1), file, "", constants, locals, unsupported);
                     } else if ((name.equals("create") || name.equals("decorate")) && args.size() >= 2
@@ -283,16 +288,18 @@ class ErrorCodeSourceUniquenessTest {
         return select instanceof IdentifierTree;
     }
 
-    // setProperty on something declared as a ProblemDetail, or on an ErrorResponse's getBody().
-    private static boolean onProblemDetail(MethodInvocationTree node, Set<String> problemNames) {
+    // Conservative: every setProperty counts unless its receiver is a name declared only with some other type
+    // (a java.util.Properties, say). Method-call receivers (ProblemDetail.forStatus(500), getBody()) always count.
+    private static boolean onProblemDetail(MethodInvocationTree node, Set<String> problemNames, Set<String> otherNames) {
         if (!(node.getMethodSelect() instanceof MemberSelectTree member)) {
-            return false;
+            return true;
         }
         ExpressionTree receiver = unwrap(member.getExpression());
-        if (receiver instanceof MethodInvocationTree call) {
-            return methodName(call).equals("getBody");
+        if (receiver instanceof MethodInvocationTree) {
+            return true;
         }
-        return problemNames.contains(lastName(receiver));
+        String name = lastName(receiver);
+        return problemNames.contains(name) || !otherNames.contains(name);
     }
 
     // A key whose values are all known and none is "code" is not a code key; anything else may be.
@@ -323,6 +330,24 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitVariable(VariableTree node, Void unused) {
                     String type = node.getType() == null ? "" : node.getType().toString();
                     if (type.equals(simpleType) || type.endsWith("." + simpleType)) {
+                        names.add(node.getName().toString());
+                    }
+                    return super.visitVariable(node, unused);
+                }
+            }.scan(unit, null);
+        }
+        return names;
+    }
+
+    // Every name declared with a type other than the given simple type.
+    private static Set<String> namesDeclaredOtherThan(List<CompilationUnitTree> units, String simpleType) {
+        Set<String> names = new java.util.HashSet<>();
+        for (CompilationUnitTree unit : units) {
+            new TreeScanner<Void, Void>() {
+                @Override
+                public Void visitVariable(VariableTree node, Void unused) {
+                    String type = node.getType() == null ? "" : node.getType().toString();
+                    if (!type.isEmpty() && !type.equals(simpleType) && !type.endsWith("." + simpleType)) {
                         names.add(node.getName().toString());
                     }
                     return super.visitVariable(node, unused);

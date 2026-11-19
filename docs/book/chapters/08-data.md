@@ -484,12 +484,10 @@ curl -s localhost:8080/actuator/env/spring.jpa.properties.hibernate.jdbc.batch_s
 class AuditorConfiguration {
 
     @Bean
-    AuditorAware<String> platformAuditorAware(CurrentUserAccessor accessor) {
-        // Record tenant/subject rather than subject alone.
-        return () -> accessor.currentUser()
-                .map(user -> user.tenant() == null
-                        ? user.subject()
-                        : user.tenant() + "/" + user.subject());
+    AuditorAware<String> platformAuditorAware() {
+        // The platform records "system" until the REST API capability (iteration 2) brings a principal.
+        // Read your own identity source here, for example a header your gateway sets.
+        return () -> Optional.of("orders-service");
     }
 }
 ```

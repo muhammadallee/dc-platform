@@ -4,27 +4,6 @@
 
 Every platform property lives under the `dc.platform.<capability>` prefix, has a default in code, and is overridable in `application.yml`. Each capability's kill switch is `dc.platform.<capability>.enabled` (default `true`).
 
-## dc.platform.audit
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.audit.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.audit.queue-capacity` | Integer | `1000` | bound on the in-memory queue feeding the audit worker; events offered when the queue is full are dropped with a WARN so auditing never blocks or slows the request thread |  |
-
-## dc.platform.authz
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.authz.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.authz.roles-claim` | String | `roles` | the CurrentUser#claims() key the default provider reads permissions from |  |
-
-## dc.platform.cache
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.cache.caches` | Map<String,ae.gov.dubaicustoms.platform.cache.autoconfigure.CacheProperties$CacheSpec> |  | per-cache TTL/size policy, keyed by cache name (as used in @Cacheable) |  |
-| `dc.platform.cache.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-
 ## dc.platform.core
 
 | Key | Type | Default | Description | Deprecation |
@@ -52,45 +31,6 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` | add a stacktrace extension to problem bodies (debugging aid; never enable in production) |  |
 | `dc.platform.errors.map-validation` | Boolean | `true` | map Bean Validation failures to 400 problem responses with errors[] |  |
 | `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` | base URI prepended to the error code to form the problem type |  |
-
-## dc.platform.events
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.events.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.events.relay.destination-prefix` | String | `dc.` | prefix used to build the integration-event destination from a domain event's @EventType value, e.g. " |  |
-| `dc.platform.events.relay.enabled` | Boolean | `false` | opt-in switch; the relay is inactive by default even when an EventPublisher bean exists |  |
-
-## dc.platform.files
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.files.allowed-types` | Set<String> | `[application/pdf, image/png, image/jpeg, application/zip, text/csv, text/plain]` | the content types the default FileUploadPolicy permits |  |
-| `dc.platform.files.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.files.max-file-size` | org.springframework.util.unit.DataSize | `10MB` | the largest single uploaded file permitted (also applied to servlet multipart) |  |
-| `dc.platform.files.max-request-size` | org.springframework.util.unit.DataSize | `10MB` | the largest total multipart request permitted |  |
-
-## dc.platform.flags
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.flags.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.flags.static` | Map<String,String> |  | Seed flags for the in-memory provider, as dc.platform.flags.static.<flag>=<value>. Values are strings coerced to the caller's requested type (true/false, numbers). |  |
-
-## dc.platform.idempotency
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.idempotency.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.idempotency.http.enabled` | Boolean | `false` | whether the filter rejects duplicate Idempotency-Key POSTs |  |
-| `dc.platform.idempotency.http.header-name` | String | `Idempotency-Key` | the request header carrying the client-supplied key |  |
-| `dc.platform.idempotency.http.ttl` | Duration | `24h` | how long a seen HTTP key is remembered |  |
-
-## dc.platform.locking
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.locking.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 
 ## dc.platform.logging
 
@@ -154,23 +94,6 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.openapi.title` | String |  | document title; blank defaults to name |  |
 | `dc.platform.openapi.version` | String |  | document version; blank defaults to version, then dev |  |
 
-## dc.platform.ratelimit
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.ratelimit.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.ratelimit.http.enabled` | Boolean | `false` | whether the filter is installed (off by default — annotate methods instead) |  |
-| `dc.platform.ratelimit.http.key-by` | ae.gov.dubaicustoms.platform.ratelimit.autoconfigure.RateLimitProperties$KeyBy | `IP` | whether requests are bucketed by caller identity or by client IP |  |
-| `dc.platform.ratelimit.http.permits` | Integer | `100` | the permits allowed per #window() per key |  |
-| `dc.platform.ratelimit.http.window` | Duration | `PT1M` | the window length |  |
-
-## dc.platform.redis
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.redis.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.redis.key-prefix` | String |  | the prefix prepended to every StringRedisTemplate key; when blank, the application name followed by ':' is used |  |
-
 ## dc.platform.resilience
 
 | Key | Type | Default | Description | Deprecation |
@@ -202,41 +125,3 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | `dc.platform.restclient.defaults.retry.multiplier` | Double |  | growth of the bound between attempts |  |
 | `dc.platform.restclient.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.restclient.propagate-correlation` | Boolean |  | Removed: every platform client propagates the W3C traceparent (the platform's only correlation id) through its observation registry; no custom correlation header is sent. | error (Correlation is the W3C trace ID, propagated in traceparent by the instrumented client.) |
-| `dc.platform.restclient.token-relay.clients` | List<String> |  | the client names the token is relayed to; none by default, since a token sent to a service can be replayed by it |  |
-
-## dc.platform.scheduling
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.scheduling.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-
-## dc.platform.security
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.security.allow-partial-chains` | Boolean | `false` | accept consumer filter chains that leave some requests unmatched, which Spring Security would then let through unauthenticated |  |
-| `dc.platform.security.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.security.jwt.allow-insecure-jwks` | Boolean | `false` | accept a JWKS URL that is neither https nor loopback |  |
-| `dc.platform.security.jwt.clock-skew` | Duration | `30s` | tolerance on exp and nbf; at most 5 minutes |  |
-| `dc.platform.security.jwt.jwks.cache-ttl` | Duration | `5m` | how long fetched keys are used before a refresh, so how long a removed key lasts |  |
-| `dc.platform.security.jwt.jwks.connect-timeout` | Duration | `2s` | connection timeout of one fetch |  |
-| `dc.platform.security.jwt.jwks.outage-tolerance` | Duration | `1h` | how long past cacheTtl cached keys keep working while fetches fail |  |
-| `dc.platform.security.jwt.jwks.read-timeout` | Duration | `2s` | read timeout of one fetch |  |
-| `dc.platform.security.jwt.jwks.refresh-cooldown` | Duration | `30s` | least time between fetches, so an unknown key id cannot hammer the provider |  |
-| `dc.platform.security.jwt.resource-client` | String |  | the resource_access entry roles are read from; empty means name |  |
-| `dc.platform.security.mode` | ae.gov.dubaicustoms.platform.security.autoconfigure.SecurityProperties$Mode | `resource-server` | Mode#RESOURCE_SERVER builds the baseline JWT resource-server chain; Mode#DISABLED leaves security entirely to the application (explicit only — never implied by a profile, so an accidental local-profile activation never disables security) |  |
-| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health/liveness, /actuator/health/readiness]` | request patterns open without authentication |  |
-
-## dc.platform.storage
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.storage.checksum.enabled` | Boolean | `true` | whether a SHA-256 checksum is computed on put and stored as the sha256 user tag |  |
-| `dc.platform.storage.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
-| `dc.platform.storage.fs.root` | String |  | Root directory for the filesystem storage provider. When unset, defaults to ${java.io.tmpdir}/dc-storage. |  |
-
-## dc.platform.validation
-
-| Key | Type | Default | Description | Deprecation |
-|-----|------|---------|-------------|-------------|
-| `dc.platform.validation.enabled` | Boolean | `true` | master kill switch for the whole capability |  |

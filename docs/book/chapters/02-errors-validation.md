@@ -457,12 +457,15 @@ X-Correlation-Id: 9f2c7a1e4b8d40f6a3c5e7d9b1f3a5c7
 
 ```java snippet:book-02-validated-request
 record CreateOrderRequest(
-        @NotNull @Ulid String customerId,
-        @NotBlankTrimmed String reference,
-        @SafeText String remarks,
-        @NotNull @FutureInstant Instant deliverBy) {
+        @NotBlank @Size(max = 26) String customerId,
+        @NotBlank String reference,
+        @Size(max = 500) String remarks,
+        @NotNull @jakarta.validation.constraints.Future Instant deliverBy) {
 }
 ```
+
+> The platform's own constraints (`@Ulid`, `@NotBlankTrimmed`, `@SafeText`, `@FutureInstant`) were cut with
+> the validation module (Spring-native plan v2). Use the standard Jakarta constraints, or write your own.
 
 ```java
 @PostMapping("/orders")
@@ -505,7 +508,7 @@ Constraints on a service method fire when the class is `@Validated`:
 @Validated
 class DeclarationService {
 
-    Declaration lookup(@NotNull @Ulid String declarationId) {
+    Declaration lookup(@NotBlank @Size(max = 26) String declarationId) {
         return new Declaration(declarationId);
     }
 }
@@ -521,8 +524,7 @@ Calling `lookup("nope")` throws `ConstraintViolationException`, which the platfo
     It works through a Spring AOP proxy, so it only fires on calls that go *through* the proxy. An
     internal `this.lookup(...)` call from another method on the same bean bypasses it entirely. This
     is the standard Spring self-invocation caveat, and it applies equally to
-    `@Idempotent`, `@RateLimited`,
-    `@Audited`, and `@RequiresPermission`.
+    `@Transactional` and `@Cacheable`.
 
 ### 4.5 Enrich every problem body
 

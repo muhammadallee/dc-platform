@@ -52,7 +52,7 @@ class ErrorCodeSourceUniquenessTest {
         // A near-empty result means the gate stopped looking, not that the platform has no codes.
         assertThat(scan.declarations()).extracting(Declaration::code)
                 .contains("DC-CORE-0500", "DC-CORE-0400", "DC-CORE-0410", "DC-CORE-0499",
-                        "DC-SEC-0401", "DC-SEC-0403", "DC-RCLIENT-0500", "DC-MSG-0001");
+                        "DC-DATA-0409", "DC-MSG-0001", "DC-RCLIENT-0500");
         assertThat(scan.declarations()).allSatisfy(d -> assertThat(d.code()).as("format in %s", d.file()).matches(FORMAT));
         assertThat(duplicates(scan)).as("error codes are contracts and must be unique platform-wide").isEmpty();
     }

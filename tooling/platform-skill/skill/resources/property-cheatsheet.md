@@ -2,12 +2,6 @@
 
 | Key | Type | Default |
 |-----|------|---------|
-| `dc.platform.audit.enabled` | Boolean | `true` |
-| `dc.platform.audit.queue-capacity` | Integer | `1000` |
-| `dc.platform.authz.enabled` | Boolean | `true` |
-| `dc.platform.authz.roles-claim` | String | `roles` |
-| `dc.platform.cache.caches` | Map<String,ae.gov.dubaicustoms.platform.cache.autoconfigure.CacheProperties$CacheSpec> | `` |
-| `dc.platform.cache.enabled` | Boolean | `true` |
 | `dc.platform.core.banner-enabled` | Boolean | `true` |
 | `dc.platform.core.correlation.generate-if-missing` | Boolean | `` |
 | `dc.platform.core.correlation.header-name` | String | `` |
@@ -21,20 +15,6 @@
 | `dc.platform.errors.include-stacktrace` | Boolean | `false` |
 | `dc.platform.errors.map-validation` | Boolean | `true` |
 | `dc.platform.errors.type-base-uri` | String | `urn:dc:problem:` |
-| `dc.platform.events.enabled` | Boolean | `true` |
-| `dc.platform.events.relay.destination-prefix` | String | `dc.` |
-| `dc.platform.events.relay.enabled` | Boolean | `false` |
-| `dc.platform.files.allowed-types` | Set<String> | `[application/pdf, image/png, image/jpeg, application/zip, text/csv, text/plain]` |
-| `dc.platform.files.enabled` | Boolean | `true` |
-| `dc.platform.files.max-file-size` | org.springframework.util.unit.DataSize | `10MB` |
-| `dc.platform.files.max-request-size` | org.springframework.util.unit.DataSize | `10MB` |
-| `dc.platform.flags.enabled` | Boolean | `true` |
-| `dc.platform.flags.static` | Map<String,String> | `` |
-| `dc.platform.idempotency.enabled` | Boolean | `true` |
-| `dc.platform.idempotency.http.enabled` | Boolean | `false` |
-| `dc.platform.idempotency.http.header-name` | String | `Idempotency-Key` |
-| `dc.platform.idempotency.http.ttl` | Duration | `24h` |
-| `dc.platform.locking.enabled` | Boolean | `true` |
 | `dc.platform.logging.enabled` | Boolean | `true` |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` |
 | `dc.platform.logging.include-mdc` | Boolean | `true` |
@@ -77,13 +57,6 @@
 | `dc.platform.openapi.security-scheme` | ae.gov.dubaicustoms.platform.openapi.autoconfigure.OpenApiProperties$SecurityScheme | `BEARER_JWT` |
 | `dc.platform.openapi.title` | String | `` |
 | `dc.platform.openapi.version` | String | `` |
-| `dc.platform.ratelimit.enabled` | Boolean | `true` |
-| `dc.platform.ratelimit.http.enabled` | Boolean | `false` |
-| `dc.platform.ratelimit.http.key-by` | ae.gov.dubaicustoms.platform.ratelimit.autoconfigure.RateLimitProperties$KeyBy | `IP` |
-| `dc.platform.ratelimit.http.permits` | Integer | `100` |
-| `dc.platform.ratelimit.http.window` | Duration | `PT1M` |
-| `dc.platform.redis.enabled` | Boolean | `true` |
-| `dc.platform.redis.key-prefix` | String | `` |
 | `dc.platform.resilience.enabled` | Boolean | `true` |
 | `dc.platform.restclient.clients` | Map<String,ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties$ClientOverride> | `` |
 | `dc.platform.restclient.defaults.bulkhead.enabled` | Boolean | `` |
@@ -106,21 +79,3 @@
 | `dc.platform.restclient.defaults.retry.multiplier` | Double | `` |
 | `dc.platform.restclient.enabled` | Boolean | `true` |
 | `dc.platform.restclient.propagate-correlation` | Boolean | `` |
-| `dc.platform.restclient.token-relay.clients` | List<String> | `` |
-| `dc.platform.scheduling.enabled` | Boolean | `true` |
-| `dc.platform.security.allow-partial-chains` | Boolean | `false` |
-| `dc.platform.security.enabled` | Boolean | `true` |
-| `dc.platform.security.jwt.allow-insecure-jwks` | Boolean | `false` |
-| `dc.platform.security.jwt.clock-skew` | Duration | `30s` |
-| `dc.platform.security.jwt.jwks.cache-ttl` | Duration | `5m` |
-| `dc.platform.security.jwt.jwks.connect-timeout` | Duration | `2s` |
-| `dc.platform.security.jwt.jwks.outage-tolerance` | Duration | `1h` |
-| `dc.platform.security.jwt.jwks.read-timeout` | Duration | `2s` |
-| `dc.platform.security.jwt.jwks.refresh-cooldown` | Duration | `30s` |
-| `dc.platform.security.jwt.resource-client` | String | `` |
-| `dc.platform.security.mode` | ae.gov.dubaicustoms.platform.security.autoconfigure.SecurityProperties$Mode | `resource-server` |
-| `dc.platform.security.permit-paths` | List<String> | `[/actuator/health/liveness, /actuator/health/readiness]` |
-| `dc.platform.storage.checksum.enabled` | Boolean | `true` |
-| `dc.platform.storage.enabled` | Boolean | `true` |
-| `dc.platform.storage.fs.root` | String | `` |
-| `dc.platform.validation.enabled` | Boolean | `true` |

@@ -497,23 +497,27 @@ void onDispatched(EventEnvelope<ShipmentDispatched> envelope) {
 
 ### 4.4 Publish a domain event
 
+> The platform's own in-process event API (`DomainEventPublisher`, `@DomainEventHandler`) was cut
+> (Spring-native plan v2): Spring's `ApplicationEventPublisher` and `@TransactionalEventListener` do the
+> same job.
+
 ```java snippet:book-07-domain-events
-record InvoiceIssued(String invoiceId, String customerId) implements DomainEvent {
+record InvoiceIssued(String invoiceId, String customerId) {
 }
 
 @Service
 class InvoiceService {
 
-    private final DomainEventPublisher events;
+    private final ApplicationEventPublisher events;
 
-    InvoiceService(DomainEventPublisher events) {
+    InvoiceService(ApplicationEventPublisher events) {
         this.events = events;
     }
 
     @Transactional
     void issue(String invoiceId, String customerId) {
         // ... persist the invoice ...
-        events.publish(new InvoiceIssued(invoiceId, customerId));
+        events.publishEvent(new InvoiceIssued(invoiceId, customerId));
         // Handlers run AFTER this transaction commits. A rollback means they never run.
     }
 }
@@ -521,7 +525,7 @@ class InvoiceService {
 @Component
 class InvoiceEventHandlers {
 
-    @DomainEventHandler
+    @TransactionalEventListener
     void onIssued(InvoiceIssued event) {
         // Runs outside the original transaction. A failure here cannot undo the commit.
     }
@@ -533,10 +537,10 @@ class InvoiceEventHandlers {
 | You want to… | Use |
 |---|---|
 | Tell another service something happened | `EventPublisher` |
-| Update a read model in the same service after commit | `DomainEventPublisher` |
-| Send an email after a successful save | `DomainEventPublisher` |
+| Update a read model in the same service after commit | `ApplicationEventPublisher` + `@TransactionalEventListener` |
+| Send an email after a successful save | `ApplicationEventPublisher` + `@TransactionalEventListener` |
 | Trigger a workflow in another team's service | `EventPublisher` |
-| Decouple two aggregates in the same service | `DomainEventPublisher` |
+| Decouple two aggregates in the same service | `ApplicationEventPublisher` |
 | Both, from one publish | Domain event + the relay (§4.6) |
 
 ### 4.6 Turn on the relay

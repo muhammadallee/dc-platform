@@ -1,3 +1,0 @@
-ae.gov.dubaicustoms.platform.locking.autoconfigure.RedisLockProviderAutoConfiguration
-ae.gov.dubaicustoms.platform.locking.autoconfigure.JdbcLockProviderAutoConfiguration
-ae.gov.dubaicustoms.platform.locking.autoconfigure.PlatformLockingAutoConfiguration

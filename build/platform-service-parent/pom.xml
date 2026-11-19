@@ -62,7 +62,10 @@
       <!-- Dependency bans (phase-16 B.1): a service must reach wrapped libraries through the platform
            starter, not by declaring them directly. searchTransitive=false so the starters (which pull
            these libs transitively) are fine — only a DIRECT declaration in the service POM fails, with
-           a message naming the starter to use instead. Toggle off per module with -Dplatform.bans.skip=true. -->
+           a message naming the starter to use instead. Toggle off per module with -Dplatform.bans.skip=true.
+           The Resilience4j and springdoc bans were lifted with the scope cut (Spring-native plan v2): their
+           platform starters are parked until iteration 2, so a ban would point at a starter that is not
+           released. Iteration 2 decides afresh. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -76,39 +79,15 @@
               <rules>
                 <bannedDependencies>
                   <searchTransitive>false</searchTransitive>
-                  <excludes><exclude>org.springframework.kafka:spring-kafka</exclude></excludes>
-                  <message>Do not depend on spring-kafka directly — add platform-starter-messaging-kafka and
-                    publish via EventPublisher / consume via @EventHandler (docs/modules/messaging.md).</message>
-                </bannedDependencies>
-                <bannedDependencies>
-                  <searchTransitive>false</searchTransitive>
                   <excludes><exclude>org.springframework.amqp:spring-rabbit</exclude></excludes>
                   <message>Do not depend on spring-rabbit directly — add platform-starter-messaging-rabbit and
                     publish via EventPublisher / consume via @EventHandler (docs/modules/messaging.md).</message>
                 </bannedDependencies>
                 <bannedDependencies>
                   <searchTransitive>false</searchTransitive>
-                  <excludes><exclude>software.amazon.awssdk:s3</exclude></excludes>
-                  <message>Do not depend on the AWS S3 SDK directly — add platform-starter-storage-s3 and use the
-                    ObjectStore API (docs/modules/storage.md).</message>
-                </bannedDependencies>
-                <bannedDependencies>
-                  <searchTransitive>false</searchTransitive>
                   <excludes><exclude>io.opentelemetry:opentelemetry-exporter-zipkin</exclude></excludes>
                   <message>The OpenTelemetry Zipkin exporter is discontinued (last 1.64.0) and fails at startup against the
                     OpenTelemetry the platform manages (D133). Export traces over OTLP (docs/modules/observability.md).</message>
-                </bannedDependencies>
-                <bannedDependencies>
-                  <searchTransitive>false</searchTransitive>
-                  <excludes><exclude>io.github.resilience4j:*</exclude></excludes>
-                  <message>Do not depend on Resilience4j directly — add platform-starter-resilience and use the
-                    platform resilience annotations/properties (docs/modules/resilience.md).</message>
-                </bannedDependencies>
-                <bannedDependencies>
-                  <searchTransitive>false</searchTransitive>
-                  <excludes><exclude>org.springdoc:*</exclude></excludes>
-                  <message>Do not depend on springdoc directly — add platform-starter-openapi for the platform's
-                    OpenAPI defaults (docs/modules/openapi.md).</message>
                 </bannedDependencies>
               </rules>
             </configuration>

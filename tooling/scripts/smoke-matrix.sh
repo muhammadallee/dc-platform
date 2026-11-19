@@ -83,14 +83,6 @@ run_row() {
     done
   fi
 
-  # Security stays on in every row: an unauthenticated business call must be rejected (401/403).
-  if [ "$id" = "baseline" ]; then
-    local code; code="$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/orders/1")"
-    if [ "$code" != "401" ] && [ "$code" != "403" ]; then
-      echo "   FAIL[${id}]: unauthenticated /orders/1 returned ${code}, expected 401/403 (security off?)"; ok=0
-    fi
-  fi
-
   if [ "$ok" = 1 ]; then echo "   PASS[${id}]"; else FAILURES=$((FAILURES + 1)); fi
   stop
 }

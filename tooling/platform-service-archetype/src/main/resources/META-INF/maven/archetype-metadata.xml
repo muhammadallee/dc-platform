@@ -12,7 +12,7 @@
     <requiredProperty key="platformVersion">
       <defaultValue>${project.version}</defaultValue>
     </requiredProperty>
-    <!-- Optional feature slices: "none" or a comma-separated subset of {messaging,data,restclient}
+    <!-- Optional feature slices: "none" or a comma-separated subset of {messaging,data}
          without spaces. Toggles both starter dependencies (pom.xml #if blocks) and sample code/tests
          (Velocity #if in the sample files, which render empty when their feature is off). Tokens are
          matched exactly (",data," in ",<features>,"), never as substrings. Anything else - unknown or

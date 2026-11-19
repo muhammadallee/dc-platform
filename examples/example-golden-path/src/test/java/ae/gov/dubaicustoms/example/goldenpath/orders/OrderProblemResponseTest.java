@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ae.gov.dubaicustoms.platform.test.junit.PlatformWebTest;
-import ae.gov.dubaicustoms.platform.test.security.TestTokens;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -27,7 +26,7 @@ class OrderProblemResponseTest {
 
     @Test
     void unknownOrderIsRfc9457NotFound() throws Exception {
-        mvc.perform(get("/orders/9999").with(TestTokens.user("alice").roles("USER").jwt()))
+        mvc.perform(get("/orders/9999"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("DC-XMPL-0404"));
@@ -36,7 +35,6 @@ class OrderProblemResponseTest {
     @Test
     void invalidCreateBodyIsRfc9457BadRequest() throws Exception {
         mvc.perform(post("/orders")
-                        .with(TestTokens.user("alice").roles("USER").jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customer\":\"\",\"amount\":-5}"))
                 .andExpect(status().isBadRequest())

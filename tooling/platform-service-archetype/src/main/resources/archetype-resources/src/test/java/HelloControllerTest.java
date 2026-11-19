@@ -6,15 +6,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ae.gov.dubaicustoms.platform.test.junit.PlatformWebTest;
-import ae.gov.dubaicustoms.platform.test.security.TestTokens;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Web-slice test for {@code GET /hello}. {@code @PlatformWebTest} boots the platform web stack
- * (errors, validation, security) with an auto-configured {@link MockMvc}; authenticate requests with
- * {@link TestTokens}. Endpoints are authenticated by default, so the unauthenticated call is rejected.
+ * (errors, validation) with an auto-configured {@link MockMvc}.
  */
 @PlatformWebTest
 class HelloControllerTest {
@@ -23,15 +21,9 @@ class HelloControllerTest {
     MockMvc mvc;
 
     @Test
-    void greetsAuthenticatedUser() throws Exception {
-        mvc.perform(get("/hello").param("name", "alice")
-                        .with(TestTokens.user("alice").roles("USER").jwt()))
+    void greetsTheCaller() throws Exception {
+        mvc.perform(get("/hello").param("name", "alice"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Hello, alice")));
-    }
-
-    @Test
-    void rejectsUnauthenticatedRequest() throws Exception {
-        mvc.perform(get("/hello")).andExpect(status().isUnauthorized());
     }
 }

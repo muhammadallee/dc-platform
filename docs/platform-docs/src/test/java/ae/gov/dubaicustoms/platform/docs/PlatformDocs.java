@@ -42,8 +42,7 @@ final class PlatformDocs {
 
     /**
      * Every {@code platform-starter-*} module mapped to the capability page that must document it.
-     * Multi-provider capabilities (cache, messaging, storage, locking) and the security/authz split
-     * share one page per capability; {@code platform-starter-test} maps to the top-level testing page.
+     * Multi-provider capabilities (messaging, data) share one page per capability; {@code platform-starter-test} maps to the top-level testing page.
      */
     static final Map<String, String> STARTER_TO_PAGE = buildStarterPageMap();
 
@@ -52,33 +51,15 @@ final class PlatformDocs {
         m.put("platform-starter-core", "modules/core.md");
         m.put("platform-starter-errors", "modules/errors.md");
         m.put("platform-starter-logging", "modules/logging.md");
-        m.put("platform-starter-validation", "modules/validation.md");
         m.put("platform-starter-observability", "modules/observability.md");
         m.put("platform-starter-openapi", "modules/openapi.md");
         m.put("platform-starter-restclient", "modules/restclient.md");
-        m.put("platform-starter-security", "modules/security.md");
-        m.put("platform-starter-security-authz", "modules/authz.md");
         m.put("platform-starter-messaging-inmemory", "modules/messaging.md");
-        m.put("platform-starter-messaging-kafka", "modules/messaging.md");
         m.put("platform-starter-messaging-rabbit", "modules/messaging.md");
         m.put("platform-starter-messaging-outbox", "modules/outbox.md");
-        m.put("platform-starter-events", "modules/events.md");
         m.put("platform-starter-data-jpa", "modules/data.md");
         m.put("platform-starter-data-jpa-oracle", "modules/data.md");
-        m.put("platform-starter-cache-caffeine", "modules/cache.md");
-        m.put("platform-starter-cache-redis", "modules/cache.md");
-        m.put("platform-starter-redis", "modules/redis.md");
         m.put("platform-starter-resilience", "modules/resilience.md");
-        m.put("platform-starter-locking-jdbc", "modules/locking.md");
-        m.put("platform-starter-locking-redis", "modules/locking.md");
-        m.put("platform-starter-scheduling", "modules/scheduling.md");
-        m.put("platform-starter-idempotency", "modules/idempotency.md");
-        m.put("platform-starter-storage-fs", "modules/storage.md");
-        m.put("platform-starter-storage-s3", "modules/storage.md");
-        m.put("platform-starter-audit", "modules/audit.md");
-        m.put("platform-starter-ratelimit", "modules/ratelimit.md");
-        m.put("platform-starter-files", "modules/files.md");
-        m.put("platform-starter-flags", "modules/flags.md");
         m.put("platform-starter-test", "testing.md");
         return m;
     }

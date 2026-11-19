@@ -10,36 +10,33 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
    starter first.** Capability table: https://platform.dubaicustoms.gov.ae/docs/modules/ (or run
    `mvn dependency:tree` and look at existing `platform-starter-*`). If a starter exists, use it.
 2. **Messaging:** publish via `ae.gov.dubaicustoms.platform.messaging.EventPublisher` and consume via
-   `@EventHandler`. NEVER inject `KafkaTemplate` / `RabbitTemplate` or write listener containers
+   `@EventHandler`. NEVER inject `RabbitTemplate` or write listener containers
    directly — retry, DLQ, correlation, serialization and metrics are already handled.
 3. **Errors:** throw `PlatformException` subtypes (`BusinessException`, `NotFoundException`,
    `ConflictException`) with an `ErrorCode` (`DC-XX-NNNN`, where `XX` is this service's claimed
    namespace). NEVER write your own `@RestControllerAdvice` or build `ProblemDetail` by hand — the
    platform maps everything to RFC 9457 with the request's trace ID.
-4. **Security:** endpoints are authenticated by default. Use `@RequiresPermission("res:action")`
-   for authorization and `CurrentUserAccessor` for identity. Do not define your own
-   `SecurityFilterChain`; use `SecurityCustomizer` beans for adjustments.
-5. **Outbound HTTP:** build clients from `PlatformRestClientFactory.builder("client-name")` —
-   correlation, auth relay, timeouts, metrics and error mapping are pre-wired. No raw
-   `RestTemplate`/`WebClient` unless a platform gap is documented in an issue.
+4. **Security:** the platform does not secure endpoints yet (basic auth arrives with the REST API
+   capability). Do not add your own security scheme in the meantime; keep the service inside the
+   cluster.
+5. **Outbound HTTP:** the platform REST client arrives in the next release. Until then use Spring's
+   `RestClient.Builder` bean, and set connect and read timeouts on every client.
 6. **Config:** platform behavior is tuned ONLY via `dc.platform.*` properties (IDE-completed).
    Never copy platform defaults into application.yml "to be safe" — set a key only to deviate.
-7. **Secrets:** reference via the platform secrets property source; NEVER `System.getenv` for
-   secrets and never commit values.
+7. **Secrets:** read them from configuration properties (mounted secrets); NEVER `System.getenv`
+   for secrets and never commit values.
 8. **Persistence:** use platform JPA conventions (snake_case naming, auditing, Flyway under
    `db/migration`). `open-in-view` stays false.
-9. **Resilience/scheduling/locking/idempotency/caching/flags/audit:** use the platform
-   annotations and APIs (`@Retry`-style r4j config, `@LockedSchedule`, `@Idempotent`,
-   `@Cacheable` + platform key convention, `FeatureFlags`, `@Audited`) — do not hand-roll.
+9. **Anything else** (caching, scheduling, retries): the platform does not cover it yet; use Spring's
+   own support and keep it simple.
 10. **Logging:** SLF4J, parameterized, no secrets/PII. Trace IDs (the correlation id) are automatic — never log
     them manually or generate your own.
 
 ## Testing rules
 
-- Use platform slices: `@PlatformWebTest` (MockMvc + errors + security mocks),
+- Use platform slices: `@PlatformWebTest` (MockMvc + errors),
   `@PlatformMessagingTest` (+ `TestEventTransport`), `@PlatformDataTest` (H2 + conventions),
-  `@PlatformTest` (full boot). JWTs via `TestTokens.user("alice").roles(...)` for MockMvc; for real HTTP
-  tests, `TestJwtIssuer` (loopback JWKS) so the token is actually validated (see `HttpIntegrationTestSupport`).
+  `@PlatformTest` (full boot). Real-HTTP tests extend `HttpIntegrationTestSupport`.
 - Default tests must run WITHOUT Docker. Real-infra tests: `@Tag("docker")`, run with `mvn -Pdocker verify`.
 - Assert error responses with `assertThatProblem(...)` including the error code.
 - `PlatformConformanceTest` runs the platform's consumer conformance rules over your code — keep it.

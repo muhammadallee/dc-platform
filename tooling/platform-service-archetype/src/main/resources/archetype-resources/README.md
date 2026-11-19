@@ -2,8 +2,12 @@
 
 A service on the **DC Platform** chassis (its name is the `artifactId` in `pom.xml`). The platform
 provides correlation IDs, JSON logging,
-RFC-9457 error handling, metrics/tracing, OpenAPI, and an authenticated-by-default security filter
-chain. You write business logic; see `CLAUDE.md` before adding cross-cutting code.
+RFC-9457 error handling and metrics/tracing. You write business logic; see `CLAUDE.md` before adding
+cross-cutting code.
+
+**Not secured yet.** Web security (basic auth behind the API gateway) and OpenAPI documentation come with
+the platform's REST API capability in its next release. Until then, do not expose this service's
+endpoints outside the cluster.
 
 ## Run
 
@@ -13,45 +17,40 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local   # same, with human-readab
 java -jar target/<artifactId>-<version>.jar            # the packaged service, after mvn verify
 ```
 
-Health and readiness are always open; the platform capability report is open outside `prod`:
+Health and readiness are always available; the platform capability report is exposed outside `prod`:
 
 ```bash
 curl http://localhost:8080/actuator/health/readiness
 curl http://localhost:8080/actuator/platform      # active capabilities + providers
 ```
 
-Business endpoints need a bearer token that your identity provider signed. The generated
-`application.yml` points `spring.security.oauth2.resourceserver.jwt.jwk-set-uri` at a placeholder so the
-service boots offline; override it to call authenticated endpoints:
+Call the sample endpoint:
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://idp.example/jwks --spring.security.oauth2.resourceserver.jwt.issuer-uri=https://idp.example --spring.security.oauth2.resourceserver.jwt.audiences=my-service"
-curl -H "Authorization: Bearer <jwt>" "http://localhost:8080/hello?name=alice"
+curl "http://localhost:8080/hello?name=alice"
 ```
 
 ## Production (`prod` profile)
 
-Run with `--spring.profiles.active=prod` and supply every real coordinate from the environment or the
-platform secrets source — never from `application.yml`:
+Run with `--spring.profiles.active=prod` and supply every real coordinate from the environment or a
+mounted secret — never from `application.yml`:
 
 | Setting | When |
 |---|---|
-| `spring.security.oauth2.resourceserver.jwt.issuer-uri`, `jwk-set-uri` and `audiences` | always |
 | `spring.datasource.url` / `username` / `password` (generate with `-Ddatabase=oracle` for the Oracle driver + Flyway module) | `data` feature |
-| `app.greeting.base-url` | `restclient` feature sample |
 
 A missing value fails startup with a message naming it: `prod` never falls back to the offline
-placeholders or to an embedded H2 database, and the capability report requires authentication there.
+placeholders or to an embedded H2 database, and the capability report is not exposed there.
 
 ## Test
 
 ```bash
-mvn verify            # platform slices, real-HTTP security/logging tests, PlatformConformanceTest; no Docker
+mvn verify            # platform slices, real-HTTP logging tests, PlatformConformanceTest; no Docker
 mvn -Pdocker verify   # additionally runs @Tag("docker") tests (needs Docker)
 ```
 
-The generated tests run against local fixtures only: H2 for data, a loopback HTTP stub for outbound
-calls, and a loopback JWKS issuer (`TestJwtIssuer`) so bearer tokens are really validated.
+The generated tests run against local fixtures only: H2 for data and an in-memory transport for
+messaging.
 
 ## Add a capability
 
@@ -59,14 +58,9 @@ Add the starter and use the platform API — nothing is auto-injected (ADR: expl
 
 | Capability | Starter | Use |
 |---|---|---|
-| Messaging | `platform-starter-messaging-inmemory` (or `-kafka`/`-rabbit`) | `EventPublisher` / `@EventHandler` |
-| Persistence (JPA) | `platform-starter-data-jpa` | Spring Data repositories, Flyway migrations under `db/migration` |
-| Outbound HTTP | `platform-starter-restclient` | `PlatformRestClientFactory.builder("name")` |
-| Caching | `platform-starter-cache-caffeine` (or `-redis`) | `@Cacheable` + platform key convention |
-| Locking | `platform-starter-locking-jdbc` (or `-redis`) | `@LockedSchedule` |
-| Rate limiting | `platform-starter-ratelimit` | platform rate-limit API |
-| Feature flags | `platform-starter-flags` | `FeatureFlags` |
-| Authorization | `platform-starter-security-authz` | `@RequiresPermission` |
+| Messaging | `platform-starter-messaging-inmemory` (or `-rabbit`) | `EventPublisher` / `@EventHandler` |
+| Transactional outbox | `platform-starter-messaging-outbox` | `OutboxPublisher` inside your `@Transactional` method |
+| Persistence (JPA) | `platform-starter-data-jpa` (`-oracle` for Oracle) | Spring Data repositories, Flyway migrations under `db/migration` |
 
 Full catalog: https://platform.dubaicustoms.gov.ae/docs/modules/
 

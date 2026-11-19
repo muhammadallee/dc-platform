@@ -9,58 +9,19 @@ spring:
   application:
     name: ${artifactId}
 
-management:
-  endpoints:
-    web:
-      exposure:
-        # Platform default is health,info,prometheus; this service also exposes the platform
-        # capability report (/actuator/platform). Who may read it is decided by dc.platform.security
-        # permit-paths below (open outside prod, authenticated in prod).
-        include: health,info,prometheus,platform
-
 # Profiles: local (developer laptop, human-readable logs), test (CI slices), prod (real infrastructure).
 ---
-# Every profile EXCEPT prod (including no profile at all): offline-friendly development defaults. None of
-# these reach a prod start, so a deployment that forgets its real coordinates fails fast at startup
-# instead of running on placeholders.
+# Every profile EXCEPT prod (including no profile at all): also expose the platform capability report
+# (/actuator/platform). The platform default is health,info,prometheus; prod keeps it.
 spring:
   config:
     activate:
       on-profile: "!prod"
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Identity provider JWKS endpoint. Placeholder so the app boots offline (decoding is lazy, so
-          # this URL is never fetched until a request presents a token). To call authenticated endpoints
-          # locally, override it with your IdP's (or a local test issuer's) JWKS URL.
-          jwk-set-uri: https://example.test/.well-known/jwks.json
-          # Tokens are checked against these too. Placeholders, like the URL above.
-          issuer-uri: https://example.test/
-          audiences: ${artifactId}
-
-dc:
-  platform:
-    security:
-      # Open endpoints (no authentication). Only the two health probes are open by platform default;
-      # outside prod the rest of this list is opened too, for local runs and the golden path. In prod it
-      # falls back to the platform default.
-      permit-paths:
-        - /actuator/health
-        - /actuator/health/**
-        - /actuator/info
-        - /actuator/platform
-        - /v3/api-docs/**
-        - /swagger-ui/**
-        - /swagger-ui.html
-#if($featureSet.contains(",restclient,"))
-
-app:
-  greeting:
-    # Downstream the GreetingClient sample calls. Loopback placeholder for local runs only; prod must
-    # supply app.greeting.base-url (startup fails without it).
-    base-url: http://localhost:8081
-#end
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,platform
 
 ---
 spring:
@@ -85,6 +46,5 @@ spring:
     # supplied by the environment or the secrets source.
     embedded-database-connection: none
 #end
-# In prod, supply the identity provider (spring.security.oauth2.resourceserver.jwt.issuer-uri, jwk-set-uri
-# and audiences) and every datasource/downstream/broker coordinate externally (environment or the platform
-# secrets property source), never in this file. A missing value fails startup with an actionable message.
+# In prod, supply every datasource/broker coordinate externally (environment or a mounted secret), never in
+# this file. A missing value fails startup with an actionable message.

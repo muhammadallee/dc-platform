@@ -27,6 +27,10 @@ The platform is cut to the plan v2 scope ([`docs/spring-native/plan.md`](docs/sp
   `spring-boot-starter-validation`, and `/actuator/platform` is exposed outside `prod` only.
 - **Build.** `check-bom` skips modules that set `maven.deploy.skip=true` and fails if the BOM manages one. That rule
   found `platform-docs` (never deployed) in the BOM; it is removed from it.
+- **After the Codex review.** `PlatformConformanceTest` no longer bans Spring Kafka types (Kafka is not a platform
+  transport). The platform index served by the MCP server and the skill lists only released starters.
+  `example-event-driven` runs on RabbitMQ only. Consumer runs build their Maven repository with
+  `tooling/hardening/native-repo.sh`, which holds no cut artifact.
 
 ### Phase 8: final verification
 

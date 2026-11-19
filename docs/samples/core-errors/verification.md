@@ -1,34 +1,36 @@
 # Verification — what was proven, at which level
 
-> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
-> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
-
-Platform commit `e2be16d`. Evidence: [`../../production-readiness/phase-01-core-errors/evidence/`](../../production-readiness/phase-01-core-errors/evidence/).
+Spring-native Phase 2, platform commit `b3bcc7c`. Consumer runs: three in a row, **89 assertions each, 0 failed**
+(floor 77), on a fresh repository with no removed module
+([`../../spring-native/phase-02-foundation/evidence/`](../../spring-native/phase-02-foundation/evidence/)).
 
 | # | Expected | Actual | Level |
 |---|---|---|---|
-| AC1 | Valid `traceparent` continued; `traceId` in RequestContext, MDC, `@Async`, ProblemDetail and the request's own log line | As expected; same-request body ↔ log event asserted | SLICE (real tracing, embedded server) + CONSUMER |
-| AC2 | Missing `traceparent` → new 32-hex trace in body and log | As expected (continued and fresh) | SLICE + CONSUMER |
-| AC3 | Rejected `traceparent` → new trace, exactly one length-only marker per request, raw value never logged | As expected for malformed, oversized and all-zero values; CR/LF/control characters are rejected by Tomcat before the app (unit-level only, amendment A2) | UNIT + CONSUMER |
-| AC4 | Stray `X-Correlation-Id` ignored, never echoed or sent | As expected | SLICE + CONSUMER |
-| AC5 | Platform REST client sends `traceparent` with the same trace, no custom header | As expected | SLICE + CONSUMER |
-| AC6 | Sampling 0.0 keeps the trace ID in context, MDC and error bodies | As expected | SLICE + CONSUMER |
-| AC7 | `@Async` sees the caller's trace; a context-free task never inherits the executing caller's context (Boot's default decorator) | As expected | UNIT + SLICE + CONSUMER |
-| AC8 | 200 parallel requests × 3, zero bleed | Consumer: 600 context calls + 600 error bodies per run, 0 bleed, 3 consecutive runs; slice: 200 × 3 incl. async MDC; errors slice 200 × 3 bodies | SLICE + CONSUMER |
-| AC9 | MDC empty after every REQUEST, ASYNC and ERROR dispatch and on pool threads | As expected (bounded wait for each dispatch's exit record) | SLICE |
+| AC1 | Valid `traceparent` continued; the trace in the `Tracer`, the MDC, `@Async` and the error body | As expected | SLICE + CONSUMER |
+| AC2 | No `traceparent` → a new 32-hex trace, the same in the body and the request's log line | As expected | SLICE + CONSUMER |
+| AC3 | A rejected `traceparent` → new trace, one length-only marker, the raw value in no log | As expected for malformed, oversized and all-zero values | UNIT + CONSUMER |
+| AC4 | A stray `X-Correlation-Id` ignored, never echoed or sent | As expected | SLICE + CONSUMER |
+| AC5 | An instrumented `RestClient` sends `traceparent` with the same trace, no custom header | As expected | CONSUMER |
+| AC6 | Sampling 0.0 keeps the trace ID in context, MDC and bodies | As expected | SLICE + CONSUMER |
+| AC7 | `@Async` sees the caller's trace; a context-free task sees none, in the MDC and in `Tracer` | As expected; Boot's own decorator fails the `Tracer` half, the platform's does not | UNIT + SLICE + CONSUMER |
+| AC8 | 200 parallel requests × 3, no bleed; a shared exception instance never carries one request's trace into another | As expected | SLICE + CONSUMER |
+| AC9 | MDC empty after every dispatch and on pool threads; out-of-order closes unwind exactly | As expected | UNIT + SLICE |
 | AC10 | Malformed JSON → 400 `DC-CORE-0410`, no parser internals | As expected | SLICE + CONSUMER |
-| AC11 | Validation → 400 `DC-CORE-0400`, field paths, no `rejectedValue` (body, query parameter, native MVC method validation) | As expected | SLICE + CONSUMER |
-| AC12 | Unknown exception and 5xx `PlatformException` → generic 500; stack trace in the log on the request's trace | As expected; framework 5xx (async timeout 503, conversion failure) logged once with the throwable | SLICE + CONSUMER |
-| AC13 | 401 (missing, malformed, expired, untrusted-key token) and 403 carry the full contract, no rejection reason | As expected against a real JWKS issuer | SLICE + CONSUMER |
-| AC14 | `retryable` true only for 429/502/503/504 | As expected | UNIT |
-| AC15 | Removed properties deprecated (level `error`, reason) and without effect | As expected; no `replacement` (no successor — amendment A1, accepted D100) | UNIT |
-| AC16 | Override by documented mechanism; config-default snapshots; kill switches | As expected; filter registration and banner by type, descriptors by name (D97/D98); unrelated beans do not suppress the platform's; registration override checked in a started container | SLICE |
-| AC17 | Downstream `-amd test-compile` incl. Kafka/audit; golden path | 86 modules exit 0; golden path 8/8 (`golden-path-summary-76cfcc7.tsv`) | build |
-| AC18 | SIGTERM with an in-flight 6 s request: 200, exit 143 within grace | As expected (bounded wait for handler entry; shutdown 7 s) | CONSUMER |
+| AC11 | Validation → 400 `DC-CORE-0400`, field paths, no `rejectedValue` | As expected | SLICE + CONSUMER |
+| AC12 | Unexpected exception and a service 5xx → generic detail; the stack trace in the log on the request's trace | As expected | SLICE + CONSUMER |
+| AC14 | `retryable` true only for 429, 502, 503, 504 | As expected | UNIT |
+| AC15 | Removed properties deprecated at level `error`, without effect | As expected | UNIT |
+| AC16 | Default snapshots, kill switches, overrides | As expected; overrides need no platform type | SLICE |
+| AC18 | SIGTERM with a 6 s request in flight: 200, exit 143 within grace | As expected | CONSUMER |
+| AC19 | A service's `ErrorResponse.Interceptor` sees the body and the originating exception on every path | As expected on eleven paths, two interceptors in order | SLICE + CONSUMER |
+| AC20 | A service's `code` and 4xx detail unchanged; a 5xx detail replaced | As expected; status, reserved names and URI-unsafe codes also covered | SLICE + CONSUMER |
+| AC21 | `@ResponseStatus(CONFLICT)` → 409 | As expected (it was a 500) | SLICE + CONSUMER |
+| AC22 | Only the starters, no properties: the contract holds | As expected | SLICE |
+| AC23 | The service and the probe import no platform type | As expected | CONSUMER |
+
+AC13 (security) went with JWT security in Phase 1. AC17 (downstream build, golden path) is in the phase closure.
 
 ## Limitations
 
-- No ENVIRONMENT-level evidence (OpenShift) — Phase 8.
-- The logging, observability, security, openapi, validation and restclient starters were present as
-  fixtures; they are certified in their own phases.
+- No ENVIRONMENT-level evidence (OpenShift).
+- Logging and observability were present as fixtures; they are certified in Phase 3.

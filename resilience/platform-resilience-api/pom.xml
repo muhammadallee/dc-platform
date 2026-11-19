@@ -24,6 +24,9 @@
   <!-- Contract artifact: binary-incompatible changes must break the build once a release
        baseline exists (platform-parent wires japicmp; the skip flag flips after 0.1.0). -->
   <properties>
+    <!-- Parked (Spring-native plan v2 §2.4): built and tested, but not released, not in platform-bom and
+         not offered by the archetype until its iteration-2 phase. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
     <platform.japicmp.breakBuild>true</platform.japicmp.breakBuild>
   </properties>
 

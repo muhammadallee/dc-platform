@@ -1,24 +1,24 @@
-# Lab runner, first-service, on the working tree of b3bcc7c plus the lab files (uncommitted at the time)
+# Lab runner, first-service, after the Codex round-2 fixes (statuses checked, every check line enforced, app confirmed gone)
 # bash tooling/labs/run-lab.sh first-service -> exit 0
-run-lab: first-service in /c/Users/Ali/dc-labs/lab-first-service-20261119-164241
+run-lab: first-service in /c/Users/Ali/dc-labs/lab-first-service-20261119-185617
 ### step 1 (lab-step, line 15)
 ### step 2 (lab-step, line 23)
 ### step 3 (lab-file, line 44)
 ### step 4 (lab-step, line 80)
 ### step 5 (lab-check, line 90)
 ### step 6 (lab-step, line 99)
-### step 7 (lab-check, line 113)
-### step 8 (lab-step, line 121)
-### step 9 (lab-check, line 129)
-### step 10 (lab-check, line 139)
-### step 11 (lab-step, line 147)
-### step 12 (lab-check, line 154)
-### step 13 (lab-step, line 163)
-LAB PASS — first-service — log: /c/Users/Ali/dc-labs/lab-first-service-20261119-164241/lab.log
-# Responses the checks read:
-## cancel.json
-{"detail":"order 42 is already paid","instance":"/orders/42/cancel","status":409,"title":"ORD-0409","type":"urn:dc:problem:ORD-0409","code":"ORD-0409","traceId":"4bf92f3577b34da6a3ce929d0e0e4736","timestamp":"2026-11-19T12:46:42.991006300Z","retryable":false}
-## invoice.json
-{"detail":"An unexpected error occurred.","instance":"/orders/42/invoice","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"4bf92f3577b34da6a3ce929d0e0e4736","timestamp":"2026-11-19T12:46:43.409984300Z","retryable":false}
-## fresh.json
-{"detail":"An unexpected error occurred.","instance":"/orders/42/invoice","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"97f9b31cbb9b7da62311722411387e89","timestamp":"2026-11-19T12:46:44.267221900Z","retryable":false}
+### step 7 (lab-check, line 114)
+### step 8 (lab-step, line 124)
+### step 9 (lab-check, line 133)
+### step 10 (lab-check, line 145)
+### step 11 (lab-step, line 153)
+### step 12 (lab-check, line 160)
+### step 13 (lab-step, line 170)
+### step 14 (lab-check, line 181)
+LAB PASS — first-service — log: /c/Users/Ali/dc-labs/lab-first-service-20261119-185617/lab.log
+## cancel: HTTP 409
+{"detail":"order 42 is already paid","instance":"/orders/42/cancel","status":409,"title":"ORD-0409","type":"urn:dc:problem:ORD-0409","code":"ORD-0409","traceId":"4bf92f3577b34da6a3ce929d0e0e4736","timestamp":"2026-11-19T15:01:24.408792700Z","retryable":false}
+## invoice: HTTP 500
+{"detail":"An unexpected error occurred.","instance":"/orders/42/invoice","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"4bf92f3577b34da6a3ce929d0e0e4736","timestamp":"2026-11-19T15:01:26.602527200Z","retryable":false}
+## fresh: HTTP 500
+{"detail":"An unexpected error occurred.","instance":"/orders/42/invoice","status":500,"title":"DC-CORE-0500","type":"urn:dc:problem:DC-CORE-0500","code":"DC-CORE-0500","traceId":"c02a726b1efd10f6cc7fb7afd8aae1b0","timestamp":"2026-11-19T15:01:27.871240900Z","retryable":false}

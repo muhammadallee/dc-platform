@@ -311,10 +311,14 @@ class TraceCorrelationIntegrationTest {
             assertThat(async.get("thread")).isNotEqualTo(body.get("thread"));
             assertThat(async).containsEntry("context", traceId).containsEntry("mdcTraceId", traceId);
 
-            // Same single pool thread, submitted from a thread with no context: nothing may linger.
+            // Same single pool thread, read through the raw pool so no decorator can hide what the task left:
+            // neither the MDC nor the tracer may still hold the request's trace.
             AsyncTaskExecutor executor = context.getBean("applicationTaskExecutor", AsyncTaskExecutor.class);
-            Map<String, String> leftover = executor.submit(TraceCorrelationIntegrationTest::snapshot).get();
+            java.util.concurrent.ThreadPoolExecutor raw =
+                    ((org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor) executor).getThreadPoolExecutor();
+            Map<String, String> leftover = raw.submit(TraceCorrelationIntegrationTest::snapshot).get();
             assertThat(leftover).containsOnlyKeys("thread");
+            assertThat(leftover.get("thread")).isEqualTo(async.get("thread"));
         }
 
         @Test

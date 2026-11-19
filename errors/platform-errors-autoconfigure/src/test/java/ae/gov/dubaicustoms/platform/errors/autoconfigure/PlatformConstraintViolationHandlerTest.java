@@ -83,4 +83,31 @@ class PlatformConstraintViolationHandlerTest {
             assertThat(entry).doesNotContainKey("rejectedValue");
         });
     }
+
+    // Codex round 2: after the response was committed nothing is written, and the failure is logged once.
+    @Test
+    void aCommittedResponseGetsNothingAndTheViolationIsLoggedOnce() {
+        ErrorsProperties properties = new ErrorsProperties(true, false, "urn:dc:problem:", true, false);
+        PlatformConstraintViolationHandler handler = new PlatformConstraintViolationHandler(
+                new ProblemDetailFactory(properties, TraceIdSource.NONE, FIXED_CLOCK));
+        org.springframework.mock.web.MockHttpServletResponse response =
+                new org.springframework.mock.web.MockHttpServletResponse();
+        response.setCommitted(true);
+        ch.qos.logback.classic.Logger log = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(PlatformConstraintViolationHandler.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        log.addAppender(appender);
+        try {
+            assertThat(handler.handleConstraintViolation(new ConstraintViolationException(java.util.Set.of()),
+                    new MockHttpServletRequest("GET", "/x"), response)).isNull();
+        } finally {
+            log.detachAppender(appender);
+        }
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
+            assertThat(event.getThrowableProxy()).isNotNull();
+        });
+    }
 }

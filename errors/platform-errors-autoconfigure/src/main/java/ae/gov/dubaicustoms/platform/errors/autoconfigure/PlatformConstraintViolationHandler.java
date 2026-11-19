@@ -35,6 +35,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class PlatformConstraintViolationHandler {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(PlatformConstraintViolationHandler.class);
+
     private final ProblemDetailFactory factory;
 
     /**
@@ -59,7 +62,9 @@ public class PlatformConstraintViolationHandler {
     public ErrorResponse handleConstraintViolation(ConstraintViolationException exception,
             HttpServletRequest request, HttpServletResponse response) {
         if (response.isCommitted()) {
-            return null; // nothing may be written any more
+            // Nothing may be written any more, but the failure must not vanish: log it on the request's trace.
+            log.error("constraint violation after the response was committed; nothing more is written", exception);
+            return null;
         }
         List<Map<String, Object>> errors = new ArrayList<>();
         for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {

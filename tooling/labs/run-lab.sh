@@ -30,27 +30,49 @@ python -I -X utf8 "$PLATFORM_HOME/tooling/labs/lab_script.py" "$lab" > "$LAB_DIR
 
 {
   echo 'set -euo pipefail'
+  echo 'lab_fail() { echo "LAB FAIL at step $LAB_STEP (status $1)" >&2; exit 1; }'
   echo 'trap '"'"'echo "LAB FAIL at step $LAB_STEP" >&2'"'"' ERR'
   echo 'cd "$LAB_DIR"'
   cat "$LAB_DIR/steps.sh"
 } > "$script"
 
+# Stops what the lab left running and confirms it is gone; returns non-zero if something survived.
 cleanup() {
-  local pidfile pid
+  local pidfile pid waited survivors=0
   for pidfile in "$LAB_DIR"/*.pid; do
     [ -f "$pidfile" ] || continue
     pid=$(cat "$pidfile")
-    kill "$pid" 2>/dev/null && echo "run-lab: stopped process $pid ($(basename "$pidfile"))"
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null
+      for waited in $(seq 1 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null; sleep 1
+      fi
+      if kill -0 "$pid" 2>/dev/null; then
+        echo "run-lab: process $pid ($(basename "$pidfile")) is still running" >&2
+        survivors=1
+      else
+        echo "run-lab: stopped process $pid ($(basename "$pidfile"))"
+      fi
+    fi
+    rm -f "$pidfile"
   done
   if command -v docker >/dev/null 2>&1; then
     docker ps -aq --filter "label=dc-lab=$LAB_RUN" | xargs -r docker rm -f >/dev/null
+    if [ -n "$(docker ps -aq --filter "label=dc-lab=$LAB_RUN")" ]; then
+      echo "run-lab: containers labelled dc-lab=$LAB_RUN are still there" >&2
+      survivors=1
+    fi
   fi
+  return "$survivors"
 }
 trap cleanup EXIT
 
 echo "run-lab: $capability in $LAB_DIR"
 PLATFORM_HOME="$PLATFORM_HOME" LAB_DIR="$LAB_DIR" LAB_RUN="$LAB_RUN" bash "$script" 2>&1 | tee "$LAB_DIR/lab.log"
 rc=${PIPESTATUS[0]}
+trap - EXIT
+cleanup || { [ "$rc" -ne 0 ] || rc=3; }
 if [ "$rc" -eq 0 ]; then
   echo "LAB PASS — $capability — log: $LAB_DIR/lab.log"
 else

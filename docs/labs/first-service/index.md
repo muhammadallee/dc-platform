@@ -98,8 +98,9 @@ Send a `traceparent`, as any traced caller does:
 
 ```bash lab-step
 TRACE=4bf92f3577b34da6a3ce929d0e0e4736
-curl -s -X POST -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" http://localhost:18080/orders/42/cancel | tee cancel.json
-echo
+curl -s -o cancel.json -w '%{http_code}' -X POST -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" \
+    http://localhost:18080/orders/42/cancel > cancel.status
+cat cancel.json; echo
 ```
 
 ```json
@@ -111,6 +112,8 @@ echo
 Your code and your detail, plus the platform's `traceId`, `timestamp` and `retryable`:
 
 ```bash lab-check
+test "$(cat cancel.status)" = 409
+grep -q '"status":409' cancel.json
 grep -q '"code":"ORD-0409"' cancel.json
 grep -q '"detail":"order 42 is already paid"' cancel.json
 grep -q "\"traceId\":\"$TRACE\"" cancel.json
@@ -119,14 +122,17 @@ grep -q "\"traceId\":\"$TRACE\"" cancel.json
 ## Step 6 — An unexpected failure, and its log line
 
 ```bash lab-step
-curl -s -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" http://localhost:18080/orders/42/invoice | tee invoice.json
-echo
+curl -s -o invoice.json -w '%{http_code}' -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" \
+    http://localhost:18080/orders/42/invoice > invoice.status
+cat invoice.json; echo
 ```
 
 The caller gets a 500 with code `DC-CORE-0500`, the same `traceId`, and a generic detail. The internal host name is
 not in the body:
 
 ```bash lab-check
+test "$(cat invoice.status)" = 500
+grep -q '"status":500' invoice.json
 grep -q '"code":"DC-CORE-0500"' invoice.json
 grep -q '"detail":"An unexpected error occurred."' invoice.json
 grep -q "\"traceId\":\"$TRACE\"" invoice.json
@@ -145,13 +151,14 @@ test "$(grep "$TRACE" app.log | grep -c 'db-7.internal')" -gt 0
 Call it the way a caller without tracing would:
 
 ```bash lab-step
-curl -s http://localhost:18080/orders/42/invoice | tee fresh.json
-echo
+curl -s -o fresh.json -w '%{http_code}' http://localhost:18080/orders/42/invoice > fresh.status
+cat fresh.json; echo
 ```
 
 The platform starts a new trace and reports it. It is a new 32-hex ID, not yours, and it is in the log too:
 
 ```bash lab-check
+test "$(cat fresh.status)" = 500
 grep -Eq '"traceId":"[0-9a-f]{32}"' fresh.json
 test "$(grep -c "$TRACE" fresh.json)" -eq 0
 FRESH=$(grep -Eo '"traceId":"[0-9a-f]{32}"' fresh.json | cut -d'"' -f4)
@@ -161,7 +168,18 @@ grep -q "$FRESH" app.log
 ## Step 8 — Clean up
 
 ```bash lab-step
-kill "$(cat ../app.pid)"
+APP_PID=$(cat ../app.pid)
+kill "$APP_PID"
+for attempt in $(seq 1 30); do
+  kill -0 "$APP_PID" 2>/dev/null || break
+  sleep 1
+done
+```
+
+The service shuts down gracefully and is gone:
+
+```bash lab-check
+test "$(kill -0 "$APP_PID" 2>/dev/null && echo running)" != running
 rm ../app.pid
 ```
 

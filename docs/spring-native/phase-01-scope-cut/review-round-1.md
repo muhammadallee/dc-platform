@@ -8,7 +8,7 @@ One round over the scope cut (plan §8 Gate C). Base `085d752`, reviewed `451420
     in the fix for 2 (path traversal in `native-repo.sh`; a failed build fell back to `~/.m2`)
   - [`r1-verify2.out.md`](codex/r1-verify2.out.md): 2 and both new defects accepted; 4 not resolved (four more pages)
   - [`r1-verify3.out.md`](codex/r1-verify3.out.md): 4 not resolved (three more pages); no new defects
-  - verification 4 (finding 4 only): pending, Codex usage limit until 13:35
+  - [`r1-verify4.out.md`](codex/r1-verify4.out.md): 4 accepted; no new defects. Every finding is settled
 
 Codex: "Found two High and four Medium issues." It found no cut dependency in the kept code or build, no defect in the
 changed kept behaviour, no release leak of a parked module through the BOM, the deploy or the archetype, and no assertion

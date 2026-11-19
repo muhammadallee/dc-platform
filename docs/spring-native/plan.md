@@ -1,705 +1,989 @@
-# DC Platform — Scope Cut and Spring-Native Realignment Execution Plan (v1)
+# DC Platform 1.0.0 — Spring-native plan (v2)
 
-**Repository:** `muhammadallee/dc-platform`
-**Starting point:** `main` at or after the merge of PR #3. Record HEAD SHA as the **baseline commit** before any edit.
+**Repository:** `muhammadallee/dc-platform`. **Branch:** `develop` (a parallel stream; the owner alone merges it into `main`).
 **Implementer:** Claude Code. **Independent reviewer:** Codex.
-**Predecessor:** the hardening initiative, [`../production-readiness/plan-v3.md`](../production-readiness/plan-v3.md), closed
-2026-11-04 (tag `hardening/phase-08-closed`). This plan inherits its discipline. Where this document says "as v3 §N", that
-section applies unchanged except where this plan states otherwise.
+**Version 2, 2026-11-19.** Rewritten from the owner's answers to the Phase 0 decision record. What changed from v1:
 
-**Objective:**
-1. Cut the chassis down to the certified capabilities plus a small, named set to be hardened next.
-2. Remove the platform's own programming API wherever Spring Boot 4 / Spring Framework 7 / Spring Security 7 already has one,
-   so that a service codes against **Spring types only**. The platform becomes auto-configuration: it supplies beans,
-   customizers and property defaults, and backs off whenever the service supplies its own.
-3. Keep every guarantee the hardening initiative proved. A guarantee may move (from an API type into auto-configuration),
-   and may be retired only with evidence that Spring itself provides it.
-4. Harden caching (Caffeine), scheduling and JDBC locking, Spring-native from the start, and give validation and OpenAPI a
-   light certification.
-5. Re-verify everything and produce a new, evidence-backed release decision.
+- The goal is release **1.0.0**, delivered in **iterations**. Each iteration ends in a state you can ship and stop at.
+- Scope is now seven capabilities, not fourteen. JWT security, authorization, caching, scheduling, locking, validation and
+  the platform validation constraints are cut. REST APIs are secured with **basic auth only** and documented with OpenAPI
+  (Swagger UI).
+- Every capability, now and later, is built with one repeatable recipe (§8).
 
-> **Read this whole document before starting.** Section 4 holds the execution mechanics that caused silent failures in the
-> hardening initiative. Phase 0 ends in a **human decision gate** (§6, step 8): nothing in this plan is approved until the
-> owner answers it. Do not start Phase 1 before that.
+Predecessor: the hardening initiative ([`../production-readiness/plan-v3.md`](../production-readiness/plan-v3.md), closed
+2026-11-04, tag `hardening/phase-08-closed`). Its rules are summarised here wherever this plan uses them, so you should not
+need to open v3 except for detail.
 
 ---
 
-## 1. Scope
+## 1. What we are building
 
-### 1.1 Kept and re-certified (the v3 seven)
+A small Spring Boot chassis that a Spring developer can use without learning a platform API.
 
-| # | Capability | v3 verdict | What changes here |
-|---|---|---|---|
-| 1 | Core + Error Handling | PASS | Platform API removed; Spring `ErrorResponse` / `ProblemDetail`, Micrometer `Tracer` |
-| 2 | Logging + Observability | PASS | `Kv`, `LogSanitizer` removed as API; masking stays inside the logging configuration |
-| 3 | Data Access (Oracle) | PASS, RAC `BLOCKED` | Already Spring Data JPA; `EntityId` / `Money` per ND7 |
-| 4 | Transactional Outbox | PASS with parked issues | Kept as is **or** replaced by Spring Modulith, per the trial (Phase 6) and ND5 |
-| 5 | RabbitMQ Messaging | PASS | Platform API removed; Spring AMQP `RabbitTemplate` / `@RabbitListener` with platform beans |
-| 6 | REST Client + Resilience | PASS | Platform factory removed; Boot `RestClient.Builder`, `RestClientCustomizer`, HTTP interface clients |
-| 7 | Security | PASS | `CurrentUser*`, `SecurityCustomizer` removed; `@RequiresPermission` per ND4 |
+- **Spring types only in service code.** The platform supplies beans, customizers and property defaults, and steps back when
+  the service defines its own. A service writes `RabbitTemplate`, `@RabbitListener`, `RestClient.Builder`, `JpaRepository`,
+  not `PlatformRestClientFactory` or `EventPublisher`.
+- **Nothing proven is lost.** Every behaviour the hardening initiative proved (timeouts, no retry of POST, masking of tokens in
+  logs, no lost outbox events, …) still holds after the rewrite, each with a test. A guarantee may move from a platform type into
+  auto-configuration. It may be dropped only with a test showing Spring now provides it.
+- **Shippable at every iteration.** At the end of each iteration the chassis builds, its archetype generates a working
+  service, every lab passes, the docs describe only what ships, and a release decision is written.
+- **Repeatable.** New capabilities arrive later through the same recipe (§8, §14).
 
-### 1.2 Kept and newly certified
+---
 
-| Capability | Modules kept | Modules dropped |
+## 2. Scope
+
+Every module directory in the repository lands in exactly one of five bands.
+
+### 2.1 Iteration 1 — release 1.0.0
+
+| Capability | What a service uses | Modules |
 |---|---|---|
-| Caching | `platform-cache-autoconfigure`, `platform-starter-cache-caffeine` (`platform-cache-api` per §9 Phase 8) | `platform-starter-cache-redis` |
-| Scheduling | `platform-scheduling-autoconfigure`, `platform-starter-scheduling` | — |
-| Locking (scheduling depends on it) | `platform-locking-api`, `-spi`, `-autoconfigure`, `-jdbc`, `platform-starter-locking-jdbc` | `platform-locking-redis`, `platform-starter-locking-redis` |
-| Validation | all (the archetype includes it in every service) | — |
-| OpenAPI | all (the archetype includes it in every service) | — |
-| In-process events | none after Phase 2: replaced by Spring application events | `events/*` |
-| Test support | per ND6 | — |
+| Logging | SLF4J (fluent `addKeyValue`), Boot logging config; masking built in | `logging/*` |
+| Observability | Micrometer `Observation` / `Tracer`, Actuator | `observability/*` |
+| Data | Spring Data JPA (`JpaRepository`, `@Transactional`), Flyway; Oracle in production, H2 for labs | `data/*` |
+| Messaging (RabbitMQ only) | Spring AMQP `RabbitTemplate`, `@RabbitListener` | `messaging/platform-messaging-rabbit`, `-autoconfigure`, `platform-starter-messaging-rabbit`, `-test` |
+| Outbox (RabbitMQ only) | Publish inside the business transaction; delivery to RabbitMQ after commit | `messaging/platform-messaging-outbox*`, `platform-starter-messaging-outbox` (or Spring Modulith, per ND5) |
 
-### 1.3 Cut (removed from the reactor, the BOM, the archetype, the docs and the site)
+### 2.2 Iteration 2 — release 1.1.0 (see ND12)
 
-Kafka messaging, audit, idempotency, Redis (`redis/*` and every Redis starter), rate limiting, storage, files, feature flags,
-secrets, multi-tenancy data isolation, schema-per-tenant, native image. Also the repository-root leftovers `scratch/` and
-`tmpviol/`, after the owner confirms they are not needed (§6 step 8, ND2).
+| Capability | What a service uses | Modules |
+|---|---|---|
+| REST API | Spring MVC controllers, Bean Validation; every path behind **HTTP basic auth** (the API gateway checks JWT or OAuth client credentials and then calls the service with basic auth); an OpenAPI document and Swagger UI generated from the controllers by springdoc | new: `rest-api/*`, built from today's `openapi/*` (layout per ND15) |
+| REST client | Boot `RestClient.Builder` or `@HttpExchange` interfaces; outbound **basic auth** or **OAuth2 client credentials**; timeouts and safe retries | `restclient/*`, `resilience/*` |
 
-**v3 §3.9 no longer covers Kafka.** Its "keep Kafka compiling" rule ends when Kafka leaves the reactor.
+### 2.3 Foundation — kept because the chassis needs it
 
-### 1.4 Explicitly out of scope
+Not a capability you pick: it is in every generated service. Re-certified in Phase 2, documented, and covered by the
+"first service" lab.
 
-- New capabilities beyond §1.2.
-- Re-adding any cut capability. Each one comes back later only through a hardening phase of its own.
-- PostgreSQL certification (stays out, HD3). Oracle RAC stays `BLOCKED` (HD4) unless an environment is supplied.
-- Changing Spring Boot's major or minor version. Patch upgrades are allowed when a CVE requires one (as D133).
+| Part | Why it stays | Modules |
+|---|---|---|
+| Build | Parents, BOM, dependency management, enforcer and ArchUnit rules, the build plugin | `build/*` |
+| Core | Trace-based correlation, context propagation across threads, the startup banner | `core/*` |
+| Errors | Every error becomes an RFC 9457 `ProblemDetail` with a stable code, including Bean Validation failures | `errors/*` |
+| Test support | What Boot's test slices do not give (ND6) | `test/platform-test-api`, `test/platform-starter-test` |
+| Archetype and tooling | One archetype generating the current iteration's capabilities; migrations recipe, MCP server and skill, pruned | `tooling/*` |
+| Docs site | Module pages, book, labs, samples for kept capabilities only | `docs/platform-docs`, `docs/` |
+
+### 2.4 Parked — kept in the reactor, not shipped yet
+
+Iteration 2 code lives in the repository during iteration 1, but must not ship in 1.0.0: shipping today's REST client API
+and breaking it in 1.1.0 would break semantic versioning.
+
+- **Modules:** `restclient/*`, `resilience/*`, `openapi/*` (reworked into the REST API in Phase 8).
+- **While parked:** they compile and their tests run, they are **not** in `platform-bom`, **not** deployed
+  (`maven.deploy.skip`), **not** offered by the archetype, and their doc pages carry a "coming in iteration 2" note.
+- **Unparked** in Phase 8 (`openapi/*`) and Phase 9 (`restclient/*`, `resilience/*`).
+
+### 2.5 Cut — deleted from `develop` in Phase 1
+
+Restore point: tag `pre-spring-native` (ND8).
+
+| Removed | Module directories |
+|---|---|
+| JWT security and authorization | `security/*` (7 modules) |
+| Validation (platform constraints) | `validation/*`. Spring's own Bean Validation stays: `spring-boot-starter-validation` replaces the platform starter wherever it was used, and errors maps its failures (§2.3) |
+| Caching | `cache/*`, `redis/*` |
+| Scheduling and locking | `scheduling/*`, `locking/*` (ND9: nothing kept needs a lock; the outbox uses `SKIP LOCKED`, not the locking module) |
+| In-process events | `events/*` (Spring's `ApplicationEventPublisher` replaces it) |
+| Kafka messaging | `messaging/platform-messaging-kafka`, `platform-starter-messaging-kafka` |
+| Audit, idempotency, rate limiting, storage, files, feature flags | `audit/*`, `idempotency/*`, `ratelimit/*`, `storage/*`, `files/*`, `flags/*` |
+| Their contract tests | `test/tck/*` except `platform-tck-messaging` (which goes in Phase 6, with the messaging API) |
+| Their docs | their `docs/modules/*.md`, book chapters 05 and 09–13, `docs/samples/security` (chapter 04, OpenAPI, is parked with its module and rewritten in Phase 8) |
+
+Also cut, in the phase that rewrites their area:
+- `messaging/platform-messaging-api`, `-spi`, `-inmemory`, `platform-starter-messaging-inmemory`, `platform-tck-messaging`
+  (Phase 6: the platform messaging API gives way to Spring AMQP).
+- Every `*-api` type in the removal map (Phase 0), in the phase listed there.
+
+Three kept modules have an **optional** link to the JWT security API, which Phase 1 removes:
+- `platform-data-jpa-autoconfigure`: the JPA auditor falls back to `"system"`;
+- `platform-messaging-outbox-autoconfigure`: the outbox stops recording the principal;
+- `platform-restclient-autoconfigure`: token relay goes.
+
+In iteration 2, the REST API phase restores the auditor and the outbox principal from Spring's `SecurityContextHolder`.
+
+`scratch/` and `tmpviol/` are untracked local leftovers: deleted locally, no repository change.
+
+### 2.6 Out of scope
+
+- Re-adding a cut capability. Each one can come back later, through the recipe (§14).
+- PostgreSQL (HD3). Oracle RAC stays `BLOCKED` (HD4) until an environment exists.
+- A Spring Boot major or minor upgrade. A patch upgrade is allowed when a CVE needs one (as D133 did).
 
 ---
 
-## 2. Phase order
+## 3. Iterations and phases
 
-| Phase | Name | Depends on | Composition checkpoint |
+| Phase | Name | Depends on | Ends with |
 |---|---|---|---|
-| 0 | Baseline, framework spikes, decisions | — | — |
-| 1 | Scope cut | 0 | Golden path + all seven v3 consumer runs, unchanged |
-| 2 | Core + Errors + in-process events → Spring-native | 1 | — |
-| 3 | Logging + Observability → Spring-native | 2 | — |
-| 4 | REST client + Resilience → Spring-native | 2, 3 | — |
-| 5 | Security + Authorization → Spring-native | 2, 3 | **C2** (Security + REST + DB + Obs) |
-| 6 | Outbox trial: Spring Modulith vs the platform outbox | 1 | — (**ND5 go/no-go gate** at the end) |
-| 7 | Messaging → Spring AMQP, with the outbox ND5 chose | 6 | **C1** (Core + Obs + DB + Outbox + RabbitMQ) |
-| 8 | Caching (Caffeine) | 2, 3 | — |
-| 9 | Scheduling + JDBC locking | 2, 3 | — |
-| 10 | Validation + OpenAPI (light certification) | 2, 5 | — |
-| 11 | Final full-project verification and release decision | 1–10 | All capabilities in one app |
+| **0** | Baseline, spikes, decisions | — | Decisions answered. **Done; closing** |
+| | **Iteration 1** | | |
+| 1 | Scope cut and parking | 0 | Smaller reactor; kept consumer runs unchanged |
+| 2 | Foundation: core + errors, Spring-native | 1 | Lab "first service" |
+| 3 | Logging + observability, Spring-native | 2 | Lab "logging and observability" |
+| 4 | Data (Spring Data JPA) | 2 | Lab "data" |
+| 5 | Outbox trial: Spring Modulith vs the platform outbox | 1 | **Owner stop: ND5** |
+| 6 | Messaging + outbox on Spring AMQP | 4, 5 | Labs "messaging" and "outbox"; composition **C1** |
+| 7 | Iteration 1 release check | 1–6 | Release decision for **1.0.0**. **Owner stop** |
+| | **Iteration 2** | | |
+| 8 | REST API with basic auth | 7 | Lab "REST API" |
+| 9 | REST client + resilience, Spring-native, with basic auth and OAuth client credentials | 8 | Lab "REST client"; composition **C2** |
+| 10 | Iteration 2 release check | 8, 9 | Release decision for **1.1.0**. **Owner stop** |
 
-**Why this order (do not reorder without a recorded decision):**
-- The cut comes first so every later phase works on a smaller reactor and nothing is ported only to be deleted.
-- Core and errors come before everything else because every other capability's errors flow through them.
-- The outbox trial is separate from the messaging rewrite because its result decides what Phase 7 builds. If Modulith
-  fails, Phase 7 keeps the platform outbox and only the messaging API moves.
-- Caching and scheduling follow the rewrite so they are written Spring-native once, not ported.
-- Data access has no phase of its own: it is already Spring Data JPA. Its API remnants (`EntityId`, `Money`) are handled in
-  Phase 2 per ND7, and the v3 Phase 3 consumer run is re-run as a regression in every phase that touches its modules.
+**Why this order:**
+- The cut comes first, so no phase ports code that is about to be deleted.
+- Foundation comes next because every other capability's errors and trace IDs go through it.
+- The outbox trial is separate from the messaging rewrite because its result decides what Phase 6 builds.
+- REST API comes before REST client so that C2 can test an authenticated request that makes an outbound call.
 
----
+**What "you can stop here" means.** An iteration is finished when its release check (Phase 7 or 10) passes:
+- a clean full build;
+- every lab of the iteration passes the lab runner;
+- the archetype generates exactly the iteration's capabilities;
+- the docs and the BOM list only what ships (parked modules excluded);
+- the scans are clean;
+- a release decision is written.
 
-## 3. Binding execution constraints
-
-v3 §3 applies in full, with these changes and additions:
-
-1. **v3 §3.2 (no full-reactor test run before the final phase)** is replaced. CI runs the full reactor on every push; locally,
-   a full `verify` is allowed at the end of each phase, because the cut and the API removals touch many modules at once. Run it
-   in the foreground, `-T1`, with `-l` (§4.1).
-2. **v3 §3.6 (preserve architecture)** is amended by ND3/ADR-011: API modules are removed where Spring has the type. The BOM,
-   parents, conditional auto-configuration, kill switches and `@ConditionalOnMissingBean` back-off all stay.
-3. **The bean-provision rule (new, binding).** When the platform needs to give a service behaviour, it uses the **first** of
-   these that works and records which one in `scope.md`:
-   1. a property default in a lowest-precedence `EnvironmentPostProcessor` property source (the pattern already used by
-      logging and observability), visible in `/actuator/env` and overridable by any user value;
-   2. a Spring Boot customizer bean (`RestClientCustomizer`, `JsonMapperBuilderCustomizer` or its Boot 4 equivalent,
-      `RabbitTemplateCustomizer`, `Customizer<HttpSecurity>` if the Phase 0 spike confirms it, …);
-   3. a platform bean of a **Spring** type, `@ConditionalOnMissingBean`, with a kill switch `dc.platform.<cap>.enabled`;
-   4. a platform type in the service's code: only with a recorded decision (ND-numbered) explaining why no Spring type fits.
-   A `BeanPostProcessor` that rewrites a user's bean is not on the list: the user's bean wins, unchanged.
-4. **Guarantee carry-over (new, binding).** No hardened behaviour is lost silently. Every phase that rewrites a capability builds
-   the carry-over table (§8, Gate A) and proves every row with a test before closure.
-5. **Consumer counts are the regression floor (new, binding).** The v3 consumer runs passed with these assertion counts:
-
-   | v3 run | Count |
-   |---|---|
-   | Phase 1 Core + Errors | 92 |
-   | Phase 2 Logging + Observability | 76 |
-   | Phase 3 Data Access | 92 |
-   | Phase 4 Outbox | 106 |
-   | Phase 5 RabbitMQ | 63 |
-   | Phase 6 REST + Resilience | 182 |
-   | Phase 7 Security | 170 |
-   | C1 composition (v3 Phase 5) | 106 (the Phase 4 harness run as C1) plus the Phase 5 consumer's AC1 and AC5 |
-   | C2 composition | 61 |
-   | Phase 8 all capabilities | 63 |
-
-   A ported run keeps **at least** its v3 count, or `scope.md` lists every assertion dropped or changed and why (for example,
-   one that asserted a platform type now removed, replaced by an assertion on the Spring type).
-6. **`develop` stays green at every merge.** Each phase merges to `develop` on closure (§4.4); `main` is never touched by this
-   plan. Between phases `develop` holds a mix of old and new APIs; the golden path, CI and every consumer run and lab already
-   ported must still pass on each merge.
-8. **Every capability has a guided lab (owner, 2026-11-17; binding).** See §4.10. A capability's phase is not closed until its
-   lab has been executed exactly as written and passed.
-7. **Zero-config acceptance (new, binding).** Every capability ends its phase with a test in which an app containing only the
-   starter (plus the declared fail-closed settings) starts and meets the capability's contract. The deliberate fail-closed
-   requirements stay and are listed in the capability's doc page:
-   - security: `issuer-uri`, `jwk-set-uri`, `audiences`;
-   - data: `spring.datasource.*` and Flyway migrations;
-   - messaging: a reachable broker;
-   - outbox: its table in the service's migrations (or Modulith's, per ND5).
+`develop` is then a releasable 1.0.0 (or 1.1.0). Nothing from a later iteration is half-done in it.
 
 ---
 
-## 4. Execution mechanics (read before Phase 0)
+## 4. Rules that bind every phase
+
+These carry over from v3 §3 (summarised here), with the changes this plan makes.
+
+1. **Truthful status.** Every build, test, harness run and Codex call is awaited to the end, and its real exit code is
+   recorded. No fire-and-forget, and CI never stands in for local evidence. A service under test is started, exercised and
+   stopped by one script that returns one honest exit code.
+2. **Full builds.** CI runs the whole reactor on every push. Locally, run a full `verify` at the end of each phase (in the
+   foreground, `-T1`, §5.1); during a phase, run targeted `-pl … -am` builds.
+3. **One phase at a time.** A phase starts only after the one before it is `PASS` (or `PASS` with exceptions the owner approved).
+4. **Two Codex rounds per capability phase,** plus a short verification pass for any material change made after Round 2 (§6).
+   Codex's words are quoted, never paraphrased into agreement. If Codex is unavailable, the phase is `BLOCKED`.
+5. **Critical and High findings block.** Only the owner can approve an exception. A disagreement is not a resolution.
+6. **Keep the architecture.**
+   - **Stays:** BOM, parents, conditional auto-configuration, kill switches (`dc.platform.<cap>.enabled`), and
+     `@ConditionalOnMissingBean` back-off.
+   - **Removed:** a platform API module, wherever Spring already has the type (ND3, ADR-011).
+   - **Module layout (ND15):** one `platform-<cap>-autoconfigure` module (code) and one
+     `platform-starter-<cap>` (POM only) per capability; no `-api` or `-spi` module unless an ND decision needs one.
+   - **Needs a recorded decision:** a new module.
+7. **Evidence before status.** Every "passes", "works" or "secure" names the command, its exit code, the evidence file and the
+   evidence level (§6).
+8. **No scope creep.** A foundation module touched along the way is not thereby certified.
+9. **Catch downstream breaks early.** After changing a module others depend on, run
+   `mvn -q -pl <changed> -amd -DskipTests test-compile`. A break found here belongs to the current phase.
+10. **Re-test what you touch.** If a phase changes a module certified earlier, re-run that capability's tests, consumer run and
+    lab, and note it in the issue register.
+11. **Flaky is failing.** Concurrency, timing and container tests must pass three runs in a row
+    (`-Dsurefire.rerunFailingTestsCount=0`).
+12. **How the platform gives a service behaviour.** Use the **first** of these that works, and record which in `scope.md`:
+    1. a property default in a lowest-precedence `EnvironmentPostProcessor` source (as logging and observability already do).
+       It shows in `/actuator/env`, and any user value overrides it;
+    2. a Spring Boot customizer bean (`RestClientCustomizer`, `RabbitTemplateCustomizer`, `Customizer<HttpSecurity>`, …);
+    3. a platform bean of a **Spring** type, `@ConditionalOnMissingBean`, with a kill switch;
+    4. a platform type in service code, only with an ND decision explaining why no Spring type fits.
+
+    A `BeanPostProcessor` that rewrites a user's bean is not allowed: the user's bean wins, unchanged.
+
+    **One exception, recorded:** `OracleConnectionDefaults` (data) is a `BeanPostProcessor` that adds Oracle driver timeouts
+    to a pool **only where the user set none**, and never overwrites a value. It is the proven fix for HI-0061, with HI-0063
+    and HI-0070 around it; without it a hung Oracle connection blocks a request forever. It stays. Phase 4 proves it with
+    parity tests for a Boot-created pool, a user-created pool, and a URL supplied late by a property source. Any other
+    processor of this kind needs its own ND decision.
+13. **Carry every guarantee.** Each phase that rewrites a capability builds a carry-over table (§8, Gate A) and proves each row
+    with a test before it closes.
+14. **Consumer counts are a floor.** A ported consumer run keeps at least its v3 assertion count, or `scope.md` lists every
+    assertion dropped or changed and why. The floors:
+
+    | Run | v3 count | Phase |
+    |---|---|---|
+    | Core + errors | 92 | 2 |
+    | Logging + observability | 76 | 3 |
+    | Data | 92 | 4 |
+    | Outbox | 106 | 5, 6 |
+    | RabbitMQ | 63 | 6 |
+    | C1 composition | 106 + the RabbitMQ run's AC1 and AC5 | 6 |
+    | REST client + resilience | 182 | 9 |
+
+    REST API (Phase 8) and C2 (Phase 9) are new: the v3 counts came from JWT security and do not apply. Their floor is set at
+    Gate A.
+
+    **The v3 runs all used JWT.** The archetype put the JWT security starter into every service, so every v3 scenario sends
+    bearer tokens, and some assert the JWT subject as `createdBy` or as the relayed token. Phase 1 removes those parts and lists
+    each dropped or changed assertion. From then on, a run's floor is its v3 count minus those listed drops.
+15. **`develop` stays green.**
+    - **Each merge:** every phase merges into `develop` when it closes. The golden path, CI, and every consumer run and lab
+      already ported must pass.
+    - **`main`:** this plan never touches it.
+16. **Zero-config acceptance.** Each capability ends its phase with a test where an app holding only the starter (plus the
+    deliberate fail-closed settings) starts and meets the capability's contract. Those settings are listed on the
+    capability's doc page:
+    - data: `spring.datasource.*` and Flyway migrations;
+    - messaging: a reachable broker;
+    - outbox: its table in the service's migrations;
+    - REST API: the basic-auth credentials (no default password ever ships).
+17. **Every capability has a guided lab** (§5.10), and the phase is not closed until the lab passes the lab runner.
+
+---
+
+## 5. How we work
 
 Everything here was learned the hard way in the hardening initiative.
 
-### 4.1 Builds and long commands
+### 5.1 Builds and long commands
 
-- Before **every** Maven call (Git Bash):
-  `export JAVA_HOME=/c/Users/Ali/.jdks/amazon-corretto-25.0.3.9.1/jdk25.0.3_9; export PATH="$JAVA_HOME/bin:$PATH"`.
-  The shell's default JDK is 21.
-- Invocation: `rtk proxy mvn -o -T1 -B -ntp -l <log> …`. Full builds use `-T1`, never `-T1C` (native-thread limit on this
-  machine). CycloneDX and `deploy` refuse offline mode: run those without `-o`.
-- Per-module builds: `-DforkCount=0 -Djacoco.skip=true` where coverage is not the point.
-- Run full builds and consumer scenarios **in the foreground**. Background runs that sit idle get stopped for memory. If a
-  command cannot fit the tool timeout, split it (per module, per test-class group); v3 §4.1's supervised-wait fallback applies
-  only as a last resort, with the exit code captured.
-- After a module changes, a stale `~/.m2` copy can cause `NoClassDefFoundError` downstream: install the upstream modules with
-  `install -DskipTests` before running a dependent module's tests.
-- Configuration-processor metadata merges need a clean build of the module (`clean` before `verify`).
+- Before **every** Maven call (Git Bash), point at JDK 25. The shell defaults to 21:
 
-### 4.2 Shell and file hygiene
-
-- Do **not** write files or commit messages with heredocs or long quoted one-liners: they break in this shell. Write the file
-  with the Write tool (scratchpad for temporary files) and pass its path (`git commit -F <file>`,
-  `gh pr create --body-file <file>`, `python -I -X utf8 <script>`).
-- Python output redirected into a committed file is cp1252 here, and `-I` ignores `PYTHONIOENCODING`: always use
-  `python -I -X utf8`, or open the file with `encoding="utf-8"`. Before committing generated text, check it decodes as UTF-8;
-  `DocsLinkCheckTest` reads every tracked `.md` as UTF-8 and fails CI otherwise.
-- Never stage: `.serena/`, `dc-platform-chassis-review-fix-prompt.md`, `*.stackdump`, `properdocs.yml`. Stage files by name,
-  never `git add -A`.
-- Tell the owner before deleting anything outside the plan's own changes. `~/dc-hardening-runs` is **not** approved for
-  deletion.
-
-### 4.3 Codex
-
-- Invocation exactly as [`../production-readiness/README.md`](../production-readiness/README.md) documents it
-  (`codex exec --skip-git-repo-check -s read-only - < prompt > out`). Any wrapper script lives in the session scratchpad and does
-  not survive the session: recreate it from the README.
-- Independence rule as v3 §4.2: the first prompt in each round gets `scope.md`, the diff against the phase start commit, and
-  paths to read; never Claude's conclusions.
-- Prompts and raw outputs are saved verbatim under `docs/spring-native/phase-XX-<slug>/codex/`.
-- On a usage limit: wait for the reset and retry. Never buy credits. The phase is `BLOCKED` until Codex answers.
-- Each prompt names the base commit, and the runner checks that the commit resolves and that the diff is non-empty before
-  sending. A review that read nothing is not a review.
-
-### 4.4 Branches, commits, tags, PRs
-
-- **Long-running branch `develop`** (owner, 2026-11-17), created from `main` at `bdf2845`. This realignment is a parallel stream:
-  **never open or merge a PR into `main`**, and never merge `develop` into `main`; the owner does that when ready.
-- One branch per phase off `develop`: `native/phase-XX-<slug>`. One PR per phase, **targeting `develop`**. Merge into `develop`
-  without asking once the phase is closed and CI is green (HC6, applied to `develop` only). Tag the merge commit on `develop`
-  `native/phase-XX-closed`. Plan amendments go through their own small PR into `develop`.
-- CI: `ci.yml` runs on pull requests to any branch and on pushes to `main` and `develop`. Scheduled workflows (the nightly
-  container job) run only on the default branch, so they never run against `develop`: the local container runs in each phase
-  cover that.
-- Conventional commits, one logical change each, with a trailer `[native phase-XX gate-Y]`, ending with:
-
-  ```text
-  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-  Claude-Session: <the current session URL>
+  ```bash
+  export JAVA_HOME=/c/Users/Ali/.jdks/amazon-corretto-25.0.3.9.1/jdk25.0.3_9; export PATH="$JAVA_HOME/bin:$PATH"
   ```
 
-  The model name in the trailer must be the model actually in use.
-- `CHANGELOG.md` under `## [Unreleased]`: every removed type and its Spring replacement.
+- **Invocation:**
+  - Run `rtk proxy mvn -o -T1 -B -ntp -l <log> …`.
+  - Full builds use `-T1`, never `-T1C`: this machine hits its native-thread limit.
+  - CycloneDX and `deploy` refuse offline mode: run those without `-o`.
+- **Per-module builds:** add `-DforkCount=0 -Djacoco.skip=true` when coverage is not the point.
+- **Foreground only:** run full builds and consumer runs in the foreground. Idle background runs get killed for memory.
+  - If a command will not fit the tool timeout, split it (per module, per group of test classes).
+  - Last resort: run it in the background and watch it to the end, with the exit code written to a file.
+- **Stale artifacts:** a stale `~/.m2` copy of a changed module causes `NoClassDefFoundError` downstream. Run
+  `install -DskipTests` on the upstream modules first.
+- **Metadata:** configuration-processor metadata merges need `clean` before `verify`.
 
-### 4.5 Resumability
+### 5.2 Shell and file hygiene
 
-`docs/spring-native/STATE.md`, updated at every gate transition (current phase, gate, last commit, blockers, pending decisions,
-next action). On any restart, read it first. Never infer state from memory.
+- **No heredocs or long quoted one-liners for files or commit messages:** they break in this shell. Write the file with the
+  Write tool (scratchpad for temporary files) and pass its path: `git commit -F <file>`, `gh pr create --body-file <file>`,
+  `python -I -X utf8 <script>`.
+- **UTF-8:** Python output redirected to a file is cp1252 here, and `-I` ignores `PYTHONIOENCODING`.
+  - Always use `-X utf8`.
+  - Check generated text decodes as UTF-8 before committing: `DocsLinkCheckTest` fails otherwise.
+- **Staging:**
+  - Never stage `.serena/`, `dc-platform-chassis-review-fix-prompt.md`, `*.stackdump` or `properdocs.yml`.
+  - Stage by name, never `git add -A`.
+- **Deleting:** tell the owner before deleting anything outside this plan's own changes. `~/dc-hardening-runs` is not approved
+  for deletion.
 
-### 4.6 Human interaction points
+### 5.3 Codex
+
+- **Invocation:** `codex exec --skip-git-repo-check -s read-only - < prompt > out`, as
+  [`../production-readiness/README.md`](../production-readiness/README.md) documents. Recreate any wrapper script from there;
+  scratchpad scripts do not survive a session.
+- **Independence:** the first prompt of each round gets only `scope.md`, the diff against the phase start commit, and paths to
+  read. Claude's conclusions go in only at the rebuttal step.
+- **Each finding:** Codex gives a severity, `file:line`, a concrete failure scenario, its reasoning and a fix.
+- **Records:** prompts and raw answers are saved verbatim under `docs/spring-native/phase-XX-<slug>/codex/`.
+- **Base commit:** each prompt names its base commit. Before sending, the runner checks that the commit resolves and the diff is
+  not empty: a review that read nothing is not a review.
+- **Usage limit:** wait for the reset and retry; never buy credits. The phase is `BLOCKED` until Codex answers.
+
+### 5.4 Branches, commits, tags, PRs
+
+- **Branches:** `develop` is long-running, created from `main` at `bdf2845`. Never open a PR into `main` and never merge
+  `develop` into `main`: the owner does that.
+- **One branch per phase:** `native/phase-XX-<slug>` off `develop`, with one PR targeting `develop`.
+- **Closing a phase:** merge without asking once the phase is closed and CI is green; tag the merge commit
+  `native/phase-XX-closed`.
+- **Plan amendments:** their own small PR into `develop`.
+- **Commits:**
+  - Conventional commits, one logical change each, with a trailer `[native phase-XX gate-Y]`.
+  - End with the `Co-Authored-By` line naming the model actually in use, and the `Claude-Session` URL.
+- **Changelog:** `CHANGELOG.md` under `## [Unreleased]` lists every removed type and its Spring replacement.
+- **CI:** `ci.yml` runs on every PR and on pushes to `main` and `develop`. The nightly container job runs only on the default
+  branch, so the local container runs in each phase stand in for it.
+
+### 5.5 Picking up after a restart
+
+`docs/spring-native/STATE.md` is updated at every gate: phase, gate, last commit, blockers, pending decisions, next action.
+On any restart, read it first. Never work from memory.
+
+### 5.6 When to stop and ask the owner
 
 Stop and wait when:
-- the Phase 0 decision record is complete (§6 step 8);
-- the outbox trial ends (ND5 is confirmed against the trial's evidence);
-- a Critical/High finding cannot be fixed within the phase;
-- an exception is needed (`exceptions.md`, `PENDING`);
-- an environment is unavailable and the phase would become `BLOCKED`;
-- a guarantee in the carry-over table can only be kept with a platform type (bean-provision rule step 4).
+- **Release checks:** at the end of each iteration (Phases 7 and 10);
+- **ND5:** when the outbox trial ends, the owner confirms it against the evidence;
+- **Blocking findings:** a Critical or High finding cannot be fixed inside the phase;
+- **Exceptions:** an exception is needed (written to `exceptions.md` as `PENDING`, with risk, blast radius, mitigation and
+  expiry);
+- **Missing environment:** an environment is missing and the phase would become `BLOCKED`;
+- **Platform types:** a carried guarantee can only be kept with a platform type in service code (rule 12, step 4).
 
-Do **not** stop between phases otherwise (HD8). Do not ask about steps this plan already determines.
+Do not stop between phases otherwise, and do not ask about anything this plan already decides.
 
-### 4.7 Evidence hygiene
+### 5.7 Evidence hygiene
 
-As v3 §4.7. Before every commit that adds evidence, scan it for `eyJ`, `Bearer `, `password`, `secret`, connection strings
-and PII. Raw logs stay in the git-ignored `evidence-raw/`.
+- **Where it goes:** trimmed evidence goes to `phase-XX-<slug>/evidence/` (about 2 MB per file at most). Raw logs go to the
+  git-ignored `evidence-raw/`, referenced by path and SHA-256.
+- **Scan first:** before committing evidence, scan it for `eyJ`, `Bearer `, `Basic `, `password`, `secret`, connection
+  strings and personal data.
+- **Redact:** redact what the scan finds, and say so in the evidence.
 
-### 4.8 Generated documentation
+### 5.8 Generated documentation
 
-- `docs/reference/*`, `llms-full.txt` and the skill resources are regenerated from a **full** build only (the generators read
-  other modules' `target/`). Never commit them from an isolated `-pl` build.
-- Gate H runs `python -m mkdocs build --strict` and `DocsLinkCheckTest`. Both must pass. `mkdocs.yml`'s nav must not name a
-  page that no longer exists.
+- **Full builds only:** `docs/reference/*`, `llms-full.txt` and the skill resources are generated from a **full** build: the
+  generators read other modules' `target/`. Never commit them from an isolated `-pl` build.
+- **Docs checks:** every docs change passes `python -m mkdocs build --strict` and `DocsLinkCheckTest`. `mkdocs.yml` must not
+  name a page that no longer exists.
 
-### 4.9 Consumer runs
+### 5.9 Consumer runs
 
-As v3 §4.3, with the existing harness:
-- scenarios: `tooling/hardening/scenarios/<scenario>.sh`, probe code under `tooling/hardening/scenarios/phase-0X/`;
-- local repository per phase: `bash tooling/hardening/phase-repo.sh <phase> <modules>`, which verifies the baseline manifest and
-  copies it to `~/.m2-hardening/<phase>`;
-- **never install into `~/.m2-baseline`**;
-- runs land in `~/dc-hardening-runs/native-<phase>/`.
+A consumer run proves the capability from the outside: a service generated by the archetype, run against real
+infrastructure, by a script.
 
-Each rewrite phase **ports** its v3 scenario: the probe app's code moves to Spring types; the infrastructure, faults and
-assertions stay. §3.5 applies.
+- **Scenarios:** `tooling/hardening/scenarios/<scenario>.sh`, probe code in `tooling/hardening/scenarios/phase-0X/`.
+- **Local repository:** a fresh one per phase, via `bash tooling/hardening/phase-repo.sh <phase> <modules>`. It checks the
+  baseline manifest and copies it to `~/.m2-hardening/<phase>`.
+  - Never install into `~/.m2-baseline` or `~/.m2-native-baseline`.
+- **Generate outside the repository:** runs land in `~/dc-hardening-runs/native-<phase>/`.
+- **Check the install:** install only the parents, BOM, archetype and the starters under test plus their upstream modules.
+  Then check one installed POM has no unresolved `${revision}`.
+- **Ported runs:** the probe app's code moves to Spring types; infrastructure, faults and assertions stay (rule 14).
 
-### 4.10 Guided labs (owner requirement, 2026-11-17)
+### 5.10 Guided labs
 
-Every kept capability gets a guided lab: a step-by-step tutorial that takes a developer from nothing to a basic project, generated
-from the service archetype, that builds, starts and shows the capability working.
+Every capability gets a lab. A lab takes a developer from nothing to a service generated by the archetype, built, started,
+and showing the capability working.
 
-- **Where:** `docs/labs/<capability>/index.md`, with a "Labs" section in the `mkdocs.yml` nav and an index page
-  `docs/labs/index.md` (prerequisites, the order to take the labs in). Labs are the tutorial; `docs/samples/<slug>/` stays the
-  hardening evidence pack. Each links to the other; neither copies the other.
-- **Shape of a lab:**
-  1. what you will build and what you need (JDK, Maven, Docker, and which containers);
+- **Where:**
+  - Each lab lives in `docs/labs/<capability>/index.md`.
+  - `docs/labs/index.md` lists the prerequisites and the order.
+  - Labs have their own "Labs" section in the `mkdocs.yml` nav.
+  - A lab links to its capability's sample and module page; it never copies them.
+- **Shape:**
+  1. what you will build and what you need (JDK, Maven, Docker, which containers and how much memory);
   2. step 0, getting the platform into a local Maven repository (nothing is published yet);
-  3. generating the project with `mvn archetype:generate` and the options the capability needs;
-  4. the minimum configuration, with each value explained;
-  5. the smallest code that uses the capability, using Spring types only (§7.12);
+  3. generating the project with `mvn archetype:generate` and the options this capability needs;
+  4. the minimum configuration, each value explained;
+  5. the smallest code that uses the capability, with Spring types only;
   6. starting the app and seeing it work: the requests to send and the responses or log lines to expect;
-  7. one failure to try and what the platform does about it (a fault, a bad token, a missing table);
-  8. cleanup, and where to go next (the capability's module page, its sample).
-- **The lab text is the test.** Command blocks a reader must run are marked so a tool can pick them out, the way the docs already
-  mark `snippet:` blocks: ` ```bash lab-step ` for commands, ` ```bash lab-check ` for checks whose exit code must be 0.
-  `tooling/labs/run-lab.sh <capability>` extracts them in order and runs them in a fresh directory **outside the repository**,
-  against a clean dedicated local repository (`-Dmaven.repo.local=…`; never `~/.m2-baseline`), starts and stops any containers
-  the lab names, and returns one truthful exit code. Build it on `tooling/hardening/lib` and the golden-path machinery. A lab
-  that has not passed the runner on the phase's final commit is not done, and no command in it may be described as tested
-  otherwise (v3 Gate H).
-- **When:** each lab is written when its capability's code is final, in the phase that closes the capability:
-
-  | Lab | Phase |
-  |---|---|
-  | Core + errors | 2 |
-  | Data access (Oracle) | 2 (with ND7; data has no phase of its own) |
-  | Logging + observability | 3 |
-  | REST client + resilience | 4 |
-  | Security + authorization | 5 |
-  | Outbox + RabbitMQ messaging | 7 |
-  | Caching | 8 |
-  | Scheduling + locking | 9 |
-  | Validation + OpenAPI | 10 |
-
-  Phase 11 re-runs every lab on the final commit. A phase that changes a capability whose lab exists re-runs that lab.
-- **Fail-closed stays.** A lab never turns security off to make startup easy. How each lab gets a working identity provider,
-  database and broker is decided in ND11 (§6 step 8).
-- **Memory.** The Oracle Free container is the heaviest; low-memory kills ended runs in v3 Phases 3 and 4. A lab names its
-  containers and their memory, and the runner starts only what the lab needs.
+  7. one failure to try, and what the platform does about it;
+  8. cleanup, and where to go next.
+- **The lab text is the test:**
+  - Commands are marked ` ```bash lab-step `, and checks whose exit code must be 0 are marked ` ```bash lab-check `.
+  - `tooling/labs/run-lab.sh <capability>` runs them in order, in a fresh directory outside the repository. It uses a clean,
+    dedicated local Maven repository, starts and stops only the containers the lab names, and returns one honest exit code.
+  - A lab that has not passed the runner on the phase's final commit is not done. None of its commands may be called tested.
+- **Infrastructure (ND11):**
+  - Iteration 1 labs use H2 first, then Oracle Free, plus RabbitMQ. No identity provider is needed.
+  - Iteration 2 decides how the REST client lab gets an OAuth token endpoint (ND11b).
+- **Fail-closed stays:** a lab never turns a protection off to make startup easier.
 
 ---
 
-## 5. Definitions
+## 6. Words we use
 
-v3 §5 applies unchanged: severity, finding statuses, evidence levels, the four degradation states, material change.
+- **Severity:**
 
-Added:
-- **Carried guarantee:** a behaviour the hardening initiative proved (an issue-register entry `FIXED` or `ACCEPTED`, or a v3 §7
-  contract) that must still hold after the rewrite.
-- **Retired guarantee:** one that disappears with a removed type and is now Spring's job. Retiring one needs a test showing
-  Spring provides it, or a recorded decision accepting the gap.
-- **New risk:** a failure mode the Spring-native design introduces, which the old API prevented.
+  | Severity | Meaning | Effect |
+  |---|---|---|
+  | Critical | Data loss or corruption, security bypass, one caller seeing another's data, a non-idempotent operation run twice, or a fault that takes down every replica | Blocks; owner exception only |
+  | High | Wrong behaviour under a realistic failure (outage, slowness, restart, concurrency), internals leaked in responses or logs, broken override, misleading health | Blocks; owner exception only |
+  | Medium | Worse to operate or use, with a workaround; a failure path with no observability | May stay `OPEN` with an owner and a date |
+  | Low | Cosmetic, docs, naming | May stay `OPEN` |
 
----
-
-## 6. Phase 0 — Baseline, framework spikes, decisions
-
-No production code changes in Phase 0 except tracking docs, spike tests (in a scratch module outside the reactor or under
-`src/test`) and harness scaffolding.
-
-1. **Baseline.** Record HEAD SHA, module count, BOM contents (artifact list), the archetype's starters, and the v3 consumer counts
-   (§3.5). Tag the baseline `pre-spring-native` and push the tag.
-2. **Compatibility baseline.** The v3 baseline repository (`~/.m2-baseline`, commit `7b248e9`) stays untouched. Build a second
-   baseline from `pre-spring-native` into `~/.m2-native-baseline`. Expected API removals are compared against it (step 6).
-3. **Framework spikes.** Each claim below came from a design discussion, not from verification. Check each on Boot 4.1.2
-   (Context7 for the docs, then a small test that proves it), and record the result, the version and the evidence path in
-   `docs/spring-native/phase-00-baseline/spikes.md`:
-
-   | ID | Claim to verify | Decides |
-   |---|---|---|
-   | S1 | A Spring Modulith release supports Boot 4.1.2; its event-publication registry works on **Oracle** (JDBC or JPA); it can forward events to RabbitMQ with publisher confirms | Whether the outbox trial (Phase 6) is possible at all. **Do this one first.** |
-   | S2 | Spring Security 7 applies `Customizer<HttpSecurity>` beans to Boot's default chain, and how a user chain interacts with them | Phase 5 customizing route |
-   | S3 | Boot 4 HTTP service clients (`@HttpExchange` groups): property names for base URL and timeouts per group, and how a `RestClientCustomizer` reaches them | Phase 4 client model |
-   | S4 | Spring Framework 7 `@Retryable` / `@ConcurrencyLimit`: what enables them, and how they combine with Resilience4j annotations | Phase 4 resilience model |
-   | S5 | SLF4J fluent `addKeyValue` renders in Boot's structured JSON logging; how the platform's masking can apply to Boot's structured formats | Phase 3 logging model |
-   | S6 | Method security can be enabled by default from auto-configuration without the service adding `@EnableMethodSecurity`, and a startup check can enumerate `@PreAuthorize` methods | Phase 5, ND4 |
-   | S7 | Spring's `ErrorResponseException` / `ProblemDetail` handling lets a platform `@RestControllerAdvice` add `code`, `traceId`, `timestamp`, `retryable` without the service using platform types | Phase 2 error model |
-
-   A spike that fails changes the plan for its phase: record the fallback (keep the platform type, with an ND decision) and put
-   it into the decision record.
-4. **Removal map.** For every public type in every `*-api` module that stays in the reactor, record its Spring replacement, the
-   modules and tests that use it, and the phase that removes it. The current inventory:
-
-   | Module | Types | Replacement (subject to spikes) | Phase |
-   |---|---|---|---|
-   | `platform-core-api` | `CorrelationId`, `RequestContext`, `ErrorCode`, `PlatformException`, `CapabilityDescriptor`, `PlatformApi`, `PlatformInternal` | Micrometer `Tracer`, `RequestContextHolder`, `ProblemDetail` properties; the two annotations may stay as internal markers | 2 |
-   | `platform-errors-api` | `BusinessException`, `NotFoundException`, `ConflictException`, `HttpStatusHint`, `ProblemDetailCustomizer` | `ErrorResponseException` and subclasses, `@ResponseStatus`, the service's own `@RestControllerAdvice` | 2 |
-   | `platform-events-api` | `DomainEvent`, `DomainEventPublisher`, `DomainEventHandler` | `ApplicationEventPublisher`, `@EventListener`, `@TransactionalEventListener` | 2 |
-   | `platform-data-api` | `EntityId`, `Money`, `PersistenceConventions` | per ND7 | 2 |
-   | `platform-logging-api` | `Kv`, `LogSanitizer` | SLF4J fluent API; masking internal | 3 |
-   | `platform-restclient-api` | `PlatformRestClientFactory`, `PlatformRestClientCustomizer`, `RemoteCallException` | `RestClient.Builder`, `RestClientCustomizer`, `RestClientResponseException` / `ResourceAccessException` | 4 |
-   | `platform-resilience-api` | `RetryableOperation`, `ResilienceDefaults` | Resilience4j annotations / registries, or Spring `@Retryable` (S4) | 4 |
-   | `platform-security-api` | `CurrentUser`, `CurrentUserAccessor`, `SecurityCustomizer` | `@AuthenticationPrincipal`, `SecurityContextHolder`, `Customizer<HttpSecurity>` / a user `SecurityFilterChain` | 5 |
-   | `platform-security-authz-api` | `RequiresPermission` | `@PreAuthorize` per ND4 | 5 |
-   | `platform-messaging-api` | `EventPublisher`, `OutboxPublisher`, `EventHandler`, `EventType`, `EventEnvelope`, `EventHeaders`, `EventPublishException`, `EventSerializationException` | `RabbitTemplate`, `@RabbitListener`, Spring AMQP `Message` / headers; outbox per ND5 | 7 |
-   | `platform-cache-api` | `CacheKeyConvention`, `CacheNames` | Spring `@Cacheable` + `KeyGenerator` bean | 8 |
-   | `platform-locking-api` | `LockManager`, `LockException` | decided in Phase 9 (see §9) | 9 |
-   | `platform-validation-api` | `@NotBlankTrimmed`, `@SafeText`, `@Ulid`, `@FutureInstant` + validators | **kept**: custom Jakarta constraints are the standard mechanism | — |
-   | `platform-test-api` | `@PlatformTest`, `@PlatformWebTest`, `TestJwtIssuer`, `Containers`, … | per ND6 | 2–10 |
-
-   Confirm the list against the code (`find . -path '*-api/src/main/java' …`): this table may be stale.
-5. **Downstream and dependency map.** For each module that stays, its dependents (`mvn -pl X -amd` listing). Confirm that no kept
-   module depends on a cut one. Only a partial check exists (2026-11-04): a search of the seven certified capabilities' POMs for
-   `platform-*` artifacts of cut modules found none, and scheduling's POM depends on locking-api, locking-autoconfigure and
-   locking-jdbc. Not yet checked: validation, OpenAPI, cache and locking POMs, the archetype's transitive tree, and optional
-   third-party dependencies (for example Redis client code in `platform-cache-autoconfigure` or `platform-locking-autoconfigure`).
-6. **Expected-removals list.** japicmp against `~/.m2-native-baseline` will fail by design. Write
-   `docs/spring-native/expected-removals.md` (one line per removed type, with its phase) and make the final compatibility check
-   compare japicmp's output against it: an unlisted break is a finding. This also covers HI-0081.
-7. **Tracking docs.** Create `docs/spring-native/`: `STATE.md`, `decisions.md`, `capability-status.md`, `exceptions.md`, and
-   `phase-00-baseline/` (`inventory.md`, `spikes.md`, `removal-map.md`). Issues continue in the **existing**
-   [`../production-readiness/issue-register.md`](../production-readiness/issue-register.md), numbering from **HI-0109**. Decisions
-   that change the platform go into `docs/decisions/decision-log.md` from **D135** on; plan decisions use the prefix **ND**
-   (not HD/HC, not D) in `docs/spring-native/decisions.md`.
-8. **Decision record — STOP for the owner.** Write `docs/spring-native/decisions.md` with a recommendation for each decision
-   below, the spike results that bear on it, and wait for answers:
-
-   | ID | Decision | Recommended default |
-   |---|---|---|
-   | ND1 | Timing: realign **before** `1.0.0-RC1`, or ship RC1 on the current API and realign in 2.0 | **Before RC1.** There are no users (HC7); removing an API now costs nothing; after RC1 it is a breaking change for adopters |
-   | ND2 | The cut list (§1.3), including `scratch/` and `tmpviol/` | As §1.3. The Redis cache starter and the Redis lock starter go; validation and OpenAPI stay |
-   | ND3 | Constitution change: service code uses Spring types; API modules exist only where no Spring type fits | **Yes**, recorded as ADR-011 (refines ADR-009 "No God Framework"). `CLAUDE.md` rules 4, 5, 9 and the enforcer/ArchUnit rules are updated in Phase 1 |
-   | ND4 | Authorization: `@PreAuthorize("hasAuthority('…')")` or keep `@RequiresPermission` | **`@PreAuthorize`**, with the platform's deny-by-default and open-path startup checks extended to it, and a startup check that rejects an unknown authority string where the permission set is declared. Fallback if S6 fails: keep `@RequiresPermission` as the one platform annotation |
-   | ND5 | Outbox: Spring Modulith or the platform outbox | **Decided after the Phase 6 trial**, not now. Pre-agreed rule: Modulith wins only if it passes every v3 Phase 4 scenario and every carried outbox guarantee, or each gap has an accepted mitigation. Otherwise the platform outbox stays, exposed through Spring types where it can be |
-   | ND6 | `platform-test-api` | **Keep, slimmed** to what Boot's test slices and Testcontainers `@ServiceConnection` do not give: `TestJwtIssuer`, the problem-detail assertions, the usage rules. Drop the `@Platform*Test` meta-annotations if Boot's slices cover them |
-   | ND7 | `EntityId`, `Money`, `PersistenceConventions` | **Drop.** Not used by the certified data contract; a service that wants value types writes its own |
-   | ND8 | How cut code is preserved | **Delete it from `main`**, with the `pre-spring-native` tag as the restore point. No archive branch to maintain |
-   | ND9 | Locking API (Phase 9) | **Decide in Phase 9 Gate A** between keeping `LockManager` (no Spring type exists for an explicit lock) and adopting Spring Integration's `LockRegistry` or ShedLock. Recommendation recorded then |
-   | ND10 | Kafka portability is given up for messaging | **Accept.** Kafka is cut; messaging becomes RabbitMQ-specific Spring AMQP. A future Kafka capability is Spring Kafka, with its own phase |
-
-   | ND11 | How a lab (§4.10) gets the infrastructure it needs to start: identity provider, database, broker | Recommended in `decisions.md` once Phase 0 has checked what the archetype generates, what `docker-compose.local.yml` provides, and whether the golden path starts the app or only builds it |
-
-   The plan continues with the defaults only for decisions the owner answers. An unanswered decision blocks the phase that needs
-   it, not the whole plan.
-
-Phase 0 is complete when steps 1–7 are recorded and step 8 is answered. Close Phase 0 with a single Codex round over the spikes
-and the removal map (are the replacements real; is anything missing), then commit, PR, merge on green, tag
-`native/phase-00-closed`.
+- **Finding status:**
+  - `FIXED`: code and test.
+  - `ACCEPTED`: disproved or not applicable, with evidence.
+  - `OPEN`: tracked, with owner, mitigation and target.
+  - `BLOCKED`: cannot be verified.
+  - A Critical or High finding is `OPEN` only with an approved exception.
+- **Evidence level:**
+  - `UNIT`.
+  - `SLICE`: a Spring slice or `ContextRunner` test.
+  - `CONTAINER`: a real provider in Testcontainers.
+  - `CONSUMER`: an archetype-generated app, really run.
+  - `ENVIRONMENT`: real OpenShift or a real RAC.
+  - Every claim names its level. Claiming a provider works needs at least `CONTAINER` and `CONSUMER`.
+- **Degradation states:** each backing dependency is tested in four states, plus recovery from each back to healthy:
+  - healthy;
+  - **slow** (p99 × 20, via Toxiproxy). Slowness exhausts pools and cascades, so it is never skipped;
+  - erroring;
+  - unavailable.
+- **Material change:** a change after Round 2 that touches `src/main` beyond a trivial fix, changes a public type, a default,
+  a posture, or a contract in `scope.md`. It gets a Codex verification pass: one prompt with the diff and the finding.
+- **Guarantee kinds:**
+  - **Carried:** a behaviour the hardening initiative proved (an issue `FIXED` or `ACCEPTED`, or a §7 contract) that must still
+    hold.
+  - **Retired:** a guarantee that is now Spring's job, proven by a test against Spring.
+  - **New risk:** a failure the Spring-native design opens up that the old API prevented.
 
 ---
 
-## 7. Cross-cutting contracts
+## 7. The quality bar for every capability
 
-v3 §7 applies to every capability, unchanged: real override, config-default snapshot, kill-switch tier, outage posture, health
-semantics, context propagation, error surface, redaction, observability, graceful shutdown, startup under adversity.
+Each phase shows, with tests, how its capability meets each of these contracts. Contracts 1–11 come from v3 §7; 12–14 are new.
 
-Added for this plan:
-
-12. **Spring types only in service code.** The consumer probe app for the capability compiles with **no** platform type on its
-    import list, except where a recorded ND decision allows one. A test (ArchUnit in the probe, or a `grep` in the harness) fails
-    the run otherwise.
-13. **Back-off to the user's Spring bean.** For every Spring type the platform supplies (a `RestClient.Builder`, a
-    `SecurityFilterChain`, a `RabbitTemplate`, a `CacheManager`, a `TaskScheduler`, …), a test in which the service supplies its
-    own: the platform's backs off, the service's bean is used unchanged, and any guarantee the platform can no longer give (for
-    example, timeouts on a user-built `RestClient`) is documented on the capability's page.
-14. **Zero-config acceptance** (§3.7).
+1. **Real override.** For every platform bean, a test where the service defines its own and the platform's backs off.
+2. **Default snapshot.** A test snapshots every `@ConfigurationProperties` default. A changed default fails until the
+   snapshot is updated on purpose and the change logged.
+3. **Kill switch.** The capability is `DEFAULT_ON` or `OPT_IN`, and `enabled=false` is tested.
+4. **Outage posture.** The capability states and tests what happens in every degradation state (§6): fail-open,
+   fail-closed or fail-durable. The test records what the **request** gets, not only what the component does.
+5. **Health.** Liveness never depends on anything outside the pod. Readiness asks "can this pod serve", so a shared dependency
+   (database, broker) is not in readiness: its outage would mark every replica unready at once. Shared dependencies get their
+   own `dependencies` health group, for dashboards.
+6. **Context propagation.** The trace ID and MDC survive every thread or process boundary the capability adds (executors,
+   listener containers, retries, the outbox drainer). MDC is cleared after each unit of work. A concurrency test checks for
+   bleed between requests. A boundary with no inbound context (a background drainer) restores context from the stored
+   record, or uses a defined system context.
+7. **Error surface.** Every error is an RFC 9457 `ProblemDetail` with a stable code. No exception message, SQL, stack trace or
+   downstream body reaches a response.
+8. **Redaction.** Logs, span attributes and stored payloads (outbox rows, dead-lettered messages, captured error bodies) carry
+   no tokens, passwords or listed personal data.
+9. **Observability.** The capability's own work emits an `Observation` (span + timer) with low-cardinality tags only. A test
+   checks that no tag takes an unbounded value (IDs, keys, raw paths, user names).
+10. **Graceful shutdown.** On SIGTERM the capability stops taking work, finishes or safely abandons in-flight work within the
+    lifecycle timeout, and releases pools, channels and consumers. Verified in the consumer run.
+11. **Startup under adversity.** The app starts within budget with healthy infrastructure **and** with its dependency slow.
+    An outage at startup gives a clear `FailureAnalyzer` message or a defined degraded start, never a hang.
+12. **Spring types only.** The consumer probe app imports no platform type, unless an ND decision allows one. An ArchUnit
+    test or a `grep` in the harness fails the run otherwise.
+13. **Back-off to the user's Spring bean.** For every Spring-type bean the platform supplies (`RabbitTemplate`,
+    `RestClient.Builder`, `SecurityFilterChain`, …), a test where the service supplies its own:
+    - the platform's bean steps back;
+    - the service's bean is used unchanged;
+    - any guarantee lost as a result (for example, timeouts on a hand-built `RestClient`) is written on the doc page.
+14. **Zero-config acceptance** (rule 16).
 
 ---
 
-## 8. Standard workflow for Phases 2–10
+## 8. The capability recipe
 
-v3 §8 Gates A–H apply, with these additions.
+Every capability phase, in this plan and later ones, runs these gates in order. A phase section below lists only what is
+specific to it.
 
-### Gate A — Inspect, baseline, scope, carry-over
+### Gate A — Look, measure, scope
 
-In addition to v3 Gate A:
+1. Record the phase start commit. Run the capability's **current** tests and record the results, including skips, before
+   changing anything.
+2. Write `scope.md`:
+   - the requirements and what is excluded;
+   - the contracts from §7 that apply;
+   - acceptance criteria, each one testable;
+   - environment prerequisites.
+3. **Carry-over table** in `scope.md`. One row for every `FIXED` or `ACCEPTED` issue and every §7 contract that applies:
 
-1. **Guarantee carry-over table** in `scope.md`. For the capability, list every issue-register entry that is `FIXED` or
-   `ACCEPTED` and every applicable v3 §7 contract. For each row:
+   | Guarantee | Source | Lives today in | Lives after in | Proof | Kind |
+   |---|---|---|---|---|---|
+   | One line | HI-ID or §7 number | File path | File path, once written | Test class and method | `CARRIED` / `RETIRED` / `NEW RISK` |
 
-   | Column | Content |
-   |---|---|
-   | Guarantee | The behaviour, in one line |
-   | Source | HI-ID or §7 contract number |
-   | Lives today in | API type / auto-config / filter / … (file path) |
-   | Lives after in | Auto-config bean / customizer / property default / Spring itself (file path, once written) |
-   | Proof | The test (class and method) that shows it still holds after the rewrite |
-   | Kind | `CARRIED` / `RETIRED` (Spring provides it; the proof is a test against Spring's behaviour) / `NEW RISK` |
+   Every `NEW RISK` row gets a mitigation (a startup check, a test, or a documented limit) and an issue-register entry.
+4. **Removal list:** the types this phase deletes and every call site, from the Phase 0 removal map.
+5. **Port plan** for the consumer run, with its floor (rule 14). A new capability writes its scenarios here and sets its own
+   floor.
 
-   Every `NEW RISK` row gets a mitigation (a startup check, a test, a documented limitation) and an HI entry.
-2. **Removal list** for the phase, taken from the Phase 0 removal map: the types to delete and every call site.
-3. **Port plan** for the phase's consumer scenario (§4.9) with the v3 count as the floor (§3.5).
+### Gate B — Build and test
 
-### Gate B — Implement and test
+- **Changes:**
+  - Delete the API types (or slim the module).
+  - Move the behaviour into auto-configuration (rule 12).
+  - Port the consumer probe app to Spring types.
+  - Update the archetype and the OpenRewrite recipe `tooling/platform-migrations/.../adopt-platform.yml`.
+- **Tests:** regression, negative, concurrency and degradation tests, in targeted runs.
+- **After each change:** run the downstream compile check (rule 9) and re-test what you touched (rule 10).
+- **Record:** the exact commands, exit codes and test counts, including skips.
 
-In addition to v3 Gate B: delete the API types and their module (or slim it), move the behaviour into auto-configuration
-following the bean-provision rule (§3.3), port the probe app, update the archetype if it referenced a removed type, and update
-the OpenRewrite recipe `tooling/platform-migrations/.../adopt-platform.yml` if it names a removed type. Run the downstream
-compile check (v3 §3.9) and the certified-capability regression (v3 §3.10) for every kept capability whose modules or consumer
-code changed.
+### Gate C — Codex round 1
 
-### Gates C, D, E
+1. Codex reviews independently (§5.3). Its prompt includes the carry-over table as a requirement, and asks:
+   - is any guarantee lost?
+   - is any `RETIRED` row not really covered by Spring?
+   - what new risk is missing?
+2. Claude answers every finding (agree, partly agree, or disagree) with code references and test evidence.
+3. Codex reassesses each answer.
+4. Claude fixes what is warranted, re-runs the targeted tests and writes `review-round-1.md`.
 
-As v3. Two Codex rounds. Codex's Round 1 prompt includes the carry-over table as a **requirement** (it is part of `scope.md`),
-and asks specifically: is any guarantee lost; is any `RETIRED` row not really covered by Spring; what new risk is missing.
+### Gate D — Codex round 2
+
+Codex reviews the revised code from the phase start commit: it confirms round 1's outcomes and hunts for regressions. Claude
+rebuts with evidence, and Codex re-evaluates. Unresolved disputes are recorded word for word. Any material change after this
+round gets a verification pass. Claude writes `review-round-2.md`.
+
+### Gate E — Settle findings
+
+Update `../production-readiness/issue-register.md` (numbering continues from HI-0110):
+- **Each entry:** severity, location, reproduction, Codex's claim, Claude's reply, evidence, status, fix commit, test.
+- **Blocking:** a Critical or High finding that is not `FIXED` or `ACCEPTED` stops the phase for the owner.
 
 ### Gate F — Consumer run
 
-As v3 Gate F with the ported scenario, three consecutive passes (flakiness rule), at or above the v3 count.
+Generate a fresh service from the archetype, with only the capability under test plus the foundation, and run the
+scenarios in the foreground:
+- **What runs:** happy path, negative cases, every degradation state that applies, recovery, concurrency and graceful
+  shutdown.
+- **What counts:** the run asserts real outcomes (response bodies, rows, queue contents, log fields), not only `200` or `UP`.
+- **To pass:** three passes in a row, at or above the floor.
+- **No workarounds:** a workaround in the consumer is a chassis or archetype defect. Fix it and re-run.
 
-### Gate G — Composition
+### Gate G — Composition (Phases 6 and 9)
 
-C2 at the end of Phase 5, C1 at the end of Phase 7, as v3 §9 defines them, ported.
+A second generated app holds every capability so far, and runs the cross-capability scenarios. A failure here belongs to the
+current phase.
 
 ### Gate H — Docs and closure
 
-As v3 Gate H, plus:
-- the capability's `docs/modules/<cap>.md` is rewritten around Spring types: what the platform configures, which Spring
-  extension point to use to change it, and the zero-config table (what works with only the starter, what must be set);
-- the book chapter for the capability is updated or marked for a later pass with an HI entry (HI-0004 shows what happens
-  otherwise);
-- the samples in `docs/samples/<slug>/` are updated to Spring types;
-- the capability's guided lab is written or updated (§4.10) and passes the lab runner on the phase's final commit;
-- `mkdocs build --strict` and `DocsLinkCheckTest` pass (§4.8);
-- closure verdict in `docs/spring-native/phase-XX-<slug>/closure.md`, `STATE.md` and `capability-status.md` updated, PR merged
-  on green, tag `native/phase-XX-closed`.
+1. **Module page.** `docs/modules/<cap>.md` is written around Spring types:
+   - what the platform configures;
+   - which Spring extension point changes it;
+   - a zero-config table (what works with only the starter, what must be set);
+   - the back-off limits (contract 13).
+2. **Book chapter.** Update it, or log an issue to do it later.
+3. **Sample.** `docs/samples/<slug>/` holds `README.md`, `commands.md`, `verification.md` (expected **and** actual results,
+   with evidence levels), `troubleshooting.md` (each entry marked observed or anticipated), `open-issues.md` and
+   `operations.md` (posture table, health groups, metrics to alert on, kill switch, shutdown behaviour, how to replace a bean).
+4. **Lab.** Written, and passing the lab runner on the phase's final commit.
+5. **Archetype.** It offers the capability as an option, with the dependencies and configuration the lab uses.
+6. **Checks.** `mkdocs build --strict` and `DocsLinkCheckTest` pass. Local full `verify` passes.
+7. **Closure.**
+   - Write `closure.md`, with a `PASS`, `PASS WITH HUMAN-APPROVED EXCEPTIONS` or `BLOCKED` verdict.
+   - Update `STATE.md` and `capability-status.md`.
+   - Merge the PR on green, and tag `native/phase-XX-closed`.
+8. **End-of-phase report.** Post it to the owner, then continue. It covers:
+   - the verdict;
+   - the carry-over table with proofs;
+   - the removed types;
+   - the consumer count against its floor;
+   - the lab-runner result;
+   - open issues.
 
 ---
 
-## 9. Phase-specific criteria
+## 9. Phase 0 — Baseline, spikes, decisions (done; closing)
 
-### Phase 1 — Scope cut
+- **Done.** Baseline `bdf2845`, tagged `pre-spring-native`. Compatibility baseline in `~/.m2-native-baseline`.
+- **Spikes S1–S7:** see [`phase-00-baseline/spikes.md`](phase-00-baseline/spikes.md). With the new scope, what still
+  matters:
+  - S1 (Modulith on Boot 4.1.2 with Oracle and AMQP) for the outbox;
+  - S5 (structured logging) for logging;
+  - S7 (`ProblemDetail` advice) for errors;
+  - S3 and S4 (HTTP service clients, `@Retryable`) for iteration 2;
+  - S2's `Customizer<HttpSecurity>` finding, for basic auth.
+  - S6 (method security) no longer applies: there is no authorization layer.
+- **Other records:** the inventory, the removal map and `expected-removals.md`.
+- **Decisions:** answered by the owner on 2026-11-19 (see [`decisions.md`](decisions.md)).
 
-No behaviour change in what stays. One Codex round (the question: does anything kept depend on, document or ship anything
-removed), plus a verification pass if fixes follow.
-
-1. Remove the cut modules (§1.3) from the reactor `pom.xml`s, from `build/platform-bom` and `build/platform-dependencies`
-   (only the entries that exist for cut modules; third-party versions a kept module still needs stay), and delete their
-   directories.
-2. Remove third-party version properties and managed dependencies that only cut modules used (Kafka clients, Redis/Lettuce if
-   nothing kept needs them, …). Confirm with a dependency tree of every kept module.
-3. Archetype: confirm it references no cut starter. It pulls validation and OpenAPI, which stay.
-4. `CLAUDE.md`, the enforcer and the ArchUnit rules: apply ND3 (ADR-011). Remove rules that only concerned cut modules.
-5. Docs: delete the cut capabilities' `docs/modules/*.md`, their book chapters or sections (chapters 9 to 13 are affected; keep
-   what covers caching and scheduling), their samples, their reference entries; update `mkdocs.yml`'s nav; regenerate
-   `docs/reference/*`, `llms-full.txt` and the skill resources from a full build; update the compatibility appendix. **Do not
-   edit the closed hardening record** (`docs/production-readiness/final-release-assessment.md`, `release-decision.md`, the
-   phase folders): it is the evidence of tag `hardening/phase-08-closed`. Add only a one-line banner at the top of the
-   assessment and the release decision: "Superseded by [`docs/spring-native/`](../spring-native/plan.md), ND1." The new
-   shipped and not-certified lists live in `docs/spring-native/capability-status.md`. If ND1 is "before RC1", v3's GO for
-   `1.0.0-RC1` is superseded too: say so in that banner.
-6. `tooling/platform-migrations/.../adopt-platform.yml` and the MCP server's resources: remove cut starters.
-7. Verify:
-   - full `verify` (foreground, `-T1`): every remaining test passes, none newly skipped;
-   - golden path 9/9 (or the new count, if a golden-path step covered a cut module: justify it);
-   - **all seven v3 consumer runs and C2, unchanged, at their v3 counts**;
-   - `mkdocs build --strict` and `DocsLinkCheckTest`;
-   - Trivy on a generated service: still no Critical or High (the cut should only remove findings; HI-0106 shrinks, as the Kafka
-     compression libraries go).
-
-### Phase 2 — Core + Errors + in-process events → Spring-native
-
-- Errors: the platform `@RestControllerAdvice` handles Spring's `ErrorResponse` types and `@ResponseStatus`, adding `code`,
-  `traceId`, `timestamp`, `retryable` to the `ProblemDetail` (S7). How a service sets its error code without a platform type
-  is decided at Gate A (candidates: a `ProblemDetail` property set by the thrower; the `type` URI; an error-code resolver bean).
-  Build-time uniqueness of error codes (v3 Phase 1) is a carried guarantee: keep it.
-- Core: the correlation filter, context propagation through executors and the banner are already auto-configuration; remove
-  the API types per the removal map.
-- Events: delete `events/*`. Document the Spring replacement (`ApplicationEventPublisher`, `@TransactionalEventListener`) on
-  the core page. Not a certified capability before or after; no consumer run.
-- Data: apply ND7. Re-run the v3 Phase 3 consumer run as a regression.
-- Carried from v3 Phase 1 (examples to verify at Gate A, not an exhaustive list): `traceparent`-only correlation (HD5); header
-  injection rejected; no exception message, SQL or stack trace in a response; MDC empty after each request; ≥200 parallel
-  requests with no context bleed; framework exceptions keep their statuses.
-
-### Phase 3 — Logging + Observability → Spring-native
-
-- Decide at Gate A, from S5, between keeping the platform's Logback configuration and moving to Boot's structured logging with
-  the masking applied as a Logback component. Masking (v3 Phase 2 redaction: JWTs, `Authorization`, passwords, PII) is a carried
-  guarantee either way, including the cases Codex found in v3 (the regex boundary cases in the Phase 2 review files).
-- Observability is already configuration-only; verify nothing in it depends on a removed type.
-- The tag-cardinality guard, the health groups (HD6) and the actuator exposure stay.
-
-### Phase 4 — REST client + Resilience → Spring-native
-
-- Services inject Boot's `RestClient.Builder` (or declare `@HttpExchange` interfaces, per S3). The platform contributes
-  `RestClientCustomizer` beans for timeouts, the overall deadline, tracing, bounded and redacted error-body capture, and
-  logging.
-- The retry classification is a carried guarantee: **POST and PATCH are never retried** (HD2), with or without an
-  `Idempotency-Key` header; 4xx not retried; `Retry-After` honoured. It must hold whichever retry mechanism S4 selects.
-- Errors surface as Spring's `RestClientResponseException` / `ResourceAccessException`; the errors advice maps them to
-  `ProblemDetail` with `retryable`, and never leaks the downstream body.
-- §7.13 matters most here: a service that builds its own `RestClient` without the builder loses the platform's timeouts.
-  Document it, and consider a startup WARN.
-
-### Phase 5 — Security + Authorization → Spring-native
-
-- Principal: `@AuthenticationPrincipal Jwt` / `SecurityContextHolder`. The claim-to-authority mapping stays in
-  auto-configuration (a `JwtAuthenticationConverter` bean).
-- Customizing: per S2, a `Customizer<HttpSecurity>` bean or a service `SecurityFilterChain`. The platform still fails closed
-  when misconfigured (v3 Phase 7).
-- Authorization per ND4. Carried guarantees to prove: deny by default; the open-path startup check (HI-0099); a rule that returns
-  no decision cannot open a path (the Phase 7 `AnonymousAccessProbe` fix); 401 vs 403 as `ProblemDetail`. The Phase 7
-  interface-proxy fixes are `RETIRED` only if a test shows Spring's method security handles a permission on an implementing
-  method behind an interface proxy.
-- `NEW RISK` rows to mitigate: authority typos in expression strings; methods with no annotation.
-- C2 at the end of the phase (ported, ≥ 61).
-
-### Phase 6 — Outbox trial
-
-A time-boxed comparison, not a rewrite. If S1 failed (no Boot 4.1.2 support or no Oracle registry), record that, set ND5 to
-"platform outbox", and close the phase without a trial.
-
-1. Build a trial branch of the Phase 4 consumer app that uses Spring Modulith's event publication registry and AMQP
-   externalisation instead of the platform outbox, on Oracle and RabbitMQ.
-2. Run the v3 Phase 4 scenarios (106 assertions) against it unchanged where possible, and against the platform outbox again on
-   the same commit for a side-by-side.
-3. Compare, row by row, the carried outbox guarantees: same transaction and DataSource as the business write; a stable event id
-   generated once; bounded batch; `FOR UPDATE SKIP LOCKED` or equivalent across two instances; a separate bounded connection
-   budget for the drainer; rejected or unroutable messages parked, not retried forever; lag and parked metrics; trace context
-   restored on drain; retention; the stop timeout and the shutdown order; the parked issues HI-0071, HI-0079 and HI-0086 (does
-   Modulith have them, or different ones).
-4. Write `docs/spring-native/phase-06-outbox-trial/comparison.md`, run one Codex round on it, and **stop for the owner** to
-   confirm ND5.
-
-### Phase 7 — Messaging → Spring AMQP
-
-- Services publish with `RabbitTemplate` (or through the outbox ND5 chose) and consume with `@RabbitListener`. The platform
-  supplies a message converter, publisher confirms and returns (an unroutable message is an error), header post-processors
-  (event id, type, version, `traceparent`), a listener container factory with bounded retry, backoff and dead-lettering, quorum
-  queues by default, and the queue/exchange declarations.
-- How a service declares a subscription without `@EventHandler`'s destination/eventType model is decided at Gate A (plain
-  `Declarables` beans, or a property-driven topology).
-- Carried from v3 Phase 5: one handler per message (two handlers that could receive the same message fail startup); an unreadable
-  payload or a newer version goes to the DLQ without quoting the payload; the DLQ replay tool (`tooling/scripts/rabbit-dlq-replay.py`)
-  still works; the shutdown order; the consumer-side dedupe pattern in the sample.
-- C1 at the end of the phase (ported).
-- Re-evaluate HI-0071, HI-0079, HI-0086 under the chosen outbox and update their entries.
-
-### Phase 8 — Caching (Caffeine)
-
-Full v3 workflow (Gates A–H), Spring-native from the start: services use `@Cacheable`, `@CacheEvict`, `CacheManager`. The
-platform supplies a Caffeine `CacheManager` with bounded sizes and TTLs by default (no unbounded cache), metrics, a key
-convention as a `KeyGenerator` bean if one is needed, and the kill switch. Contracts to prove: no cross-user or cross-tenant
-leakage through keys (a key generator that ignores the principal is a `NEW RISK` to document); eviction under memory pressure;
-behaviour when the cached method throws; cache-stampede behaviour (`sync = true` documented); a service `CacheManager` backs the
-platform's off. Consumer scenario written new (no v3 count; the floor is what Gate A specifies).
-
-### Phase 9 — Scheduling + JDBC locking
-
-Full v3 workflow. Services use `@Scheduled`. The platform supplies a `TaskScheduler` with context propagation and graceful
-shutdown, and a lock so that one replica runs each job (ND9). Contracts to prove on Oracle, with two app instances: exactly one
-instance runs a locked job per tick; a crash while holding the lock (the lock expires; the next tick runs); a job that outlives
-its lock; clock skew between instances; the database slow or down during a tick (the job skips, logs and counts it; it never
-runs twice); shutdown waits for a running job within the grace period; trace context per execution; MDC cleared. Consumer
-scenario written new.
-
-### Phase 10 — Validation + OpenAPI (light)
-
-One Codex round, one consumer run, no composition.
-- Validation: the custom constraints stay (§6 step 4); prove `@Valid` / `@Validated` failures become `ProblemDetail` 400s with
-  field paths and no internal detail; `@SafeText` against injection-shaped input.
-- OpenAPI: the document and UI exposure posture (v3 Phase 7 required it disabled or protected by default); a user
-  configuration backs the platform's off; no secret or internal path in the generated document.
-
-### Phase 11 — Final full-project verification
-
-As v3 §10 steps 1–8, on the realigned platform:
-1. Clean full `verify` (foreground, `-T1`).
-2. Container suites for the kept providers (Oracle, RabbitMQ, Keycloak/JWKS, Toxiproxy).
-3. Golden path, and one generated app with **every** kept capability running the combined C1 + C2 scenarios, the caching and
-   scheduling scenarios, and the request → outbox → broker → handler → outbound chain on one trace (≥ 63, the v3 all-capability
-   count, plus the new capabilities' scenarios).
-4. Scans: Trivy, CycloneDX SBOM, secrets (including the git history, as the repository is public).
-5. Compatibility: japicmp output against `expected-removals.md` (§6 step 6); config-default snapshot diff; BOM parity between
-   `platform-service-parent` and a plain `platform-bom` import.
-6. Re-run each phase's ported consumer run on the final commit, and **every guided lab** through the lab runner (§4.10).
-7. OpenShift with the team's chart tool: `BLOCKED` unless the owner supplies the HD7 details.
-8. Release rehearsal: reproducible build, and close **HI-0108** (SBOM and provenance in `release.yml`; `release.sh` without a
-   hard-coded `-T1C`).
-
-Then write `run-results.md`, `final-release-assessment.md` and `release-decision.md` under `docs/spring-native/phase-11-final/`
-and `docs/spring-native/`, with the certified list, the open issues, the known limitations and the first-adopter conditions.
-Carry forward explicitly: HI-0071, HI-0079, HI-0086 (or their Modulith equivalents), HI-0106, HI-0107, Oracle RAC (`BLOCKED`),
-OpenShift (`BLOCKED` unless run).
+**To close:**
+1. Update the removal map and `expected-removals.md` to the new scope. The cut modules' types now go in Phase 1.
+2. Run one Codex round over the spikes, the removal map and this plan. It asks:
+   - are the replacements real?
+   - does anything kept depend on something cut?
+   - is any guarantee left without a home?
+3. Merge PR #7 on green, and tag `native/phase-00-closed`.
 
 ---
 
-## 10. Deliverables layout
+## 10. Iteration 1
+
+### Phase 1 — Scope cut and parking
+
+**Goal:** a smaller reactor. Nothing kept changes behaviour, except the three optional JWT links (§2.5).
+
+1. Delete the cut modules (§2.5): from the reactor `pom.xml`, from `build/platform-bom` and `build/platform-dependencies`,
+   and their directories. Remove third-party versions that only cut modules used (Kafka, Redis/Lettuce, AWS SDK,
+   OpenFeature, …; springdoc stays for the parked OpenAPI module), and confirm with a dependency tree of every kept module.
+2. Remove the optional JWT-security links from data, outbox and restclient. Their tests that used `CurrentUser` assert the
+   fallback instead.
+3. Park `restclient/*` and `resilience/*` (§2.4): out of the BOM, `maven.deploy.skip=true`, out of the archetype, with a
+   note on their doc pages.
+4. **Archetype:**
+   - Remove the starters for OpenAPI (parked) and security.
+   - Replace `platform-starter-validation` with `spring-boot-starter-validation`, here and in the kept examples. Without it a
+     service has the constraint annotations but no validator, so its constraints silently stop being checked (Codex P0-R1
+     finding 1). A consumer-run assertion on an ordinary `@NotBlank` failure stays; only platform-constraint assertions go.
+   - Remove the in-memory messaging default: messaging becomes RabbitMQ.
+   - Keep the `database=h2|oracle` and `features=data,messaging,outbox` options.
+5. **Examples:** keep `example-minimal` and `example-golden-path` (pruned to kept capabilities). Delete
+   `example-extension-provider` (it extends the cut storage SPI). `example-event-driven` uses the platform messaging API with
+   in-memory and RabbitMQ profiles: keep it with the RabbitMQ profile only, and port it to Spring AMQP in Phase 6.
+6. **Rules:** apply ND3 (ADR-011) to `CLAUDE.md` rules 4, 5 and 9, the enforcer and the ArchUnit rules. Remove rules about
+   cut modules.
+7. **Docs:**
+   - Delete the cut module pages, book chapters 05 and 09–13, `docs/samples/security` and their reference entries.
+   - Update `mkdocs.yml` and the compatibility appendix. Regenerate `docs/reference/*`, `llms-full.txt` and the skill resources
+     from a full build.
+   - Do **not** edit the closed hardening record (`../production-readiness/final-release-assessment.md`,
+     `release-decision.md`, the phase folders): it is the evidence behind tag `hardening/phase-08-closed`.
+   - **Two permitted edits** to that record, and only these:
+     - the banner below;
+     - a link that points at a deleted file (for example `docs/samples/security/…`) is rewritten to the same file at tag
+       `pre-spring-native` on GitHub. The text around it stays word for word. Without this, `DocsLinkCheckTest` fails on
+       the record's links to deleted samples (Codex P0-R1 finding 4).
+   - Add one line at the top of the assessment and of the release decision: "Superseded on `develop` by
+     [`docs/spring-native/`](../spring-native/plan.md): the realigned platform targets 1.0.0 (ND1)."
+8. **Compose file** (ND11):
+   - Remove Kafka, Redis, Vault, LocalStack and Postgres from `docker-compose.local.yml`.
+   - Keep RabbitMQ, and add Oracle Free with its memory stated.
+9. **Build:** fix HI-0109 (`develop` push builds hitting Maven Central 429s) first, so the cut is judged on a green CI.
+10. **Verify:**
+    - a full `verify`, with no test newly skipped;
+    - the golden path (its count may drop where a step covered a cut module, with each dropped step justified);
+    - the kept v3 consumer runs: core + errors, logging + observability, data, outbox, RabbitMQ, C1 and REST client (it
+      still runs while parked). They lose their token, platform-constraint and JWT-auditor parts. Each dropped or changed
+      assertion is listed in `scope.md`, with why, and each run must reach its v3 count minus those listed drops (rule 14);
+    - the docs checks;
+    - Trivy on a generated service: still no Critical or High.
+11. **Review:** one Codex round. Its question: does anything kept depend on, document or ship anything removed?
+
+### Phase 2 — Foundation: core + errors, Spring-native
+
+**Specific to this phase:**
+- **Errors:**
+  - The platform `@RestControllerAdvice` handles Spring's `ErrorResponse` types and `@ResponseStatus`.
+  - It adds `code`, `traceId`, `timestamp` and `retryable` to every `ProblemDetail`. Spike S7 showed that a platform advice
+    can enrich Spring's own `ErrorResponseException` this way, with the service setting its code as a `ProblemDetail`
+    property.
+  - It maps Bean Validation failures (`MethodArgumentNotValidException`, `HandlerMethodValidationException`) to a 400 with
+    field paths and no internal detail. This replaces what the cut validation module did.
+  - Gate A decides how a service sets its own error code without a platform type: a `ProblemDetail` property set by the
+    thrower, the `type` URI, or a resolver bean.
+  - **Customizing an error body.** Today a service adds to the finished body with `ProblemDetailCustomizer`, which receives
+    the populated body and the originating exception (HI-0014). A second `@RestControllerAdvice` does **not** replace it:
+    advice picks one handler and does not chain them, so a service advice would bypass the platform's code, trace and
+    sanitising. Gate A names a mechanism that composes, with access to the originating exception, and covers framework
+    and error-dispatch errors. If no Spring type fits, keep a narrow platform hook under rule 12 step 4, with an ND
+    decision.
+- **Core:** remove the API types in the removal map. The correlation filter, the executor context propagation and the banner
+  are already auto-configuration.
+  - `RequestContextHolder` is **not** a replacement for `RequestContext`: it holds only web-request attributes, and a
+    RabbitMQ listener or the outbox drainer has none. Trace identity moves to Micrometer `Tracer`. The isolation behaviour
+    (an explicitly empty context propagated to a context-free task, the previous scope restored afterwards: HI-0016,
+    HI-0023) moves into an internal context-propagation accessor in the autoconfigure module. Port the empty-context,
+    nested-scope, async and error-dispatch, and listener/drainer tests before deleting the type.
+- **Parked modules follow the foundation.** Parking does not exempt them from foundation changes: `RemoteCallException`
+  extends `PlatformException`, so the parked REST client is adapted here to keep compiling.
+- **Data value types (ND7):** delete `EntityId`, `Money` and `PersistenceConventions` here, since errors and data both used
+  them in tests.
+- **Carried from v3 (to confirm at Gate A):**
+  - `traceparent` is the only correlation header (HD5);
+  - an injected header is rejected;
+  - no message, SQL or stack trace reaches a response;
+  - MDC is empty after each request;
+  - 200 parallel requests show no context bleed;
+  - framework exceptions keep their statuses;
+  - error codes are unique at build time.
+- **Consumer floor:** 92.
+- **Lab "first service":** generate a service, start it, call an endpoint that fails, and read the `ProblemDetail` with its
+  `traceId`. Then find the same trace ID in the log.
+
+### Phase 3 — Logging + observability, Spring-native
+
+**Specific to this phase:**
+- **Logging:**
+  - Remove `Kv` and `LogSanitizer`. Services log key-value pairs with SLF4J's fluent `addKeyValue`. Spike S5 showed these
+    render in Boot's structured JSON logging, and that a members customizer can mask values.
+  - Gate A decides between the platform's Logback configuration and Boot's structured logging with masking as a Logback
+    component.
+  - Masking is carried either way: JWTs, `Authorization` headers (now including `Basic`), passwords and personal data,
+    including the regex boundary cases Codex found in v3.
+- **Observability:**
+  - Already configuration-only. Check that nothing depends on a removed type.
+  - The tag-cardinality guard, the health groups (HD6) and the actuator exposure stay.
+- **Actuator without security (ND13):** iteration 1 ships no web security, so the management endpoints must be safe on their
+  own. Apply ND13's answer here, and prove at Gate F that `/actuator/prometheus` is not reachable on the application port.
+- **Consumer floor:** 76.
+- **Lab "logging and observability":**
+  - log a key-value pair and see it as JSON;
+  - log a password and see it masked;
+  - scrape a metric;
+  - follow one trace across an HTTP call.
+
+### Phase 4 — Data (Spring Data JPA)
+
+**Specific to this phase:**
+- **Already Spring-native:** data was certified on Oracle in v3, with `JpaRepository`, `@Transactional` and Flyway. This
+  phase confirms it with the new recipe instead of rewriting it.
+- **Auditing:** the JPA auditor uses `"system"` until iteration 2 adds a principal. Document it.
+- **Oracle driver timeouts:** `OracleConnectionDefaults` stays (rule 12's recorded exception). Carry HI-0061, HI-0063 and
+  HI-0070 with the parity tests named there.
+- **Carried from v3:**
+  - transaction boundaries;
+  - pool sizing and the slow-database behaviour (a slow database must not exhaust the pool and hang requests);
+  - Flyway on startup;
+  - Oracle type mappings;
+  - no SQL in error responses.
+- **Consumer floor:** 92, on Oracle Free.
+- **Lab "data":** an entity, a repository and a Flyway migration on H2. Then switch the same project to Oracle Free and
+  run it again. Failure to try: stop the database mid-request, and read the `ProblemDetail` and the health group.
+
+### Phase 5 — Outbox trial (Spring Modulith vs the platform outbox)
+
+A time-boxed comparison, not a rewrite.
+
+1. Build a trial of the outbox consumer app on Spring Modulith's event publication registry and AMQP externalisation, on Oracle
+   and RabbitMQ.
+2. Run the v3 outbox scenarios (106 assertions) against it, and against the platform outbox on the same commit.
+3. Compare the carried guarantees row by row:
+   - **Write path:** same transaction and `DataSource` as the business write; a stable event ID generated once.
+   - **Drainer:** bounded batches; `FOR UPDATE SKIP LOCKED` (or equivalent) across two instances; a separate, bounded
+     connection budget.
+   - **Failures:** rejected or unroutable messages parked, never retried forever.
+   - **Operations:** lag and parked metrics; trace context restored on drain; retention; stop timeout and shutdown order.
+   - **Parked issues:** HI-0071, HI-0079 and HI-0086. Does Modulith have them, or different ones?
+4. Check Modulith's seven open items from S1 (M1–M7), among them:
+   - a 4000-byte payload column where the platform outbox has a `BLOB`;
+   - DDL that needs Oracle 23c while production runs 19c;
+   - unconfirmed publisher-confirm handling.
+5. Write `phase-05-outbox-trial/comparison.md` and run one Codex round on it.
+6. **Stop for the owner.** The rule agreed in advance: Modulith wins only if it passes every scenario and every carried
+   guarantee (or each gap has an accepted mitigation). Otherwise the platform outbox stays.
+
+### Phase 6 — Messaging + outbox on Spring AMQP
+
+**Specific to this phase:**
+- **Using it:** services publish with `RabbitTemplate` (or through the outbox ND5 chose) and consume with `@RabbitListener`.
+- **What the platform supplies:**
+  - a message converter;
+  - publisher confirms and returns (an unroutable message is an error, not silence). Plain `RabbitTemplate.convertAndSend`
+    does not wait for a confirm: the bounded confirm-and-return wait that `RabbitEventTransport` does today must be kept,
+    not just switched on;
+  - header post-processors (event ID, type, version, `traceparent`);
+  - a listener container factory with bounded retry, backoff and dead-lettering;
+  - quorum queues by default.
+- **Declaring a subscription:** without `@EventHandler`, Gate A decides how a service declares one: plain `Declarables` beans
+  or a property-driven topology.
+- **Removed:** the platform messaging API, the SPI, the in-memory provider and the messaging TCK.
+- **Carried from v3:**
+  - one handler per message (two handlers that could receive the same message fail startup);
+  - an unreadable payload or a newer version goes to the DLQ without quoting the payload;
+  - the DLQ replay tool (`tooling/scripts/rabbit-dlq-replay.py`) still works;
+  - the shutdown order;
+  - the consumer-side dedupe pattern in the sample.
+- **Consumer floors:** RabbitMQ 63, outbox 106.
+- **Composition C1** (Gate G): logging, observability, data, outbox and RabbitMQ in one app. Scenarios:
+  - HTTP request → database write + outbox row → drain → RabbitMQ → listener → database write, on **one trace**;
+  - database slow while the broker is healthy;
+  - broker down while the database is healthy;
+  - app killed mid-flow: no loss, bounded duplicates;
+  - drainer and request threads under load do not exhaust the pool.
+- **Afterwards:** re-evaluate HI-0071, HI-0079 and HI-0086 under the chosen outbox.
+- **Lab "messaging":** publish with `RabbitTemplate`, consume with `@RabbitListener`, and send a poison message to watch it
+  land in the DLQ.
+- **Lab "outbox":** save an order and publish its event in one transaction. Stop RabbitMQ, save more orders, start RabbitMQ,
+  and watch the backlog drain with nothing lost.
+
+### Phase 7 — Iteration 1 release check
+
+A release candidate check of everything iteration 1 ships. No new features.
+
+1. **Clean build:** a full `verify` (foreground, `-T1`).
+2. **Containers:** the container suites for Oracle and RabbitMQ (with Toxiproxy).
+3. **Archetype:**
+   - it generates the iteration 1 set (foundation, logging, observability, and on request data, messaging and outbox);
+   - the golden path passes;
+   - one generated app with **every** iteration 1 capability runs C1 plus the request → outbox → broker → listener chain on
+     one trace.
+4. **Regressions:** every consumer run of the iteration again on this commit, and **every iteration 1 lab** through the lab
+   runner.
+5. **Scans:** Trivy, a CycloneDX SBOM, and a secrets scan including git history (the repository is public).
+6. **Compatibility:**
+   - japicmp output matches `expected-removals.md` (an unlisted break is a finding);
+   - the config-default snapshot diff;
+   - BOM parity between `platform-service-parent` and a plain `platform-bom` import;
+   - parked modules are absent from the BOM and from the deploy.
+7. **Docs:** only iteration 1 capabilities and the foundation are documented as shipped. Parked modules carry their
+   "iteration 2" note. Both docs checks pass.
+8. **Release rehearsal:** a reproducible build, and close HI-0108 (SBOM and provenance in `release.yml`; `release.sh`
+   without a hard-coded `-T1C`).
+9. **OpenShift:** with the team's chart tool, `BLOCKED` unless the owner supplies the details (HD7).
+
+Then write `phase-07-iteration-1/run-results.md`, `iteration-1-release-assessment.md` and `iteration-1-release-decision.md`:
+- what is certified, and the open issues;
+- the known limits, and the conditions for a first adopter;
+- carried forward explicitly: HI-0071, HI-0079, HI-0086 (or Modulith's equivalents), HI-0106, HI-0107, Oracle RAC
+  (`BLOCKED`), OpenShift (`BLOCKED` unless run);
+- the main known limit, stated plainly: **1.0.0 does not secure application endpoints.** A service that exposes an API
+  waits for iteration 2, or puts its own Spring Security configuration in place.
+
+**Stop for the owner:** release 1.0.0, continue to iteration 2, or stop here.
+
+---
+
+## 11. Iteration 2
+
+### Phase 8 — REST API with basic auth
+
+A new capability. The gateway authenticates the caller (JWT or OAuth client credentials) and calls the service with basic
+auth. The service checks only that basic-auth credential.
+
+**Specific to this phase:**
+- **What the platform supplies:**
+  - a `SecurityFilterChain` that requires HTTP basic on every application path;
+  - credentials from configuration, with the password as a `{bcrypt}` hash, or from a secret mounted by OpenShift;
+  - stateless sessions, no CSRF for a pure API, no form login, no `WWW-Authenticate` realm leak beyond the standard header;
+  - 401 as a `ProblemDetail`.
+- **Customizing:** a `Customizer<HttpSecurity>` bean (S2), or the service's own `SecurityFilterChain`, which backs the
+  platform's off (contract 13).
+- **Fail-closed:** no credential configured means the app does **not** start, with a `FailureAnalyzer` message naming the
+  property. Boot's generated default password must never be active.
+- **Open paths:** only the health probes. A startup check fails the app if a configured permit path opens anything else
+  (the idea of v3 Phase 7's open-path startup check).
+- **Principal back in context:**
+  - the JPA auditor and the outbox principal now read the authenticated user from `SecurityContextHolder`;
+  - the masking covers `Authorization: Basic`.
+- **OpenAPI documentation (owner, 2026-11-19):**
+  - springdoc generates the document from the controllers: `/v3/api-docs` (JSON and YAML) and Swagger UI at
+    `/swagger-ui.html`;
+  - the document declares the **basic** security scheme (today's module declares bearer JWT; that changes), and the
+    title and version default from the build;
+  - both are on by default and sit **behind the same basic auth** as the API: no open docs path. A property turns the UI
+    off for production while keeping `/v3/api-docs` for the gateway or portal (ND14);
+  - a service's own `OpenAPI` bean or `OpenApiCustomizer` backs the platform's off or adds to it (contract 13);
+  - no internal path (actuator, error controller) and no secret appears in the document;
+  - the first request is slow while springdoc builds the document, so it is never used as a health check.
+- **Gate A decides:** whether more than one credential (one per calling gateway) is needed.
+- **Consumer floor:** set at Gate A. It must at least cover:
+  - no credential, a wrong credential and the right one;
+  - every path except probes is protected;
+  - no password in logs;
+  - the failure to start without a configured credential;
+  - concurrency with two credentials and no principal bleed;
+  - the OpenAPI document: served with a credential, refused without one, lists the controller's operations and the basic
+    scheme, contains no actuator path.
+- **Lab "REST API":** generate a service with `features=rest-api`, set a credential, call an endpoint with and without it,
+  send an invalid body to read the validation `ProblemDetail`, then open Swagger UI, log in, and try the endpoint from
+  there.
+
+### Phase 9 — REST client + resilience, Spring-native, with outbound auth
+
+Unpark `restclient/*` and `resilience/*`, and rewrite them.
+
+**Specific to this phase:**
+- **Using it:** services inject Boot's `RestClient.Builder` or declare `@HttpExchange` interfaces. Spike S3 showed that Boot 4
+  HTTP service clients take per-group properties, and that a `RestClientCustomizer` bean reaches each group's client.
+- **What the platform contributes,** as `RestClientCustomizer` beans:
+  - timeouts and the overall deadline;
+  - tracing;
+  - bounded, redacted error-body capture;
+  - logging.
+- **Outbound auth, per client, by configuration:**
+  - **basic:** a username and password for that downstream;
+  - **OAuth2 client credentials:** Spring Security's `OAuth2AuthorizedClientManager` with
+    `OAuth2ClientHttpRequestInterceptor`. Tokens are cached and refreshed before expiry, and a 401 from the token endpoint
+    is not retried.
+  - Tokens and passwords never reach logs, spans or captured error bodies.
+- **Retries (carried, HD2):**
+  - POST and PATCH are **never** retried, with or without an `Idempotency-Key`;
+  - a 4xx is not retried; `Retry-After` is honoured;
+  - this holds whichever retry mechanism Gate A picks: Resilience4j, or Spring Framework 7's `@Retryable`. Spike S4 showed
+    `@Retryable` works once enabled and takes include and exclude lists;
+  - **an outer retry must not repeat a POST.** A client interceptor alone is not enough: `@Retryable` (or a Resilience4j
+    retry) on a service method re-runs the **whole method**, so a POST whose response was lost is sent again. Today the
+    resilience defaults exclude `RemoteCallException` from method retries for exactly this reason. The rewrite needs the
+    same exclusion for the Spring exception types a non-idempotent call raises, applied by default to every retry
+    mechanism the platform enables;
+  - proof: a POST takes effect downstream, its response is lost, and the downstream sees **exactly one** call under every
+    supported retry mechanism (Codex P0-R1 finding 3).
+- **Errors:**
+  - downstream failures surface as Spring's `RestClientResponseException` / `ResourceAccessException`;
+  - the errors advice maps them to a `ProblemDetail` with `retryable`, never leaking the downstream body.
+- **Per-client settings.** The platform's `PlatformRestClientCustomizer` receives the client name; Boot's
+  `RestClientCustomizer` does not, and applies to every client. Credentials and headers for one downstream go through that
+  client's HTTP service group (`spring.http.serviceclient.<group>.*` and a group configurer). Gate A defines how a directly
+  injected builder picks its settings. Proof: two downstreams with different credentials, and neither sees the other's.
+- **Timeouts per group.** Spike S3 showed group properties bind, but not that the read timeout fires. Gate A adds a
+  slow-server test with a timeout exception and an elapsed-time bound.
+- **Carried HI-0099:** a malformed successful response must not leak secrets through the conversion error. Re-test it.
+- **Contract 13 matters most here:** a service that builds its own `RestClient` without the builder loses the platform's
+  timeouts. Document it, and consider a startup WARN.
+- **Consumer floor:** 182, plus the new auth scenarios:
+  - token fetched once and reused;
+  - token endpoint slow or down;
+  - token expiry mid-run;
+  - wrong client secret;
+  - basic credential rejected by the downstream.
+- **Token endpoint for tests and the lab (ND11b):** Gate A picks Keycloak in the compose file, or a small local token
+  endpoint built on the test kit.
+- **Composition C2** (Gate G): REST API (basic) + REST client (OAuth client credentials) + data + observability. Scenarios:
+  - a basic-auth request → database write → outbound call with a client-credentials token, on one trace;
+  - the downstream returns 401, 403 or 5xx: mapped to a `ProblemDetail`, nothing leaked, the 401 not retried;
+  - the circuit breaker opens on the downstream while the database is healthy;
+  - the database slow while the downstream is healthy;
+  - two callers concurrently with no principal bleed;
+  - shutdown with outbound calls in flight.
+- **Lab "REST client":** call a downstream with basic auth, then switch the same client to client credentials. Failure to
+  try: the downstream slows down, and you watch the timeout and the `ProblemDetail`.
+
+### Phase 10 — Iteration 2 release check
+
+The same checks as Phase 7, over the iteration 1 and 2 capabilities together:
+- a clean build;
+- the container suites, now with a token endpoint;
+- the archetype with the golden path, and one app holding every capability running C1 and C2;
+- every lab and consumer run, including iteration 1's (Phase 8 touched data and outbox);
+- the scans, compatibility, docs and a release rehearsal.
+
+Write the iteration 2 release assessment and decision. Iteration 1's known limit on unsecured endpoints is closed here.
+
+**Stop for the owner:** release 1.1.0, or stop.
+
+---
+
+## 12. Deliverables layout
 
 ```text
 docs/
   spring-native/
-    plan.md                    # this file
-    STATE.md
-    decisions.md               # ND1–ND11
-    capability-status.md
-    exceptions.md
-    expected-removals.md
-    final-release-assessment.md
-    release-decision.md
-    phase-00-baseline/         # inventory.md, spikes.md, removal-map.md, codex/, evidence/
+    plan.md  STATE.md  decisions.md  capability-status.md  exceptions.md  expected-removals.md
+    phase-00-baseline/           # inventory.md, spikes.md, removal-map.md, codex/, evidence/
     phase-01-scope-cut/
-    phase-02-core-errors/
+    phase-02-foundation/
     phase-03-logging-observability/
-    phase-04-rest-resilience/
-    phase-05-security/         # includes composition-c2.md
-    phase-06-outbox-trial/     # includes comparison.md
-    phase-07-messaging/        # includes composition-c1.md
-    phase-08-caching/
-    phase-09-scheduling-locking/
-    phase-10-validation-openapi/
-    phase-11-final/            # run-results.md
-    # each phase: scope.md, review-round-1.md, review-round-2.md, closure.md, codex/, evidence/
-  production-readiness/
-    issue-register.md          # continues from HI-0109
-  decisions/
-    decision-log.md            # continues from D135
-    adr-011.md                 # Spring types in service code (ND3)
-  samples/<slug>/              # updated per phase; new: caching/, scheduling/
-  labs/
-    index.md                   # what a lab is, prerequisites, the order to take them in
-    <capability>/index.md      # one guided lab per capability (§4.10)
-tooling/
-  labs/run-lab.sh              # executes a lab's marked blocks in a fresh directory (§4.10)
+    phase-04-data/
+    phase-05-outbox-trial/       # comparison.md
+    phase-06-messaging-outbox/   # composition-c1.md
+    phase-07-iteration-1/        # run-results.md, release assessment and decision
+    phase-08-rest-api/
+    phase-09-rest-client/        # composition-c2.md
+    phase-10-iteration-2/
+    # each capability phase: scope.md, review-round-1.md, review-round-2.md, closure.md, codex/, evidence/
+  production-readiness/issue-register.md   # continues from HI-0110
+  decisions/decision-log.md                # continues from D135; adr-011.md (ND3)
+  modules/<cap>.md                         # kept capabilities only
+  samples/<slug>/                          # kept capabilities only
+  labs/index.md, labs/<capability>/index.md
+tooling/labs/run-lab.sh
 ```
 
 `evidence-raw/` directories are git-ignored.
 
 ---
 
-## 11. End-of-phase report
+## 13. Start and restart
 
-As v3 §12, plus: the carry-over table with each row's proof, the removed types, the ported consumer count against its v3
-floor, and the lab-runner result for each lab the phase wrote or touched.
+1. **Read:** `STATE.md`, then this plan. Read v3 only for detail a section here points to.
+2. **Environment:** set it up per §5.1. Check `git status`, and never stage the files §5.2 lists.
+3. **Work:** on a phase branch off `develop` (§5.4).
+4. **Order:** close Phase 0 (§9), then run the phases in order. Respect the stops in §5.6.
+   - Never start Phase 6 before the owner confirms ND5.
+   - Never start a new iteration before the owner answers its release check.
+5. **Conflicts:** if this plan conflicts with the repository (a module name, existing behaviour, tooling), do not improvise.
+   Record the conflict in `STATE.md`, propose a fix, and ask.
 
 ---
 
-## 12. Start instruction for Claude Code
+## 14. Adding a capability later
 
-1. Read this document fully, then [`../production-readiness/plan-v3.md`](../production-readiness/plan-v3.md) §3, §5, §7 and §8,
-   which this plan inherits, and [`../production-readiness/STATE.md`](../production-readiness/STATE.md) for where the hardening
-   initiative ended.
-2. Set up the environment per §4.1. Check `git status`: never stage the files §4.2 lists.
-3. Work on `develop` (§4.4). Create `native/phase-00-baseline` from `develop`. The baseline is `bdf2845`, tagged
-   `pre-spring-native` (done 2026-11-17).
-4. Execute Phase 0 steps 1–7, starting with spike S1. Write `decisions.md` (step 8) and **stop** for the owner's answers.
-5. After the answers: update `STATE.md`, run the Phase 0 Codex round, merge into `develop` on green, tag, then execute Phase 1
-   through all of its steps.
-6. Continue phase by phase. Respect the stops in §4.6. Never begin Phase 7 before the owner has confirmed ND5 on the Phase 6
-   evidence; never begin Phase 11 before Phases 1–10 qualify.
-7. If anything here conflicts with the repository (module names, existing behaviour, tooling), do not improvise silently: record
-   the conflict in `STATE.md`, propose a resolution, and ask.
+New capabilities follow the same path. To add one (say, caching, or OpenAPI back again):
 
-**Success:** a smaller chassis that a Spring developer can use without learning a platform API; every guarantee the hardening
-initiative proved still holds, each one with a test, or was retired with evidence; caching and scheduling hardened; a new
-release decision that says exactly what is certified and what is not.
+1. **Decide where it lands.** It joins the next iteration that is not yet closed, or opens a new one. Add it to §2 and §3
+   with the new phase.
+2. **Write its phase section** in this plan, the way Phases 8 and 9 are written:
+   - what a service uses (Spring types);
+   - what the platform supplies;
+   - the carried guarantees (if it comes back from the cut list, start from its v3 or pre-cut issues);
+   - the fail-closed settings;
+   - the consumer floor;
+   - the lab outline;
+   - any ND decision it needs.
+3. **Take decisions to the owner first.** If it needs an owner decision, add it to `decisions.md` with a recommendation
+   before the phase starts.
+4. **Run the recipe** (§8) from Gate A to Gate H. Add the capability to the archetype as an option, write its lab, module
+   page and sample.
+5. **Close with the iteration's release check** (as Phase 7): every lab and consumer run re-run, docs and BOM matching
+   what ships, a release decision, and a stop for the owner.
+
+A capability is not "in" until its lab passes on the closing commit and its release check is written.

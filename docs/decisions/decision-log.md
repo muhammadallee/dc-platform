@@ -853,3 +853,12 @@ One line of context per decision; details live in the commit bodies referenced.
   RAC (HD4). HI-0088 stays accepted (D125 review). HI-0106 (CVEs in build and tooling modules and the uncertified Kafka path),
   HI-0107 (service jars not reproducible; two property references in `platform-dependencies`) and HI-0108 (no SBOM or
   provenance in the release pipeline) are accepted as release conditions; HI-0108 is to be done before the first real release.
+- **D135 — Spring-native realignment, plan v2 (owner 2026-11-19).** On `develop` the platform is cut to seven
+  capabilities in two iterations (1.0.0: logging, observability, data, RabbitMQ messaging and outbox; 1.1.0: REST API with
+  basic auth and OpenAPI, REST client with basic auth and OAuth client credentials). Services use Spring types only; each
+  capability is one autoconfigure module plus a POM-only starter (ND15). Decisions ND1 to ND15:
+  [`docs/spring-native/decisions.md`](../spring-native/decisions.md).
+- **D136 — Two recorded exceptions in the realignment plan (Phase 0 Codex review, 2026-11-19).** `OracleConnectionDefaults`
+  stays a `BeanPostProcessor` (it only adds Oracle driver timeouts where none is set: HI-0061, HI-0063, HI-0070). In the
+  closed hardening record, links to files the scope cut deletes are rewritten to tag `pre-spring-native`; nothing else in
+  that record changes. Review: [`docs/spring-native/phase-00-baseline/review-round-1.md`](../spring-native/phase-00-baseline/review-round-1.md).

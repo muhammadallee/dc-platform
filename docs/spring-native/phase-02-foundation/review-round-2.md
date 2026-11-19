@@ -52,5 +52,6 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   folding hiding source literals).
 - [`r2-verify12.out.md`](codex/r2-verify12.out.md): the five closed (`d023c5d`); three gaps in finding `DataAccessFailure`
   constructions (delegating `this(…)`, `::new`, generic or annotated type names) and a string-truncating erasure.
-- Verification 13: constructions resolved by element; javac's erasure.
+- Verification 13: constructions resolved by element; javac's erasure. Pending: Codex usage limit until
+  2026-11-20 02:59.
 

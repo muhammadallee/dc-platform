@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
+import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.Filter;
@@ -43,7 +44,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * Consumer-side probe for the core + errors consumer run (never part of a real service). Spring types only
  * (Spring-native Phase 2, contract 12): it reads the trace from Micrometer's {@link Tracer}, throws Spring's
  * {@link ErrorResponseException} with its own {@code code}, adds to every error body through a Spring
- * {@link ErrorResponse.Interceptor}, and calls out through Boot's {@link RestClient.Builder}.
+ * {@link ErrorResponse.Interceptor}, and calls out through a {@link RestClient} instrumented with the application's
+ * {@link ObservationRegistry} (Boot's {@code RestClient.Builder} bean needs {@code spring-boot-starter-restclient}, which
+ * arrives with the REST client capability in iteration 2).
  */
 public final class HardeningProbe {
 
@@ -125,23 +128,24 @@ public final class HardeningProbe {
         private static final Logger log = LoggerFactory.getLogger(ProbeController.class);
 
         private final AsyncSnapshot async;
-        private final RestClient.Builder builder;
+        private final ObservationRegistry observations;
         private final WebServerApplicationContext context;
         private volatile RestClient self;
 
         // The port is resolved on first use: touching the web server during context refresh starts its
         // connector early, and the regular start then fails with "port already in use".
-        public ProbeController(AsyncSnapshot async, RestClient.Builder builder, WebServerApplicationContext context,
-                Tracer tracer) {
+        public ProbeController(AsyncSnapshot async, ObservationRegistry observations,
+                WebServerApplicationContext context, Tracer tracer) {
             this.async = async;
-            this.builder = builder;
+            this.observations = observations;
             this.context = context;
             HardeningProbe.tracer = tracer;
         }
 
         private RestClient self() {
             if (self == null) {
-                self = builder.clone().baseUrl("http://127.0.0.1:" + context.getWebServer().getPort()).build();
+                self = RestClient.builder().observationRegistry(observations)
+                        .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort()).build();
             }
             return self;
         }

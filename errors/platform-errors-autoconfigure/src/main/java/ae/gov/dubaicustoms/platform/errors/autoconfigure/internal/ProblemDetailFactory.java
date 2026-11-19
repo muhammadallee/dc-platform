@@ -111,6 +111,26 @@ public final class ProblemDetailFactory {
     }
 
     /**
+     * Copies a body: status, type, title, detail, instance and every property (the property map is copied; its values
+     * are shared). The advice decorates the copy, never the {@code ProblemDetail} an exception holds, because an
+     * exception instance can be thrown more than once and by concurrent requests.
+     *
+     * @param source the body to copy
+     * @return an independent body with the same content
+     */
+    public static ProblemDetail copyOf(ProblemDetail source) {
+        ProblemDetail copy = ProblemDetail.forStatus(source.getStatus());
+        copy.setType(source.getType());
+        copy.setTitle(source.getTitle());
+        copy.setDetail(source.getDetail());
+        copy.setInstance(source.getInstance());
+        if (source.getProperties() != null) {
+            source.getProperties().forEach(copy::setProperty);
+        }
+        return copy;
+    }
+
+    /**
      * Returns the code a thrower set on the body, or {@code null}.
      *
      * @param problem the body

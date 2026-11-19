@@ -12,8 +12,8 @@
 # docs/spring-native/phase-01-scope-cut/scope.md.
 #
 # Spring-native Phase 2 port (docs/spring-native/phase-02-foundation/scope.md): the probe uses Spring types only (the
-# trace from Micrometer's Tracer, ErrorResponseException with a code property, an ErrorResponse.Interceptor, Boot's
-# RestClient.Builder), so the parked REST-client starter is no longer added. A grep fails the run if the probe or the
+# trace from Micrometer's Tracer, ErrorResponseException with a code property, an ErrorResponse.Interceptor, a
+# RestClient instrumented with the ObservationRegistry), so the parked REST-client starter is no longer added. A grep fails the run if the probe or the
 # generated service's main code imports a platform type (AC23). New: AC19 (the interceptor sees the originating
 # exception), AC20 (a service's own code and detail), AC21 (@ResponseStatus). Floor 77.
 #
@@ -109,7 +109,7 @@ hh_expect_status 200
 hh_expect_json "trace unaffected by the stray header" "b['context'] == '$T'"
 header_absent x-correlation-id
 
-hh_step "AC5 Boot's RestClient.Builder propagates traceparent only"
+hh_step "AC5 an instrumented RestClient propagates traceparent only"
 hh_http ac5-outbound GET /probe/outbound -H "traceparent: $(tp "$T")" -H "X-Correlation-Id: $STRAY"
 hh_expect_status 200
 hh_expect_json "downstream traceparent has the same trace" "b['downstream']['traceparent'].startswith('00-$T-')"

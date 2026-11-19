@@ -149,6 +149,8 @@ The starter brings no web stack; outside a servlet web app it does nothing.
   `platformValidationExceptionHandler` for the constraint-violation advice. Both are platform types; prefer an
   interceptor.
 - `map-validation=false` returns Spring's default validation body (with the platform's extensions).
+- `spring.mvc.problemdetails.enabled=true` changes nothing: Boot's own problem-details advice backs off to the
+  platform's, which keeps the contract.
 - `dc.platform.errors.enabled=false` switches the capability off; Boot's default error handling returns.
 
 ## Error codes

@@ -26,7 +26,11 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  *                 advice); a PlatformConstraintViolationHandler bean or a bean named
  *                 platformValidationExceptionHandler (constraint-violation advice); any ErrorController bean (servlet
  *                 error page); a bean named errorsCapabilityDescriptor
- * Beans: platformExceptionHandler — maps every exception a controller lets through to an RFC 9457 ProblemDetail
+ * Beans: platformFrameworkErrors — Spring MVC's standard ResponseEntityExceptionHandler mapping, used by the advice as
+ *                 a delegate (a bean, not an advice). As a ResponseEntityExceptionHandler bean it makes Boot's
+ *                 ProblemDetailsExceptionHandler (spring.mvc.problemdetails.enabled=true, @Order(0)) back off, which
+ *                 would otherwise answer framework and ErrorResponse exceptions first without the platform contract;
+ *        platformExceptionHandler — maps every exception a controller lets through to an RFC 9457 ProblemDetail
  *                 with code/traceId/timestamp/retryable, returned as an ErrorResponseException whose cause is the
  *                 original exception (so a service's ErrorResponse.Interceptor sees both, D138);
  *        platformValidationExceptionHandler — maps jakarta ConstraintViolationException the same way (only when
@@ -40,20 +44,30 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
  * Order: the constraint advice is @Order(0), the main advice @Order(LOWEST_PRECEDENCE) — Spring picks the first
  *        advice with any matching handler, so the catch-all must always be last (application advice beans keep
  *        winning for their own exceptions). Runs before Boot's ErrorMvcAutoConfiguration so its BasicErrorController
- *        backs off.
+ *        backs off, and before WebMvcAutoConfiguration so its problem-details handler sees platformFrameworkErrors.
  */
-@AutoConfiguration(beforeName = "org.springframework.boot.webmvc.autoconfigure.error.ErrorMvcAutoConfiguration")
+@AutoConfiguration(beforeName = {"org.springframework.boot.webmvc.autoconfigure.error.ErrorMvcAutoConfiguration",
+        "org.springframework.boot.webmvc.autoconfigure.WebMvcAutoConfiguration"})
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnClass(DispatcherServlet.class)
 @ConditionalOnProperty(prefix = "dc.platform.errors", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(ErrorsProperties.class)
 public class PlatformErrorHandlingAutoConfiguration {
 
+    // Declared before the advice: both carry the advice's back-off, so a service that replaces the advice also gets
+    // no delegate, and Boot's problem-details handler is free to apply if the service turns it on.
+    @Bean
+    @ConditionalOnMissingBean(value = PlatformExceptionHandler.class, name = "platformExceptionHandler")
+    FrameworkErrors platformFrameworkErrors(ErrorsProperties properties, ObjectProvider<TraceIdSource> traceIds,
+            ObjectProvider<Clock> clock) {
+        return new FrameworkErrors(properties, factory(properties, traceIds, clock));
+    }
+
     @Bean
     @ConditionalOnMissingBean(value = PlatformExceptionHandler.class, name = "platformExceptionHandler")
     PlatformExceptionHandler platformExceptionHandler(ErrorsProperties properties,
-            ObjectProvider<TraceIdSource> traceIds, ObjectProvider<Clock> clock) {
-        return new PlatformExceptionHandler(properties, factory(properties, traceIds, clock));
+            ObjectProvider<TraceIdSource> traceIds, ObjectProvider<Clock> clock, FrameworkErrors platformFrameworkErrors) {
+        return new PlatformExceptionHandler(factory(properties, traceIds, clock), platformFrameworkErrors);
     }
 
     // CapabilityDescriptor is a shared type (one per capability), so the override is by name.

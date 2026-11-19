@@ -3,34 +3,21 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.util.StringUtils;
-import org.springframework.validation.method.ParameterErrors;
-import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.ErrorResponseException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
-import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * Platform {@code @RestControllerAdvice}: turns every exception a controller lets through into an RFC 9457
@@ -80,7 +67,7 @@ public class PlatformExceptionHandler {
     static final String REQUEST_REJECTED = "DC-CORE-0499";
 
     /** Detail for an unreadable body: the parser's own message names classes and offsets. */
-    private static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or unreadable.";
+    static final String MALFORMED_REQUEST_DETAIL = "The request body is malformed or unreadable.";
 
     private static final Logger log = LoggerFactory.getLogger(PlatformExceptionHandler.class);
 
@@ -94,8 +81,13 @@ public class PlatformExceptionHandler {
      * @param factory the shared problem-body assembler; never {@code null}
      */
     public PlatformExceptionHandler(ErrorsProperties properties, ProblemDetailFactory factory) {
+        this(factory, new FrameworkErrors(properties, factory));
+    }
+
+    // The auto-configuration's constructor: the delegate is a bean, so Boot's problem-details advice backs off.
+    PlatformExceptionHandler(ProblemDetailFactory factory, FrameworkErrors framework) {
         this.factory = factory;
-        this.framework = new FrameworkErrors(properties, factory);
+        this.framework = framework;
     }
 
     /**
@@ -114,7 +106,10 @@ public class PlatformExceptionHandler {
             throw exception;
         }
         ResponseEntity<Object> entity = framework.map(exception, new ServletWebRequest(request));
-        if (entity != null && entity.getBody() instanceof ProblemDetail problem) {
+        if (entity != null && entity.getBody() instanceof ProblemDetail original) {
+            // For an ErrorResponse exception that body is the exception's own: decorate a copy, so a reused or shared
+            // exception instance never carries one request's traceId or instance into another's response.
+            ProblemDetail problem = ProblemDetailFactory.copyOf(original);
             String code = factory.decorate(problem, problem.getStatus() >= 500 ? UNEXPECTED_ERROR : REQUEST_REJECTED,
                     exception, request).getProperties().get(ProblemDetailFactory.CODE).toString();
             if (problem.getStatus() < 500) {
@@ -160,126 +155,5 @@ public class PlatformExceptionHandler {
             }
         }
         return false;
-    }
-
-    /**
-     * Spring MVC's standard mapping of its own exceptions (and of {@link ErrorResponse} exceptions), used as a
-     * delegate rather than as advice, with the platform's validation and unreadable-body bodies. Not a bean.
-     */
-    private static final class FrameworkErrors extends ResponseEntityExceptionHandler {
-
-        private final ErrorsProperties properties;
-        private final ProblemDetailFactory factory;
-
-        private FrameworkErrors(ErrorsProperties properties, ProblemDetailFactory factory) {
-            this.properties = properties;
-            this.factory = factory;
-        }
-
-        // The standard response for a Spring MVC or ErrorResponse exception; null for any other exception.
-        ResponseEntity<Object> map(Exception exception, WebRequest request) throws Exception {
-            try {
-                return handleException(exception, request);
-            } catch (Exception rethrown) {
-                if (rethrown == exception) {
-                    return null; // not one of Spring MVC's exceptions
-                }
-                throw rethrown;
-            }
-        }
-
-        @Override
-        protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
-                HttpStatusCode statusCode, WebRequest request) {
-            ResponseEntity<Object> entity = super.handleExceptionInternal(exception, body, headers, statusCode, request);
-            if (statusCode.value() >= 500) {
-                // Framework and service 5xx reach only this hook: log them here, once, on the request's trace.
-                String code = entity != null && entity.getBody() instanceof ProblemDetail problem
-                        && ProblemDetailFactory.serviceCode(problem) != null
-                        ? ProblemDetailFactory.serviceCode(problem) : UNEXPECTED_ERROR;
-                log.error("error response [{}] status {}", code, statusCode.value(), exception);
-            }
-            return entity;
-        }
-
-        @Override
-        protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException exception,
-                HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-            if (!properties.mapValidation()) {
-                return super.handleMethodArgumentNotValid(exception, headers, status, request);
-            }
-            List<Map<String, Object>> errors = new ArrayList<>();
-            exception.getBindingResult().getFieldErrors().forEach(fieldError -> {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("field", fieldError.getField());
-                entry.put("message", fieldError.getDefaultMessage());
-                factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
-                errors.add(entry);
-            });
-            exception.getBindingResult().getGlobalErrors().forEach(globalError -> {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("field", globalError.getObjectName());
-                entry.put("message", globalError.getDefaultMessage());
-                errors.add(entry);
-            });
-            return validationFailed(errors, headers);
-        }
-
-        /**
-         * Spring MVC's native method validation (constraints on {@code @RequestParam}/{@code @PathVariable} or on
-         * {@code @Valid} arguments of a controller without class-level {@code @Validated}) maps to the same 400
-         * {@code errors[]} shape as body validation. Return-value validation is a server bug and keeps its 500.
-         */
-        @Override
-        protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException exception,
-                HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-            if (!properties.mapValidation() || status.value() >= 500) {
-                return super.handleHandlerMethodValidationException(exception, headers, status, request);
-            }
-            List<Map<String, Object>> errors = new ArrayList<>();
-            for (ParameterValidationResult result : exception.getParameterValidationResults()) {
-                String parameter = result.getMethodParameter().getParameterName();
-                if (result instanceof ParameterErrors parameterErrors) {
-                    parameterErrors.getFieldErrors().forEach(fieldError -> {
-                        Map<String, Object> entry = new LinkedHashMap<>();
-                        entry.put("field", fieldError.getField());
-                        entry.put("message", fieldError.getDefaultMessage());
-                        factory.putRejectedValue(entry, fieldError.getField(), fieldError.getRejectedValue());
-                        errors.add(entry);
-                    });
-                    parameterErrors.getGlobalErrors().forEach(globalError -> {
-                        Map<String, Object> entry = new LinkedHashMap<>();
-                        entry.put("field", parameter);
-                        entry.put("message", globalError.getDefaultMessage());
-                        errors.add(entry);
-                    });
-                } else {
-                    result.getResolvableErrors().forEach(error -> {
-                        Map<String, Object> entry = new LinkedHashMap<>();
-                        entry.put("field", parameter);
-                        entry.put("message", error.getDefaultMessage());
-                        factory.putRejectedValue(entry, parameter, result.getArgument());
-                        errors.add(entry);
-                    });
-                }
-            }
-            return validationFailed(errors, headers);
-        }
-
-        @Override
-        protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException exception,
-                HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-            log.debug("unreadable request body [{}]", MALFORMED_REQUEST, exception);
-            ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, MALFORMED_REQUEST_DETAIL);
-            problem.setProperty(ProblemDetailFactory.CODE, MALFORMED_REQUEST);
-            return ResponseEntity.status(status).headers(headers).body(problem);
-        }
-
-        private static ResponseEntity<Object> validationFailed(List<Map<String, Object>> errors, HttpHeaders headers) {
-            ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(400), "Validation failed.");
-            problem.setProperty(ProblemDetailFactory.CODE, VALIDATION_FAILED);
-            problem.setProperty("errors", errors);
-            return ResponseEntity.badRequest().headers(headers).body(problem);
-        }
     }
 }

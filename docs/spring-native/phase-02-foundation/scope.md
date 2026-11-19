@@ -103,7 +103,7 @@ The v3 criteria carry, except AC13 (security, cut). Each is tested.
 | AC2 | No `traceparent` → a new 32-hex trace ID in the body and the MDC | SLICE + CONSUMER |
 | AC3 | Malformed, oversized or control-character `traceparent` → new trace; raw value in no log; length-only marker at DEBUG | UNIT + CONSUMER |
 | AC4 | `X-Correlation-Id` ignored: not echoed, trace unaffected, not sent outbound | SLICE + CONSUMER |
-| AC5 | An outbound call through Boot's `RestClient.Builder` carries `traceparent` with the same trace ID | CONSUMER |
+| AC5 | An outbound call through a `RestClient` instrumented with the application's `ObservationRegistry` carries `traceparent` with the same trace ID (Boot's `RestClient.Builder` bean needs `spring-boot-starter-restclient`, which comes with the REST client in iteration 2) | CONSUMER |
 | AC6 | `traceId` in the body and the MDC with `management.tracing.sampling.probability=0.0` | CONSUMER |
 | AC7 | An `@Async` method sees the caller's trace ID in `Tracer` and the MDC | SLICE + CONSUMER |
 | AC8 | 200 parallel requests, three passes: no trace-ID bleed (response, MDC, async, body) | SLICE + CONSUMER |
@@ -119,7 +119,7 @@ The v3 criteria carry, except AC13 (security, cut). Each is tested.
 | AC19 | An `ErrorResponse.Interceptor` sees the populated body and the originating exception (as the cause) on every path: thrown `ErrorResponseException`, `ResponseStatusException`, `@ResponseStatus` exception, unexpected exception, data-access failure, validation, 404, 405, unreadable body, `sendError` and an exception escaping a filter. Two interceptors compose in order | SLICE + CONSUMER |
 | AC20 | A service's `code` property and its 4xx `detail` reach the body unchanged; a 5xx detail is replaced by the generic text | SLICE + CONSUMER |
 | AC21 | An exception annotated `@ResponseStatus(CONFLICT)` → 409 with the platform contract, not 500 | SLICE + CONSUMER |
-| AC22 | Zero-config: an app with only `platform-starter-core` and `platform-starter-errors` starts and meets AC1, AC2, AC10–AC12 | SLICE |
+| AC22 | Zero-config: an app with only `platform-starter-core` and `platform-starter-errors` starts and meets AC1, AC2, AC10–AC12 (`ZeroConfigAcceptanceTest`) | SLICE |
 | AC23 | The consumer probe and the archetype import no `ae.gov.dubaicustoms.platform` type (contract 12) | CONSUMER (grep in the harness) |
 
 ## 6. Carry-over table
@@ -132,17 +132,17 @@ existing test is rewritten onto the new types.
 | C1 | `traceparent` is the only correlation header; nothing reads, generates or echoes another | HD5, AC4 | `CorrelationIdFilter` | same | `CorrelationIdFilterTest`, `TraceCorrelationIntegrationTest` (port) | CARRIED |
 | C2 | A rejected `traceparent` is logged as a length-only marker; no header content in a log | HI-0007, HI-0020, AC3 | `CorrelationIdFilter`, `CorrelationId` | `CorrelationIdFilter` | `aTraceparentThePropagatorDidNotContinueIsMarkedWithoutItsContent` (port) | CARRIED |
 | C3 | The filter runs after Boot's observation filter and before the security chain | HI-0006 | `CoreContextAutoConfiguration.FILTER_ORDER` | same | `CoreContextAutoConfigurationTest` | CARRIED |
-| C4 | The filter backs off to a user registration or filter bean, by type | HI-0015, HI-0024 (D98) | `CoreContextAutoConfiguration` | same | `backsOffWhenUserRegistrationPresent`, `RegistrationOverrideContainerTest` | CARRIED |
+| C4 | The filter backs off to a user registration or filter bean, by type | HI-0015, HI-0024 (D98) | `CoreContextAutoConfiguration` | same | `CoreContextAutoConfigurationTest.backsOffWhenUserRegistrationPresentUnderAnyName`, `RegistrationOverrideContainerTest` | CARRIED |
 | C5 | REQUEST, ASYNC and ERROR dispatches carry the trace; ERROR takes it from the request's observation | HI-0017 | `CorrelationIdFilter` + `RequestContext` | `CorrelationIdFilter` + the trace helper | `TraceCorrelationIntegrationTest` async and error-dispatch cases (port) | CARRIED |
-| C6 | A context-free task runs with no context, even on a thread serving another caller (Boot's decorator does not clear missing values) | HI-0016, HI-0023 | `RequestContextThreadLocalAccessor`, `RequestContext.replace` | internal MDC accessor in `core.autoconfigure.internal` | `RequestContextThreadLocalAccessorTest` empty-snapshot cases (port) | CARRIED |
-| C7 | Nested scopes restore the previous MDC exactly; an out-of-order close is tolerated | HI-0016 | `RequestContext` | internal MDC accessor | `RequestContextTest` nested cases (port) | CARRIED |
+| C6 | A context-free task runs with no context, even on a thread serving another caller (Boot's decorator does not clear missing values) | HI-0016, HI-0023 | `RequestContextThreadLocalAccessor`, `RequestContext.replace` | internal MDC accessor in `core.autoconfigure.internal` | `MdcContextThreadLocalAccessorTest` empty-snapshot cases (port); `TraceCorrelationIntegrationTest.aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer` | CARRIED |
+| C7 | Nested scopes restore the previous MDC exactly; an out-of-order close is tolerated | HI-0016 | `RequestContext` | internal MDC accessor | `MdcContextTest` nested cases (port) | CARRIED |
 | C8 | MDC is empty after each request, on request and pool threads | AC9, contract 6 | filter + accessor | same | `TraceCorrelationIntegrationTest` (port) | CARRIED |
 | C9 | 200 parallel requests show no bleed | AC8 | filter + accessor | same | `TraceCorrelationIntegrationTest` concurrency case; consumer AC8 | CARRIED |
 | C10 | A trace ID that is not 128-bit is never used as the correlation ID | HI-0006 | `CorrelationIdFilter` | trace helper | `CorrelationIdFilterTest` (port) | CARRIED |
 | C11 | The core starter brings a tracer (OTel bridge, no exporter) | HI-0018 | `platform-starter-core` | same | `example-minimal` `TraceCorrelationTest` | CARRIED |
 | C12 | Every error body has `code`, `traceId`, `timestamp`, `retryable`, `instance`, including framework rejections and the error dispatch | HI-0014, HI-0021, HI-0027 | `ProblemDetailFactory` | same, trace from `Tracer` | `ErrorContractIntegrationTest`, `PlatformExceptionHandlerTest` (port) | CARRIED |
-| C13 | Customization composes and sees the originating exception on every path | HI-0014 (`ProblemDetailCustomizer` contract) | `ProblemDetailCustomizer` | Spring `ErrorResponse.Interceptor` (D138.1) | new `ErrorResponseInterceptorTest` (AC19) | CARRIED |
-| C14 | No 5xx body carries an exception message | HI-0008, AC12 | `ProblemDetailFactory` | same | `everyServerErrorHasTheGenericDetail` (port) | CARRIED |
+| C13 | Customization composes and sees the originating exception on every path | HI-0014 (`ProblemDetailCustomizer` contract) | `ProblemDetailCustomizer` | Spring `ErrorResponse.Interceptor` (D138.1) | `ErrorContractIntegrationTest.everyPathReachesTheInterceptorsInOrderWithTheOriginatingException`, `anInterceptorsChangeReachesTheBody` (AC19) | CARRIED |
+| C14 | No 5xx body carries an exception message | HI-0008, AC12 | `ProblemDetailFactory` | same | `ProblemDetailFactoryTest.everyServerErrorGetsTheGenericDetail`, `ErrorContractIntegrationTest.aServiceCodeAndClientDetailReachTheBodyAndAServerDetailDoesNot` | CARRIED |
 | C15 | `rejectedValue` omitted by default; credential-named fields redacted when enabled | HI-0009, AC11 | `ProblemDetailFactory` | same | `requestBodyValidationOmitsRejectedValuesByDefault` | CARRIED |
 | C16 | `type` defaults to `urn:dc:problem:<code>` | HI-0010 | `ErrorsProperties` | same | default snapshot | CARRIED |
 | C17 | Spring Security exceptions are rethrown, not turned into 500 (basic auth returns in Phase 8) | HI-0012 | `PlatformExceptionHandler` | same | `PlatformExceptionHandlerTest` security case | CARRIED |
@@ -161,10 +161,13 @@ existing test is rewritten onto the new types.
 | R1 | `CorrelationId` format check (32 lowercase hex) | HI-0007 | `CorrelationId` | Micrometer's `TraceContext`: the filter accepts only a 32-character trace ID from the tracer, never a header value | C10 | RETIRED |
 | R2 | `ErrorCode` format check `DC-<CAP>-<NNNN>` for platform codes | `ErrorCode` | `ErrorCode` | the uniqueness scan rejects a platform literal of any other form | C24 | RETIRED |
 | N1 | Trace bleed through `Tracer`: services now read the trace from `Tracer`. Micrometer's observation accessor shows the executing thread's span to a context-free task under Boot's decorator, which does not clear missing values | new | — | **Confirmed at Gate B** (the test failed with Boot's decorator: the task saw the caller's trace in `Tracer`, not in the MDC). Fixed: `CoreContextPropagationAutoConfiguration` supplies a `ContextPropagatingTaskDecorator` over a snapshot factory that clears missing values, replacing the `spring.task.execution.propagate-context=true` default (D139). It backs off to any `TaskDecorator`; the module page states the cost | `TraceCorrelationIntegrationTest.aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`, `CoreContextPropagationAutoConfigurationTest` | NEW RISK |
-| N2 | A throwing interceptor is swallowed by Spring without a log, and the interceptors after it do not run | new | — | documented limit on the module page; the platform's error controller logs a WARN; a test shows the response is still the platform's | `ErrorResponseInterceptorTest` | NEW RISK |
+| N2 | A throwing interceptor is swallowed by Spring without a log, and the interceptors after it do not run | new | — | documented limit on the module page; the platform's error controller logs a WARN; a test shows the response is still the platform's | `ErrorContractIntegrationTest.aThrowingInterceptorStopsTheRestButThePlatformBodyIsStillSent` | NEW RISK |
 | N3 | A service sets `code` to a non-`String` value or forgets it | new | — | the platform keeps only a `String`; otherwise sets `DC-CORE-0499`/`0500`. Tested | `PlatformExceptionHandlerTest` | NEW RISK |
 
-N1–N3 get issue-register entries at Gate E with these mitigations.
+| N4 | A service that sets `spring.mvc.problemdetails.enabled=true` gets Boot's `@Order(0)` `ProblemDetailsExceptionHandler` ahead of the platform advice: it backs off only to a `ResponseEntityExceptionHandler` bean, which the old advice was and the new one is not. Framework and `ErrorResponse` bodies would lose `traceId`, `timestamp`, `retryable`, and a service's 5xx detail would reach the client (C12, C14) | found before round 1 | — | The advice's delegate `FrameworkErrors` is a `ResponseEntityExceptionHandler` bean (not an advice), registered before `WebMvcAutoConfiguration`, so Boot's handler backs off | `BootProblemDetailsPropertyTest` | NEW RISK |
+| N5 | For an `ErrorResponse` exception, `ResponseEntityExceptionHandler` returns the exception's own `ProblemDetail`. Decorating it in place would write one request's `traceId` and `instance` into an exception instance a service reuses, racing between concurrent requests (C9) | found before round 1 | — | The advice decorates a copy (`ProblemDetailFactory.copyOf`). Negative control: without the copy the test fails in its first round | `PlatformExceptionHandlerTest.aSharedExceptionInstanceNeverCarriesOneRequestsTraceIntoAnother` | NEW RISK |
+
+N1–N5 get issue-register entries at Gate E with these mitigations.
 
 ## 7. Removal list
 
@@ -192,9 +195,9 @@ OpenRewrite recipe `adopt-platform.yml`, the MCP server's index, the docs.
 
 `tooling/hardening/scenarios/phase-01-core-errors.sh` with the probe in `phase-01/probe/`. **Floor 77** (D138.6).
 - The probe moves to Spring types: it throws `ErrorResponseException` with a `code` property instead of a
-  `PlatformException`, reads the trace from `Tracer` instead of `RequestContext`, and calls downstream through Boot's
-  `RestClient.Builder` instead of the parked `PlatformRestClientFactory`. The parked REST-client starter is no longer
-  added: AC5 needs only Boot's instrumented client.
+  `PlatformException`, reads the trace from `Tracer` instead of `RequestContext`, and calls downstream through a
+  `RestClient` built with the application's `ObservationRegistry` instead of the parked `PlatformRestClientFactory`. The
+  parked REST-client starter is no longer added.
 - The infrastructure, faults and assertions stay. A grep step fails the run if the probe imports a platform type (AC23).
 - New assertions (above the floor): AC19 for an exception, a framework 404 and a `sendError`; AC20; AC21.
 - Repository: `bash tooling/hardening/native-repo.sh native-02`. Runs land in `~/dc-hardening-runs/native-02/`.

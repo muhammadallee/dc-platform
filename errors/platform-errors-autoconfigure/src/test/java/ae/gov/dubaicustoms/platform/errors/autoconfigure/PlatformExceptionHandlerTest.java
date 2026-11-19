@@ -345,6 +345,12 @@ class PlatformExceptionHandlerTest {
                     "select secret_column from orders", new java.sql.SQLException("ORA-00942", "42000"));
         }
 
+        // One instance thrown by every request: a service may prebuild its exceptions.
+        @GetMapping("/shared")
+        String shared() {
+            throw SHARED;
+        }
+
         @GetMapping("/annotated")
         String annotated() {
             throw new AlreadyShipped();
@@ -365,6 +371,8 @@ class PlatformExceptionHandlerTest {
             return "created";
         }
     }
+
+    static final ErrorResponseException SHARED = serviceError(HttpStatus.CONFLICT, "DC-TEST-0410", "slot taken");
 
     @ResponseStatus(code = HttpStatus.CONFLICT, reason = "order already shipped")
     static final class AlreadyShipped extends RuntimeException {
@@ -512,5 +520,33 @@ class PlatformExceptionHandlerTest {
                     assertThat(event.getFormattedMessage()).contains("DC-TEST-0500");
                     assertThat(event.getThrowableProxy()).isNotNull();
                 });
+    }
+
+    @Test
+    void aSharedExceptionInstanceNeverCarriesOneRequestsTraceIntoAnother() throws Exception {
+        MockMvc mvc = mockMvc(defaults());
+        for (int round = 0; round < 3; round++) {
+            try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(50)) {
+                List<java.util.concurrent.Future<String[]>> results = new java.util.ArrayList<>();
+                for (int i = 0; i < 200; i++) {
+                    results.add(pool.submit(() -> {
+                        String traceId = java.util.UUID.randomUUID().toString().replace("-", "");
+                        try (AutoCloseable scope = trace(traceId)) {
+                            String body = mvc.perform(get("/shared")).andReturn().getResponse().getContentAsString();
+                            return new String[] {traceId, com.jayway.jsonpath.JsonPath.read(body, "$.traceId"),
+                                    com.jayway.jsonpath.JsonPath.read(body, "$.code")};
+                        }
+                    }));
+                }
+                for (java.util.concurrent.Future<String[]> result : results) {
+                    String[] seen = result.get();
+                    assertThat(seen[1]).as("round %d", round).isEqualTo(seen[0]);
+                    assertThat(seen[2]).isEqualTo("DC-TEST-0410");
+                }
+            }
+        }
+        assertThat(SHARED.getBody().getProperties()).as("the exception's own body is never decorated")
+                .containsOnlyKeys("code");
+        assertThat(SHARED.getBody().getInstance()).isNull();
     }
 }

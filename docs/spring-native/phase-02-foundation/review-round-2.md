@@ -39,5 +39,7 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   local's initialiser resolve against an anonymous class's shadowing field.
 - [`r2-verify7.out.md`](codex/r2-verify7.out.md): names resolve as Java resolves them (`ed874a0`); a variable named
   like a class was read as the class, and a local class's fields still entered the locals.
-- Verification 8: a variable is never read as a type; class bodies hold fields, not locals.
+- [`r2-verify8.out.md`](codex/r2-verify8.out.md): a variable is never read as a type and class bodies hold fields,
+  not locals (`f6c9862`); `this.D.KEY` still escaped, as only the leftmost name was checked.
+- Verification 9: every name of a qualified receiver is checked.
 

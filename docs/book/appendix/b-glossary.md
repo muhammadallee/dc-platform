@@ -1,5 +1,9 @@
 # Appendix B — Glossary
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > Platform, Spring, and distributed-systems terms as this book uses them.
 
 Terms are defined **as this platform uses them**, which occasionally differs from general usage — where
@@ -89,7 +93,7 @@ the developer's machine, where allow-by-default fails *silently* in production m
 → 5
 
 **DLQ** *(dead-letter queue)* — Where a message goes after bounded retries are exhausted. The platform's
-DLQ republish is transport-agnostic, so behaviour is identical across in-memory, RabbitMQ, and Kafka.
+DLQ republish is transport-agnostic, so behaviour is identical across in-memory and RabbitMQ.
 A DLQ nobody consumes is slow-motion data loss. → [7](../chapters/07-messaging-events.md)
 
 **Domain event** — Something that happened **inside one process**, dispatched to handlers in the same

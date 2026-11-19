@@ -1,5 +1,9 @@
 # Local Development vs Production
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > The local-first guarantee, what changes in production, and how to keep the gap from surprising you.
 
 Every chapter in this book has a version of the same warning: *the local provider behaves differently

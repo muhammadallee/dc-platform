@@ -210,7 +210,7 @@ A capability `X` is built from up to five module kinds:
 |---|---|---|
 | `platform-X-api` | API | Consumer-facing interfaces, annotations, value types, exceptions |
 | `platform-X-spi` | SPI | Provider/extension contracts (`XProvider`, `XCustomizer`) |
-| `platform-X-<provider>` | Implementation | One provider (e.g. `platform-messaging-kafka`) |
+| `platform-X-<provider>` | Implementation | One provider (e.g. `platform-messaging-rabbit`) |
 | `platform-X-autoconfigure` | Auto Configuration | `@AutoConfiguration`, `@ConfigurationProperties`, conditions |
 | `platform-starter-X[-provider]` | Starter | **No code** — a `pom.xml` aggregating dependencies |
 
@@ -356,8 +356,8 @@ imported from application code.
 ## Profiles
 
 - `local` — console logs, in-memory/H2 providers; the default for laptops and the untagged test suite.
-- `kafka`, `rabbit`, `redis`, `pg`, `s3`, `vault` — switch a capability to a real backing service
-  (via `docker-compose.local.yml`); see the [local development runbook](../runbooks/local-dev.md).
+- Real backing services (RabbitMQ, Oracle Free) come from `docker-compose.local.yml`; see the
+  [local development runbook](../runbooks/local-dev.md).
 - Docker-backed tests are tagged `@Tag("docker")` and only run under `-Pdocker`.
 
 ## Auto-configuration conditions (evaluation order)
@@ -384,7 +384,7 @@ imported from application code.
 ## Two tiers
 
 **Customizer tier — tweak the default.** Contribute `*Customizer` beans (`RestClientCustomizer`,
-`ProblemDetailCustomizer`, `KafkaTemplateCustomizer`, …). The platform collects them via
+`ProblemDetailCustomizer`, `RabbitTemplateCustomizer`, …). The platform collects them via
 `ObjectProvider<List<…Customizer>>.orderedStream()` and applies them in `@Order`. You add behaviour
 without replacing beans.
 
@@ -444,8 +444,8 @@ catalog files `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, and `catalog-info.yaml`. Se
 
 The service's own build refuses the wrong thing and says why.
 
-- **Dependency bans** in `platform-service-parent`: declaring a wrapped library directly (spring-kafka,
-  spring-rabbit, awssdk:s3, resilience4j, springdoc) fails the build with the starter to use instead.
+- **Dependency bans** in `platform-service-parent`: declaring `spring-rabbit` directly fails the build
+  with the starter to use instead.
 - **`PlatformUsageRules`** (a conformance test the archetype wires in): no hand-rolled
   `ResponseEntityExceptionHandler`, no `new ObjectMapper()`, no `System.getenv`, no `Thread.sleep` in
   production — each violation names the platform alternative.
@@ -508,7 +508,7 @@ exception model, and the startup capability banner.
 - **Exception model** — subclass `PlatformException` with a stable `ErrorCode`
   (`DC-<CAP>-<NNNN>`); the errors capability maps them to RFC-9457 problem responses.
 - **Capability banner** — one INFO line at startup listing every active platform capability:
-  `platform: core[ACTIVE], messaging[ACTIVE] (kafka)`.
+  `platform: core[ACTIVE], messaging[ACTIVE] (rabbit)`.
 - **API markers** — `@PlatformApi` (SemVer-guaranteed) and `@PlatformInternal` (no guarantees).
 
 ## Starter coordinates
@@ -2561,7 +2561,6 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-test-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-test` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-tck-messaging` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-docs` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-mcp-server` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-skill` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-migrations` | `${revision}` |
@@ -2663,18 +2662,19 @@ mvn -T1C install                                  # put platform into ~/.m2 for 
 
 ## Docker-backed tests & manual infra
 ```bash
-docker compose -f docker-compose.local.yml up -d  # kafka, rabbit, redis, postgres, vault(dev), localstack
+docker compose -f docker-compose.local.yml up -d  # rabbitmq, oracle (Oracle Free)
 mvn -Pdocker verify                               # runs @Tag("docker") suites (Testcontainers manages
                                                   # its own containers; compose is for MANUAL app runs)
 docker compose -f docker-compose.local.yml down -v
 ```
-Vault dev token: `dev-root`. Postgres: `platform/platform@localhost:5432/platform`.
+Connection details are in `docker-compose.local.yml`.
 
 ## Running an example against real infra
 ```bash
-(cd examples/example-golden-path && mvn spring-boot:run -Dspring-boot.run.profiles=local,kafka,pg)
+docker compose -f docker-compose.local.yml up -d rabbitmq
+mvn -pl examples/example-event-driven/producer spring-boot:run   # and the consumer, in a second shell
 ```
-Profiles: `local` (console logs, H2/inmemory), `kafka`, `pg`, `redis` switch providers to compose services.
+The golden-path example runs on H2 and the in-memory transport; `example-event-driven` uses RabbitMQ.
 
 ## Debugging platform behavior in an app
 1. `--debug` flag → ConditionEvaluationReport: why each platform auto-config did/didn't activate.
@@ -4097,6 +4097,9 @@ Owner of every entry: **repository owner** (HD10). Gaps found by reading the bas
 [`phase-00-baseline/gap-inventory.md`](phase-00-baseline/gap-inventory.md) and become entries here when
 a phase confirms them.
 
+Rows from HI-0109 on come from the Spring-native realignment ([plan](../spring-native/plan.md), Gate E). The
+frozen hardening record is the assessment, the release decision and the phase folders, not this register.
+
 | ID | Phase | Severity | Location | Reproduction | Codex claim | Claude reply | Evidence | Status | Mitigation / target | Fix commit | Test |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | HI-0001 | 0 | High | `build/platform-parent/pom.xml` | `install -DskipTests` with unpinned failsafe resolving 3.6.0 forks a test JVM; JaCoCo check fails at 0% (CI run 40232447219, generator-gate) | — (found pre-review) | Pinned compiler/surefire/failsafe/resources to Boot's managed versions | CI run 40233736578 generator-gate pass | FIXED | — | `852ac15` | `mvn validate` (0 missing-version warnings); generator-gate |
@@ -4209,9 +4212,15 @@ a phase confirms them.
 | HI-0107 | 8 | Low | `platform-service-parent`; `platform-dependencies` flatten | (a) A service's executable jar is not reproducible: the service parent sets no `project.build.outputTimestamp`, so two builds of an example differ (the platform's own 112 artifacts are identical). (b) Fixed in Phase 8: the published BOMs had property references a consumer's command line could redirect; flatten now uses `extended_interpolate` | Phase 8 step 8 (Claude) | Reproducibility of services is the service's choice; (b) needs a consumer setting those exact properties | `evidence-raw/repro-diff.txt`, staged poms | ACCEPTED, release condition | Owner 2026-11-04 (D134) | — | — |
 | HI-0108 | 8 | Medium | Release pipeline (`release.yml`, `release.sh`) | No SBOM is attached to released artifacts and no build provenance is produced; the plan's step 8 asks for both. Also `release.sh` hard-codes `-T1C`, which fails on a machine with a low native-thread limit (this one) | Phase 8 step 8 (Claude) | A release condition, not a code defect: Phase 8 produced an SBOM on demand (`bom-b.json`) | `.github/workflows/`, `tooling/scripts/release.sh` | ACCEPTED, release condition | Owner 2026-11-04 (D134): before the first real release | — | — |
 | HI-0109 | N0 | Medium | CI (`.github/workflows/ci.yml`), push builds on `develop` | The `build` job on pushes to `develop` (`6666618`, three attempts on 2026-11-17) failed before compiling. Every parent and BOM POM was "present, but unavailable" in the restored Maven cache (`main`'s, key `setup-java-…-4808ef50…`), so Maven re-fetched them from Central, which answered 429 Too Many Requests. PR #6, same code and the **same** cache key, passed minutes earlier; PR #7, a new key, passed after. **Cause unknown**: a cache shared between jobs does not explain why the same key passes on a PR and fails on a push. Consequence: `develop`'s head is red from the first merge, which breaks plan §3.6 | Spring-native Phase 0 (Claude) | Pull-request CI, the per-phase merge gate, is unaffected | `.github/workflows/ci.yml` | OPEN (not reproduced) | Repository owner | Spring-native Phase 1, 2026-11-19: the push build of `085d752` (merge of PR #7, run 44425657475) passed with no change made, so the failure did not recur and its cause is still unknown. Close after three consecutive green `develop` push builds; reopen with the run id if one fails the same way | — | — |
-| HI-0110 | N1 | Low | `docs/book/**`, `docs/concepts/**`, `docs/modules/dx.md`, `docs/examples.md` | The scope cut deleted the pages of 14 capabilities. Links to them were removed (171 links, text kept), but the book, the concept pages and the DX page still describe cut capabilities in prose (Kafka examples, `@RequiresPermission`, caching, locking, the security model). | — | Plan v2 Gate H allows a capability's book chapter to be updated later with an issue entry; this is that entry, for the chapters and pages that are not one capability's. | `git diff develop -- docs/book` | OPEN | Each capability phase rewrites its own chapter (Gate H); the cross-cutting book pages, the concept pages and the DX page are rewritten in Phase 7, before the iteration 1 release check | — | — |
-| HI-0111 | N1 | Low | `docs/platform-docs` generators, `docs/reference/*` | The generated reference (properties, feature catalog, platform index) is built from every reactor module, so it also lists the parked modules (`openapi`, `restclient`, `resilience`), which 1.0.0 does not ship. | — | Parked modules must stay in the reactor (plan v2 §2.4); the generators have no notion of parking yet. | `docs/reference/properties.md` | OPEN | Phase 7 release check: filter deploy-skipped modules out of the generated reference, or mark them "iteration 2" | — | — |
+| HI-0110 | N1 | Low | `docs/book/**`, `docs/concepts/**`, `docs/modules/dx.md`, `docs/examples.md` | The scope cut deleted the pages of 14 capabilities. Links to them were removed (171 links, text kept), but the book, the concept pages and the DX page still describe cut capabilities in prose (Kafka examples, `@RequiresPermission`, caching, locking, the security model). | — | Plan v2 Gate H allows a capability's book chapter to be updated later with an issue entry; this is that entry, for the chapters and pages that are not one capability's. | `git diff develop -- docs/book` | OPEN | Codex Phase 1 review (finding 4): executable instructions fixed in place; every other affected book and sample page carries a "not yet updated for Spring-native" banner. Each capability phase rewrites its own chapter (Gate H); the cross-cutting book pages, the concept pages and the DX page are rewritten in Phase 7, before the iteration 1 release check | — | — |
+| HI-0111 | N1 | Low | `docs/platform-docs` generators, `docs/reference/*` | The generated reference (properties, feature catalog, platform index) is built from every reactor module, so it also lists the parked modules (`openapi`, `restclient`, `resilience`), which 1.0.0 does not ship. | — | Parked modules must stay in the reactor (plan v2 §2.4); the generators have no notion of parking yet. | `docs/reference/properties.md` | OPEN | Platform index (MCP server, skill) fixed in Phase 1: it lists only BOM starters (HI-0115). Phase 7 release check: the same for the properties and feature references, or mark them "iteration 2" | — | — |
 | HI-0112 | N1 | Low | `observability/platform-observability-autoconfigure` (`PlatformObservabilityEnvironmentPostProcessor`) | The default `dependencies` health group still names `redis` and `restclient`. Redis is cut and the REST client is parked, so the members never exist; group-membership validation is off, so nothing fails. | — | Harmless, but the default should list only what ships. | `DEPENDENCIES = "db,rabbit,redis,restclient"` | OPEN | Phase 3 (observability) updates the default; Phase 9 adds `restclient` back | — | — |
+| HI-0113 | N1 | High | `test/platform-test-api` `PlatformUsageRules` | A service that uses Spring Kafka itself fails its generated `PlatformConformanceTest`: the rule bans `KafkaTemplate` and Kafka listener containers and points to `EventPublisher`, whose Kafka transport was cut | Codex Phase 1 r1 #1 | Agree | `PlatformUsageRulesTest.kafkaTypesAreNotBannedBecauseKafkaIsNotAPlatformTransport` | FIXED | Only RabbitMQ types are banned | Phase 1 fix commit | `PlatformUsageRulesTest` |
+| HI-0114 | N1 | High | `tooling/hardening/phase-0{4,5,6,7}-repo.sh`, `phase-repo.sh` | The documented consumer-run setup fails: the scripts select cut modules, and `phase-repo.sh` copies `~/.m2-baseline`, which still holds cut artifacts | Codex Phase 1 r1 #2 | Agree; the Phase 1 runs had used a fresh repository by hand | `native-repo.sh native-01-check`: 50 platform artifacts, none cut | FIXED | `tooling/hardening/native-repo.sh`; per-phase scripts deleted; unported JWT runs stop with a message | Phase 1 fix commit | Script run end to end |
+| HI-0115 | N1 | Medium | `docs/platform-docs` `PlatformIndexGenerator` | The shipped platform index (MCP `list_starters`, the skill) offers the parked OpenAPI, REST-client and resilience starters, which no consumer can resolve | Codex Phase 1 r1 #3 | Agree | Regenerated `docs/reference/platform-index.json` | FIXED | Index keeps only starters listed in the BOM | Phase 1 fix commit | `PlatformIndexTest.everyReleasedStarterAndNoParkedOneAppearsInTheIndex` |
+| HI-0116 | N1 | Medium | `docs/testing.md`, `docs/examples.md`, book chapters 2 and 7, book index, other book and sample pages | Live pages tell a reader to use `Containers.kafka()`, the validation or events starter, or rely on "authenticated by default" | Codex Phase 1 r1 #4 | Agree | Docs build and `DocsLinkCheckTest` pass | FIXED | Instructions fixed in place; banners on pages still to be rewritten (HI-0110) | Phase 1 fix commit | — |
+| HI-0117 | N1 | Medium | `docs/production-readiness/issue-register.md` | Codex: the HI-0109 update and HI-0110 to HI-0112 break the frozen hardening record | Codex Phase 1 r1 #5 | Disagree: plan Gate E makes this register the home of Spring-native findings; the frozen record is the assessment, the decision and the phase folders | Plan §8 Gate E, §10 Phase 1 step 7 | REJECTED | Register header states where rows from HI-0109 on come from; later prompts name the frozen files | Phase 1 fix commit | — |
+| HI-0118 | N1 | Medium | `examples/example-event-driven` | An in-memory profile is active by default, so the producer and consumer started normally cannot reach each other; Phase 1 step 5 says RabbitMQ only | Codex Phase 1 r1 #6 | Agree | Producer and consumer tests pass with RabbitMQ on the classpath | FIXED | Profiles removed; both services use the RabbitMQ starter; tests use the recording test transport | Phase 1 fix commit | `ApplicationSmokeTest`, `ShipmentRoundTripTest`, `ShipmentRetryDlqTest` |
 
 
 ---

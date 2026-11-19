@@ -45,8 +45,8 @@ imported from application code.
 ## Profiles
 
 - `local` — console logs, in-memory/H2 providers; the default for laptops and the untagged test suite.
-- `kafka`, `rabbit`, `redis`, `pg`, `s3`, `vault` — switch a capability to a real backing service
-  (via `docker-compose.local.yml`); see the [local development runbook](../runbooks/local-dev.md).
+- Real backing services (RabbitMQ, Oracle Free) come from `docker-compose.local.yml`; see the
+  [local development runbook](../runbooks/local-dev.md).
 - Docker-backed tests are tagged `@Tag("docker")` and only run under `-Pdocker`.
 
 ## Auto-configuration conditions (evaluation order)

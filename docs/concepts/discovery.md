@@ -24,8 +24,8 @@ catalog files `CLAUDE.md`, `AGENTS.md`, `.mcp.json`, and `catalog-info.yaml`. Se
 
 The service's own build refuses the wrong thing and says why.
 
-- **Dependency bans** in `platform-service-parent`: declaring a wrapped library directly (spring-kafka,
-  spring-rabbit, awssdk:s3, resilience4j, springdoc) fails the build with the starter to use instead.
+- **Dependency bans** in `platform-service-parent`: declaring `spring-rabbit` directly fails the build
+  with the starter to use instead.
 - **`PlatformUsageRules`** (a conformance test the archetype wires in): no hand-rolled
   `ResponseEntityExceptionHandler`, no `new ObjectMapper()`, no `System.getenv`, no `Thread.sleep` in
   production — each violation names the platform alternative.

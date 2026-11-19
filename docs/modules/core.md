@@ -26,7 +26,7 @@ exception model, and the startup capability banner.
 - **Exception model** — subclass `PlatformException` with a stable `ErrorCode`
   (`DC-<CAP>-<NNNN>`); the errors capability maps them to RFC-9457 problem responses.
 - **Capability banner** — one INFO line at startup listing every active platform capability:
-  `platform: core[ACTIVE], messaging[ACTIVE] (kafka)`.
+  `platform: core[ACTIVE], messaging[ACTIVE] (rabbit)`.
 - **API markers** — `@PlatformApi` (SemVer-guaranteed) and `@PlatformInternal` (no guarantees).
 
 ## Starter coordinates

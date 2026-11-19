@@ -8,7 +8,7 @@
 ## Two tiers
 
 **Customizer tier — tweak the default.** Contribute `*Customizer` beans (`RestClientCustomizer`,
-`ProblemDetailCustomizer`, `KafkaTemplateCustomizer`, …). The platform collects them via
+`ProblemDetailCustomizer`, `RabbitTemplateCustomizer`, …). The platform collects them via
 `ObjectProvider<List<…Customizer>>.orderedStream()` and applies them in `@Order`. You add behaviour
 without replacing beans.
 

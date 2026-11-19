@@ -925,8 +925,7 @@ curl -s localhost:8080/actuator/health/dependencies | jq       # db lives here, 
 
 ---
 
-**Next:** Chapter 9 — Caching and Redis, which is what you reach for when the
-queries in this chapter are the bottleneck.
+**Next:** [Chapter 14 — Testing & Developer Experience](14-testing-dx.md).
 
 **Reference:** [modules/data.md](../../modules/data.md) ·
 [configuration properties](../../reference/properties.md) ·

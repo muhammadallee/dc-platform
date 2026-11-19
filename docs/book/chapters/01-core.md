@@ -427,7 +427,7 @@ class InvoiceArchiveConfiguration {
 ```
 
 ```
-platform: core[ACTIVE], invoice-archive[ACTIVE] (s3), storage[ACTIVE] (s3)
+platform: core[ACTIVE], invoice-archive[ACTIVE] (s3)
 ```
 
 ### 4.6 Change the header name

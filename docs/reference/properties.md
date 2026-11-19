@@ -9,6 +9,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.core.banner-enabled` | Boolean | `true` | whether the startup capability banner is logged |  |
+| `dc.platform.core.capabilities` | Map<String,Map<String,String>> |  | Per-capability overrides of what the platform reports (banner, /actuator/platform, capability gauge): dc.platform.core.capabilities.<name>.status and .detail replace that capability's status or detail, or add a capability when none has the name. |  |
 | `dc.platform.core.correlation.generate-if-missing` | Boolean |  | Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id. | error (The tracing bridge always starts a new trace when traceparent is missing or invalid.) |
 | `dc.platform.core.correlation.header-name` | String |  | Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure. | error (Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written.) |
 | `dc.platform.core.enabled` | Boolean | `true` | master kill switch for the whole capability |  |

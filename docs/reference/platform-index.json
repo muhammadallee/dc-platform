@@ -4,17 +4,17 @@
   "capabilities" : [ {
     "name" : "core",
     "doc" : "modules/core.md",
-    "oneLiner" : "The smallest useful chassis: request correlation by W3C trace ID, context propagation, the platform",
+    "oneLiner" : "Every generated service has it. Core makes one ID follow a request everywhere: the W3C trace ID. It is in every log",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-core" ]
   }, {
     "name" : "data",
     "doc" : "modules/data.md",
-    "oneLiner" : "Tech-neutral persistence value objects (platform-data-api) plus opinionated Spring Data JPA",
+    "oneLiner" : "Opinionated Spring Data JPA wiring (platform-data-jpa-autoconfigure): auditing, snake_case naming, sane",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-data-jpa", "ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle" ]
   }, {
     "name" : "errors",
     "doc" : "modules/errors.md",
-    "oneLiner" : "RFC-9457 problem responses with stable, machine-readable error codes: throw a",
+    "oneLiner" : "Every error a service returns is an RFC 9457 application/problem+json body with a stable code, the request's",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-errors" ]
   }, {
     "name" : "logging",
@@ -47,6 +47,13 @@
     "type" : "Boolean",
     "default" : "true",
     "description" : "whether the startup capability banner is logged",
+    "deprecation" : "",
+    "capability" : "core"
+  }, {
+    "name" : "dc.platform.core.capabilities",
+    "type" : "Map<String,Map<String,String>>",
+    "default" : "",
+    "description" : "Per-capability overrides of what the platform reports (banner, /actuator/platform, capability gauge): dc.platform.core.capabilities.<name>.status and .detail replace that capability's status or detail, or add a capability when none has the name.",
     "deprecation" : "",
     "capability" : "core"
   }, {
@@ -610,87 +617,8 @@
     "code" : "DC-DATA-0503",
     "capability" : "data",
     "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
-  }, {
-    "code" : "DC-TEST-0001",
-    "capability" : "test",
-    "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactoryTest"
   } ],
   "apiTypes" : [ {
-    "type" : "ae.gov.dubaicustoms.platform.core.ErrorCode",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.PlatformApi",
-    "kind" : "annotation",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.PlatformException",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.PlatformInternal",
-    "kind" : "annotation",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.context.CorrelationId",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.context.RequestContext",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.data.EntityId",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.data.Money",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.data.PersistenceConventions",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.errors.BusinessException",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.errors.ConflictException",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.errors.HttpStatusHint",
-    "kind" : "enum",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.errors.NotFoundException",
-    "kind" : "class",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.errors.ProblemDetailCustomizer",
-    "kind" : "interface",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
     "type" : "ae.gov.dubaicustoms.platform.logging.Kv",
     "kind" : "record",
     "status" : "STABLE",
@@ -833,12 +761,12 @@
   } ],
   "snippets" : [ {
     "capability" : "core",
-    "id" : "core",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-core</artifactId>\r\n</dependency>"
+    "id" : "core-read-trace",
+    "code" : "@Service\r\nclass InvoiceArchiver {\r\n\r\n    private final Tracer tracer;\r\n\r\n    InvoiceArchiver(Tracer tracer) {\r\n        this.tracer = tracer;\r\n    }\r\n\r\n    String supportReference() {\r\n        Span span = tracer.currentSpan();\r\n        return span == null ? \"none\" : span.context().traceId();\r\n    }\r\n}"
   }, {
     "capability" : "errors",
-    "id" : "errors",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-errors</artifactId>\r\n</dependency>"
+    "id" : "errors-service-error",
+    "code" : "@Service\r\nclass OrderService {\r\n\r\n    static final String ORDER_PAID = \"ORD-0409\";\r\n\r\n    void cancel(long orderId) {\r\n        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,\r\n                \"order %d is already paid\".formatted(orderId));\r\n        problem.setProperty(\"code\", ORDER_PAID);\r\n        throw new ErrorResponseException(HttpStatus.CONFLICT, problem, null);\r\n    }\r\n}"
   }, {
     "capability" : "logging",
     "id" : "logging",

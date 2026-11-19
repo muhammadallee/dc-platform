@@ -8,12 +8,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
 | Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-01-scope-cut`, PR #8 |
 | Current phase | 1 — Scope cut |
-| Current gate | Gate F done: all seven kept consumer runs and C1 pass at their floors (drop ledger in `phase-01-scope-cut/scope.md`); golden path 6/6; smoke 3/3; Trivy 0 findings; CI green on `451420b`. Gate C: Codex round pending |
+| Current gate | Gate C/D: Codex round 1 settled except finding 4 (docs), whose fourth verification waits for the Codex reset; five findings fixed, one rejected with Codex's agreement (`phase-01-scope-cut/review-round-1.md`). Gate F done. `closure.md` drafted (PASS) |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | Codex usage limit (2026-11-19 06:55): the Phase 1 review waits for the reset at 08:33 (plan §5.3: wait, never buy credits) |
+| Open blockers | Codex usage limit (2026-11-19 ~11:50): verification 4 waits for the reset at 13:35 (plan §5.3: wait, never buy credits) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | After 08:33: rerun `phase-01-scope-cut/codex/r1-review.prompt.md` against `451420b`, settle findings, write `closure.md`, merge PR #8 on green, tag `native/phase-01-closed` |
+| Next action | After 13:35: run `phase-01-scope-cut/codex/r1-verify4.prompt.md` against `a17f94f` from a worktree; if ACCEPTED, finalise `closure.md`, merge PR #8 on green CI, tag `native/phase-01-closed`, start Phase 2 |
 
 ## Phase log
 

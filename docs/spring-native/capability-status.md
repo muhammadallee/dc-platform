@@ -12,4 +12,4 @@ Updated at each phase closure. Until a capability's phase closes, its v3 status
 | Messaging (RabbitMQ) | 1 | PASS | 6 | messaging | not started |
 | REST API (basic auth) | 2 | new (v3 certified JWT security, which is cut) | 8 | REST API | not started |
 | REST client + resilience | 2 | PASS | 9 | REST client | parked during iteration 1 |
-| Cut (plan §2.5) | — | — | 1 | — | to be removed |
+| Cut (plan §2.5) | — | — | 1 | — | removed in Phase 1 (69 modules; tag `pre-spring-native` restores them) |

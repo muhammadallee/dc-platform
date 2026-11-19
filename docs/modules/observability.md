@@ -57,9 +57,9 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 Any user-set value outranks every one of these. The top-level `/actuator/health` still aggregates every
 contributor (the database included) — point probes at `readiness` and `liveness`, never at the top level.
 
-> **Access:** with the security starter, `/actuator/health/**` and `/actuator/info` are open and
-> `/actuator/prometheus` needs a token. How Prometheus scrapes in OpenShift (token, separate management
-> port, or a permit rule) is decided with the security hardening; until then, scrape with a token.
+> **Access:** 1.0.0 has no web security, so the exposed actuator endpoints answer anyone who can reach
+> the application port. Phase 3 moves management to its own port, 8081 (ND13); until then, keep the
+> application port off any public route.
 
 ## Properties
 

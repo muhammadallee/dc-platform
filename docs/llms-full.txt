@@ -396,9 +396,6 @@ platform default backs off. Certify your provider against the capability's TCK.
 | Add a new… | Implement | Register | Platform behaviour |
 |---|---|---|---|
 | Messaging provider (e.g. Pulsar) | `EventTransport` from `messaging-spi` | your autoconfigure + starter | façade binds to any `EventTransport`; default backs off via `@ConditionalOnMissingBean` |
-| Storage provider (e.g. GCS) | `ObjectStore` from `storage-spi` | bean `ObjectStore` | same back-off pattern |
-| Authentication provider | `TokenIntrospector`/`IssuerResolver` customizers, or a full SPI | bean replaces default | security composes customizers via `ObjectProvider` |
-| Cache provider | Spring's `CacheManager` + `CacheKeyConvention` SPI | bean `CacheManager` | platform decorates any manager with metrics/conventions |
 | Tracing provider | Micrometer `Tracer` + `ObservationCustomizer` | bean | Micrometer *is* the SPI; platform never wraps tracing itself |
 
 ## TCK certification
@@ -1005,9 +1002,9 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 Any user-set value outranks every one of these. The top-level `/actuator/health` still aggregates every
 contributor (the database included) — point probes at `readiness` and `liveness`, never at the top level.
 
-> **Access:** with the security starter, `/actuator/health/**` and `/actuator/info` are open and
-> `/actuator/prometheus` needs a token. How Prometheus scrapes in OpenShift (token, separate management
-> port, or a permit rule) is decided with the security hardening; until then, scrape with a token.
+> **Access:** 1.0.0 has no web security, so the exposed actuator endpoints answer anyone who can reach
+> the application port. Phase 3 moves management to its own port, 8081 (ND13); until then, keep the
+> application port off any public route.
 
 ## Properties
 
@@ -1125,9 +1122,8 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
 ### `platform-data-jpa-autoconfigure` (opinionated Spring Data JPA)
 
 - **Auditing** — `@CreatedDate`/`@CreatedBy`/`@LastModifiedDate`/`@LastModifiedBy` are populated
-  automatically. The auditor is the authenticated user's subject when the security capability is on
-  the classpath and the request is authenticated, otherwise `"system"`. A data-only service (no
-  security starter) audits everything as `"system"` and never pulls in a security type.
+  automatically. The platform's auditor always records `"system"` (1.0.0 has no web security); to
+  record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`.
 - **Money / CorrelationId converters** — `MoneyConverter` and `CorrelationIdConverter` persist those
   value types to a single column. Opt in per field with `@Convert` (see below); they are not
   auto-applied (a library converter is not part of your scanned persistence unit, decision D34).
@@ -1857,10 +1853,8 @@ breaker, a bulkhead and one failure type on every outbound call.
   named client's builder.
 - **Observations** — every call records an `http.client.requests` observation (metrics/tracing via
   the application's `ObservationRegistry`), tagged `client.name=<clientName>`.
-- **Token relay, opt-in per client** — name the clients that should carry the caller's bearer token in
-  `dc.platform.restclient.token-relay.clients`. None do by default, since whoever receives a token can replay it. A
-  restclient-only consumer never pulls in security. A redirect to another origin does not carry the header
-  (JDK `HttpClient` behavior, covered by a test).
+- **No token relay** — the caller's bearer token is never forwarded (removed in Spring-native Phase 1).
+  Iteration 2 adds basic auth and OAuth client credentials for outbound calls.
 
 ## Starter coordinates
 
@@ -2302,28 +2296,11 @@ Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is
 
 Tests, all through the platform slices and Docker-free:
 
-- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — authenticated `POST /orders`
+- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — `POST /orders`
   persists, publishes `OrderPlaced` (asserted on `TestEventTransport`), and is read back;
 - `OrderProblemResponseTest` — unknown order → 404 problem with code, invalid body → 400 problem;
-- `PlatformSurfaceTest` — OpenAPI document served, `/actuator/platform` reports capabilities;
+- `PlatformSurfaceTest` — `/actuator/platform` reports capabilities;
 - `StartupBudgetTest` — cold-start wall-clock stays within the checked-in baseline + 15% (deliverable C).
-
-## example-extension-provider — the extension model
-
-A service that adds a **custom storage provider** without editing the platform. `EncryptingFsObjectStore`
-implements `ObjectStore`, encrypting content at rest (AES-CTR, which is
-length-preserving so sizes and metadata still round-trip) and delegating persistence to the platform's
-`FsObjectStore`. Its `EncryptingStorageAutoConfiguration` is ordered **before** the platform's
-`FsObjectStoreAutoConfiguration`, so the platform default — guarded by
-`@ConditionalOnMissingBean(ObjectStore.class)` — backs off. This is the [extension model](concepts/extension-model.md)
-verbatim: extend by registering ahead of the default, never by forking the platform.
-
-Two tests are the acceptance:
-
-- `EncryptingFsObjectStoreTckTest extends ObjectStoreTck` — the provider is *platform-certified* iff
-  the whole storage TCK passes against it;
-- `StorageBackOffTest` — boots the app and asserts the single `ObjectStore` bean is the custom
-  encrypting provider, proving the default stepped aside.
 
 ## example-event-driven — producer/consumer over messaging
 

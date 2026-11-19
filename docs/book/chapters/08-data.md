@@ -1,5 +1,9 @@
 # Chapter 8 — Data and Persistence
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Capabilities covered:** `data`
 >
 > JPA conventions, migrations, and the defaults that keep a hundred schemas comparable.
@@ -129,26 +133,12 @@ Long raw = orderId.value();
     that with small records or subtypes is your call; `EntityId` gives you the wrapper, not the
     discipline.
 
-### 2.3 Auditing without coupling data to security
+### 2.3 Auditing
 
-Every row should record who created it and who last changed it. The obvious implementation makes the
-data capability depend on the security capability — and that would violate "a capability you don't add
-costs you nothing". A batch job with a database and no HTTP surface should not carry Spring Security.
-
-The platform's answer is **two mutually exclusive bean definitions**, keyed on classpath presence:
-
-```
-   CurrentUserAccessor on the classpath?
-        |
-        +-- YES:  AuditorAwareProvider  ->  the authenticated subject, else "system"
-        |
-        +-- NO:   a plain lambda        ->  always "system"
-                  (and no security type is ever loaded)
-```
-
-`@ConditionalOnClass` / `@ConditionalOnMissingClass` on the two definitions. A data-only service audits
-everything as `"system"` and never loads a security class; add the security starter and the same rows
-start recording real subjects, with no code change.
+Every row records who created it and who last changed it. In 1.0.0 the platform's auditor always
+records `"system"`: there is no web security to name a caller (the API gateway authenticates them).
+To record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`; it
+replaces the platform's.
 
 !!! note "This is the general pattern for optional cross-capability enrichment"
     Audit, flags, and

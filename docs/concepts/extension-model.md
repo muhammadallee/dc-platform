@@ -20,9 +20,6 @@ platform default backs off. Certify your provider against the capability's TCK.
 | Add a new… | Implement | Register | Platform behaviour |
 |---|---|---|---|
 | Messaging provider (e.g. Pulsar) | `EventTransport` from `messaging-spi` | your autoconfigure + starter | façade binds to any `EventTransport`; default backs off via `@ConditionalOnMissingBean` |
-| Storage provider (e.g. GCS) | `ObjectStore` from `storage-spi` | bean `ObjectStore` | same back-off pattern |
-| Authentication provider | `TokenIntrospector`/`IssuerResolver` customizers, or a full SPI | bean replaces default | security composes customizers via `ObjectProvider` |
-| Cache provider | Spring's `CacheManager` + `CacheKeyConvention` SPI | bean `CacheManager` | platform decorates any manager with metrics/conventions |
 | Tracing provider | Micrometer `Tracer` + `ObservationCustomizer` | bean | Micrometer *is* the SPI; platform never wraps tracing itself |
 
 ## TCK certification

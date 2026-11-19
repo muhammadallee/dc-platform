@@ -39,28 +39,11 @@ Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is
 
 Tests, all through the platform slices and Docker-free:
 
-- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — authenticated `POST /orders`
+- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — `POST /orders`
   persists, publishes `OrderPlaced` (asserted on `TestEventTransport`), and is read back;
 - `OrderProblemResponseTest` — unknown order → 404 problem with code, invalid body → 400 problem;
-- `PlatformSurfaceTest` — OpenAPI document served, `/actuator/platform` reports capabilities;
+- `PlatformSurfaceTest` — `/actuator/platform` reports capabilities;
 - `StartupBudgetTest` — cold-start wall-clock stays within the checked-in baseline + 15% (deliverable C).
-
-## example-extension-provider — the extension model
-
-A service that adds a **custom storage provider** without editing the platform. `EncryptingFsObjectStore`
-implements `ObjectStore`, encrypting content at rest (AES-CTR, which is
-length-preserving so sizes and metadata still round-trip) and delegating persistence to the platform's
-`FsObjectStore`. Its `EncryptingStorageAutoConfiguration` is ordered **before** the platform's
-`FsObjectStoreAutoConfiguration`, so the platform default — guarded by
-`@ConditionalOnMissingBean(ObjectStore.class)` — backs off. This is the [extension model](concepts/extension-model.md)
-verbatim: extend by registering ahead of the default, never by forking the platform.
-
-Two tests are the acceptance:
-
-- `EncryptingFsObjectStoreTckTest extends ObjectStoreTck` — the provider is *platform-certified* iff
-  the whole storage TCK passes against it;
-- `StorageBackOffTest` — boots the app and asserts the single `ObjectStore` bean is the custom
-  encrypting provider, proving the default stepped aside.
 
 ## example-event-driven — producer/consumer over messaging
 

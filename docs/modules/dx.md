@@ -39,7 +39,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 
 | Rule | Banned | Use instead |
 |---|---|---|
-| `noDirectMessagingInfrastructure` | `KafkaTemplate` / `RabbitTemplate` / listener containers | `EventPublisher` / `@EventHandler` |
+| `noDirectMessagingInfrastructure` | `RabbitTemplate` / RabbitMQ listener containers | `EventPublisher` / `@EventHandler` |
 | `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
 | `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 

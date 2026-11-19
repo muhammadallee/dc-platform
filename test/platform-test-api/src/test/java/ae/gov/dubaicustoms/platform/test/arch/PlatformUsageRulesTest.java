@@ -70,7 +70,7 @@ class PlatformUsageRulesTest {
 
     @Test
     void messagingRuleIgnoresServicesWithoutBrokerInfrastructure() {
-        // The bad fixtures use no Kafka/Rabbit types, so the messaging rule stays green here;
+        // The bad fixtures use no Rabbit types, so the messaging rule stays green here;
         // its name-matching is covered directly by isBannedMessagingType below.
         PlatformUsageRules.noDirectMessagingInfrastructure().check(BAD);
     }
@@ -78,11 +78,7 @@ class PlatformUsageRulesTest {
     @Test
     void isBannedMessagingTypeMatchesTemplatesAndListenerContainers() {
         assertThat(PlatformUsageRules.isBannedMessagingType(
-                "org.springframework.kafka.core.KafkaTemplate")).isTrue();
-        assertThat(PlatformUsageRules.isBannedMessagingType(
                 "org.springframework.amqp.rabbit.core.RabbitTemplate")).isTrue();
-        assertThat(PlatformUsageRules.isBannedMessagingType(
-                "org.springframework.kafka.listener.KafkaMessageListenerContainer")).isTrue();
         assertThat(PlatformUsageRules.isBannedMessagingType(
                 "org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer")).isTrue();
     }
@@ -94,5 +90,13 @@ class PlatformUsageRulesTest {
         assertThat(PlatformUsageRules.isBannedMessagingType("java.lang.String")).isFalse();
         assertThat(PlatformUsageRules.isBannedMessagingType(
                 "org.springframework.kafka.core.KafkaAdmin")).isFalse();
+    }
+
+    @Test
+    void kafkaTypesAreNotBannedBecauseKafkaIsNotAPlatformTransport() {
+        assertThat(PlatformUsageRules.isBannedMessagingType(
+                "org.springframework.kafka.core.KafkaTemplate")).isFalse();
+        assertThat(PlatformUsageRules.isBannedMessagingType(
+                "org.springframework.kafka.listener.KafkaMessageListenerContainer")).isFalse();
     }
 }

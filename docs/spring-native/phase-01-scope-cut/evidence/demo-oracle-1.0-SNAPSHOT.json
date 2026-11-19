@@ -1,0 +1,1240 @@
+{
+  "SchemaVersion": 2,
+  "ReportID": "01a1f15b-7094-7e12-8f46-8762093b80ec",
+  "CreatedAt": "2026-11-19T05:11:04.0849222+04:00",
+  "ArtifactName": "golden-path/scenarios/data-oracle/demo-oracle/target/demo-oracle-1.0-SNAPSHOT.jar",
+  "ArtifactType": "filesystem",
+  "Results": [
+    {
+      "Target": "Java",
+      "Class": "lang-pkgs",
+      "Type": "jar",
+      "Packages": [
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-core-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-core-api@1.0.0-SNAPSHOT",
+            "UID": "c22f35057d2c6b53"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-core-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-core-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-core-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "696f0f18bd1dd6c7"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-core-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-data-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-data-api@1.0.0-SNAPSHOT",
+            "UID": "fe1f3d111ea312e9"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-data-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-data-jpa-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-data-jpa-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "8ddd54f2a8d7e29c"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-data-jpa-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-errors-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-errors-api@1.0.0-SNAPSHOT",
+            "UID": "58a025174afec047"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-errors-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-errors-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-errors-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "b76a76017e06c0a"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-errors-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-logging-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-logging-api@1.0.0-SNAPSHOT",
+            "UID": "c47b5eca68d73931"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-logging-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-logging-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-logging-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "725700b9c9f5b426"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-logging-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-observability-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-observability-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "605218f8fd282e37"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-observability-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-core",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-core@1.0.0-SNAPSHOT",
+            "UID": "73f4fe1519a1e3ee"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-core-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-data-jpa-oracle@1.0.0-SNAPSHOT",
+            "UID": "1381abb5cec10df4"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-data-jpa-oracle-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-errors",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-errors@1.0.0-SNAPSHOT",
+            "UID": "5550f626ad2539dd"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-errors-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-logging@1.0.0-SNAPSHOT",
+            "UID": "27a39058365db567"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-logging-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-observability",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-observability@1.0.0-SNAPSHOT",
+            "UID": "cdab9aad96d1dd7"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-observability-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "aopalliance:aopalliance",
+          "Identifier": {
+            "PURL": "pkg:maven/aopalliance/aopalliance@1.0",
+            "UID": "f8d70466936e51e4"
+          },
+          "Version": "1.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/aopalliance-1.0.jar"
+        },
+        {
+          "Name": "ch.qos.logback:logback-classic",
+          "Identifier": {
+            "PURL": "pkg:maven/ch.qos.logback/logback-classic@1.5.38",
+            "UID": "343c74025ca6e3f6"
+          },
+          "Version": "1.5.38",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/logback-classic-1.5.38.jar"
+        },
+        {
+          "Name": "ch.qos.logback:logback-core",
+          "Identifier": {
+            "PURL": "pkg:maven/ch.qos.logback/logback-core@1.5.38",
+            "UID": "84e9ac8cefea3bb0"
+          },
+          "Version": "1.5.38",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/logback-core-1.5.38.jar"
+        },
+        {
+          "Name": "com.dc.demo:demo-oracle",
+          "Identifier": {
+            "PURL": "pkg:maven/com.dc.demo/demo-oracle@1.0-SNAPSHOT",
+            "UID": "be3c26fffc573d0e"
+          },
+          "Version": "1.0-SNAPSHOT",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-annotations",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21",
+            "UID": "afe9aa3918604282"
+          },
+          "Version": "2.21",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-annotations-2.21.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-core",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.21.7",
+            "UID": "21ca01eaa55a04d5"
+          },
+          "Version": "2.21.7",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-core-2.21.7.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-databind",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7",
+            "UID": "73470352a54c8255"
+          },
+          "Version": "2.21.7",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-databind-2.21.7.jar"
+        },
+        {
+          "Name": "com.fasterxml:classmate",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml/classmate@1.7.3",
+            "UID": "5c9165d1e3526453"
+          },
+          "Version": "1.7.3",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/classmate-1.7.3.jar"
+        },
+        {
+          "Name": "com.google.protobuf:protobuf-java",
+          "Identifier": {
+            "PURL": "pkg:maven/com.google.protobuf/protobuf-java@4.36.2",
+            "UID": "803fdd33e40552d8"
+          },
+          "Version": "4.36.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/protobuf-java-4.36.2.jar"
+        },
+        {
+          "Name": "com.h2database:h2",
+          "Identifier": {
+            "PURL": "pkg:maven/com.h2database/h2@2.4.240",
+            "UID": "c5b264626f92efb0"
+          },
+          "Version": "2.4.240",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/h2-2.4.240.jar"
+        },
+        {
+          "Name": "com.oracle.database.jdbc:ojdbc11",
+          "Identifier": {
+            "PURL": "pkg:maven/com.oracle.database.jdbc/ojdbc11@23.26.3.0.0",
+            "UID": "ef73b12d73d32f39"
+          },
+          "Version": "23.26.3.0.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/ojdbc11-23.26.3.0.0.jar"
+        },
+        {
+          "Name": "com.squareup.okhttp3:okhttp-jvm",
+          "Identifier": {
+            "PURL": "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.5.0",
+            "UID": "2f8a9b9a27b59b00"
+          },
+          "Version": "5.5.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/okhttp-jvm-5.5.0.jar"
+        },
+        {
+          "Name": "com.squareup.okio:okio-jvm",
+          "Identifier": {
+            "PURL": "pkg:maven/com.squareup.okio/okio-jvm@3.18.1",
+            "UID": "5219eaa660b810c2"
+          },
+          "Version": "3.18.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/okio-jvm-3.18.1.jar"
+        },
+        {
+          "Name": "com.sun.istack:istack-commons-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/com.sun.istack/istack-commons-runtime@4.1.2",
+            "UID": "204ee708d0ac7361"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/istack-commons-runtime-4.1.2.jar"
+        },
+        {
+          "Name": "com.zaxxer:HikariCP",
+          "Identifier": {
+            "PURL": "pkg:maven/com.zaxxer/HikariCP@7.0.2",
+            "UID": "6d4d0fe6de4752f8"
+          },
+          "Version": "7.0.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/HikariCP-7.0.2.jar"
+        },
+        {
+          "Name": "commons-logging:commons-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/commons-logging/commons-logging@1.3.6",
+            "UID": "24c711ee8b5ab038"
+          },
+          "Version": "1.3.6",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/commons-logging-1.3.6.jar"
+        },
+        {
+          "Name": "io.micrometer:context-propagation",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/context-propagation@1.2.1",
+            "UID": "495dfc552e368576"
+          },
+          "Version": "1.2.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/context-propagation-1.2.1.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-commons@1.17.2",
+            "UID": "c668e4aecac57f86"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-commons-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-core",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-core@1.17.2",
+            "UID": "276ff6d9f9adc0b5"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-core-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-jakarta9",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.2",
+            "UID": "4c62f69e02f24572"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-jakarta9-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-observation",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-observation@1.17.2",
+            "UID": "b5f895beffdaf656"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-observation-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-registry-otlp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.17.2",
+            "UID": "96a97dd690764005"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-registry-otlp-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-registry-prometheus",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.17.2",
+            "UID": "f0f577485b5c085f"
+          },
+          "Version": "1.17.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-registry-prometheus-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-tracing",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-tracing@1.7.2",
+            "UID": "8a49d7396b4df62f"
+          },
+          "Version": "1.7.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-tracing-1.7.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-tracing-bridge-otel",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.7.2",
+            "UID": "12406b0b81dc8dbe"
+          },
+          "Version": "1.7.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-tracing-bridge-otel-1.7.2.jar"
+        },
+        {
+          "Name": "io.opentelemetry.proto:opentelemetry-proto",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.10.0-alpha",
+            "UID": "fdb9e1392dd33989"
+          },
+          "Version": "1.10.0-alpha",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-proto-1.10.0-alpha.jar"
+        },
+        {
+          "Name": "io.opentelemetry.semconv:opentelemetry-semconv",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.41.1",
+            "UID": "a2118b1ee830e7bf"
+          },
+          "Version": "1.41.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-semconv-1.41.1.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-api",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-api@1.67.0",
+            "UID": "46fbdca811cf4312"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-api-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-common@1.67.0",
+            "UID": "726a5bc81d76ea88"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-context",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-context@1.67.0",
+            "UID": "460eae520c1d4aea"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-context-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-common@1.67.0",
+            "UID": "c0c38087de8f31a7"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-otlp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.67.0",
+            "UID": "2f9dc7671929ad27"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-otlp-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-otlp-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.67.0",
+            "UID": "52062241b7e070f4"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-otlp-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-sender-okhttp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.67.0",
+            "UID": "ebe8be837b304179"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-sender-okhttp-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-extension-trace-propagators",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.67.0",
+            "UID": "1bfb6d66e9c715c6"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-extension-trace-propagators-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.67.0",
+            "UID": "d4900ab92cb6348"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.67.0",
+            "UID": "71665e23cd2524ba"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-logs",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-logs@1.67.0",
+            "UID": "d1bb8190af844978"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-logs-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-metrics",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-metrics@1.67.0",
+            "UID": "f39e0f49792dda7c"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-metrics-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-trace",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.67.0",
+            "UID": "b94fe74f279f2c6f"
+          },
+          "Version": "1.67.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-trace-1.67.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-config",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-config@1.7.0",
+            "UID": "185556bd6185243c"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-config-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-core",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-core@1.7.0",
+            "UID": "ee38aeba4bc8abf5"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-core-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-exposition-formats",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.7.0",
+            "UID": "ec59b178269abb8f"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-exposition-formats-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-exposition-textformats",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-exposition-textformats@1.7.0",
+            "UID": "9bf078a7024fa633"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-exposition-textformats-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-model",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-model@1.7.0",
+            "UID": "2289a4ea34d909fa"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-model-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-tracer-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.7.0",
+            "UID": "a38f69f66cd7c538"
+          },
+          "Version": "1.7.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-tracer-common-1.7.0.jar"
+        },
+        {
+          "Name": "jakarta.activation:jakarta.activation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.activation/jakarta.activation-api@2.1.4",
+            "UID": "1cf50df94d6d2c6e"
+          },
+          "Version": "2.1.4",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.activation-api-2.1.4.jar"
+        },
+        {
+          "Name": "jakarta.annotation:jakarta.annotation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0",
+            "UID": "8b99a3146b27276a"
+          },
+          "Version": "3.0.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.annotation-api-3.0.0.jar"
+        },
+        {
+          "Name": "jakarta.inject:jakarta.inject-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.inject/jakarta.inject-api@2.0.1",
+            "UID": "5463d36a48329d83"
+          },
+          "Version": "2.0.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.inject-api-2.0.1.jar"
+        },
+        {
+          "Name": "jakarta.persistence:jakarta.persistence-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.persistence/jakarta.persistence-api@3.2.0",
+            "UID": "5cdd26000b494a3"
+          },
+          "Version": "3.2.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.persistence-api-3.2.0.jar"
+        },
+        {
+          "Name": "jakarta.transaction:jakarta.transaction-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.transaction/jakarta.transaction-api@2.0.1",
+            "UID": "2bfed1e21d4a8"
+          },
+          "Version": "2.0.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.transaction-api-2.0.1.jar"
+        },
+        {
+          "Name": "jakarta.validation:jakarta.validation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.validation/jakarta.validation-api@3.1.1",
+            "UID": "880a3b989b48a880"
+          },
+          "Version": "3.1.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.validation-api-3.1.1.jar"
+        },
+        {
+          "Name": "jakarta.xml.bind:jakarta.xml.bind-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.5",
+            "UID": "778b64fb3df4a438"
+          },
+          "Version": "4.0.5",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.xml.bind-api-4.0.5.jar"
+        },
+        {
+          "Name": "net.bytebuddy:byte-buddy",
+          "Identifier": {
+            "PURL": "pkg:maven/net.bytebuddy/byte-buddy@1.18.15",
+            "UID": "c28f8d25bfce75d3"
+          },
+          "Version": "1.18.15",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/byte-buddy-1.18.15.jar"
+        },
+        {
+          "Name": "net.logstash.logback:logstash-logback-encoder",
+          "Identifier": {
+            "PURL": "pkg:maven/net.logstash.logback/logstash-logback-encoder@8.1",
+            "UID": "db1135b979b0deac"
+          },
+          "Version": "8.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/logstash-logback-encoder-8.1.jar"
+        },
+        {
+          "Name": "org.antlr:antlr4-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/org.antlr/antlr4-runtime@4.13.2",
+            "UID": "3a66c856eaa5ae5d"
+          },
+          "Version": "4.13.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/antlr4-runtime-4.13.2.jar"
+        },
+        {
+          "Name": "org.apache.logging.log4j:log4j-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.5",
+            "UID": "8c2f30c28fc0ffb8"
+          },
+          "Version": "2.25.5",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/log4j-api-2.25.5.jar"
+        },
+        {
+          "Name": "org.apache.logging.log4j:log4j-to-slf4j",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.5",
+            "UID": "38d1b05bc428ccdc"
+          },
+          "Version": "2.25.5",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/log4j-to-slf4j-2.25.5.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.27",
+            "UID": "431968bacde0e325"
+          },
+          "Version": "11.0.27",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-core-11.0.27.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-el",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-el@11.0.27",
+            "UID": "325d18533f5fc117"
+          },
+          "Version": "11.0.27",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-el-11.0.27.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-websocket",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.27",
+            "UID": "63f76c55c564862c"
+          },
+          "Version": "11.0.27",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-websocket-11.0.27.jar"
+        },
+        {
+          "Name": "org.apiguardian:apiguardian-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apiguardian/apiguardian-api@1.1.2",
+            "UID": "7f67f7cc6303830a"
+          },
+          "Version": "1.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/apiguardian-api-1.1.2.jar"
+        },
+        {
+          "Name": "org.aspectj:aspectjweaver",
+          "Identifier": {
+            "PURL": "pkg:maven/org.aspectj/aspectjweaver@1.9.25.1",
+            "UID": "d3ae7aa7d7e76102"
+          },
+          "Version": "1.9.25.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/aspectjweaver-1.9.25.1.jar"
+        },
+        {
+          "Name": "org.eclipse.angus:angus-activation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.eclipse.angus/angus-activation@2.0.3",
+            "UID": "845506469d352ac9"
+          },
+          "Version": "2.0.3",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/angus-activation-2.0.3.jar"
+        },
+        {
+          "Name": "org.flywaydb:flyway-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.flywaydb/flyway-core@12.4.0",
+            "UID": "ba6af7ff6213a6c8"
+          },
+          "Version": "12.4.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/flyway-core-12.4.0.jar"
+        },
+        {
+          "Name": "org.flywaydb:flyway-database-oracle",
+          "Identifier": {
+            "PURL": "pkg:maven/org.flywaydb/flyway-database-oracle@12.4.0",
+            "UID": "857cfd22709e3fb3"
+          },
+          "Version": "12.4.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/flyway-database-oracle-12.4.0.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:jaxb-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/jaxb-core@4.0.9",
+            "UID": "9d77829c570e60b4"
+          },
+          "Version": "4.0.9",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jaxb-core-4.0.9.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:jaxb-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/jaxb-runtime@4.0.9",
+            "UID": "d8d118501a3ceacd"
+          },
+          "Version": "4.0.9",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jaxb-runtime-4.0.9.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:txw2",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/txw2@4.0.9",
+            "UID": "ff8cacf2a765480b"
+          },
+          "Version": "4.0.9",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/txw2-4.0.9.jar"
+        },
+        {
+          "Name": "org.hdrhistogram:HdrHistogram",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2",
+            "UID": "5016cb5fe8eae10f"
+          },
+          "Version": "2.2.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/HdrHistogram-2.2.2.jar"
+        },
+        {
+          "Name": "org.hibernate.models:hibernate-models",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate.models/hibernate-models@1.1.2",
+            "UID": "61edaaa6cf3cc3d6"
+          },
+          "Version": "1.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-models-1.1.2.jar"
+        },
+        {
+          "Name": "org.hibernate.validator:hibernate-validator",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate.validator/hibernate-validator@9.1.5.Final",
+            "UID": "14aedca490113dea"
+          },
+          "Version": "9.1.5.Final",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-validator-9.1.5.Final.jar"
+        },
+        {
+          "Name": "org.hibernate:hibernate-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate/hibernate-core@7.4.13.Final",
+            "UID": "119793218dc520a4"
+          },
+          "Version": "7.4.13.Final",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-core-7.4.13.Final.jar"
+        },
+        {
+          "Name": "org.jboss.logging:jboss-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jboss.logging/jboss-logging@3.6.3.Final",
+            "UID": "f1d2553320aa20bd"
+          },
+          "Version": "3.6.3.Final",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jboss-logging-3.6.3.Final.jar"
+        },
+        {
+          "Name": "org.jetbrains.kotlin:kotlin-stdlib",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.3.21",
+            "UID": "2d8f2b05163c0e43"
+          },
+          "Version": "2.3.21",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/kotlin-stdlib-2.3.21.jar"
+        },
+        {
+          "Name": "org.jetbrains:annotations",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jetbrains/annotations@26.0.0",
+            "UID": "7af53ce6203b9196"
+          },
+          "Version": "26.0.0",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/annotations-26.0.2-1.jar"
+        },
+        {
+          "Name": "org.jspecify:jspecify",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jspecify/jspecify@1.0.1",
+            "UID": "b719a9ac336afa5"
+          },
+          "Version": "1.0.1",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jspecify-1.0.1.jar"
+        },
+        {
+          "Name": "org.slf4j:jul-to-slf4j",
+          "Identifier": {
+            "PURL": "pkg:maven/org.slf4j/jul-to-slf4j@2.0.20",
+            "UID": "cff807018149c1d"
+          },
+          "Version": "2.0.20",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jul-to-slf4j-2.0.20.jar"
+        },
+        {
+          "Name": "org.slf4j:slf4j-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.slf4j/slf4j-api@2.0.20",
+            "UID": "f619aae8d89c4ec6"
+          },
+          "Version": "2.0.20",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/slf4j-api-2.0.20.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot@4.1.2",
+            "UID": "d46c90c6016536f2"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-actuator",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.2",
+            "UID": "5842c27ca8466bb4"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-actuator-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-actuator-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.2",
+            "UID": "a1a69a129989b07e"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-actuator-autoconfigure-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.1.2",
+            "UID": "22c93c61b7eed12d"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-autoconfigure-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-data-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-data-commons@4.1.2",
+            "UID": "d9592da558f963f9"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-data-commons-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-data-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-data-jpa@4.1.2",
+            "UID": "837b5079d94f42cf"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-data-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-flyway",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-flyway@4.1.2",
+            "UID": "99a5ee63722430b"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-flyway-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-health",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-health@4.1.2",
+            "UID": "ebca082b2421e0a2"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-health-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-hibernate",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-hibernate@4.1.2",
+            "UID": "f70543fd7fd7d21d"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-hibernate-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-http-converter",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.1.2",
+            "UID": "2c93e91b148cac24"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-http-converter-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jackson",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.1.2",
+            "UID": "4320c7387774de5c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jackson-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jarmode-tools",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jarmode-tools@4.1.2",
+            "UID": "d5c952e808aaf000"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jarmode-tools-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jdbc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.1.2",
+            "UID": "dde5a32edd95f840"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jdbc-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jpa@4.1.2",
+            "UID": "f40a5e860a878fca"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-metrics",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.2",
+            "UID": "c2083f9d786ae8de"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-metrics-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-observation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.2",
+            "UID": "68d8166ef7c58ae2"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-observation-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-tracing",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.1.2",
+            "UID": "85fdc509d02a175f"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-tracing-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.1.2",
+            "UID": "b2750b45c3599330"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-tracing-opentelemetry-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-opentelemetry",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.1.2",
+            "UID": "8c27193fd0fd2885"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-opentelemetry-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-persistence",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-persistence@4.1.2",
+            "UID": "b78d9a6aa5db9486"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-persistence-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-servlet",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-servlet@4.1.2",
+            "UID": "932eca79915d5548"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-servlet-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-sql",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-sql@4.1.2",
+            "UID": "89f0836e3aa310e6"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-sql-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-tomcat",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-tomcat@4.1.2",
+            "UID": "6b2787d946ad3611"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-tomcat-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-transaction",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.1.2",
+            "UID": "2dc9d29f36639fde"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-transaction-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-validation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-validation@4.1.2",
+            "UID": "1b233327f48d57d"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-validation-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-web-server",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-web-server@4.1.2",
+            "UID": "8ec73f088265db55"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-web-server-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-webmvc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.1.2",
+            "UID": "48676dffc0e60527"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-webmvc-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.data:spring-data-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.data/spring-data-commons@4.1.2",
+            "UID": "f713aacfa5cf7079"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-data-commons-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.data:spring-data-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.data/spring-data-jpa@4.1.2",
+            "UID": "3fd3d7450f2f2139"
+          },
+          "Version": "4.1.2",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-data-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework:spring-aop",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-aop@7.0.10",
+            "UID": "83de8268b369a1b6"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-aop-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-aspects",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-aspects@7.0.10",
+            "UID": "da3c545615eebd45"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-aspects-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-beans",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-beans@7.0.10",
+            "UID": "87239ae75556751d"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-beans-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-context",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-context@7.0.10",
+            "UID": "dc4ba0d26d53e2e"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-context-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-core@7.0.10",
+            "UID": "d8a49154d693fe35"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-core-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-expression",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-expression@7.0.10",
+            "UID": "db3217e0a74e596f"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-expression-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-jdbc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-jdbc@7.0.10",
+            "UID": "f0fc13b5c525d73b"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-jdbc-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-orm",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-orm@7.0.10",
+            "UID": "5ade21a890801ee"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-orm-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-tx",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-tx@7.0.10",
+            "UID": "d6d6f3c560a27424"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-tx-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-web",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-web@7.0.10",
+            "UID": "77ac7588b51f043"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-web-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-webmvc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-webmvc@7.0.10",
+            "UID": "f8561de3d0953145"
+          },
+          "Version": "7.0.10",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-webmvc-7.0.10.jar"
+        },
+        {
+          "Name": "org.yaml:snakeyaml",
+          "Identifier": {
+            "PURL": "pkg:maven/org.yaml/snakeyaml@2.6",
+            "UID": "e01c610e2c3efe5b"
+          },
+          "Version": "2.6",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/snakeyaml-2.6.jar"
+        },
+        {
+          "Name": "tools.jackson.core:jackson-core",
+          "Identifier": {
+            "PURL": "pkg:maven/tools.jackson.core/jackson-core@3.1.7",
+            "UID": "2e1901684eec9d6e"
+          },
+          "Version": "3.1.7",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-core-3.1.7.jar"
+        },
+        {
+          "Name": "tools.jackson.core:jackson-databind",
+          "Identifier": {
+            "PURL": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7",
+            "UID": "dd9de7ab7d930f04"
+          },
+          "Version": "3.1.7",
+          "FilePath": "demo-oracle-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-databind-3.1.7.jar"
+        }
+      ]
+    }
+  ]
+}

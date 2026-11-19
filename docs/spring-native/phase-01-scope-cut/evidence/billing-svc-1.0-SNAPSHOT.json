@@ -1,0 +1,1267 @@
+{
+  "SchemaVersion": 2,
+  "ReportID": "01a1f15b-53c0-7c36-9f7c-a779cd6918b2",
+  "CreatedAt": "2026-11-19T05:10:56.7048004+04:00",
+  "ArtifactName": "golden-path/scenarios/all-relocated/path with space/billing-svc/target/billing-svc-1.0-SNAPSHOT.jar",
+  "ArtifactType": "filesystem",
+  "Results": [
+    {
+      "Target": "Java",
+      "Class": "lang-pkgs",
+      "Type": "jar",
+      "Packages": [
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-core-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-core-api@1.0.0-SNAPSHOT",
+            "UID": "62dee765665302f8"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-core-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-core-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-core-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "8f1b8ddc4b9b9ac9"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-core-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-data-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-data-api@1.0.0-SNAPSHOT",
+            "UID": "36e81ac9bcf1bdae"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-data-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-data-jpa-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-data-jpa-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "42fb48193ea533a1"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-data-jpa-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-errors-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-errors-api@1.0.0-SNAPSHOT",
+            "UID": "87a36026978e2ee8"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-errors-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-errors-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-errors-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "730e75868822dc0"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-errors-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-logging-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-logging-api@1.0.0-SNAPSHOT",
+            "UID": "f9e3ade93cee2ed8"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-logging-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-logging-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-logging-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "82f86b33c19848f9"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-logging-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-messaging-api",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-messaging-api@1.0.0-SNAPSHOT",
+            "UID": "82db027765869130"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-messaging-api-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-messaging-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-messaging-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "f54aa1cd169993d6"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-messaging-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-messaging-inmemory",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-messaging-inmemory@1.0.0-SNAPSHOT",
+            "UID": "9c518cd21caf9277"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-messaging-inmemory-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-messaging-spi",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-messaging-spi@1.0.0-SNAPSHOT",
+            "UID": "69efa276704cfd61"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-messaging-spi-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-observability-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-observability-autoconfigure@1.0.0-SNAPSHOT",
+            "UID": "1ce625e6f1baf98c"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-observability-autoconfigure-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-core",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-core@1.0.0-SNAPSHOT",
+            "UID": "38e2400e7247e9e5"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-core-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-data-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-data-jpa@1.0.0-SNAPSHOT",
+            "UID": "566614fa80ae8c9a"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-data-jpa-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-errors",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-errors@1.0.0-SNAPSHOT",
+            "UID": "327eb39e805f186c"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-errors-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-logging@1.0.0-SNAPSHOT",
+            "UID": "4340afe5ceb80ad6"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-logging-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-messaging-inmemory",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-messaging-inmemory@1.0.0-SNAPSHOT",
+            "UID": "2e0606ab4403890b"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-messaging-inmemory-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "ae.gov.dubaicustoms.platform:platform-starter-observability",
+          "Identifier": {
+            "PURL": "pkg:maven/ae.gov.dubaicustoms.platform/platform-starter-observability@1.0.0-SNAPSHOT",
+            "UID": "ba7285ffb7d5a8b7"
+          },
+          "Version": "1.0.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/platform-starter-observability-1.0.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "aopalliance:aopalliance",
+          "Identifier": {
+            "PURL": "pkg:maven/aopalliance/aopalliance@1.0",
+            "UID": "45fb548c42be3f97"
+          },
+          "Version": "1.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/aopalliance-1.0.jar"
+        },
+        {
+          "Name": "ch.qos.logback:logback-classic",
+          "Identifier": {
+            "PURL": "pkg:maven/ch.qos.logback/logback-classic@1.5.38",
+            "UID": "a89abb25897135b"
+          },
+          "Version": "1.5.38",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/logback-classic-1.5.38.jar"
+        },
+        {
+          "Name": "ch.qos.logback:logback-core",
+          "Identifier": {
+            "PURL": "pkg:maven/ch.qos.logback/logback-core@1.5.38",
+            "UID": "32f37c2ba159184b"
+          },
+          "Version": "1.5.38",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/logback-core-1.5.38.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-annotations",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.21",
+            "UID": "149fc0c359d87ce9"
+          },
+          "Version": "2.21",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-annotations-2.21.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-core",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.21.7",
+            "UID": "ecb555a37c0437e4"
+          },
+          "Version": "2.21.7",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-core-2.21.7.jar"
+        },
+        {
+          "Name": "com.fasterxml.jackson.core:jackson-databind",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.21.7",
+            "UID": "980461ae6a0d7555"
+          },
+          "Version": "2.21.7",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-databind-2.21.7.jar"
+        },
+        {
+          "Name": "com.fasterxml:classmate",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml/classmate@1.7.3",
+            "UID": "96ce3736aafa4c61"
+          },
+          "Version": "1.7.3",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/classmate-1.7.3.jar"
+        },
+        {
+          "Name": "com.google.protobuf:protobuf-java",
+          "Identifier": {
+            "PURL": "pkg:maven/com.google.protobuf/protobuf-java@4.36.2",
+            "UID": "b5822280dedb0c58"
+          },
+          "Version": "4.36.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/protobuf-java-4.36.2.jar"
+        },
+        {
+          "Name": "com.h2database:h2",
+          "Identifier": {
+            "PURL": "pkg:maven/com.h2database/h2@2.4.240",
+            "UID": "5b509c99627a4ef9"
+          },
+          "Version": "2.4.240",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/h2-2.4.240.jar"
+        },
+        {
+          "Name": "com.squareup.okhttp3:okhttp-jvm",
+          "Identifier": {
+            "PURL": "pkg:maven/com.squareup.okhttp3/okhttp-jvm@5.5.0",
+            "UID": "b8c60700507f671"
+          },
+          "Version": "5.5.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/okhttp-jvm-5.5.0.jar"
+        },
+        {
+          "Name": "com.squareup.okio:okio-jvm",
+          "Identifier": {
+            "PURL": "pkg:maven/com.squareup.okio/okio-jvm@3.18.1",
+            "UID": "87c41d0b7c0f3732"
+          },
+          "Version": "3.18.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/okio-jvm-3.18.1.jar"
+        },
+        {
+          "Name": "com.sun.istack:istack-commons-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/com.sun.istack/istack-commons-runtime@4.1.2",
+            "UID": "b730c5c4f3962248"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/istack-commons-runtime-4.1.2.jar"
+        },
+        {
+          "Name": "com.zaxxer:HikariCP",
+          "Identifier": {
+            "PURL": "pkg:maven/com.zaxxer/HikariCP@7.0.2",
+            "UID": "cd81ffadf6a8c9c5"
+          },
+          "Version": "7.0.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/HikariCP-7.0.2.jar"
+        },
+        {
+          "Name": "commons-logging:commons-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/commons-logging/commons-logging@1.3.6",
+            "UID": "e19a36e314dceca3"
+          },
+          "Version": "1.3.6",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/commons-logging-1.3.6.jar"
+        },
+        {
+          "Name": "io.micrometer:context-propagation",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/context-propagation@1.2.1",
+            "UID": "8fda627c2da7761f"
+          },
+          "Version": "1.2.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/context-propagation-1.2.1.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-commons@1.17.2",
+            "UID": "d55ccecd3d6d0f3e"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-commons-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-core",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-core@1.17.2",
+            "UID": "dc482b42da5fc8e9"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-core-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-jakarta9",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-jakarta9@1.17.2",
+            "UID": "a143ac5986b12b1e"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-jakarta9-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-observation",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-observation@1.17.2",
+            "UID": "bd1ebabc4a550ded"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-observation-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-registry-otlp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-registry-otlp@1.17.2",
+            "UID": "a7f71aa2703a793d"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-registry-otlp-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-registry-prometheus",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-registry-prometheus@1.17.2",
+            "UID": "3a0e599db8b15f43"
+          },
+          "Version": "1.17.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-registry-prometheus-1.17.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-tracing",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-tracing@1.7.2",
+            "UID": "64d82c81b96c3806"
+          },
+          "Version": "1.7.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-tracing-1.7.2.jar"
+        },
+        {
+          "Name": "io.micrometer:micrometer-tracing-bridge-otel",
+          "Identifier": {
+            "PURL": "pkg:maven/io.micrometer/micrometer-tracing-bridge-otel@1.7.2",
+            "UID": "5d4a52dd25d85f49"
+          },
+          "Version": "1.7.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/micrometer-tracing-bridge-otel-1.7.2.jar"
+        },
+        {
+          "Name": "io.opentelemetry.proto:opentelemetry-proto",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry.proto/opentelemetry-proto@1.10.0-alpha",
+            "UID": "a0286091e9e8ad3f"
+          },
+          "Version": "1.10.0-alpha",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-proto-1.10.0-alpha.jar"
+        },
+        {
+          "Name": "io.opentelemetry.semconv:opentelemetry-semconv",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry.semconv/opentelemetry-semconv@1.41.1",
+            "UID": "3afe9bcf0adf5adc"
+          },
+          "Version": "1.41.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-semconv-1.41.1.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-api",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-api@1.67.0",
+            "UID": "e1d9dea95fd4980c"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-api-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-common@1.67.0",
+            "UID": "6220e0b4abc121bf"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-context",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-context@1.67.0",
+            "UID": "7846ab6a75d1e6c4"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-context-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-common@1.67.0",
+            "UID": "ab8b7cb45132822"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-otlp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp@1.67.0",
+            "UID": "ef89e93602f59a9e"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-otlp-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-otlp-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-otlp-common@1.67.0",
+            "UID": "f860c2206ee10dd8"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-otlp-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-exporter-sender-okhttp",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-exporter-sender-okhttp@1.67.0",
+            "UID": "d4ebe09b99f5084c"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-exporter-sender-okhttp-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-extension-trace-propagators",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-extension-trace-propagators@1.67.0",
+            "UID": "8894dfc2128ad96b"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-extension-trace-propagators-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk@1.67.0",
+            "UID": "21447920af3b1fcb"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-common@1.67.0",
+            "UID": "43458717fec13d6b"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-common-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-logs",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-logs@1.67.0",
+            "UID": "2f3cf1f36f712ca3"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-logs-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-metrics",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-metrics@1.67.0",
+            "UID": "125e7fffdfcfd989"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-metrics-1.67.0.jar"
+        },
+        {
+          "Name": "io.opentelemetry:opentelemetry-sdk-trace",
+          "Identifier": {
+            "PURL": "pkg:maven/io.opentelemetry/opentelemetry-sdk-trace@1.67.0",
+            "UID": "47d3623b8a2996b"
+          },
+          "Version": "1.67.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/opentelemetry-sdk-trace-1.67.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-config",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-config@1.7.0",
+            "UID": "eea5fd9b16acdefa"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-config-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-core",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-core@1.7.0",
+            "UID": "f781f49968250582"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-core-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-exposition-formats",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-exposition-formats@1.7.0",
+            "UID": "c766ec1d9dc45ab4"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-exposition-formats-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-exposition-textformats",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-exposition-textformats@1.7.0",
+            "UID": "2cd6ba6ea153b57d"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-exposition-textformats-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-model",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-model@1.7.0",
+            "UID": "48a7c1d20844edad"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-model-1.7.0.jar"
+        },
+        {
+          "Name": "io.prometheus:prometheus-metrics-tracer-common",
+          "Identifier": {
+            "PURL": "pkg:maven/io.prometheus/prometheus-metrics-tracer-common@1.7.0",
+            "UID": "c99a050a70e9198a"
+          },
+          "Version": "1.7.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/prometheus-metrics-tracer-common-1.7.0.jar"
+        },
+        {
+          "Name": "jakarta.activation:jakarta.activation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.activation/jakarta.activation-api@2.1.4",
+            "UID": "bfd64fda8d91e286"
+          },
+          "Version": "2.1.4",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.activation-api-2.1.4.jar"
+        },
+        {
+          "Name": "jakarta.annotation:jakarta.annotation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.annotation/jakarta.annotation-api@3.0.0",
+            "UID": "becc84d276e4287a"
+          },
+          "Version": "3.0.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.annotation-api-3.0.0.jar"
+        },
+        {
+          "Name": "jakarta.inject:jakarta.inject-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.inject/jakarta.inject-api@2.0.1",
+            "UID": "1ebaad682c5a041a"
+          },
+          "Version": "2.0.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.inject-api-2.0.1.jar"
+        },
+        {
+          "Name": "jakarta.persistence:jakarta.persistence-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.persistence/jakarta.persistence-api@3.2.0",
+            "UID": "86bd66a1e97574dd"
+          },
+          "Version": "3.2.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.persistence-api-3.2.0.jar"
+        },
+        {
+          "Name": "jakarta.transaction:jakarta.transaction-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.transaction/jakarta.transaction-api@2.0.1",
+            "UID": "173e576bf7a27d25"
+          },
+          "Version": "2.0.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.transaction-api-2.0.1.jar"
+        },
+        {
+          "Name": "jakarta.validation:jakarta.validation-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.validation/jakarta.validation-api@3.1.1",
+            "UID": "baf783057fc95760"
+          },
+          "Version": "3.1.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.validation-api-3.1.1.jar"
+        },
+        {
+          "Name": "jakarta.xml.bind:jakarta.xml.bind-api",
+          "Identifier": {
+            "PURL": "pkg:maven/jakarta.xml.bind/jakarta.xml.bind-api@4.0.5",
+            "UID": "ce4564143f136ab9"
+          },
+          "Version": "4.0.5",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jakarta.xml.bind-api-4.0.5.jar"
+        },
+        {
+          "Name": "net.bytebuddy:byte-buddy",
+          "Identifier": {
+            "PURL": "pkg:maven/net.bytebuddy/byte-buddy@1.18.15",
+            "UID": "60e8d13fd747b700"
+          },
+          "Version": "1.18.15",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/byte-buddy-1.18.15.jar"
+        },
+        {
+          "Name": "net.logstash.logback:logstash-logback-encoder",
+          "Identifier": {
+            "PURL": "pkg:maven/net.logstash.logback/logstash-logback-encoder@8.1",
+            "UID": "2630838bc729f925"
+          },
+          "Version": "8.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/logstash-logback-encoder-8.1.jar"
+        },
+        {
+          "Name": "org.antlr:antlr4-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/org.antlr/antlr4-runtime@4.13.2",
+            "UID": "4f35e58417d204ce"
+          },
+          "Version": "4.13.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/antlr4-runtime-4.13.2.jar"
+        },
+        {
+          "Name": "org.apache.logging.log4j:log4j-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.logging.log4j/log4j-api@2.25.5",
+            "UID": "c2eafc27d883effc"
+          },
+          "Version": "2.25.5",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/log4j-api-2.25.5.jar"
+        },
+        {
+          "Name": "org.apache.logging.log4j:log4j-to-slf4j",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.logging.log4j/log4j-to-slf4j@2.25.5",
+            "UID": "7c729fdd08b0ddfb"
+          },
+          "Version": "2.25.5",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/log4j-to-slf4j-2.25.5.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-core@11.0.27",
+            "UID": "53aee29d2799601d"
+          },
+          "Version": "11.0.27",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-core-11.0.27.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-el",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-el@11.0.27",
+            "UID": "6b65c52b2cea6860"
+          },
+          "Version": "11.0.27",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-el-11.0.27.jar"
+        },
+        {
+          "Name": "org.apache.tomcat.embed:tomcat-embed-websocket",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apache.tomcat.embed/tomcat-embed-websocket@11.0.27",
+            "UID": "ffcdd2dbd0a7855f"
+          },
+          "Version": "11.0.27",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/tomcat-embed-websocket-11.0.27.jar"
+        },
+        {
+          "Name": "org.apiguardian:apiguardian-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.apiguardian/apiguardian-api@1.1.2",
+            "UID": "34f600a75786a979"
+          },
+          "Version": "1.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/apiguardian-api-1.1.2.jar"
+        },
+        {
+          "Name": "org.aspectj:aspectjweaver",
+          "Identifier": {
+            "PURL": "pkg:maven/org.aspectj/aspectjweaver@1.9.25.1",
+            "UID": "261b58415540b947"
+          },
+          "Version": "1.9.25.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/aspectjweaver-1.9.25.1.jar"
+        },
+        {
+          "Name": "org.eclipse.angus:angus-activation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.eclipse.angus/angus-activation@2.0.3",
+            "UID": "d0462b56c5950321"
+          },
+          "Version": "2.0.3",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/angus-activation-2.0.3.jar"
+        },
+        {
+          "Name": "org.example.billing:billing-svc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.example.billing/billing-svc@1.0-SNAPSHOT",
+            "UID": "41bb464117eaf3cc"
+          },
+          "Version": "1.0-SNAPSHOT",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar"
+        },
+        {
+          "Name": "org.flywaydb:flyway-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.flywaydb/flyway-core@12.4.0",
+            "UID": "d7fd98a742f431f2"
+          },
+          "Version": "12.4.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/flyway-core-12.4.0.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:jaxb-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/jaxb-core@4.0.9",
+            "UID": "dcc29f828373c5a3"
+          },
+          "Version": "4.0.9",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jaxb-core-4.0.9.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:jaxb-runtime",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/jaxb-runtime@4.0.9",
+            "UID": "495766737dc8d213"
+          },
+          "Version": "4.0.9",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jaxb-runtime-4.0.9.jar"
+        },
+        {
+          "Name": "org.glassfish.jaxb:txw2",
+          "Identifier": {
+            "PURL": "pkg:maven/org.glassfish.jaxb/txw2@4.0.9",
+            "UID": "55ef2854aabf1e66"
+          },
+          "Version": "4.0.9",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/txw2-4.0.9.jar"
+        },
+        {
+          "Name": "org.hdrhistogram:HdrHistogram",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hdrhistogram/HdrHistogram@2.2.2",
+            "UID": "d3baf42ec86fcb9c"
+          },
+          "Version": "2.2.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/HdrHistogram-2.2.2.jar"
+        },
+        {
+          "Name": "org.hibernate.models:hibernate-models",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate.models/hibernate-models@1.1.2",
+            "UID": "7891b748290eb380"
+          },
+          "Version": "1.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-models-1.1.2.jar"
+        },
+        {
+          "Name": "org.hibernate.validator:hibernate-validator",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate.validator/hibernate-validator@9.1.5.Final",
+            "UID": "f4899328f0fcc9f"
+          },
+          "Version": "9.1.5.Final",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-validator-9.1.5.Final.jar"
+        },
+        {
+          "Name": "org.hibernate:hibernate-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.hibernate/hibernate-core@7.4.13.Final",
+            "UID": "c24d93cd2bb52cab"
+          },
+          "Version": "7.4.13.Final",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/hibernate-core-7.4.13.Final.jar"
+        },
+        {
+          "Name": "org.jboss.logging:jboss-logging",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jboss.logging/jboss-logging@3.6.3.Final",
+            "UID": "b4dc58bee999de6f"
+          },
+          "Version": "3.6.3.Final",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jboss-logging-3.6.3.Final.jar"
+        },
+        {
+          "Name": "org.jetbrains.kotlin:kotlin-stdlib",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jetbrains.kotlin/kotlin-stdlib@2.3.21",
+            "UID": "d609a1111af5aeae"
+          },
+          "Version": "2.3.21",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/kotlin-stdlib-2.3.21.jar"
+        },
+        {
+          "Name": "org.jetbrains:annotations",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jetbrains/annotations@26.0.0",
+            "UID": "b41ebb43acd08b4"
+          },
+          "Version": "26.0.0",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/annotations-26.0.2-1.jar"
+        },
+        {
+          "Name": "org.jspecify:jspecify",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jspecify/jspecify@1.0.1",
+            "UID": "24f289eec3b4ce49"
+          },
+          "Version": "1.0.1",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jspecify-1.0.1.jar"
+        },
+        {
+          "Name": "org.slf4j:jul-to-slf4j",
+          "Identifier": {
+            "PURL": "pkg:maven/org.slf4j/jul-to-slf4j@2.0.20",
+            "UID": "a1425b142aa29bac"
+          },
+          "Version": "2.0.20",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jul-to-slf4j-2.0.20.jar"
+        },
+        {
+          "Name": "org.slf4j:slf4j-api",
+          "Identifier": {
+            "PURL": "pkg:maven/org.slf4j/slf4j-api@2.0.20",
+            "UID": "302d1cef4f832905"
+          },
+          "Version": "2.0.20",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/slf4j-api-2.0.20.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot@4.1.2",
+            "UID": "440da0ab0d8394a1"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-actuator",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-actuator@4.1.2",
+            "UID": "82abbac4af8d57de"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-actuator-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-actuator-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-actuator-autoconfigure@4.1.2",
+            "UID": "a1a45001427a9033"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-actuator-autoconfigure-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-autoconfigure",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-autoconfigure@4.1.2",
+            "UID": "35f19c97b22d32a9"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-autoconfigure-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-data-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-data-commons@4.1.2",
+            "UID": "6fd6bc31f5e13215"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-data-commons-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-data-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-data-jpa@4.1.2",
+            "UID": "172ba3603a25006f"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-data-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-flyway",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-flyway@4.1.2",
+            "UID": "63f655d7427d5e25"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-flyway-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-health",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-health@4.1.2",
+            "UID": "ac773a7fb84fb1ef"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-health-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-hibernate",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-hibernate@4.1.2",
+            "UID": "2688f4c7fad2b27b"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-hibernate-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-http-converter",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-http-converter@4.1.2",
+            "UID": "211991609421a46a"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-http-converter-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jackson",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jackson@4.1.2",
+            "UID": "c71f558981fe1777"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jackson-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jarmode-tools",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jarmode-tools@4.1.2",
+            "UID": "23a1cbcdf0c2172c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jarmode-tools-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jdbc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jdbc@4.1.2",
+            "UID": "d8e2074039e96895"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jdbc-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-jpa@4.1.2",
+            "UID": "23915d6b62249477"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-metrics",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-metrics@4.1.2",
+            "UID": "48504e82d852ccb7"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-metrics-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-observation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-observation@4.1.2",
+            "UID": "26907b0291f2f98b"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-observation-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-tracing",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing@4.1.2",
+            "UID": "cae9a2ad254c4ccb"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-tracing-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-micrometer-tracing-opentelemetry",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-micrometer-tracing-opentelemetry@4.1.2",
+            "UID": "6a979ebec54817c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-micrometer-tracing-opentelemetry-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-opentelemetry",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-opentelemetry@4.1.2",
+            "UID": "9ceedb2582a209d6"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-opentelemetry-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-persistence",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-persistence@4.1.2",
+            "UID": "c93acfe0c6bb7a18"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-persistence-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-servlet",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-servlet@4.1.2",
+            "UID": "4e56e1799e302a2c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-servlet-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-sql",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-sql@4.1.2",
+            "UID": "4ad922c948a91250"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-sql-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-tomcat",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-tomcat@4.1.2",
+            "UID": "8b7b28a6a34a2a29"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-tomcat-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-transaction",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-transaction@4.1.2",
+            "UID": "be941485a0935a86"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-transaction-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-validation",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-validation@4.1.2",
+            "UID": "751c6d03716b9de6"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-validation-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-web-server",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-web-server@4.1.2",
+            "UID": "989d4c4be13df05c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-web-server-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.boot:spring-boot-webmvc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.boot/spring-boot-webmvc@4.1.2",
+            "UID": "f445bc11b10fde57"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-boot-webmvc-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.data:spring-data-commons",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.data/spring-data-commons@4.1.2",
+            "UID": "297613a5318e0d2c"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-data-commons-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework.data:spring-data-jpa",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework.data/spring-data-jpa@4.1.2",
+            "UID": "cd93ec1d07681ddb"
+          },
+          "Version": "4.1.2",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-data-jpa-4.1.2.jar"
+        },
+        {
+          "Name": "org.springframework:spring-aop",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-aop@7.0.10",
+            "UID": "8ffb62a9282e62c2"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-aop-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-aspects",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-aspects@7.0.10",
+            "UID": "6c13fbc306e5fb04"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-aspects-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-beans",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-beans@7.0.10",
+            "UID": "31bfd35347711c24"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-beans-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-context",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-context@7.0.10",
+            "UID": "4f87057a81812568"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-context-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-core",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-core@7.0.10",
+            "UID": "ed0055c4699e8d27"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-core-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-expression",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-expression@7.0.10",
+            "UID": "61f1d12700e6374a"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-expression-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-jdbc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-jdbc@7.0.10",
+            "UID": "79e86bb3e663b21"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-jdbc-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-orm",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-orm@7.0.10",
+            "UID": "7d6eb2d17148f23a"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-orm-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-tx",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-tx@7.0.10",
+            "UID": "ff7f29585cc0ee8d"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-tx-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-web",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-web@7.0.10",
+            "UID": "cd8e9c63dc475f71"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-web-7.0.10.jar"
+        },
+        {
+          "Name": "org.springframework:spring-webmvc",
+          "Identifier": {
+            "PURL": "pkg:maven/org.springframework/spring-webmvc@7.0.10",
+            "UID": "893cdf7ab3fa8ef2"
+          },
+          "Version": "7.0.10",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/spring-webmvc-7.0.10.jar"
+        },
+        {
+          "Name": "org.yaml:snakeyaml",
+          "Identifier": {
+            "PURL": "pkg:maven/org.yaml/snakeyaml@2.6",
+            "UID": "ec7b797401895ad0"
+          },
+          "Version": "2.6",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/snakeyaml-2.6.jar"
+        },
+        {
+          "Name": "tools.jackson.core:jackson-core",
+          "Identifier": {
+            "PURL": "pkg:maven/tools.jackson.core/jackson-core@3.1.7",
+            "UID": "b79d80ba9da4af62"
+          },
+          "Version": "3.1.7",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-core-3.1.7.jar"
+        },
+        {
+          "Name": "tools.jackson.core:jackson-databind",
+          "Identifier": {
+            "PURL": "pkg:maven/tools.jackson.core/jackson-databind@3.1.7",
+            "UID": "f96a38a2531f7238"
+          },
+          "Version": "3.1.7",
+          "FilePath": "billing-svc-1.0-SNAPSHOT.jar/BOOT-INF/lib/jackson-databind-3.1.7.jar"
+        }
+      ]
+    }
+  ]
+}

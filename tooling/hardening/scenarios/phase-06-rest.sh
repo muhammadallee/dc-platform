@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # Hardening phase 6 (REST client and resilience), Gate F: an archetype-generated consumer (restclient, prod profile) calling a
 # scripted downstream through Toxiproxy. Proves the consumer-level acceptance criteria of
-# docs/production-readiness/phase-06-rest-resilience/scope.md. Fixture, not certified here: security (JWKS).
+# docs/production-readiness/phase-06-rest-resilience/scope.md.
+#
+# Spring-native Phase 1 port: the REST client is parked and JWT security is cut. The service is generated
+# with no features and the parked starter is added with an explicit version (phase-06/edit_pom.py). The
+# token relay is gone, so the run sends a JWT-shaped bearer inbound and AC1/AC12 now assert it is NOT
+# forwarded; the final "no token in the evidence" check uses that bearer. See
+# docs/spring-native/phase-01-scope-cut/scope.md.
 #
 #   HH_MAVEN_REPO=~/.m2-hardening/phase-06 bash tooling/hardening/scenarios/phase-06-rest.sh
 #
@@ -11,7 +17,6 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOXIPROXY_IMAGE="${HH_TOXIPROXY_IMAGE:-ghcr.io/shopify/toxiproxy:2.9.0}"
-
 toxi() { curl -s -o /dev/null -w '%{http_code}' -X "$1" "$TOXI_API$2" ${3:+-H 'Content-Type: application/json' --data "$3"}; }
 toxic() { # name type attributes-json: on the way down to the stub, unless it says otherwise
   [ "$(toxi POST /proxies/stub/toxics "{\"name\":\"$1\",\"type\":\"$2\",\"stream\":\"${4:-downstream}\",\"attributes\":$3}")" = 200 ] \
@@ -53,8 +58,10 @@ trace_header() { printf '00-%s-%s-01' "$1" "00f067aa0ba902b7"; }
 
 hh_init phase-06 rest
 
-hh_step "generate a consumer (restclient)"
-hh_generate hardening-rest restclient
+hh_step "generate a consumer (no features) and add the parked REST-client starter"
+hh_generate hardening-rest -
+python -I "$(hh_native "$HERE/phase-06/edit_pom.py")" "$(hh_native "$HH_APP_DIR/pom.xml")" "$HH_REV" \
+    || hh_abort "could not add the REST-client starter"
 hh_add_sources "$HERE/phase-06/probe" ae/gov/dubaicustoms/hardening/probe
 hh_build_app
 for GA in platform-starter-restclient resilience4j-circuitbreaker resilience4j-bulkhead resilience4j-micrometer; do
@@ -62,21 +69,11 @@ for GA in platform-starter-restclient resilience4j-circuitbreaker resilience4j-b
   else hh_fail "dependency tree lacks $GA"; fi
 done
 
-hh_step "loopback JWKS issuer (installed test kit) and the scripted downstream, both on the host"
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-AUTH=(-H "Authorization: Bearer $(cat "$IDP_DIR/token-valid")")
+hh_step "the scripted downstream, on the host"
+# A JWT-shaped bearer sent inbound: nothing validates or relays it now, and it must reach neither the
+# downstream nor the evidence.
+TOKEN_VALUE="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJoYXJuZXNzLXJlc3QifQ.cmVzdC1zYW1wbGUtbm90LXJlYWw"
+AUTH=(-H "Authorization: Bearer $TOKEN_VALUE")
 STUB_PORT_FILE="$HH_RUN_DIR/stub-port"
 python -I "$(hh_native "$HERE/phase-06/stub.py")" "$(hh_native "$STUB_PORT_FILE")" > "$HH_EVIDENCE/stub.log" 2>&1 &
 HH_PIDS+=($!)
@@ -103,12 +100,10 @@ read -r -d '' CONFIG <<JSON || true
  "$P.clients.bh.retry.enabled":false,"$P.clients.bh.circuit-breaker.enabled":false,"$P.clients.bh.bulkhead.max-concurrent":2,
  "$P.clients.bh.read-timeout":"6s",
  "$P.clients.dl.circuit-breaker.enabled":false,"$P.clients.dl.deadline":"1s","$P.clients.dl.read-timeout":"5s",
- "$P.token-relay.clients":"main",
  "management.endpoint.health.show-details":"always"}
 JSON
 APP_ENV=(SPRING_PROFILES_ACTIVE=prod JAVA_TOOL_OPTIONS=-Xmx300m MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
-  PROBE_BASEURL=http://toxiproxy:8666 APP_GREETING_BASEURL=http://toxiproxy:8666
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
+  PROBE_BASEURL=http://toxiproxy:8666
   "SPRING_APPLICATION_JSON=$(printf '%s' "$CONFIG" | tr -d '\n')")
 printf '%s\n' "${APP_ENV[@]}" > "$HH_EVIDENCE/app-env.txt"
 { echo "toxiproxy_image=$TOXIPROXY_IMAGE"; } >> "$HH_EVIDENCE/run-identity.txt"
@@ -118,7 +113,7 @@ hh_app_start "${APP_ENV[@]}"
 hh_wait_ready 180
 HEALTHY_READY=$HH_READY_SECONDS
 
-hh_step "AC1: a normal call, on one trace, with the token relayed"
+hh_step "AC1: a normal call, on one trace; the inbound bearer is not forwarded"
 script '{"default":{"status":200,"body":"hello"}}'
 T=4bf92f3577b34da6a3ce929d0e0e4736
 hh_http ac1 GET "/probe/main/get?id=1" "${AUTH[@]}" -H "traceparent: $(trace_header $T)"
@@ -127,7 +122,7 @@ if [ "$HH_BODY" = hello ]; then hh_pass "AC1 the downstream's body came back"; e
 expect_count "AC1" 1
 expect_stub "AC1 traceparent carries the inbound trace" "r[0]['headers'].get('traceparent','').startswith('00-$T-')"
 expect_stub "AC1 no custom correlation header" "'x-correlation-id' not in r[0]['headers']"
-expect_stub "AC1 the token is relayed" "r[0]['auth'] is not None"
+expect_stub "AC1 the inbound bearer is not forwarded (no relay)" "r[0]['auth'] is None"
 
 hh_step "AC4: what is retried"
 script '{"default":{"status":404,"body":"UPSTREAMMARKER"}}'
@@ -143,7 +138,7 @@ script '{"default":{"status":503}}'
 T=5bf92f3577b34da6a3ce929d0e0e4737
 hh_http ac4-503 GET "/probe/main/get" "${AUTH[@]}" -H "traceparent: $(trace_header $T)"; expect_problem 503 True; expect_count "AC4 503" 3
 expect_stub "AC12 the trace is the same on every attempt" "all(q['headers'].get('traceparent','').startswith('00-$T-') for q in r)"
-expect_stub "AC12 the token is the same on every attempt" "len({q['auth'] for q in r})==1 and r[0]['auth'] is not None"
+expect_stub "AC12 no attempt carries an Authorization header" "all(q['auth'] is None for q in r)"
 script '{"default":{"status":200,"body":"recovered"},"queue":[{"status":503}]}'
 hh_http ac4-recover GET "/probe/main/get" "${AUTH[@]}"; hh_expect_status 200; expect_count "AC4 recovery" 2
 script '{"default":{"status":200,"body":"later"},"queue":[{"status":503,"headers":{"Retry-After":"2"}}]}'
@@ -344,5 +339,4 @@ if [ "$(cat "$HH_EVIDENCE/ac15-send.status")" = 200 ] && [ "$(cat "$HH_EVIDENCE/
   hh_pass "AC15 the call in flight at SIGTERM finished"
 else hh_fail "AC15 in-flight send: $(cat "$HH_EVIDENCE/ac15-send.status") $(cat "$HH_EVIDENCE/ac15-send.body")"; fi
 
-TOKEN_VALUE=$(cat "$IDP_DIR/token-valid")
 if grep -qF -e "$TOKEN_VALUE" -r "$HH_EVIDENCE"; then hh_fail "a token reached the evidence"; else hh_pass "no token in the evidence"; fi

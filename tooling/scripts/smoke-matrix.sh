@@ -69,7 +69,10 @@ run_row() {
   if [ -n "$present" ]; then
     IFS=',' read -ra caps <<< "$present"
     for cap in "${caps[@]}"; do
-      if ! grep -q "\"name\":\"${cap}\"" <<< "$platform"; then
+      # name:STATUS also pins the reported status, e.g. outbox:INACTIVE when its kill switch is off.
+      local pattern="\"name\":\"${cap%%:*}\""
+      [ "${cap#*:}" != "$cap" ] && pattern="\"name\":\"${cap%%:*}\",\"status\":\"${cap#*:}\""
+      if ! grep -q "$pattern" <<< "$platform"; then
         echo "   FAIL[${id}]: expected capability '${cap}' present, but it was not"; ok=0
       fi
     done

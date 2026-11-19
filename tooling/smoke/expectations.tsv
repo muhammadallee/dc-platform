@@ -5,6 +5,7 @@
 #
 # jvm_args: space-separated -D flags applied to the boot ("-" for none).
 # present/absent: comma-separated capability names as they appear in /actuator/platform (note data-jpa).
+# A present entry may be name:STATUS to pin the reported status as well.
 #
 # Iteration 1 of the Spring-native plan ships no web security, so no row asserts it. Capabilities the
 # reference service STRUCTURALLY depends on (messaging for the outbox, data-jpa for OrderRepository) are
@@ -14,5 +15,5 @@
 #
 # id	jvm_args	present	absent
 baseline	-	core,errors,logging,observability,messaging,outbox,data-jpa	security,authz,openapi,validation,cache,audit,resilience,restclient
-observability-off	-Ddc.platform.observability.enabled=false	core,errors,logging,messaging,data-jpa	observability
+outbox-off	-Ddc.platform.messaging.outbox.enabled=false	core,errors,logging,observability,messaging:ACTIVE,data-jpa,outbox:INACTIVE	security
 no-cut-capabilities	-	core,errors,logging	flags,storage,locking,ratelimit,idempotency,scheduling,files,redis,events,cache,audit,security,authz

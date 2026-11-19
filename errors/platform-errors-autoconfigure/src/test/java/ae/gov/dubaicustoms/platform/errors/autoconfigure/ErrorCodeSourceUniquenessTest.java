@@ -7,6 +7,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
@@ -38,7 +39,6 @@ import java.util.stream.Stream;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
@@ -65,9 +65,10 @@ import org.junit.jupiter.api.Test;
  *       type other than {@code ProblemDetailFactory}; {@code respond} (argument 1); a {@code DataAccessFailure}
  *       constructor (argument 1). A method reference to one of them is reported.</li>
  *   <li><b>Values.</b> A value is a string literal, a conditional of values, or a name that javac resolves to a local
- *       variable or a {@code final} field declared in the scanned sources: its initialiser and every assignment to it,
- *       each a value. Only literals end a chain, so every accepted code is a literal counted by rule 1. A parameter or a
- *       call is a value only where {@link #FORWARDING} audits it; its upstream is checked here. Inside a class with any
+ *       variable declared in the scanned sources (its initialiser and every assignment to it; a for-each variable is
+ *       unknown) or to a constant variable declared there (its initialiser). Only literals end a chain, and javac's
+ *       string folding is off, so every accepted code is a source literal counted by rule 1. A parameter or a call is a
+ *       value only where {@link #FORWARDING} audits that exact method; its upstream is checked here. Inside a class with any
  *       supertype javac cannot resolve, an inherited name could shadow any other, so nothing resolves there. Anything
  *       else is unknown and reported.</li>
  *   <li>A minimum count stops an empty scan from passing.</li>
@@ -86,27 +87,34 @@ class ErrorCodeSourceUniquenessTest {
     private static final String FACTORY = "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory";
     private static final String HANDLER = "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler";
 
-    /** A value passed on from an audited forwarding path. */
-    private static final String FORWARDED = "\u0000forwarded";
+    /** A value passed on from an audited forwarding path: an object, so no literal can equal it. */
+    private static final Object FORWARDED = new Object();
+
+    private static final String REQUEST = "jakarta.servlet.http.HttpServletRequest";
+    private static final String STRING = "java.lang.String";
 
     /**
-     * Audited forwarding paths. {@code Type#method(parameter)}: a parameter whose every call site is an entry point
-     * checked here, never assigned in the method. {@code Type#method:expression}: a call, by exact source text, inside
-     * that method.
+     * Audited forwarding paths, each tied to one exact method (fully qualified type, name and parameter types).
+     * {@code method#parameter}: that method's parameter at position 1, the argument its every call site checks, never
+     * assigned. {@code method calls callee: text}: a call of that exact callee, by source text, inside that method.
      */
     private static final Set<String> FORWARDING = Set.of(
             // create() forwards its code to decorate(); every create(...) call site is checked.
-            FACTORY + "#create(code)",
+            FACTORY + "#create(int," + STRING + "," + STRING + "," + STRING + ",java.lang.Throwable," + REQUEST + ")#code",
             // decorate() falls back to its defaultCode; every decorate(...) call site is checked.
-            FACTORY + "#decorate(defaultCode)",
-            // decorate() keeps the thrower's String code, checked where the thrower set it.
-            FACTORY + "#decorate:serviceCode(problem)",
-            // copyOf() copies a body's existing properties; a code among them was checked where it was set.
-            FACTORY + "#copyOf:deepCopy(value)",
+            FACTORY + "#decorate(org.springframework.http.ProblemDetail," + STRING + ",java.lang.Throwable," + REQUEST
+                    + ")#defaultCode",
             // respond() forwards its code to create(); every respond(...) call site is checked.
-            HANDLER + "#respond(code)",
+            HANDLER + "#respond(int," + STRING + "," + STRING + ",java.lang.Exception," + REQUEST + ")#code",
+            // decorate() keeps the thrower's String code, checked where the thrower set it.
+            FACTORY + "#decorate(org.springframework.http.ProblemDetail," + STRING + ",java.lang.Throwable," + REQUEST
+                    + ") calls " + FACTORY + "#serviceCode(org.springframework.http.ProblemDetail): serviceCode(problem)",
+            // copyOf() copies a body's existing properties; a code among them was checked where it was set.
+            FACTORY + "#copyOf(org.springframework.http.ProblemDetail) calls " + FACTORY
+                    + "#deepCopy(java.lang.Object): deepCopy(value)",
             // A DataAccessFailure's code is one of its constants, each checked at the constant.
-            HANDLER + "#handle:failure.code()");
+            HANDLER + "#handle(java.lang.Exception," + REQUEST + ",jakarta.servlet.http.HttpServletResponse) calls "
+                    + "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure#code(): failure.code()");
 
     /**
      * Audited setProperty calls on something other than a ProblemDetail, by enclosing type and exact source text. Each
@@ -298,6 +306,31 @@ class ErrorCodeSourceUniquenessTest {
                             void reference(org.springframework.http.ProblemDetail problem) {
                                 java.util.function.BiConsumer<String, Object> setter = problem::setProperty;
                             }
+                            void marker(org.springframework.http.ProblemDetail problem) {
+                                problem.setProperty("code", "\\0forwarded");
+                            }
+                            void forEach(org.springframework.http.ProblemDetail problem, java.util.List<String> supplied) {
+                                for (String loopCode : supplied) {
+                                    problem.setProperty("code", loopCode);
+                                    loopCode = SPLIT_OVER_LINES;
+                                }
+                            }
+                            class Early {
+                                final String earlyCode;
+                                Early(org.springframework.http.ProblemDetail problem) {
+                                    publish(problem);
+                                    earlyCode = SPLIT_OVER_LINES;
+                                }
+                                void publish(org.springframework.http.ProblemDetail problem) {
+                                    problem.setProperty("code", earlyCode);
+                                }
+                            }
+                            static final String FOLDED = "D" + "C-TST-0009";
+                            String prefixedDuplicate = "prefix" + "DC-TST-0003";
+                            String prefixedBroken = "prefix" + "DC-BROKEN";
+                            void folded(org.springframework.http.ProblemDetail problem) {
+                                problem.setProperty("code", FOLDED);
+                            }
                             void innerKey(org.springframework.http.ProblemDetail problem) {
                                 { String inner = "detail"; problem.setProperty(inner, "NAMED_KEY"); }
                                 problem.setProperty("detail", "LITERAL_OTHER_KEY");
@@ -348,11 +381,15 @@ class ErrorCodeSourceUniquenessTest {
 
                         public final class ProblemDetailFactory {
                             public ProblemDetail create(int status, String code, String detail, String path,
-                                    Throwable source, Object request) {
+                                    Throwable source, jakarta.servlet.http.HttpServletRequest request) {
                                 return decorate(ProblemDetail.forStatus(status), code, source, request);
                             }
                             public ProblemDetail decorate(ProblemDetail problem, String defaultCode, Throwable source,
-                                    Object request) {
+                                    jakarta.servlet.http.HttpServletRequest request) {
+                                problem.setProperty("code", defaultCode);
+                                return problem;
+                            }
+                            ProblemDetail decorate(ProblemDetail problem, String checked, String defaultCode) {
                                 problem.setProperty("code", defaultCode);
                                 return problem;
                             }
@@ -366,8 +403,8 @@ class ErrorCodeSourceUniquenessTest {
         assertThat(scan.declarations()).extracting(Declaration::code)
                 .as("multi-line, a conditional's literal, and a unicode escape resolving to the same runtime value")
                 .containsExactlyInAnyOrder("DC-TST-0001", "DC-TST-0003", "DC-TST-0005", "DC-TST-0006", "DC-TST-0007",
-                        "DC-TST-0008", "DC-TST-0001");
-        assertThat(duplicates(scan)).containsOnlyKeys("DC-TST-0001");
+                        "DC-TST-0008", "DC-TST-0003", "DC-TST-0001");
+        assertThat(duplicates(scan)).containsOnlyKeys("DC-TST-0001", "DC-TST-0003");
         assertThat(scan.unsupported())
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BROKEN"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupCode()"))
@@ -409,8 +446,16 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("problem::setProperty"))
                 .anySatisfy(entry -> assertThat(entry).contains("ProblemDetailFactory.java")
                         .contains("UNAUDITED_IN_FACTORY"))
-                .noneSatisfy(entry -> assertThat(entry).contains("defaultCode"))
                 .noneSatisfy(entry -> assertThat(entry).contains("code code is not"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("forwarded"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code loopCode "))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code earlyCode "))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code FOLDED "))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC-BROKEN\" is not a whole code"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\" is not a whole code"));
+        // The audited decorate(..., defaultCode, ...) forwards; its unaudited overload does not.
+        assertThat(scan.unsupported()).filteredOn(entry -> entry.contains("code defaultCode ")).hasSize(1);
+        assertThat(scan.unsupported())
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
                 .anySatisfy(entry -> assertThat(entry).contains("C.java").contains("DC-TST-12"))
@@ -443,8 +488,10 @@ class ErrorCodeSourceUniquenessTest {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         // Attributed, not just parsed, so that javac resolves every name. Types outside the classpath stay unresolved
         // (error types) and javac attributes past them (should-stop at FLOW); the resolver treats them as unknown.
+        // String folding off: "a" + "b" stays two source literals, each seen by the literal rule.
         JavacTask task = (JavacTask) compiler.getTask(null, null, diagnostic -> {
-        }, List.of("-proc:none", "-XDshould-stop.ifError=FLOW", "-classpath", System.getProperty("java.class.path")),
+        }, List.of("-proc:none", "-XDshould-stop.ifError=FLOW", "-XDallowStringFolding=false",
+                "-classpath", System.getProperty("java.class.path")),
                 null, sources);
         List<CompilationUnitTree> units = new ArrayList<>();
         try {
@@ -538,12 +585,12 @@ class ErrorCodeSourceUniquenessTest {
 
     private static void check(TreePath value, String file, Values values, List<String> unsupported) {
         String text = value.getLeaf().toString();
-        Set<String> resolved = values.of(value);
+        Set<Object> resolved = values.of(value);
         if (resolved.isEmpty()) {
             unsupported.add(file + ": code " + text + " is not a literal or a literal constant");
             return;
         }
-        resolved.stream().filter(code -> !code.equals(FORWARDED) && !FORMAT.matcher(code).matches())
+        resolved.stream().filter(code -> code != FORWARDED && !FORMAT.matcher((String) code).matches())
                 .forEach(code -> unsupported.add(file + ": code " + text + " resolves to \"" + code + "\""));
     }
 
@@ -552,12 +599,13 @@ class ErrorCodeSourceUniquenessTest {
      * in the scanned sources; only literals (and audited forwarding paths) end a chain. Empty means unknown.
      */
     private record Values(Trees trees, Map<Element, VariableTree> declarations, Map<Element, List<TreePath>> assignments,
-            Set<Element> compounded) {
+            Set<Element> opaque) {
 
         static Values of(Trees trees, List<CompilationUnitTree> units) {
             Map<Element, VariableTree> declarations = new HashMap<>();
             Map<Element, List<TreePath>> assignments = new HashMap<>();
-            Set<Element> compounded = new java.util.HashSet<>();
+            // Variables with a value the gate cannot see: compound-assigned, or a for-each variable.
+            Set<Element> opaque = new java.util.HashSet<>();
             for (CompilationUnitTree unit : units) {
                 new TreePathScanner<Void, Void>() {
                     @Override
@@ -583,20 +631,29 @@ class ErrorCodeSourceUniquenessTest {
                     public Void visitCompoundAssignment(CompoundAssignmentTree node, Void unused) {
                         Element element = trees.getElement(new TreePath(getCurrentPath(), node.getVariable()));
                         if (element != null) {
-                            compounded.add(element);
+                            opaque.add(element);
                         }
                         return super.visitCompoundAssignment(node, unused);
                     }
+
+                    @Override
+                    public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void unused) {
+                        Element element = trees.getElement(new TreePath(getCurrentPath(), node.getVariable()));
+                        if (element != null) {
+                            opaque.add(element);
+                        }
+                        return super.visitEnhancedForLoop(node, unused);
+                    }
                 }.scan(unit, null);
             }
-            return new Values(trees, declarations, assignments, compounded);
+            return new Values(trees, declarations, assignments, opaque);
         }
 
-        Set<String> of(TreePath path) {
+        Set<Object> of(TreePath path) {
             return of(path, 0);
         }
 
-        private Set<String> of(TreePath path, int depth) {
+        private Set<Object> of(TreePath path, int depth) {
             Tree expression = path.getLeaf();
             if (depth > 16 || insideUnresolvedHierarchy(path)) {
                 return Set.of();
@@ -605,7 +662,7 @@ class ErrorCodeSourceUniquenessTest {
                 return of(new TreePath(path, parenthesized.getExpression()), depth + 1);
             }
             if (expression instanceof LiteralTree literal) {
-                return literal.getValue() instanceof String text ? Set.of(text) : Set.of();
+                return literal.getValue() instanceof String text ? Set.of((Object) text) : Set.of();
             }
             if (expression instanceof ConditionalExpressionTree conditional) {
                 return union(List.of(new TreePath(path, conditional.getTrueExpression()),
@@ -614,27 +671,37 @@ class ErrorCodeSourceUniquenessTest {
             if (expression instanceof IdentifierTree || expression instanceof MemberSelectTree) {
                 return ofVariable(trees.getElement(path), depth);
             }
-            String site = enclosingType(path) + "#" + enclosingMethod(path) + ":" + expression;
-            return FORWARDING.contains(site) ? Set.of(FORWARDED) : Set.of();
+            ExecutableElement method = enclosingMethod(path);
+            if (expression instanceof MethodInvocationTree && method != null
+                    && trees.getElement(path) instanceof ExecutableElement callee
+                    && FORWARDING.contains(signature(method) + " calls " + signature(callee) + ": " + expression)) {
+                return Set.of(FORWARDED);
+            }
+            return Set.of();
         }
 
-        private Set<String> ofVariable(Element element, int depth) {
-            if (!(element instanceof VariableElement variable) || compounded.contains(variable)) {
+        private Set<Object> ofVariable(Element element, int depth) {
+            if (!(element instanceof VariableElement variable) || opaque.contains(variable)) {
                 return Set.of();
             }
             List<TreePath> assigned = assignments.getOrDefault(variable, List.of());
             if (variable.getKind() == ElementKind.PARAMETER) {
                 return assigned.isEmpty() && isForwardedParameter(variable) ? Set.of(FORWARDED) : Set.of();
             }
-            boolean local = variable.getKind() == ElementKind.LOCAL_VARIABLE
-                    || variable.getKind() == ElementKind.RESOURCE_VARIABLE;
-            boolean finalField = variable.getKind() == ElementKind.FIELD
-                    && variable.getModifiers().contains(Modifier.FINAL);
             VariableTree declaration = declarations.get(variable);
-            if (!(local || finalField) || declaration == null) {
+            if (declaration == null) {
                 return Set.of();
             }
-            List<TreePath> sources = new ArrayList<>(assigned);
+            List<TreePath> sources = new ArrayList<>();
+            if (variable.getKind() == ElementKind.LOCAL_VARIABLE || variable.getKind() == ElementKind.RESOURCE_VARIABLE) {
+                // Java's definite assignment guarantees a local is assigned before it is read: its initialiser and
+                // every assignment are all its possible values.
+                sources.addAll(assigned);
+            } else if (!(variable.getKind() == ElementKind.FIELD && variable.getConstantValue() instanceof String)) {
+                // A field counts only as a constant variable: javac inlines it, so it is never read before its
+                // initialiser runs, and it is never assigned.
+                return Set.of();
+            }
             if (declaration.getInitializer() != null) {
                 sources.add(new TreePath(trees.getPath(variable), declaration.getInitializer()));
             }
@@ -642,10 +709,13 @@ class ErrorCodeSourceUniquenessTest {
         }
 
         // Every source must resolve; the result is all their values.
-        private Set<String> union(List<TreePath> sources, int depth) {
-            Set<String> all = new LinkedHashSet<>();
+        private Set<Object> union(List<TreePath> sources, int depth) {
+            if (sources.isEmpty()) {
+                return Set.of();
+            }
+            Set<Object> all = new LinkedHashSet<>();
             for (TreePath source : sources) {
-                Set<String> one = of(source, depth + 1);
+                Set<Object> one = of(source, depth + 1);
                 if (one.isEmpty()) {
                     return Set.of();
                 }
@@ -656,10 +726,23 @@ class ErrorCodeSourceUniquenessTest {
 
         private static boolean isForwardedParameter(VariableElement parameter) {
             return parameter.getEnclosingElement() instanceof ExecutableElement method
-                    && method.getParameters().contains(parameter)
-                    && method.getEnclosingElement() instanceof TypeElement owner
-                    && FORWARDING.contains(owner.getQualifiedName() + "#" + method.getSimpleName() + "("
-                            + parameter.getSimpleName() + ")");
+                    && method.getParameters().indexOf(parameter) == 1
+                    && FORWARDING.contains(signature(method) + "#" + parameter.getSimpleName());
+        }
+
+        // pkg.Type#name(paramType,...), parameter types erased.
+        private static String signature(ExecutableElement method) {
+            String owner = method.getEnclosingElement() instanceof TypeElement type ? type.getQualifiedName().toString()
+                    : "";
+            return owner + "#" + method.getSimpleName() + method.getParameters().stream()
+                    .map(parameter -> erasure(parameter.asType()))
+                    .collect(Collectors.joining(",", "(", ")"));
+        }
+
+        private static String erasure(TypeMirror type) {
+            String name = type.toString();
+            int generic = name.indexOf('<');
+            return generic < 0 ? name : name.substring(0, generic);
         }
 
         String enclosingType(TreePath path) {
@@ -671,16 +754,16 @@ class ErrorCodeSourceUniquenessTest {
             return "";
         }
 
-        private static String enclosingMethod(TreePath path) {
+        private ExecutableElement enclosingMethod(TreePath path) {
             for (TreePath current = path; current != null; current = current.getParentPath()) {
-                if (current.getLeaf() instanceof MethodTree method) {
-                    return method.getName().toString();
+                if (current.getLeaf() instanceof MethodTree) {
+                    return trees.getElement(current) instanceof ExecutableElement method ? method : null;
                 }
                 if (current.getLeaf() instanceof ClassTree) {
-                    return "";
+                    return null;
                 }
             }
-            return "";
+            return null;
         }
 
         // In a class with any supertype javac cannot resolve, directly or further up, an inherited member could shadow

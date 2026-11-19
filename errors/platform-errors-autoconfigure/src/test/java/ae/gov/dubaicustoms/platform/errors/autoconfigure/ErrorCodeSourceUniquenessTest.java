@@ -216,8 +216,10 @@ class ErrorCodeSourceUniquenessTest {
                                 problem.setProperty(D.ONLY_IN_D, "QUALIFIED_NOT_CODE");
                                 problem.setProperty("code", D.D_CODE);
                             }
+                            Keys F;
                             void variableNamedLikeAType(org.springframework.http.ProblemDetail problem, Keys E) {
                                 problem.setProperty(E.ONLY_IN_E, "VARIABLE_RECEIVER");
+                                problem.setProperty(this.F.ONLY_IN_F, "FIELD_RECEIVER");
                             }
                             void localClassField(org.springframework.http.ProblemDetail problem) {
                                 new Runnable() {
@@ -260,6 +262,11 @@ class ErrorCodeSourceUniquenessTest {
                         class E {
                             static final String ONLY_IN_E = "detail";
                         }
+                        """),
+                source("F", """
+                        class F {
+                            static final String ONLY_IN_F = "detail";
+                        }
                         """)));
 
         assertThat(scan.declarations()).extracting(Declaration::code)
@@ -288,6 +295,7 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BARE_FIELD"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CROSS_FILE"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("VARIABLE_RECEIVER"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("FIELD_RECEIVER"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("LOCAL_CLASS_FIELD"))
                 .noneSatisfy(entry -> assertThat(entry).contains("QUALIFIED_NOT_CODE"))
                 .noneSatisfy(entry -> assertThat(entry).contains("D_CODE"))
@@ -633,22 +641,23 @@ class ErrorCodeSourceUniquenessTest {
         }
 
         // Type.NAME or a.b.Type.NAME: the field of every scanned class with that simple name, all of them constants,
-        // or unknown. Java reads the leftmost name as a variable when one is in scope, so if that name is a local or
-        // any variable declared in the scanned sources, the receiver is unknown; so is any other receiver (this, a
-        // call). Accepted limit: a field inherited from a type outside the scanned sources and named exactly like a
+        // or unknown. Java reads a name in the chain as a variable when one is in scope, so if any name of the chain is
+        // this, super, a local or any variable declared in the scanned sources, the receiver is unknown; so is any
+        // other receiver (a call, an array access). Accepted limit: a field inherited from a type outside the scanned sources and named exactly like a
         // scanned class (Java's naming conventions and the platform's checkstyle rule out such names).
         Set<String> lookupIn(ExpressionTree owner, String name, Map<String, Set<String>> locals) {
             ExpressionTree type = unwrap(owner);
             if (!(type instanceof IdentifierTree || type instanceof MemberSelectTree)) {
                 return Set.of();
             }
-            ExpressionTree leftmost = type;
-            while (leftmost instanceof MemberSelectTree qualified) {
-                leftmost = unwrap(qualified.getExpression());
+            ExpressionTree link = type;
+            while (link instanceof MemberSelectTree qualified) {
+                if (isVariable(qualified.getIdentifier().toString(), locals)) {
+                    return Set.of();
+                }
+                link = unwrap(qualified.getExpression());
             }
-            if (!(leftmost instanceof IdentifierTree first)
-                    || locals.containsKey(first.getName().toString())
-                    || variables.contains(first.getName().toString())) {
+            if (!(link instanceof IdentifierTree first) || isVariable(first.getName().toString(), locals)) {
                 return Set.of();
             }
             List<ClassTree> types = byName.getOrDefault(lastName(type), List.of());
@@ -661,6 +670,10 @@ class ErrorCodeSourceUniquenessTest {
                 values.addAll(declared);
             }
             return values;
+        }
+
+        private boolean isVariable(String name, Map<String, Set<String>> locals) {
+            return name.equals("this") || name.equals("super") || locals.containsKey(name) || variables.contains(name);
         }
 
         private static boolean inherits(ClassTree type) {

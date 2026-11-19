@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
@@ -16,6 +17,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
@@ -44,6 +46,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
@@ -62,8 +65,11 @@ import org.junit.jupiter.api.Test;
  *   <li><b>Entry points.</b> These must receive a value that resolves to whole codes: every {@code setProperty}, on any
  *       receiver, unless its key is a string literal other than {@code "code"} (or the call is audited in
  *       {@link #NOT_A_PROBLEM_DETAIL}); {@code create} and {@code decorate} (argument 1) unless javac resolves them to a
- *       type other than {@code ProblemDetailFactory}; {@code respond} (argument 1); a {@code DataAccessFailure}
- *       constructor (argument 1). A method reference to one of them is reported.</li>
+ *       type other than {@code ProblemDetailFactory}; {@code respond} (argument 1); every invocation of a constructor
+ *       of a type named {@code DataAccessFailure} ({@code new}, enum constant, {@code this(…)}, {@code super(…)}),
+ *       at its parameter named {@code code}, and every assignment to such a type's {@code code} field. A method or
+ *       constructor reference to an entry point, and an anonymous subclass of {@code DataAccessFailure}, are
+ *       reported.</li>
  *   <li><b>Values.</b> A value is a string literal, a conditional of values, or a name that javac resolves to a local
  *       variable declared in the scanned sources (its initialiser and every assignment to it; a for-each variable is
  *       unknown) or to a constant variable declared there (its initialiser). Only literals end a chain, and javac's
@@ -86,6 +92,7 @@ class ErrorCodeSourceUniquenessTest {
 
     private static final String FACTORY = "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory";
     private static final String HANDLER = "ae.gov.dubaicustoms.platform.errors.autoconfigure.PlatformExceptionHandler";
+    private static final String DATA_ACCESS_FAILURE = "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure";
 
     /** A value passed on from an audited forwarding path: an object, so no literal can equal it. */
     private static final Object FORWARDED = new Object();
@@ -112,9 +119,11 @@ class ErrorCodeSourceUniquenessTest {
             // copyOf() copies a body's existing properties; a code among them was checked where it was set.
             FACTORY + "#copyOf(org.springframework.http.ProblemDetail) calls " + FACTORY
                     + "#deepCopy(java.lang.Object): deepCopy(value)",
-            // A DataAccessFailure's code is one of its constants, each checked at the constant.
+            // The constructor's code goes to the code field; every invocation of this constructor is checked.
+            DATA_ACCESS_FAILURE + "#<init>(int," + STRING + "," + STRING + ")#code",
+            // A DataAccessFailure's code is its code field, checked at every assignment.
             HANDLER + "#handle(java.lang.Exception," + REQUEST + ",jakarta.servlet.http.HttpServletResponse) calls "
-                    + "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure#code(): failure.code()");
+                    + DATA_ACCESS_FAILURE + "#code(): failure.code()");
 
     /**
      * Audited setProperty calls on something other than a ProblemDetail, by enclosing type and exact source text. Each
@@ -331,6 +340,12 @@ class ErrorCodeSourceUniquenessTest {
                             void folded(org.springframework.http.ProblemDetail problem) {
                                 problem.setProperty("code", FOLDED);
                             }
+                            void failures() {
+                                java.util.function.BiFunction<Integer, String, Object> maker = other.DataAccessFailure::new;
+                                new other.DataAccessFailure<String>(500, "GENERIC_FAILURE");
+                                new @A other.DataAccessFailure(500, "ANNOTATED_FAILURE");
+                                new other.DataAccessFailure(500, "ANONYMOUS_FAILURE") { };
+                            }
                             void innerKey(org.springframework.http.ProblemDetail problem) {
                                 { String inner = "detail"; problem.setProperty(inner, "NAMED_KEY"); }
                                 problem.setProperty("detail", "LITERAL_OTHER_KEY");
@@ -370,6 +385,29 @@ class ErrorCodeSourceUniquenessTest {
                             static final String ONLY_IN_F = "detail";
                         }
                         """),
+                source("DataAccessFailure", """
+                        package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;
+
+                        enum DataAccessFailure {
+                            DELEGATING(500),
+                            DIRECT(409, "BROKEN_CONSTANT", "detail"),
+                            SWAPPED("BROKEN_SWAPPED", 1);
+
+                            private final String code;
+
+                            DataAccessFailure(int status) {
+                                this(status, System.getProperty("unchecked.code"), "detail");
+                            }
+
+                            DataAccessFailure(int status, String code, String detail) {
+                                this.code = code;
+                            }
+
+                            DataAccessFailure(String swapped, int status) {
+                                this.code = swapped;
+                            }
+                        }
+                        """),
                 source("G", """
                         class Parent extends Missing {
                         }
@@ -380,7 +418,7 @@ class ErrorCodeSourceUniquenessTest {
                         import org.springframework.http.ProblemDetail;
 
                         public final class ProblemDetailFactory {
-                            public ProblemDetail create(int status, String code, String detail, String path,
+                            public <T extends String> ProblemDetail create(int status, T code, String detail, String path,
                                     Throwable source, jakarta.servlet.http.HttpServletRequest request) {
                                 return decorate(ProblemDetail.forStatus(status), code, source, request);
                             }
@@ -453,6 +491,16 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("code FOLDED "))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC-BROKEN\" is not a whole code"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\" is not a whole code"));
+        assertThat(scan.unsupported())
+                .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java")
+                        .contains("System.getProperty(\"unchecked.code\")"))
+                .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java").contains("BROKEN_CONSTANT"))
+                .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java").contains("code swapped "))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("DataAccessFailure::new"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("GENERIC_FAILURE"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("ANNOTATED_FAILURE"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("anonymous DataAccessFailure"))
+                .noneSatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java").contains("code code "));
         // The audited decorate(..., defaultCode, ...) forwards; its unaudited overload does not.
         assertThat(scan.unsupported()).filteredOn(entry -> entry.contains("code defaultCode ")).hasSize(1);
         assertThat(scan.unsupported())
@@ -501,7 +549,7 @@ class ErrorCodeSourceUniquenessTest {
             throw new java.io.UncheckedIOException(e);
         }
         Trees trees = Trees.instance(task);
-        Values values = Values.of(trees, units);
+        Values values = Values.of(trees, task.getTypes(), units);
         List<Declaration> declarations = new ArrayList<>();
         List<String> unsupported = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -532,14 +580,60 @@ class ErrorCodeSourceUniquenessTest {
                         check(argument(1), file, values, unsupported);
                     } else if (name.equals("respond") && args.size() >= 2) {
                         check(argument(1), file, values, unsupported);
+                    } else if (name.equals("this") || name.equals("super")) {
+                        checkFailureConstructor(trees.getElement(getCurrentPath()), "");
                     }
                     return super.visitMethodInvocation(node, unused);
                 }
 
                 @Override
+                public Void visitAssignment(AssignmentTree node, Void unused) {
+                    if (isFailureCodeField(trees.getElement(new TreePath(getCurrentPath(), node.getVariable())))) {
+                        check(new TreePath(getCurrentPath(), node.getExpression()), file, values, unsupported);
+                    }
+                    return super.visitAssignment(node, unused);
+                }
+
+                @Override
+                public Void visitVariable(VariableTree node, Void unused) {
+                    if (node.getInitializer() != null && isFailureCodeField(trees.getElement(getCurrentPath()))) {
+                        check(new TreePath(getCurrentPath(), node.getInitializer()), file, values, unsupported);
+                    }
+                    return super.visitVariable(node, unused);
+                }
+
+                // A constructor of a type named DataAccessFailure: its argument at the parameter named code. Unresolved
+                // (outside the classpath), a construction named DataAccessFailure is checked at argument 1.
+                private void checkFailureConstructor(Element constructor, String unresolvedName) {
+                    if (constructor instanceof ExecutableElement executable
+                            && executable.getKind() == ElementKind.CONSTRUCTOR
+                            && isNamedFailure(executable.getEnclosingElement())) {
+                        List<? extends VariableElement> parameters = executable.getParameters();
+                        for (int index = 0; index < parameters.size(); index++) {
+                            if (parameters.get(index).getSimpleName().contentEquals("code")) {
+                                check(argument(index), file, values, unsupported);
+                            }
+                        }
+                    } else if (!(constructor instanceof ExecutableElement) && unresolvedName.equals("DataAccessFailure")
+                            && argumentCount() >= 2) {
+                        check(argument(1), file, values, unsupported);
+                    }
+                }
+
+                private int argumentCount() {
+                    Tree call = getCurrentPath().getLeaf();
+                    return call instanceof NewClassTree created ? created.getArguments().size()
+                            : ((MethodInvocationTree) call).getArguments().size();
+                }
+
+                @Override
                 public Void visitMemberReference(MemberReferenceTree node, Void unused) {
                     String name = node.getName().toString();
-                    if (name.equals("setProperty") || name.equals("respond")
+                    boolean failureConstructor = name.equals("<init>")
+                            && (lastName(node.getQualifierExpression()).equals("DataAccessFailure")
+                            || isNamedFailure(trees.getElement(new TreePath(getCurrentPath(),
+                                    node.getQualifierExpression()))));
+                    if (name.equals("setProperty") || name.equals("respond") || failureConstructor
                             || (name.equals("create") || name.equals("decorate"))
                             && mayBeFactory(trees.getElement(getCurrentPath()))) {
                         unsupported.add(file + ": " + node + " hands an entry point on unchecked");
@@ -549,8 +643,12 @@ class ErrorCodeSourceUniquenessTest {
 
                 @Override
                 public Void visitNewClass(NewClassTree node, Void unused) {
-                    if (lastName(node.getIdentifier()).equals("DataAccessFailure") && node.getArguments().size() >= 2) {
-                        check(argument(1), file, values, unsupported);
+                    String typeName = lastName(node.getIdentifier());
+                    if (node.getClassBody() != null && (typeName.equals("DataAccessFailure")
+                            || isNamedFailure(trees.getElement(new TreePath(getCurrentPath(), node.getIdentifier()))))) {
+                        unsupported.add(file + ": an anonymous DataAccessFailure hides its constructor's code");
+                    } else {
+                        checkFailureConstructor(trees.getElement(getCurrentPath()), typeName);
                     }
                     return super.visitNewClass(node, unused);
                 }
@@ -571,6 +669,15 @@ class ErrorCodeSourceUniquenessTest {
     private static boolean isOtherLiteralKey(ExpressionTree key) {
         return unwrap(key) instanceof LiteralTree literal && literal.getValue() instanceof String text
                 && !text.equals("code");
+    }
+
+    private static boolean isNamedFailure(Element type) {
+        return type instanceof TypeElement named && named.getSimpleName().contentEquals("DataAccessFailure");
+    }
+
+    private static boolean isFailureCodeField(Element field) {
+        return field instanceof VariableElement variable && variable.getKind() == ElementKind.FIELD
+                && variable.getSimpleName().contentEquals("code") && isNamedFailure(variable.getEnclosingElement());
     }
 
     // create/decorate is a factory call unless javac resolved it to a method of another type. ProblemDetailFactory is
@@ -598,10 +705,10 @@ class ErrorCodeSourceUniquenessTest {
      * The string values an expression can have, with javac's name resolution. Every name is followed to its declaration
      * in the scanned sources; only literals (and audited forwarding paths) end a chain. Empty means unknown.
      */
-    private record Values(Trees trees, Map<Element, VariableTree> declarations, Map<Element, List<TreePath>> assignments,
-            Set<Element> opaque) {
+    private record Values(Trees trees, Types types, Map<Element, VariableTree> declarations,
+            Map<Element, List<TreePath>> assignments, Set<Element> opaque) {
 
-        static Values of(Trees trees, List<CompilationUnitTree> units) {
+        static Values of(Trees trees, Types types, List<CompilationUnitTree> units) {
             Map<Element, VariableTree> declarations = new HashMap<>();
             Map<Element, List<TreePath>> assignments = new HashMap<>();
             // Variables with a value the gate cannot see: compound-assigned, or a for-each variable.
@@ -646,7 +753,7 @@ class ErrorCodeSourceUniquenessTest {
                     }
                 }.scan(unit, null);
             }
-            return new Values(trees, declarations, assignments, opaque);
+            return new Values(trees, types, declarations, assignments, opaque);
         }
 
         Set<Object> of(TreePath path) {
@@ -724,14 +831,15 @@ class ErrorCodeSourceUniquenessTest {
             return all;
         }
 
-        private static boolean isForwardedParameter(VariableElement parameter) {
+        private boolean isForwardedParameter(VariableElement parameter) {
             return parameter.getEnclosingElement() instanceof ExecutableElement method
                     && method.getParameters().indexOf(parameter) == 1
                     && FORWARDING.contains(signature(method) + "#" + parameter.getSimpleName());
         }
 
-        // pkg.Type#name(paramType,...), parameter types erased.
-        private static String signature(ExecutableElement method) {
+        // pkg.Type#name(paramType,...), parameter types erased by javac (type variables to their bounds, annotations
+        // and type arguments dropped).
+        private String signature(ExecutableElement method) {
             String owner = method.getEnclosingElement() instanceof TypeElement type ? type.getQualifiedName().toString()
                     : "";
             return owner + "#" + method.getSimpleName() + method.getParameters().stream()
@@ -739,10 +847,10 @@ class ErrorCodeSourceUniquenessTest {
                     .collect(Collectors.joining(",", "(", ")"));
         }
 
-        private static String erasure(TypeMirror type) {
-            String name = type.toString();
-            int generic = name.indexOf('<');
-            return generic < 0 ? name : name.substring(0, generic);
+        private String erasure(TypeMirror type) {
+            TypeMirror erased = types.erasure(type);
+            return erased instanceof DeclaredType declared && declared.asElement() instanceof TypeElement element
+                    ? element.getQualifiedName().toString() : erased.toString();
         }
 
         String enclosingType(TreePath path) {
@@ -810,6 +918,10 @@ class ErrorCodeSourceUniquenessTest {
 
     private static String lastName(Tree expression) {
         Tree receiver = expression instanceof ExpressionTree tree ? unwrap(tree) : expression;
+        while (receiver instanceof ParameterizedTypeTree || receiver instanceof AnnotatedTypeTree) {
+            receiver = receiver instanceof ParameterizedTypeTree parameterized ? parameterized.getType()
+                    : ((AnnotatedTypeTree) receiver).getUnderlyingType();
+        }
         return receiver instanceof MemberSelectTree qualified ? qualified.getIdentifier().toString()
                 : receiver instanceof IdentifierTree identifier ? identifier.getName().toString() : "";
     }

@@ -5,7 +5,6 @@ import ae.gov.dubaicustoms.platform.messaging.EventHandler;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.EventType;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.MDC;
@@ -47,10 +46,6 @@ public final class RabbitProbe {
     @Configuration(proxyBeanMethods = false)
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
     }
 
     @Service

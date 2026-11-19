@@ -1,12 +1,8 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
-import ae.gov.dubaicustoms.platform.events.DomainEvent;
-import ae.gov.dubaicustoms.platform.events.DomainEventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.EventEnvelope;
 import ae.gov.dubaicustoms.platform.messaging.EventHandler;
-import ae.gov.dubaicustoms.platform.messaging.EventType;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 public final class OutboxProbe {
 
     static final String DESTINATION = "dc.hh-outbox:order.placed";
-    static final String RELAY_EVENT = "hh.relay";
 
     private OutboxProbe() {
     }
@@ -37,18 +32,9 @@ public final class OutboxProbe {
     public record OrderPlaced(String ref) {
     }
 
-    /** A domain event the relay turns into an integration event, on destination "dc." + its type. */
-    @EventType(RELAY_EVENT)
-    public record RelayedOrder(String ref) implements DomainEvent {
-    }
-
     @Configuration(proxyBeanMethods = false)
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
     }
 
     @Service
@@ -56,12 +42,10 @@ public final class OutboxProbe {
 
         private final JdbcTemplate jdbc;
         private final OutboxPublisher outbox;
-        private final DomainEventPublisher domainEvents;
 
-        public Orders(JdbcTemplate jdbc, OutboxPublisher outbox, DomainEventPublisher domainEvents) {
+        public Orders(JdbcTemplate jdbc, OutboxPublisher outbox) {
             this.jdbc = jdbc;
             this.outbox = outbox;
-            this.domainEvents = domainEvents;
         }
 
         @Transactional
@@ -85,12 +69,6 @@ public final class OutboxProbe {
                 outbox.publish(DESTINATION, EventEnvelope.of(new OrderPlaced(ref)).key(ref).build());
             }
         }
-
-        @Transactional
-        public void relay(String ref) {
-            jdbc.update("insert into hh_order (ref) values (?)", ref);
-            domainEvents.publish(new RelayedOrder(ref));
-        }
     }
 
     /**
@@ -111,11 +89,6 @@ public final class OutboxProbe {
 
         @EventHandler(destination = DESTINATION)
         public void onOrder(EventEnvelope<OrderPlaced> event) {
-            record(event.payload().ref(), event);
-        }
-
-        @EventHandler(destination = "dc." + RELAY_EVENT)
-        public void onRelayed(EventEnvelope<RelayedOrder> event) {
             record(event.payload().ref(), event);
         }
 
@@ -148,12 +121,6 @@ public final class OutboxProbe {
         public Map<String, Object> placeMany(@RequestParam String prefix, @RequestParam int count) {
             orders.placeMany(prefix, count);
             return Map.of("count", count);
-        }
-
-        @PostMapping("/relay")
-        public Map<String, Object> relay(@RequestParam String ref) {
-            orders.relay(ref);
-            return Map.of("ref", ref);
         }
     }
 }

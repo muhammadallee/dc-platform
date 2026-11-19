@@ -5,7 +5,6 @@ import ae.gov.dubaicustoms.platform.core.PlatformException;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -52,10 +51,6 @@ public final class HardeningProbe {
     @EnableAsync
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
 
         // A consumer filter rejecting a request with sendError: the response is rendered by the
         // servlet error page (an ERROR dispatch), not by MVC.

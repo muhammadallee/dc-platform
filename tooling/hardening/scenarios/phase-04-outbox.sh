@@ -2,11 +2,16 @@
 # Hardening phase 4 (transactional outbox), Gate F: an archetype-generated consumer (-Ddatabase=oracle, prod profile),
 # with the outbox adopted the way docs/modules/outbox.md says (add the starter, copy the DDL), against real Oracle and real
 # RabbitMQ behind Toxiproxy, with two instances and real SIGKILLs. Proves the consumer-level acceptance criteria of
-# docs/production-readiness/phase-04-outbox/scope.md. Fixtures, not certified here: RabbitMQ (Phase 5), security (JWKS).
+# docs/production-readiness/phase-04-outbox/scope.md. Fixtures, not certified here: RabbitMQ (Phase 5).
+#
+# Spring-native Phase 1 port: no web security (JWT security is cut). The JWKS issuer is gone; the
+# request still sends a JWT-shaped bearer so the "no token in a row" check keeps its meaning, and AC12
+# now expects no principal on the message (none is configured). AC16 (the in-process events relay) went with
+# the events module. See docs/spring-native/phase-01-scope-cut/scope.md.
 #
 #   HH_MAVEN_REPO=~/.m2-hardening/phase-04 bash tooling/hardening/scenarios/phase-04-outbox.sh
 #
-# Edits to the generated project: pom.xml swaps the sample's in-memory transport for RabbitMQ and adds the outbox and events
+# Edits to the generated project: pom.xml swaps the sample's in-memory transport for RabbitMQ and adds the outbox
 # starters; the probe and two migrations are added. The drainer's retry timings are shortened through its documented
 # properties so the run takes minutes (recorded in app-env.txt); every other outbox default stands, batch size 50 included.
 # Delivery is counted from a table the consumer's handler writes, one row per delivery, so loss and duplicates are facts.
@@ -77,22 +82,9 @@ for GA in platform-starter-messaging-outbox platform-messaging-outbox-autoconfig
   else hh_fail "dependency tree lacks $GA"; fi
 done
 
-hh_step "loopback JWKS issuer (installed test kit), for a real principal and the Prometheus scrape"
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-BEARER="Authorization: Bearer $(cat "$IDP_DIR/token-valid")"
-AUTH=(-H "$BEARER")
+# A JWT-shaped value: nothing validates it now, and it must never reach a stored row.
+BEARER="Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJoYXJuZXNzIn0.aGFybmVzcy1zYW1wbGU"
+AUTH=()
 
 hh_step "infrastructure: Oracle Free, RabbitMQ, Toxiproxy in front of RabbitMQ"
 hh_infra oracle "$ORACLE_IMAGE" -e "ORACLE_PASSWORD=$SYSTEM_PW"
@@ -142,8 +134,6 @@ APP_ENV=(SPRING_PROFILES_ACTIVE=prod JAVA_TOOL_OPTIONS=-Xmx400m
   "SPRING_DATASOURCE_HIKARI_CONNECTIONINITSQL=alter session set current_schema=$OWNER"
   SPRING_FLYWAY_USER=$OWNER SPRING_FLYWAY_PASSWORD=$OWNER_PW
   SPRING_RABBITMQ_HOST=toxiproxy SPRING_RABBITMQ_USERNAME=hh SPRING_RABBITMQ_PASSWORD=$RABBIT_PW
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
-  DC_PLATFORM_EVENTS_RELAY_ENABLED=true
   DC_PLATFORM_MESSAGING_OUTBOX_POLLINTERVAL=200ms DC_PLATFORM_MESSAGING_OUTBOX_INITIALBACKOFF=200ms
   DC_PLATFORM_MESSAGING_OUTBOX_MAXBACKOFF=2s DC_PLATFORM_MESSAGING_OUTBOX_MAXREJECTIONS=2
   'SPRING_APPLICATION_JSON={"spring.jpa.properties.jakarta.persistence.database-major-version":"19"}')
@@ -182,8 +172,9 @@ if [ "$(value "select substr(traceparent, 4, 32) from $OWNER.hh_received where r
 else hh_fail "AC12 trace not on the message"; fi
 hh_http ac12-principal POST "/probe/orders?ref=ac12-p" -H "$BEARER"; hh_expect_status 200
 wait_delivered ac12-p 1 30 || hh_fail "AC12 event not delivered"
-SUBJECT=$(value "select principal from $OWNER.hh_received where ref = 'ac12-p'")
-if [ -n "$SUBJECT" ] && [ "$SUBJECT" != null ] && ! grep -q eyJ <<<"$SUBJECT"; then hh_pass "AC12 the message carries the subject, not a token ($SUBJECT)"
+SUBJECT=$(value "select nvl(principal, 'NONE') from $OWNER.hh_received where ref = 'ac12-p'")
+if [ "$SUBJECT" = NONE ]; then
+  hh_pass "AC12 with no principal source the message carries no principal, and never the bearer value"
 else hh_fail "AC12 principal: '$SUBJECT'"; fi
 if [ "$(value "select dump(event_id) from $OWNER.platform_outbox where 1 = 0" | wc -c)" -ge 0 ] \
     && ! printf 'select headers from %s.platform_outbox;\nexit\n' "$OWNER" | sys_sql | grep -q 'eyJ'; then
@@ -193,13 +184,6 @@ hh_http ac12-credential POST "/probe/orders?ref=ac12-c&header=x-auth-token"
 [ "${HH_STATUS:0:1}" = 5 ] && hh_pass "AC12 a credential-named header is refused ($HH_STATUS)" || hh_fail "AC12 credential header status $HH_STATUS"
 [ "$(value "select count(*) from $OWNER.hh_order where ref = 'ac12-c'")" = 0 ] && hh_pass "AC12 the refusal rolled the business write back" \
     || hh_fail "AC12 the business write survived a refused publish"
-
-hh_step "AC16 the relay writes through the outbox inside the transaction"
-post_ok ac16 "/probe/relay?ref=ac16-r"
-wait_delivered ac16-r 1 30 && hh_pass "AC16 a relayed domain event is delivered" || hh_fail "AC16 relayed event not delivered"
-if [ "$(value "select count(*) from $OWNER.platform_outbox where destination = 'dc.hh.relay'")" = 1 ]; then
-  hh_pass "AC16 it went through the outbox table"
-else hh_fail "AC16 no outbox row for the relayed event"; fi
 
 hh_step "AC5 RabbitMQ down: requests unaffected, rows accumulate, lag rises; recovery delivers everything"
 [ "$(toxi POST /proxies/rabbit '{"enabled":false}')" = 200 ] || hh_fail "could not disable the RabbitMQ proxy"

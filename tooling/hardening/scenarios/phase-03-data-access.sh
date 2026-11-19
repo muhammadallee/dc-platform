@@ -2,7 +2,11 @@
 # Hardening phase 3 (data access, Oracle), Gate F: an archetype-generated consumer (-Ddatabase=oracle,
 # prod profile) against a real Oracle Free behind Toxiproxy proves the consumer-level acceptance criteria
 # of docs/production-readiness/phase-03-data-access/scope.md (AC1, AC3-AC6, AC9, AC11, AC13, AC14).
-# Fixtures, not certified here: core, errors' generic contract, logging, observability, security (JWKS).
+# Fixtures, not certified here: core, errors' generic contract, logging, observability.
+#
+# Spring-native Phase 1 port: the generated service has no web security (JWT security is cut), so the
+# loopback JWKS issuer and the token on the Prometheus scrape are gone, and the anonymous-scrape check
+# (ac11-anon, expected 401) is dropped: see docs/spring-native/phase-01-scope-cut/scope.md.
 #
 #   HH_MAVEN_REPO=~/.m2-hardening/phase-03 bash tooling/hardening/scenarios/phase-03-data-access.sh
 #
@@ -82,21 +86,7 @@ if grep -qiE 'postgresql|mysql|mariadb' "$HH_EVIDENCE/generated-pom.xml"; then
   hh_log "note: generated pom.xml names another database artifact (see generated-pom.xml)"
 fi
 
-hh_step "loopback JWKS issuer (installed test kit) for the Prometheus scrape in prod"
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-AUTH=(-H "Authorization: Bearer $(cat "$IDP_DIR/token-valid")")
+AUTH=()
 
 hh_step "infrastructure: Oracle Free, Toxiproxy in front of its listener"
 hh_infra oracle "$ORACLE_IMAGE" -e "ORACLE_PASSWORD=$SYSTEM_PW"
@@ -141,7 +131,6 @@ APP_ENV=(SPRING_PROFILES_ACTIVE=prod
   # hikari.connection (a getter that opens a connection) and fail startup.
   "SPRING_DATASOURCE_HIKARI_CONNECTIONINITSQL=alter session set current_schema=$OWNER"
   SPRING_FLYWAY_USER=$OWNER SPRING_FLYWAY_PASSWORD=$OWNER_PW
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
   'SPRING_APPLICATION_JSON={"spring.jpa.properties.jakarta.persistence.database-major-version":"19"}')
 printf '%s\n' "${APP_ENV[@]}" | sed -E 's/(PASSWORD=).*/\1****/' > "$HH_EVIDENCE/app-env.txt"
 
@@ -202,7 +191,6 @@ hh_http ac3-unique-count GET "/probe/parcels/count?ref=$REF"; hh_expect_status 2
 hh_expect_json "the duplicate was not stored" "b['count'] == 1"
 
 hh_step "AC11 Hikari and repository meters; bounded tags, no SQL or ID in a label value"
-hh_http ac11-anon GET /actuator/prometheus; hh_expect_status 401
 scrape ac11-scrape; hh_expect_status 200
 check ac11-meters meters "$(hh_native "$HH_EVIDENCE/http/ac11-scrape.body")" "${ALL_REFS[@]}"
 POOL_MAX=$(metric hikaricp_connections_max ac11-scrape | cut -d. -f1)

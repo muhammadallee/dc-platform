@@ -20,6 +20,7 @@ platform *is* and would require a major redesign to reverse. They are stable, cu
 | [ADR-008](adr-008.md) | Extension via Spring back-off + SPI, never modification |
 | [ADR-009](adr-009.md) | Why not a God Framework |
 | [ADR-010](adr-010.md) | Why Convention over Configuration |
+| [ADR-011](adr-011.md) | Spring types in service code (refines ADR-003 and ADR-009) |
 
 **Read the ADRs** when you want to understand *why the platform is shaped the way it is* before
 changing a boundary, adding a module category, or proposing a structural change.

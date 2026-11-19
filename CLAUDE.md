@@ -3,6 +3,10 @@
 You are implementing an internal Spring Boot platform ("chassis"). The architecture is fixed
 (see specs/00-MASTER-PLAN.md and the phase specs). Your job is faithful, incremental execution.
 
+On `develop`, the Spring-native realignment ([docs/spring-native/plan.md](docs/spring-native/plan.md))
+is in progress: service code uses Spring types, and the platform is auto-configuration
+([ADR-011](docs/decisions/adr-011.md)). Where a rule below and ADR-011 differ, ADR-011 wins.
+
 ## Ground rules
 
 1. **Never break the reactor.** `mvn -T1C verify` from the root must pass after every commit.
@@ -12,22 +16,29 @@ You are implementing an internal Spring Boot platform ("chassis"). The architect
    (names, params, return types, javadoc `@since`). Internals and private helpers are your choice.
 4. **One module category per module** (Parent | BOM | API | SPI | Core | Implementation |
    Starter | Auto Configuration | Test Support | Documentation | Build Plugin | Examples).
-   Starters contain no code — POM only.
+   Starters contain no code — POM only. A capability is normally two modules: an Auto
+   Configuration module and a POM-only Starter (ND15). An API or SPI module exists only where no
+   Spring type fits, with a recorded ND decision; existing ones are removed phase by phase.
 5. **Dependency constitution** (enforced by build; do not fight the enforcer):
    - api → core-api only. spi → same-cap api. impl → same-cap spi/api + its 3rd-party lib.
    - autoconfigure → same-cap api/spi (+ optional impls, + other caps' **api** guarded by
      `@ConditionalOnClass`). starter → autoconfigure + named impl(s).
    - Forbidden: api→anything downward, impl→impl, starter→starter, anything→`*.internal` of
      another module, cycles, 3rd-party types in api/spi signatures.
+   - Service code imports Spring types, not platform types (ADR-011). The platform gives a service
+     behaviour through, in order of preference: a property default, a Spring Boot customizer bean,
+     a platform bean of a Spring type, and only then a platform type (plan v2 §4 rule 12).
 6. **Every platform bean**: `@ConditionalOnMissingBean`, kill switch
    `dc.platform.<cap>.enabled` (`matchIfMissing = true`), constructor injection, no field injection,
    no `@Autowired` on constructors (implicit), no `@ComponentScan` of platform packages.
-7. **Packages:** `ae.gov.dubaicustoms.platform.<cap>` (API), `.spi`, `.config`, `.autoconfigure`,
-   `.internal`, provider packages `.<provider>` with their own `.internal`.
+7. **Packages:** `ae.gov.dubaicustoms.platform.<cap>.autoconfigure` and its `.internal`. A remaining
+   API or SPI module keeps `ae.gov.dubaicustoms.platform.<cap>` / `.spi`; provider packages
+   `.<provider>` keep their own `.internal`.
 8. **Properties:** immutable records, prefix `dc.platform.<cap>`, defaults in code + metadata.
    Renames require deprecation metadata. See specs/reference/property-conventions.md.
 9. **Javadoc/comments:** follow specs/reference/coding-standards.md §2 exactly. Public API and SPI
-   types: full javadoc with purpose, usage snippet, thread-safety, nullability, `@since 0.1.0`.
+   types (where any remain): full javadoc with purpose, usage snippet, thread-safety, nullability,
+   `@since 0.1.0`. Properties records are public API too: document every component.
    Autoconfigure classes: leading comment block listing activation conditions and back-off behavior.
    No noise comments (`// getter`), no commented-out code.
 10. **Tests:** each autoconfigure module ships the 5-case ContextRunner matrix

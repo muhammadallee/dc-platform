@@ -69,14 +69,6 @@ class PlatformArchRulesTest {
     }
 
     @Test
-    void apiWhitelistAdmitsJakartaValidationAndOwnInternalsForValidation() {
-        assertThatCode(() -> PlatformArchRules.apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore()
-                .check(importOf("ae.gov.dubaicustoms.platform.validation",
-                        "ae.gov.dubaicustoms.platform.validation.internal")))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
     void fieldInjectionIsRejected() {
         assertThatThrownBy(() -> PlatformArchRules.noFieldInjection()
                 .check(importOf("ae.gov.dubaicustoms.platform.delta")))

@@ -135,6 +135,7 @@ nav:
       - ADR-008 Extension via back-off: decisions/adr-008.md
       - ADR-009 No God Framework: decisions/adr-009.md
       - ADR-010 Convention over configuration: decisions/adr-010.md
+      - ADR-011 Spring types in service code: decisions/adr-011.md
   - Upgrade notes:
       - "1.0.0-RC1": upgrade/1.0.0-RC1.md
       - "0.2.0": upgrade/0.2.0.md

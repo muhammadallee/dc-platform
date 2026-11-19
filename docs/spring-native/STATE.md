@@ -8,12 +8,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
 | Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-02-foundation`, PR #9 |
 | Current phase | 2 — Foundation: core + errors |
-| Current gate | Gates C, E (round-1 entries HI-0119 to HI-0134), F (3 consumer runs, 89/89, floor 77) and most of H (sample, lab passed the runner, clean full build) done. Gate D (Codex round 2) waits for the reset at 18:37 |
+| Current gate | Gate D: round 2 settled except the code gate's verification 5 (Codex usage limit until 23:40). All other gates done; `closure.md` drafted (PASS) |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | Codex usage limit (2026-11-19 16:19): round 2 waits for the reset at 18:37 (plan §5.3: wait, never buy credits) |
+| Open blockers | Codex usage limit (2026-11-19 19:40): verification 5 waits for the reset at 23:40 (plan §5.3) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | After 18:37: run `phase-02-foundation/codex/r2-review.prompt.md` against `c209736` from a worktree; settle its findings (verification pass for material changes), register them, then closure, merge PR #9 on green CI, tag `native/phase-02-closed` |
+| Next action | After 23:40: run `phase-02-foundation/codex/r2-verify5.prompt.md` against `1c7fbfe`; if ACCEPTED, finalise closure, merge PR #9 on green CI, tag `native/phase-02-closed`, report, start Phase 3 |
 
 ## Phase log
 

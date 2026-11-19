@@ -24,3 +24,14 @@ Claude agrees with every finding; there is no dispute to record.
 → core 73, errors 104, docs 35, no failures, no skips (`evidence-raw/gateD-r2-fixes-1.log`, `gateD-r2-docs.log`). The
 first-service lab passes the runner. The constraint-advice log line is a material change after round 2, so a
 verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.md).
+
+**Verification passes on the code gate** (prompts beside each answer in [`codex/`](codex/)):
+- [`r2-verify.out.md`](codex/r2-verify.out.md): items 2–7 accepted; the gate reopened (a reassigned local fell back to a
+  same-named constant; a reassigned `code` key skipped the call; a parenthesised receiver).
+- [`r2-verify2.out.md`](codex/r2-verify2.out.md): those three fixed; a receiver filter let `ProblemDetail.forStatus(500)`
+  calls escape.
+- [`r2-verify3.out.md`](codex/r2-verify3.out.md): fixed; a bounded type-parameter receiver escaped.
+- [`r2-verify4.out.md`](codex/r2-verify4.out.md): fixed; a block-scoped local of another type leaked its type.
+- Verification 5: the gate no longer guesses receiver types. Every `setProperty` whose key may be `code` is checked
+  wherever it is called, with one audited exemption by exact source text. Pending: Codex usage limit until 23:40.
+

@@ -50,5 +50,7 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
 - [`r2-verify11.out.md`](codex/r2-verify11.out.md): the six classes closed (`b5a89af`); five more listed (a literal
   equal to the forwarding marker, for-each variables, blank finals read early, same-named overloads, javac's string
   folding hiding source literals).
-- Verification 12: the five closed (`d023c5d`).
+- [`r2-verify12.out.md`](codex/r2-verify12.out.md): the five closed (`d023c5d`); three gaps in finding `DataAccessFailure`
+  constructions (delegating `this(…)`, `::new`, generic or annotated type names) and a string-truncating erasure.
+- Verification 13: constructions resolved by element; javac's erasure.
 

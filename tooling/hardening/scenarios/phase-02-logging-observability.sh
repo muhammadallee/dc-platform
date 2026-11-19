@@ -10,7 +10,7 @@
 # dropped; ac7-anon (scrape refused, 401) is dropped. 11 assertions. See
 # docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-02 bash tooling/hardening/scenarios/phase-02-logging-observability.sh
+#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-02-logging-observability.sh
 #
 # The only change to the generated project is PostgreSQL support for a prod deployment: the JDBC driver
 # its pom.xml asks for ("add its JDBC driver here") and Flyway's PostgreSQL module, which Flyway 10+ also

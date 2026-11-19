@@ -8,7 +8,7 @@
 # loopback JWKS issuer and the token on the Prometheus scrape are gone, and the anonymous-scrape check
 # (ac11-anon, expected 401) is dropped: see docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-03 bash tooling/hardening/scenarios/phase-03-data-access.sh
+#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-03-data-access.sh
 #
 # The generated project is not edited: the probe sources and one Flyway migration are added. The schema
 # owner runs Flyway (spring.flyway.user); the service runs as a runtime user that holds only a role with

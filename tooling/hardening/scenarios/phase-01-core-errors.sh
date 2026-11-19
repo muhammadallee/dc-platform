@@ -11,7 +11,7 @@
 # sent on one request so "no bearer token in the log" keeps its meaning. See
 # docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-01 bash tooling/hardening/scenarios/phase-01-core-errors.sh
+#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-01-core-errors.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECKS=(python -I "$(hh_native "$HERE/phase-01/checks.py")")

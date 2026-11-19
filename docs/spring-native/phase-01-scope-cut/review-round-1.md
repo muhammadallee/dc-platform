@@ -3,7 +3,12 @@
 One round over the scope cut (plan §8 Gate C). Base `085d752`, reviewed `451420b`.
 - Prompt: [`codex/r1-review.prompt.md`](codex/r1-review.prompt.md)
 - Codex's answer, verbatim: [`codex/r1-review.out.md`](codex/r1-review.out.md)
-- Verification pass on the fixes: [`codex/r1-verify.out.md`](codex/r1-verify.out.md)
+- Verification passes on the fixes (prompts beside each answer):
+  - [`r1-verify.out.md`](codex/r1-verify.out.md): 1, 3, 5 (the rejection) and 6 accepted; 2 and 4 not resolved; two new defects
+    in the fix for 2 (path traversal in `native-repo.sh`; a failed build fell back to `~/.m2`)
+  - [`r1-verify2.out.md`](codex/r1-verify2.out.md): 2 and both new defects accepted; 4 not resolved (four more pages)
+  - [`r1-verify3.out.md`](codex/r1-verify3.out.md): 4 not resolved (three more pages); no new defects
+  - verification 4 (finding 4 only): pending, Codex usage limit until 13:35
 
 Codex: "Found two High and four Medium issues." It found no cut dependency in the kept code or build, no defect in the
 changed kept behaviour, no release leak of a parked module through the BOM, the deploy or the archetype, and no assertion
@@ -23,5 +28,12 @@ dropped or weakened outside the ledger (it reconciled core 15, logging 11, data 
 - Prometheus is reachable without authentication on the application port until Phase 3 moves management to port 8081
   (ND13). This is the declared deferral in the ledger, not a new weakening.
 
-**Verification:** the full reactor build passed in one run after the fixes (`mvn -o -T1 install`, every test). The
-targeted run of `platform-test-api` and the event-driven example passed first. CI runs on the pushed commit.
+**Verification:** the full reactor build passed in one run after the first fixes (`mvn -o -T1 install`, every test).
+Later fixes touched only docs and scripts: the docs module (33 tests, link check, snippet compile) and `mkdocs build
+--strict` passed after each. `native-repo.sh` built a repository end to end (50 platform artifacts, none cut) and rejects
+a slug with a path in it before touching anything.
+
+**How finding 4 converged:** each verification named pages the previous sweep had missed. After the third, every live
+page under `docs/book`, `docs/modules`, `docs/concepts`, `docs/runbooks` and `docs/*.md` was searched for the names of
+cut APIs and capabilities; each hit was fixed or bannered, and the dated records (`chassis-audit.md`, `reviews/`,
+`upgrade/`) were left as records.

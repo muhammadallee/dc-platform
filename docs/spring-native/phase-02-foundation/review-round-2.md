@@ -37,5 +37,7 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   inner block kept its value after the block closed.
 - [`r2-verify6.out.md`](codex/r2-verify6.out.md): locals follow Java's scopes (`bfa346a`); that fix let a captured
   local's initialiser resolve against an anonymous class's shadowing field.
-- Verification 7: names resolve as Java resolves them; anything the gate cannot place exactly is unknown and checked.
+- [`r2-verify7.out.md`](codex/r2-verify7.out.md): names resolve as Java resolves them (`ed874a0`); a variable named
+  like a class was read as the class, and a local class's fields still entered the locals.
+- Verification 8: a variable is never read as a type; class bodies hold fields, not locals.
 

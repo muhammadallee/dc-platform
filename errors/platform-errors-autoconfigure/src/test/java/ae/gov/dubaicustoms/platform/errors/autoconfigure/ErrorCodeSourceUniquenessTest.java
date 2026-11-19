@@ -12,6 +12,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreeScanner;
@@ -87,6 +88,12 @@ class ErrorCodeSourceUniquenessTest {
             // Oracle JDBC driver properties (java.util.Properties), copied from Spring's configuration.
             "OracleFlywayConnectionDefaults.java|properties.setProperty(key, value)");
 
+    /** Trees that open a scope for local names. */
+    private static final Set<Tree.Kind> SCOPES = java.util.EnumSet.of(Tree.Kind.BLOCK, Tree.Kind.FOR_LOOP,
+            Tree.Kind.ENHANCED_FOR_LOOP, Tree.Kind.TRY, Tree.Kind.CATCH, Tree.Kind.LAMBDA_EXPRESSION, Tree.Kind.CLASS,
+            Tree.Kind.SWITCH, Tree.Kind.SWITCH_EXPRESSION, Tree.Kind.CASE, Tree.Kind.IF, Tree.Kind.WHILE_LOOP,
+            Tree.Kind.DO_WHILE_LOOP);
+
     record Declaration(String code, String file) {
     }
 
@@ -156,6 +163,29 @@ class ErrorCodeSourceUniquenessTest {
                             void chained() {
                                 org.springframework.http.ProblemDetail.forStatus(500).setProperty("code", "CHAINED");
                             }
+                            void scopedKey(org.springframework.http.ProblemDetail problem) {
+                                { String KEY = "detail"; }
+                                problem.setProperty(KEY, "SCOPED");
+                            }
+                            void loopKey(org.springframework.http.ProblemDetail problem) {
+                                for (String KEY = "detail"; false; ) { }
+                                problem.setProperty(KEY, "LOOPED");
+                            }
+                            void earlyKey(org.springframework.http.ProblemDetail problem) {
+                                problem.setProperty(KEY, "EARLY");
+                                String KEY = "detail";
+                            }
+                            void capturedKey(org.springframework.http.ProblemDetail problem) {
+                                String outerKey = "code";
+                                new Runnable() {
+                                    public void run() {
+                                        problem.setProperty(outerKey, "CAPTURED");
+                                    }
+                                };
+                            }
+                            void innerKey(org.springframework.http.ProblemDetail problem) {
+                                { String inner = "detail"; problem.setProperty(inner, "IN_SCOPE_NOT_A_CODE"); }
+                            }
                             void broken(org.springframework.http.ProblemDetail problem) {
                                 problem.setProperty(KEY, "BROKEN");
                                 factory.create(500, lookupCode(), null, null, null, null);
@@ -192,6 +222,11 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BOUNDED"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupNotExempt()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("SHADOWED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("SCOPED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("LOOPED"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("EARLY"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CAPTURED"))
+                .noneSatisfy(entry -> assertThat(entry).contains("IN_SCOPE_NOT_A_CODE"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
                 .anySatisfy(entry -> assertThat(entry).contains("C.java").contains("DC-TST-12"))
@@ -226,31 +261,68 @@ class ErrorCodeSourceUniquenessTest {
             String file = fileName(unit);
             new TreeScanner<Void, Void>() {
 
-                // Local names of the current method (parameters included). A null value means "not known
-                // statically" (reassigned, no initialiser, a parameter): such a name never falls back to a constant.
+                // Local names of the enclosing methods (parameters included). A name declared anywhere in a method is
+                // a local for the whole method: inside its scope it is its initialiser; before its declaration, after
+                // its scope closes, or when reassigned, never initialised or a parameter, it is unknown (null). A
+                // local never falls back to a same-named constant.
                 private Map<String, ExpressionTree> locals = new HashMap<>();
                 private Set<String> reassigned = new java.util.HashSet<>();
+                private int methodDepth;
 
                 @Override
                 public Void visitMethod(MethodTree node, Void unused) {
                     Map<String, ExpressionTree> outer = locals;
                     Set<String> outerReassigned = reassigned;
-                    locals = new HashMap<>();
-                    reassigned = assignedNames(node);
+                    // A nested class's method still sees the captured locals of the method around it.
+                    locals = new HashMap<>(outer);
+                    declaredNames(node).forEach(name -> locals.put(name, null));
+                    reassigned = new java.util.HashSet<>(outerReassigned);
+                    reassigned.addAll(assignedNames(node));
+                    methodDepth++;
                     try {
                         return super.visitMethod(node, unused);
                     } finally {
+                        methodDepth--;
                         locals = outer;
                         reassigned = outerReassigned;
                     }
                 }
 
                 @Override
+                public Void visitClass(com.sun.source.tree.ClassTree node, Void unused) {
+                    if (methodDepth > 0) {
+                        // A local or anonymous class's fields shadow the method's names wherever they are declared.
+                        declaredNames(node).forEach(name -> locals.put(name, null));
+                    }
+                    return super.visitClass(node, unused);
+                }
+
+                @Override
                 public Void visitVariable(VariableTree node, Void unused) {
-                    String name = node.getName().toString();
-                    boolean known = node.getInitializer() != null && !reassigned.contains(name);
-                    locals.put(name, known ? node.getInitializer() : null);
+                    if (methodDepth > 0) {
+                        String name = node.getName().toString();
+                        boolean known = node.getInitializer() != null && !reassigned.contains(name);
+                        locals.put(name, known ? node.getInitializer() : null);
+                    }
                     return super.visitVariable(node, unused);
+                }
+
+                // When a scope closes, every name declared or changed inside it becomes unknown.
+                @Override
+                public Void scan(Tree tree, Void unused) {
+                    if (tree == null || !SCOPES.contains(tree.getKind())) {
+                        return super.scan(tree, unused);
+                    }
+                    Map<String, ExpressionTree> before = new HashMap<>(locals);
+                    try {
+                        return super.scan(tree, unused);
+                    } finally {
+                        for (String name : new ArrayList<>(locals.keySet())) {
+                            if (!before.containsKey(name) || before.get(name) != locals.get(name)) {
+                                locals.put(name, null);
+                            }
+                        }
+                    }
                 }
 
                 @Override
@@ -343,6 +415,19 @@ class ErrorCodeSourceUniquenessTest {
                 }
             }.scan(unit, null);
         }
+        return names;
+    }
+
+    // Every variable name declared anywhere inside a tree (locals, parameters, nested classes' fields).
+    private static Set<String> declaredNames(Tree tree) {
+        Set<String> names = new java.util.HashSet<>();
+        new TreeScanner<Void, Void>() {
+            @Override
+            public Void visitVariable(VariableTree node, Void unused) {
+                names.add(node.getName().toString());
+                return super.visitVariable(node, unused);
+            }
+        }.scan(tree, null);
         return names;
     }
 

@@ -79,6 +79,14 @@ class ErrorCodeSourceUniquenessTest {
             // copyOf() copies a body's existing properties; a code among them was checked where it was set.
             "ProblemDetailFactory.java|deepCopy(value)");
 
+    /**
+     * Audited setProperty calls on something other than a ProblemDetail, by file and exact source text. Each has a key
+     * the gate cannot resolve; none can carry an error code.
+     */
+    private static final Set<String> NOT_A_PROBLEM_DETAIL = Set.of(
+            // Oracle JDBC driver properties (java.util.Properties), copied from Spring's configuration.
+            "OracleFlywayConnectionDefaults.java|properties.setProperty(key, value)");
+
     record Declaration(String code, String file) {
     }
 
@@ -135,7 +143,12 @@ class ErrorCodeSourceUniquenessTest {
                                 problem.setProperty(key, lookupKeyed());
                             }
                             void otherObject(java.util.Properties properties) {
-                                properties.setProperty("code", lookupIgnored());
+                                properties.setProperty("code", lookupNotExempt());
+                            }
+                            org.springframework.http.ProblemDetail body;
+                            void blockShadow() {
+                                { java.util.Properties body = new java.util.Properties(); }
+                                body.setProperty("code", "SHADOWED");
                             }
                             <T extends org.springframework.http.ProblemDetail> void bounded(T customBody) {
                                 customBody.setProperty("code", "BOUNDED");
@@ -177,7 +190,8 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupKeyed()"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CHAINED"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("BOUNDED"))
-                .noneSatisfy(entry -> assertThat(entry).contains("lookupIgnored()"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("lookupNotExempt()"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("SHADOWED"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("\"DC\""))
                 .anySatisfy(entry -> assertThat(entry).contains("B.java").contains("\"DC-TST-\""))
                 .anySatisfy(entry -> assertThat(entry).contains("C.java").contains("DC-TST-12"))
@@ -216,15 +230,11 @@ class ErrorCodeSourceUniquenessTest {
                 // statically" (reassigned, no initialiser, a parameter): such a name never falls back to a constant.
                 private Map<String, ExpressionTree> locals = new HashMap<>();
                 private Set<String> reassigned = new java.util.HashSet<>();
-                // Declared types of the current method's locals and parameters.
-                private Map<String, String> localTypes = new HashMap<>();
 
                 @Override
                 public Void visitMethod(MethodTree node, Void unused) {
                     Map<String, ExpressionTree> outer = locals;
                     Set<String> outerReassigned = reassigned;
-                    Map<String, String> outerTypes = localTypes;
-                    localTypes = new HashMap<>();
                     locals = new HashMap<>();
                     reassigned = assignedNames(node);
                     try {
@@ -232,7 +242,6 @@ class ErrorCodeSourceUniquenessTest {
                     } finally {
                         locals = outer;
                         reassigned = outerReassigned;
-                        localTypes = outerTypes;
                     }
                 }
 
@@ -241,7 +250,6 @@ class ErrorCodeSourceUniquenessTest {
                     String name = node.getName().toString();
                     boolean known = node.getInitializer() != null && !reassigned.contains(name);
                     locals.put(name, known ? node.getInitializer() : null);
-                    localTypes.put(name, node.getType() == null ? "" : node.getType().toString());
                     return super.visitVariable(node, unused);
                 }
 
@@ -261,7 +269,7 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     String name = methodName(node);
                     List<? extends ExpressionTree> args = node.getArguments();
-                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, localTypes)
+                    if (name.equals("setProperty") && args.size() == 2 && onProblemDetail(node, file)
                             && mayBeCodeKey(resolve(args.get(0), file, constants, locals))) {
                         check(args.get(1), file, "", constants, locals, unsupported);
                     } else if ((name.equals("create") || name.equals("decorate")) && args.size() >= 2
@@ -296,18 +304,9 @@ class ErrorCodeSourceUniquenessTest {
         return select instanceof IdentifierTree;
     }
 
-    // Fails closed: every setProperty counts, except on a local or parameter of the same method declared as
-    // java.util.Properties (the one other setProperty the platform calls). Fields, subtypes, type parameters and
-    // method-call receivers all count.
-    private static boolean onProblemDetail(MethodInvocationTree node, Map<String, String> localTypes) {
-        if (!(node.getMethodSelect() instanceof MemberSelectTree member)) {
-            return true;
-        }
-        if (unwrap(member.getExpression()) instanceof IdentifierTree identifier) {
-            String type = localTypes.getOrDefault(identifier.getName().toString(), "");
-            return !(type.equals("Properties") || type.equals("java.util.Properties"));
-        }
-        return true;
+    // Fails closed: every setProperty counts, wherever it is called, except the audited calls in NOT_A_PROBLEM_DETAIL.
+    private static boolean onProblemDetail(MethodInvocationTree node, String file) {
+        return !NOT_A_PROBLEM_DETAIL.contains(file + "|" + node);
     }
 
     // A key whose values are all known and none is "code" is not a code key; anything else may be.

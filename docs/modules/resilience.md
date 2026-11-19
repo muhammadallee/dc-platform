@@ -1,5 +1,7 @@
 # Resilience
 
+> **Coming in iteration 2.** This capability is parked: it is built and tested in the repository but not released in 1.0.0, not in the BOM and not offered by the archetype. Iteration 2 of the [Spring-native plan](../spring-native/plan.md) reworks it (Phase 9, as part of the REST client); this page describes the pre-rework design.
+
 Fault-tolerance for calls to unreliable dependencies, built on [Resilience4j](https://resilience4j.readme.io/).
 The platform contributes sensible default tuning and a small programmatic helper; the programming
 model is Resilience4j's own annotations — the platform ships **no** wrapper annotations over them.

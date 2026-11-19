@@ -5,7 +5,6 @@ import ae.gov.dubaicustoms.platform.core.PlatformException;
 import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -23,7 +22,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -39,8 +37,8 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Consumer-side probe for the hardening phase-01 harness (never part of a real service). Uses only the
- * platform's public API and documented extension points: {@link SecurityCustomizer} to open
- * {@code /probe/**}, {@link PlatformRestClientFactory} for the outbound call, {@link RequestContext}
+ * platform's public API and documented extension points: {@link PlatformRestClientFactory} for the
+ * outbound call, {@link RequestContext}
  * to read the correlation id.
  */
 public final class HardeningProbe {
@@ -52,10 +50,6 @@ public final class HardeningProbe {
     @EnableAsync
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
 
         // A consumer filter rejecting a request with sendError: the response is rendered by the
         // servlet error page (an ERROR dispatch), not by MVC.
@@ -182,16 +176,6 @@ public final class HardeningProbe {
             log.info("slow request entered");
             Thread.sleep(ms);
             return Map.of("slept", ms);
-        }
-    }
-
-    @RestController
-    public static class SecuredController {
-
-        @GetMapping("/secured/admin")
-        @PreAuthorize("hasAuthority('SCOPE_admin')")
-        public String admin() {
-            return "admin";
         }
     }
 

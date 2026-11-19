@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# NOT PORTED: this v3 run needs JWT security, which Spring-native Phase 1 cut. It runs only from tag
+# pre-spring-native. JWT security is cut; Phase 8 adds a basic-auth run instead.
+echo "not ported to Spring-native; run it from tag pre-spring-native" >&2; exit 2
 # Hardening phase 7 (security), Gate F: an archetype-generated consumer (restclient for the relay checks, prod profile) against a scripted
 # identity provider, which signs what a real one never would and fails on request, and one real Keycloak for the role mapping. Proves the
 # acceptance criteria of docs/production-readiness/phase-07-security/scope.md.

@@ -55,121 +55,46 @@
     <module>core/platform-core-api</module>
     <module>core/platform-core-autoconfigure</module>
     <module>core/platform-starter-core</module>
-    <!-- Phase 4: errors, logging, validation slices. -->
+    <!-- Foundation: errors and logging. -->
     <module>errors/platform-errors-api</module>
     <module>errors/platform-errors-autoconfigure</module>
     <module>errors/platform-starter-errors</module>
     <module>logging/platform-logging-api</module>
     <module>logging/platform-logging-autoconfigure</module>
     <module>logging/platform-starter-logging</module>
-    <module>validation/platform-validation-api</module>
-    <module>validation/platform-validation-autoconfigure</module>
-    <module>validation/platform-starter-validation</module>
-    <!-- Phase 5: observability, openapi slices. -->
+    <!-- Observability; openapi is parked until Spring-native Phase 8 (REST API). -->
     <module>observability/platform-observability-autoconfigure</module>
     <module>observability/platform-starter-observability</module>
     <module>openapi/platform-openapi-autoconfigure</module>
     <module>openapi/platform-starter-openapi</module>
-    <!-- Phase 6: restclient, security, authz slices. -->
+    <!-- REST client: parked until Spring-native Phase 9. -->
     <module>restclient/platform-restclient-api</module>
     <module>restclient/platform-restclient-autoconfigure</module>
     <module>restclient/platform-starter-restclient</module>
-    <module>security/platform-security-api</module>
-    <module>security/platform-security-autoconfigure</module>
-    <module>security/platform-starter-security</module>
-    <module>security/platform-security-authz-api</module>
-    <module>security/platform-security-authz-spi</module>
-    <module>security/platform-security-authz-autoconfigure</module>
-    <module>security/platform-starter-security-authz</module>
-    <!-- Phase 7: messaging (api/spi/inmemory/kafka/rabbit/autoconfigure/starters/test) + events slice. -->
+    <!-- Messaging (api/spi/inmemory/rabbit/autoconfigure/outbox/starters/test) and data. -->
     <module>messaging/platform-messaging-api</module>
     <module>messaging/platform-messaging-spi</module>
     <module>messaging/platform-messaging-inmemory</module>
     <module>messaging/platform-messaging-autoconfigure</module>
-    <module>messaging/platform-messaging-kafka</module>
     <module>messaging/platform-messaging-rabbit</module>
     <module>messaging/platform-messaging-outbox</module>
     <module>messaging/platform-messaging-outbox-autoconfigure</module>
     <module>messaging/platform-starter-messaging-inmemory</module>
-    <module>messaging/platform-starter-messaging-kafka</module>
     <module>messaging/platform-starter-messaging-rabbit</module>
     <module>messaging/platform-starter-messaging-outbox</module>
     <module>messaging/platform-messaging-test</module>
-    <module>events/platform-events-api</module>
-    <module>events/platform-events-autoconfigure</module>
-    <module>events/platform-starter-events</module>
     <module>data/platform-data-api</module>
     <module>data/platform-data-jpa-autoconfigure</module>
     <module>data/platform-starter-data-jpa</module>
     <module>data/platform-starter-data-jpa-oracle</module>
-    <module>cache/platform-cache-api</module>
-    <module>cache/platform-cache-autoconfigure</module>
-    <module>cache/platform-starter-cache-caffeine</module>
-    <module>cache/platform-starter-cache-redis</module>
-    <module>redis/platform-redis-autoconfigure</module>
-    <module>redis/platform-starter-redis</module>
-    <!-- Phase 9: resilience, locking (jdbc/redis), scheduling, idempotency. -->
+    <!-- Resilience: parked with the REST client until Spring-native Phase 9. -->
     <module>resilience/platform-resilience-api</module>
     <module>resilience/platform-resilience-autoconfigure</module>
     <module>resilience/platform-starter-resilience</module>
-    <module>locking/platform-locking-api</module>
-    <module>locking/platform-locking-spi</module>
-    <module>locking/platform-locking-jdbc</module>
-    <module>locking/platform-locking-redis</module>
-    <module>locking/platform-locking-autoconfigure</module>
-    <module>locking/platform-starter-locking-jdbc</module>
-    <module>locking/platform-starter-locking-redis</module>
-    <module>scheduling/platform-scheduling-autoconfigure</module>
-    <module>scheduling/platform-starter-scheduling</module>
-    <module>idempotency/platform-idempotency-api</module>
-    <module>idempotency/platform-idempotency-autoconfigure</module>
-    <module>idempotency/platform-starter-idempotency</module>
-
-    <module>storage/platform-storage-api</module>
-    <module>storage/platform-storage-spi</module>
-    <module>storage/platform-storage-fs</module>
-    <module>storage/platform-storage-s3</module>
-    <module>storage/platform-storage-autoconfigure</module>
-    <module>storage/platform-starter-storage-fs</module>
-    <module>storage/platform-starter-storage-s3</module>
-
-    <!-- Phase 11: audit (log/jdbc sinks + messaging sink in autoconfigure), ratelimit (inmemory/redis), files. -->
-    <module>audit/platform-audit-api</module>
-    <module>audit/platform-audit-spi</module>
-    <module>audit/platform-audit-log</module>
-    <module>audit/platform-audit-jdbc</module>
-    <module>audit/platform-audit-autoconfigure</module>
-    <module>audit/platform-audit-messaging-autoconfigure</module>
-    <module>audit/platform-starter-audit</module>
-
-    <module>ratelimit/platform-ratelimit-api</module>
-    <module>ratelimit/platform-ratelimit-spi</module>
-    <module>ratelimit/platform-ratelimit-inmemory</module>
-    <module>ratelimit/platform-ratelimit-redis</module>
-    <module>ratelimit/platform-ratelimit-autoconfigure</module>
-    <module>ratelimit/platform-starter-ratelimit</module>
-
-    <module>files/platform-files-api</module>
-    <module>files/platform-files-autoconfigure</module>
-    <module>files/platform-starter-files</module>
-
-    <module>flags/platform-flags-api</module>
-    <module>flags/platform-flags-spi</module>
-    <module>flags/platform-flags-inmemory</module>
-    <module>flags/platform-flags-openfeature</module>
-    <module>flags/platform-flags-autoconfigure</module>
-    <module>flags/platform-starter-flags</module>
-
-    <!-- Phase 12: test kit (test-api + starter-test) and provider TCKs. -->
+    <!-- Test kit (test-api + starter-test) and the messaging TCK. -->
     <module>test/platform-test-api</module>
     <module>test/platform-starter-test</module>
     <module>test/tck/platform-tck-messaging</module>
-    <module>test/tck/platform-tck-storage</module>
-    <module>test/tck/platform-tck-locking</module>
-    <module>test/tck/platform-tck-flags</module>
-    <module>test/tck/platform-tck-ratelimit</module>
-    <module>test/tck/platform-tck-idempotency</module>
-    <module>test/tck/platform-tck-audit</module>
     <!-- Phase 13: developer experience — the service archetype (upgrade-check + golden-path ship
          inside platform-build-maven-plugin and tooling/scripts respectively). -->
     <module>tooling/platform-service-archetype</module>
@@ -178,7 +103,6 @@
          them out of the BOM (check-bom) and out of deploy (maven.deploy.skip). -->
     <module>examples/example-minimal</module>
     <module>examples/example-golden-path</module>
-    <module>examples/example-extension-provider</module>
     <module>examples/example-event-driven</module>
     <!-- Phase 14: documentation as a product. Its build-time generators read every other module's
          target/ (config metadata, error-codes.csv, platform-index.json), so all siblings build first. -->

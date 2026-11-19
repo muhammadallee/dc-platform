@@ -4,7 +4,6 @@ import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.logging.Kv;
 import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
@@ -44,10 +43,6 @@ public final class ObservabilityProbe {
     @EnableAsync
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
     }
 
     @Service

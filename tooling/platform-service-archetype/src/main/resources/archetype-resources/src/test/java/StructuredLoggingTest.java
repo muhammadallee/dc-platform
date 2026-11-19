@@ -22,8 +22,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
  * Deployment-mode structured logging, asserted on the events this service actually emits: every event
  * is one JSON object on stdout carrying the agreed fields, the caller's W3C trace ID (sent in
  * {@code traceparent}) reaches the application log as {@code traceId}, pooled request threads never
- * leak a previous request's trace, no custom correlation header is echoed, and bearer tokens never
- * reach the log.
+ * leak a previous request's trace, no custom correlation header is echoed, and a bearer value sent in
+ * {@code Authorization} never reaches the log.
  */
 @ExtendWith(OutputCaptureExtension.class)
 class StructuredLoggingTest extends HttpIntegrationTestSupport {
@@ -33,7 +33,7 @@ class StructuredLoggingTest extends HttpIntegrationTestSupport {
     @Test
     void requestEventIsJsonWithServiceAndTheCallersTrace(CapturedOutput output) throws Exception {
         String traceId = randomTraceId();
-        String token = ISSUER.token("alice");
+        String token = SAMPLE_BEARER;
 
         HttpResponse<String> response = get("/hello?name=alice", token, traceId);
 
@@ -56,7 +56,7 @@ class StructuredLoggingTest extends HttpIntegrationTestSupport {
         String invalid = "00-not-a-trace-INJECTED-01";
         HttpResponse<String> response = http().send(
                 java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port + "/hello"))
-                        .header("Authorization", "Bearer " + ISSUER.token("alice"))
+                        .header("Authorization", "Bearer " + SAMPLE_BEARER)
                         .header("traceparent", invalid)
                         .GET().build(),
                 HttpResponse.BodyHandlers.ofString());
@@ -69,7 +69,7 @@ class StructuredLoggingTest extends HttpIntegrationTestSupport {
 
     @Test
     void concurrentRequestsKeepTheirOwnTraceAndPooledThreadsDoNotLeakIt(CapturedOutput output) {
-        String token = ISSUER.token("alice");
+        String token = SAMPLE_BEARER;
         List<String> ids = IntStream.range(0, 8).mapToObj(i -> randomTraceId()).toList();
 
         List<HttpResponse<String>> responses = ids.stream()

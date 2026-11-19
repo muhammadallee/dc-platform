@@ -6,19 +6,21 @@
 #      into an ISOLATED Maven repository, and record the archetype that was installed;
 #   2. reject invalid `features` input (unknown token, substring lookalike, spaces, none+feature) and
 #      invalid `database` input (unknown value, oracle without data);
-#   3. for every scenario — all 8 combinations of the optional tokens messaging/data/restclient (plus
-#      data with database=oracle: the Oracle starter is selected, H2 still backs the run), one of
-#      them with every optional property omitted, one relocated (groupId != package, hyphenated
-#      artifactId, path with a space) — generate OUTSIDE the checkout, assert the generated files, run the
-#      generated `mvn verify` (every expected test class must run: no zero-test or skipped passes), check
-#      the executable jar, boot it with `java -jar` and probe it over real HTTP: readiness, capability
-#      report (present AND absent capabilities), 401 for missing/untrusted/expired/malformed tokens, 200
-#      for a token from a loopback JWKS issuer, W3C trace continuation (traceparent in, traceId in the
-#      log, no custom correlation header out), structured JSON log events;
-#   4. for the requested service (data,restclient) additionally: the documented `mvn spring-boot:run`
-#      launch, the `local` profile (console logs), `prod` with each mandatory setting missing (must fail
-#      at startup with an actionable message), and `prod` with externally supplied fixture settings,
-#      booted twice against the same file database (migration applied once, then "up to date").
+#   3. for every scenario — all 4 combinations of the optional tokens messaging/data (plus data with
+#      database=oracle: the Oracle starter is selected, H2 still backs the run), one of them with every
+#      optional property omitted, one relocated (groupId != package, hyphenated artifactId, path with a
+#      space) — generate OUTSIDE the checkout, assert the generated files, run the generated `mvn verify`
+#      (every expected test class must run: no zero-test or skipped passes), check the executable jar,
+#      boot it with `java -jar` and probe it over real HTTP: readiness, capability report (present AND
+#      absent capabilities), W3C trace continuation (traceparent in, traceId in the log, no custom
+#      correlation header out), structured JSON log events, and an Authorization value never logged;
+#   4. for the requested service (data) additionally: the documented `mvn spring-boot:run` launch, the
+#      `local` profile (console logs), `prod` without its datasource (must fail at startup with an
+#      actionable message), and `prod` with externally supplied fixture settings, booted twice against
+#      the same file database (migration applied once, then "up to date").
+#
+# Spring-native plan v2, iteration 1: the archetype ships no web security and no REST client (both come in
+# iteration 2), so the token probes and the restclient scenarios were removed with them.
 #
 # Environment (all optional):
 #   GP_MAVEN_REPO     Maven local repository for EVERY Maven process (default: fresh $GP_WORKDIR/m2, cold).
@@ -62,12 +64,10 @@ command -v timeout >/dev/null 2>&1 && TIMEOUT=(timeout 1200)
 
 RESULT=FAIL
 PIDS=()
-IDP_DIR=""
 cleanup() {
   local pid
   for pid in ${PIDS[@]+"${PIDS[@]}"}; do kill "$pid" 2>/dev/null || true; done
   for pid in ${PIDS[@]+"${PIDS[@]}"}; do wait "$pid" 2>/dev/null || true; done
-  if [ -n "$IDP_DIR" ]; then touch "$IDP_DIR/stop" 2>/dev/null || true; fi
   if [ "$RESULT" = PASS ] && [ -z "${GP_WORKDIR:-}" ]; then
     rm -rf "$WORKDIR"
   else
@@ -107,7 +107,7 @@ echo "   train=$REV  archetype=$GROUP_ID:platform-service-archetype:$REV" \
 unzip -p "$ARCHETYPE_JAR" META-INF/maven/archetype-metadata.xml | grep -q "<defaultValue>$REV</defaultValue>" \
     || fail "archetype platformVersion default is not the train ($REV)"
 
-# JDK-only helper (loopback JWKS issuer via the INSTALLED test kit, free ports, JSON log checks), compiled once.
+# JDK-only helper (free ports, JSON log checks), compiled once against the INSTALLED test kit.
 CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
 APIGUARDIAN_JAR=$(ls "$MAVEN_REPO"/org/apiguardian/apiguardian-api/*/apiguardian-api-*.jar 2>/dev/null | grep -v sources | head -1 || true)
 SUPPORT_CLASSES="$WORKDIR/support-classes"
@@ -116,18 +116,8 @@ javac -d "$(native_path "$SUPPORT_CLASSES")" \
     "$(native_path "$REPO_ROOT/tooling/scripts/support/GateSupport.java")" || fail "could not compile GateSupport"
 SUPPORT=(java -cp "$(native_path "$SUPPORT_CLASSES")$CP_SEP$(native_path "$TEST_API_JAR")" GateSupport)
 
-step "2 Loopback JWKS issuer (TestJwtIssuer) for real token validation"
-IDP_DIR="$WORKDIR/idp"
-rm -rf "$IDP_DIR"; mkdir -p "$IDP_DIR"
-"${SUPPORT[@]}" idp "$(native_path "$IDP_DIR")" > "$EVIDENCE/idp.log" 2>&1 &
-PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || fail "JWKS issuer did not start (see $EVIDENCE/idp.log)"
-JWKS=$(cat "$IDP_DIR/jwks-uri"); TOKEN=$(cat "$IDP_DIR/token-valid")
-ISSUER_ARGS=("--spring.security.oauth2.resourceserver.jwt.issuer-uri=$(cat "$IDP_DIR/issuer-uri")"
-    "--spring.security.oauth2.resourceserver.jwt.audiences=platform-test")
-UNTRUSTED=$(cat "$IDP_DIR/token-untrusted"); EXPIRED=$(cat "$IDP_DIR/token-expired")
-echo "   jwks=$JWKS"
+# A JWT-shaped value sent in Authorization: nothing validates it in iteration 1, and the log must never carry it.
+SAMPLE_BEARER="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJnYXRlIn0.Z2F0ZS1zYW1wbGUtbm90LWEtcmVhbC1zaWduYXR1cmU"
 
 # ---------------------------------------------------------------------------------------------------
 generate() { # log dir groupId artifactId package features(-=omit) platformVersion(-=omit) database(-=omit)
@@ -144,7 +134,7 @@ generate() { # log dir groupId artifactId package features(-=omit) platformVersi
 
 step "3 Invalid feature input is rejected at generation"
 NEG="$WORKDIR/negative"
-for bad in kafka database "data, restclient" none,data data,data; do
+for bad in kafka restclient database "data, messaging" none,data data,data; do
   slug=$(printf '%s' "$bad" | tr -c 'a-z' '_')
   if generate "$EVIDENCE/negative-$slug.log" "$NEG" com.dc.demo "neg-$slug" com.dc.demo "$bad" "$REV"; then
     fail "features='$bad' was accepted"
@@ -156,7 +146,7 @@ for bad in kafka database "data, restclient" none,data data,data; do
   echo "   rejected: '$bad'"
 done
 # database: only h2/oracle, and oracle only together with the data feature (HD12).
-for bad in "postgres|data|unsupported database value" "oracle|restclient|needs the data feature"; do
+for bad in "postgres|data|unsupported database value" "oracle|messaging|needs the data feature"; do
   IFS='|' read -r db feats message <<< "$bad"
   slug="db-$db-$(printf '%s' "$feats" | tr -c 'a-z' '_')"
   if generate "$EVIDENCE/negative-$slug.log" "$NEG" com.dc.demo "neg-$slug" com.dc.demo "$feats" "$REV" "$db"; then
@@ -190,11 +180,10 @@ assert_generated() { # project package features artifactId
     fail "$artifact: template leftovers (see $EVIDENCE/$artifact-leftovers.txt)"
   fi
   local feature starter sample
-  for feature in messaging data restclient; do
+  for feature in messaging data; do
     case $feature in
       messaging) starter=platform-starter-messaging-inmemory; sample="$src/messaging/OrderEvents.java" ;;
       data) starter="platform-starter-data-jpa(-oracle)?"; sample="$src/data/Note.java" ;;
-      restclient) starter=platform-starter-restclient; sample="$src/client/GreetingClient.java" ;;
     esac
     if has "$features" "$feature"; then
       grep -qE "<artifactId>$starter</artifactId>" "$p/pom.xml" || fail "$artifact: $feature enabled but $starter missing"
@@ -207,17 +196,21 @@ assert_generated() { # project package features artifactId
   if has "$features" data; then
     [ -s "$p/src/main/resources/db/migration/V1__create_note.sql" ] || fail "$artifact: data enabled but no migration"
   fi
-  if has "$features" restclient; then
-    grep -q '"${app.greeting.base-url}"' "$src/client/GreetingClient.java" \
-        || fail "$artifact: Spring placeholder in GreetingClient was not preserved"
-  fi
+  # Cut or parked capabilities must never reach a generated service (Spring-native plan v2 §2.4-2.5).
+  local banned
+  for banned in platform-starter-security platform-starter-security-authz platform-starter-validation \
+                platform-starter-openapi platform-starter-restclient platform-starter-resilience; do
+    ! grep -q "<artifactId>$banned</artifactId>" "$p/pom.xml" || fail "$artifact: $banned must not be generated"
+  done
+  grep -q "<artifactId>spring-boot-starter-validation</artifactId>" "$p/pom.xml" \
+      || fail "$artifact: spring-boot-starter-validation missing (constraints would not be checked)"
+  [ ! -e "$src/client" ] || fail "$artifact: the parked REST client sample was generated"
 }
 
 assert_tests() { # project features artifactId -> echoes the executed test count
   local p=$1 features=$2 artifact=$3 reports="$1/target/surefire-reports" total=0 cls xml tests
-  local expected=(ApplicationSmokeTest HelloControllerTest PlatformConformanceTest SecurityIntegrationTest StructuredLoggingTest)
+  local expected=(ApplicationSmokeTest HelloControllerTest PlatformConformanceTest StructuredLoggingTest)
   has "$features" data && expected+=(NoteRepositoryTest)
-  has "$features" restclient && expected+=(GreetingClientTest)
   for cls in "${expected[@]}"; do
     xml=$(ls "$reports"/TEST-*."$cls".xml 2>/dev/null | head -1)
     [ -n "$xml" ] || fail "$artifact: $cls did not run"
@@ -270,7 +263,7 @@ await_ready() { # log
     [ "$waited" -lt "$READY_TIMEOUT" ] || { echo "   not ready after ${READY_TIMEOUT}s"; tail -40 "$1"; return 1; }
   done
   # Identity: the process answering is the one this gate spawned (its unique run id is in /actuator/info).
-  curl -sf --max-time 5 -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/actuator/info" | grep -q "$RUN_ID" \
+  curl -sf --max-time 5 "http://127.0.0.1:$APP_PORT/actuator/info" | grep -q "$RUN_ID" \
       || { echo "   port $APP_PORT is answered by a process this gate did not start"; return 1; }
 }
 
@@ -306,34 +299,35 @@ status_of() { # expected-status label curl-args...
 probe_http() { # label features log artifact [prod]
   local label=$1 features=$2 log=$3 artifact=$4 prod=${5:-} base="http://127.0.0.1:$APP_PORT" cid cap
   cid=$(printf '%032x' "$RANDOM$RANDOM$RANDOM" | tail -c 32)
-  status_of 401 "$label unauthenticated /hello" "$base/hello"
-  grep -qi '^content-type: application/problem+json' "$WORKDIR/headers" || fail "$label: 401 is not RFC 9457"
-  status_of 401 "$label untrusted token" -H "Authorization: Bearer $UNTRUSTED" "$base/hello"
-  status_of 401 "$label expired token" -H "Authorization: Bearer $EXPIRED" "$base/hello"
-  status_of 401 "$label malformed token" -H "Authorization: Bearer not-a-jwt" "$base/hello"
   # The trace id is the only correlation id (HD5): sent as traceparent, it must appear as the log's traceId;
-  # a stray X-Correlation-Id is ignored and never echoed.
-  status_of 200 "$label authenticated /hello" -H "Authorization: Bearer $TOKEN" \
+  # a stray X-Correlation-Id is ignored and never echoed. The Authorization value must never be logged.
+  status_of 200 "$label /hello" -H "Authorization: Bearer $SAMPLE_BEARER" \
       -H "traceparent: 00-$cid-0102030405060708-01" -H "X-Correlation-Id: ffffffffffffffffffffffffffffffff" \
       "$base/hello?name=gate"
   [ "$(cat "$WORKDIR/body")" = "Hello, gate!" ] || fail "$label: unexpected /hello body: $(cat "$WORKDIR/body")"
   if grep -qi "^x-correlation-id:" "$WORKDIR/headers"; then fail "$label: a custom correlation header was echoed"; fi
   if [ -n "$prod" ]; then
-    status_of 401 "$label anonymous /actuator/platform in prod" "$base/actuator/platform"
-    status_of 200 "$label authenticated /actuator/platform" -H "Authorization: Bearer $TOKEN" "$base/actuator/platform"
-  else
-    status_of 200 "$label /actuator/platform" "$base/actuator/platform"
+    # Without web security the capability report is simply not exposed in prod.
+    status_of 404 "$label /actuator/platform not exposed in prod" "$base/actuator/platform"
+    sleep 1
+    "${SUPPORT[@]}" logcheck "$(native_path "$log")" "$artifact" "$cid" "$SAMPLE_BEARER" \
+        || fail "$label: structured log contract ($log)"
+    return 0
   fi
+  status_of 200 "$label /actuator/platform" "$base/actuator/platform"
   local report; report=$(cat "$WORKDIR/body")
-  for cap in messaging:messaging data:data-jpa restclient:restclient; do
+  for cap in messaging:messaging data:data-jpa; do
     if has "$features" "${cap%%:*}"; then
       grep -q "\"name\":\"${cap#*:}\"" <<<"$report" || fail "$label: capability ${cap#*:} missing from /actuator/platform"
     else
       ! grep -q "\"name\":\"${cap#*:}\"" <<<"$report" || fail "$label: capability ${cap#*:} reported without its starter"
     fi
   done
+  for cap in security authz openapi validation restclient resilience; do
+    ! grep -q "\"name\":\"$cap\"" <<<"$report" || fail "$label: cut or parked capability $cap reported"
+  done
   sleep 1 # let the request's log events flush before reading the log
-  "${SUPPORT[@]}" logcheck "$(native_path "$log")" "$artifact" "$cid" "$TOKEN" "$UNTRUSTED" "$EXPIRED" \
+  "${SUPPORT[@]}" logcheck "$(native_path "$log")" "$artifact" "$cid" "$SAMPLE_BEARER" \
       || fail "$label: structured log contract ($log)"
   if has "$features" data; then
     grep -q "Successfully applied 1 migration" "$log" || fail "$label: Flyway did not apply the sample migration"
@@ -362,10 +356,7 @@ run_scenario() { # id features groupId artifactId package platformVersion subdir
   mkdir -p "$EVIDENCE/$id-surefire" && cp "$p"/target/surefire-reports/*.xml "$EVIDENCE/$id-surefire/"
   jar=$(assert_jar "$p" "$pkg" "$effective" "$artifact")
   log="$EVIDENCE/$id-jar.log"
-  local extra=()
-  has "$effective" restclient && extra+=("--app.greeting.base-url=http://127.0.0.1:9")
-  start_app "$log" java -jar "$(native_path "$jar")" \
-      "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS" "${ISSUER_ARGS[@]}" ${extra[@]+"${extra[@]}"}
+  start_app "$log" java -jar "$(native_path "$jar")"
   await_ready "$log" || fail "$id: packaged jar did not become ready"
   probe_http "$id jar" "$effective" "$log" "$artifact"
   stop_app
@@ -373,24 +364,22 @@ run_scenario() { # id features groupId artifactId package platformVersion subdir
   [ "$secs" -le "$SLA_SECONDS" ] || fail "$id: ${secs}s exceeds the ${SLA_SECONDS}s per-service DX SLA"
   printf '%s\t%s\t%s\t%s\tPASS\n' "$id" "$effective" "$tests" "$secs" >> "$SUMMARY"
   echo "   PASS $id: $tests generated tests, jar probes OK, ${secs}s"
-  [ "$id" = data-restclient ] && requested_service_probes "$p" "$jar" "$artifact"
+  [ "$id" = data ] && requested_service_probes "$p" "$jar" "$artifact"
   return 0
 }
 
 requested_service_probes() { # project jar artifactId
   local p=$1 jar=$2 artifact=$3 log db closed
-  local auth="--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=$JWKS ${ISSUER_ARGS[*]}"
-  local downstream="--app.greeting.base-url=http://127.0.0.1:9"
   step "Requested service: documented launch (mvn spring-boot:run, no profile)"
-  log="$EVIDENCE/data-restclient-spring-boot-run.log"
+  log="$EVIDENCE/data-spring-boot-run.log"
   APP_PORT=$("${SUPPORT[@]}" freeport); RUN_ID="gate-run-$RANDOM$RANDOM"
   (cd "$p" && exec "${MVN[@]}" spring-boot:run \
-      "-Dspring-boot.run.arguments=--server.port=$APP_PORT $auth --management.info.env.enabled=true --management.info.process.enabled=true --info.gate.run-id=$RUN_ID") > "$log" 2>&1 &
+      "-Dspring-boot.run.arguments=--server.port=$APP_PORT --management.info.env.enabled=true --management.info.process.enabled=true --info.gate.run-id=$RUN_ID") > "$log" 2>&1 &
   APP_PID=$!; PIDS+=("$APP_PID")
   await_ready "$log" || fail "spring-boot:run did not become ready"
-  probe_http "spring-boot:run" "data,restclient" "$log" "$artifact"
+  probe_http "spring-boot:run" "data" "$log" "$artifact"
   # spring-boot:run forks the application JVM: stop it by the pid it reports, then the Maven process.
-  local app_pid; app_pid=$(curl -sf -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
+  local app_pid; app_pid=$(curl -sf "http://127.0.0.1:$APP_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
   if [ -n "$app_pid" ]; then
     if command -v taskkill >/dev/null 2>&1; then taskkill //F //PID "$app_pid" >/dev/null 2>&1 || true; else kill "$app_pid" 2>/dev/null || true; fi
   fi
@@ -398,10 +387,10 @@ requested_service_probes() { # project jar artifactId
   echo "   PASS documented launch"
 
   step "Requested service: local profile (human-readable console logs)"
-  log="$EVIDENCE/data-restclient-local.log"
-  start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=local $auth
+  log="$EVIDENCE/data-local.log"
+  start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=local
   await_ready "$log" || fail "local profile did not become ready"
-  status_of 200 "local authenticated /hello" -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/hello?name=gate"
+  status_of 200 "local /hello" "http://127.0.0.1:$APP_PORT/hello?name=gate"
   grep -m1 'Started ' "$log" | grep -vq '^{' || fail "local profile still logs JSON"
   stop_app
   echo "   PASS local profile"
@@ -409,33 +398,27 @@ requested_service_probes() { # project jar artifactId
   step "Requested service: prod profile refuses to start without its mandatory settings"
   db="jdbc:h2:file:$(native_path "$WORKDIR/prod-db")/service"
   expect_startup_failure "prod without datasource" "Failed to configure a DataSource" \
-      "$EVIDENCE/data-restclient-prod-no-datasource.log" java -jar "$(native_path "$jar")" \
-      --spring.profiles.active=prod $auth "$downstream"
-  expect_startup_failure "prod without identity provider" "issuer-uri" \
-      "$EVIDENCE/data-restclient-prod-no-idp.log" java -jar "$(native_path "$jar")" \
-      --spring.profiles.active=prod "--spring.datasource.url=$db" "$downstream"
-  expect_startup_failure "prod without downstream base URL" "app.greeting.base-url" \
-      "$EVIDENCE/data-restclient-prod-no-downstream.log" java -jar "$(native_path "$jar")" \
-      --spring.profiles.active=prod "--spring.datasource.url=$db" $auth
+      "$EVIDENCE/data-prod-no-datasource.log" java -jar "$(native_path "$jar")" \
+      --spring.profiles.active=prod
 
   step "Requested service: prod profile with externally supplied fixture settings, twice on one database"
   rm -rf "$WORKDIR/prod-db"
   local run
   for run in 1 2; do
-    log="$EVIDENCE/data-restclient-prod-run$run.log"
-    start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=prod $auth \
-        "--spring.datasource.url=$db" "$downstream"
+    log="$EVIDENCE/data-prod-run$run.log"
+    start_app "$log" java -jar "$(native_path "$jar")" --spring.profiles.active=prod \
+        "--spring.datasource.url=$db"
     await_ready "$log" || fail "prod fixture run $run did not become ready"
     if [ "$run" = 1 ]; then
-      probe_http "prod run 1" "data,restclient" "$log" "$artifact" prod
+      probe_http "prod run 1" "data" "$log" "$artifact" prod
     else
       grep -q "No migration necessary" "$log" || fail "prod run 2 did not find the schema up to date"
       ! grep -q "Successfully applied" "$log" || fail "prod run 2 re-applied migrations"
-      status_of 200 "prod run 2 authenticated /hello" -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$APP_PORT/hello?name=gate"
+      status_of 200 "prod run 2 /hello" "http://127.0.0.1:$APP_PORT/hello?name=gate"
     fi
     stop_app
   done
-  echo "   PASS prod profile (fail-fast x3, fixture boot x2 with retained schema)"
+  echo "   PASS prod profile (fail-fast without datasource, fixture boot x2 with retained schema)"
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -443,12 +426,9 @@ requested_service_probes() { # project jar artifactId
 SCENARIO_TABLE="$(cat <<EOF
 none-defaults|-|com.dc.demo|demo-defaults|com.dc.demo|-|
 messaging|messaging|com.dc.demo|demo-messaging|com.dc.demo|$REV|
-data|data|com.dc.demo|demo-data|com.dc.demo|$REV|
-restclient|restclient|com.dc.demo|demo-restclient|com.dc.demo|$REV|
+data|data|com.dc.demo|demo-service|com.dc.demo|$REV|
 messaging-data|messaging,data|com.dc.demo|demo-messaging-data|com.dc.demo|$REV|
-messaging-restclient|messaging,restclient|com.dc.demo|demo-messaging-restclient|com.dc.demo|$REV|
-data-restclient|data,restclient|com.dc.demo|demo-service|com.dc.demo|$REV|
-all-relocated|restclient,messaging,data|org.example.billing|billing-svc|com.acme.billing.core|$REV|path with space
+all-relocated|data,messaging|org.example.billing|billing-svc|com.acme.billing.core|$REV|path with space
 data-oracle|data|com.dc.demo|demo-oracle|com.dc.demo|$REV||oracle
 EOF
 )"

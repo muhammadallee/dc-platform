@@ -76,8 +76,12 @@ final class PlatformIndexGenerator {
     private static void addCapabilities(ArrayNode out) {
         // One entry per capability page, listing every starter that maps to it and a one-line summary.
         Map<String, List<String>> startersByPage = new TreeMap<>();
-        PlatformDocs.STARTER_TO_PAGE.forEach((starter, page) ->
-                startersByPage.computeIfAbsent(page, p -> new ArrayList<>()).add(starter));
+        // Parked starters (not in the BOM) are left out: the catalog offers only what a consumer can resolve.
+        PlatformDocs.STARTER_TO_PAGE.forEach((starter, page) -> {
+            if (PlatformDocs.isReleased(starter)) {
+                startersByPage.computeIfAbsent(page, p -> new ArrayList<>()).add(starter);
+            }
+        });
 
         startersByPage.forEach((page, starters) -> {
             String capability = capabilityOfPage(page);
@@ -212,7 +216,11 @@ final class PlatformIndexGenerator {
         // One snippet per capability page: an explicit `snippet:<id>` fenced block wins; otherwise the
         // page's first code block. Keyed by capability so usage_example(capability, task) can resolve.
         Map<String, String[]> byPage = new LinkedHashMap<>();
-        PlatformDocs.STARTER_TO_PAGE.values().forEach(page -> byPage.putIfAbsent(page, null));
+        PlatformDocs.STARTER_TO_PAGE.forEach((starter, page) -> {
+            if (PlatformDocs.isReleased(starter)) {
+                byPage.putIfAbsent(page, null);
+            }
+        });
         byPage.keySet().forEach(page -> {
             String[] snippet = firstSnippet(page);
             if (snippet != null) {

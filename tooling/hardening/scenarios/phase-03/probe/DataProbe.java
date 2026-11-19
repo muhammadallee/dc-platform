@@ -1,6 +1,5 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
-import ae.gov.dubaicustoms.platform.security.SecurityCustomizer;
 import jakarta.persistence.EntityManager;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,10 +30,6 @@ public final class DataProbe {
     @Configuration(proxyBeanMethods = false)
     static class ProbeConfiguration {
 
-        @Bean
-        SecurityCustomizer probePathsArePublic() {
-            return http -> http.authorizeHttpRequests(auth -> auth.requestMatchers("/probe/**").permitAll());
-        }
     }
 
     @Service

@@ -6,15 +6,6 @@
 spring:
   application:
     name: example-golden-path
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Placeholder JWKS endpoint so the app boots offline — JWT decoding is lazy, so this URL is
-          # never fetched until a request presents a token. Point it at your real IdP in prod.
-          jwk-set-uri: https://example.test/.well-known/jwks.json
-          issuer-uri: https://example.test/
-          audiences: example-golden-path
 
 management:
   endpoints:
@@ -22,28 +13,3 @@ management:
       exposure:
         # /actuator/platform reports active capabilities/providers — the smoke matrix reads it.
         include: health,info,platform
-
-dc:
-  platform:
-    security:
-      # Open, unauthenticated endpoints. LOCK THIS DOWN in production — never expose
-      # /actuator/platform publicly; it is opened here only so the smoke matrix can read it.
-      permit-paths:
-        - /actuator/health
-        - /actuator/health/**
-        - /actuator/info
-        - /actuator/platform
-        - /v3/api-docs/**
-        - /swagger-ui/**
-        - /swagger-ui.html
-
----
-# prod-sim profile: PostgreSQL instead of H2 (build with -Ppg and run `docker compose up postgres`).
-spring:
-  config:
-    activate:
-      on-profile: pg
-  datasource:
-    url: jdbc:postgresql://localhost:5432/orders
-    username: orders
-    password: orders

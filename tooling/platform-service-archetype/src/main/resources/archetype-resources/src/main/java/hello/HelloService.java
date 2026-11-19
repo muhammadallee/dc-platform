@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Trivial business logic behind {@code GET /hello}. Replace with your domain services — keep
- * cross-cutting concerns (errors, security, messaging, persistence) on the platform, not here.
+ * cross-cutting concerns (errors, messaging, persistence) on the platform, not here.
  *
  * <p>Logging follows the platform rules: SLF4J, a constant message, no user input or secrets in the
  * line, and no hand-added correlation id (the platform puts it on every event).

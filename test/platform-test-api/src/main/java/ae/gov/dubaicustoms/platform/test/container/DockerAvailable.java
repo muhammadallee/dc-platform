@@ -9,7 +9,7 @@ import org.testcontainers.DockerClientFactory;
  *
  * <pre>{@code
  * @Tag("docker")
- * class RealKafkaTest {
+ * class RealBrokerTest {
  *     @BeforeAll static void requireDocker() { assumeTrue(DockerAvailable.check()); }
  * }
  * }</pre>

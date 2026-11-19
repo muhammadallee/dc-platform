@@ -11,9 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The orders REST API. Endpoints are authenticated by default (the platform security chain); a
- * missing order yields a 404 problem and an invalid body a 400 problem, both produced by the platform
- * — this controller has no error or security handling of its own.
+ * The orders REST API. A missing order yields a 404 problem and an invalid body a 400 problem, both
+ * produced by the platform — this controller has no error handling of its own.
  */
 @RestController
 @RequestMapping("/orders")

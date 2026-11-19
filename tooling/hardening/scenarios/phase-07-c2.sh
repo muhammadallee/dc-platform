@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# NOT PORTED: this v3 run needs JWT security, which Spring-native Phase 1 cut. It runs only from tag
+# pre-spring-native. Phase 9 rebuilds C2 with basic auth and OAuth client credentials.
+echo "not ported to Spring-native; run it from tag pre-spring-native" >&2; exit 2
 # Hardening phase 7, Gate G: composition checkpoint C2. An archetype-generated consumer with security, REST client, Oracle data and
 # observability together, in prod, running the scenarios of plan §9. Composition failures found here are defects of Phase 7.
 #

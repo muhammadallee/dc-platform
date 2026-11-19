@@ -55,6 +55,8 @@ class UsageSnippetCompileTest {
             "org.springframework.beans.factory.annotation",
             "org.springframework.web.bind.annotation",
             "org.springframework.transaction.annotation",
+            "org.springframework.transaction.event",
+            "org.springframework.context",
             "org.springframework.cache.annotation",
             "org.springframework.validation.annotation",
             "org.springframework.core.annotation",

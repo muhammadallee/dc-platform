@@ -21,9 +21,8 @@ a `Money` attribute converter, and a Flyway-presence guard — all on by default
 ### `platform-data-jpa-autoconfigure` (opinionated Spring Data JPA)
 
 - **Auditing** — `@CreatedDate`/`@CreatedBy`/`@LastModifiedDate`/`@LastModifiedBy` are populated
-  automatically. The auditor is the authenticated user's subject when the security capability is on
-  the classpath and the request is authenticated, otherwise `"system"`. A data-only service (no
-  security starter) audits everything as `"system"` and never pulls in a security type.
+  automatically. The platform's auditor always records `"system"` (1.0.0 has no web security); to
+  record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`.
 - **Money / CorrelationId converters** — `MoneyConverter` and `CorrelationIdConverter` persist those
   value types to a single column. Opt in per field with `@Convert` (see below); they are not
   auto-applied (a library converter is not part of your scanned persistence unit, decision D34).

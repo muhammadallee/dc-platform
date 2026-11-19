@@ -69,7 +69,10 @@ run_row() {
   if [ -n "$present" ]; then
     IFS=',' read -ra caps <<< "$present"
     for cap in "${caps[@]}"; do
-      if ! grep -q "\"name\":\"${cap}\"" <<< "$platform"; then
+      # name:STATUS also pins the reported status, e.g. outbox:INACTIVE when its kill switch is off.
+      local pattern="\"name\":\"${cap%%:*}\""
+      [ "${cap#*:}" != "$cap" ] && pattern="\"name\":\"${cap%%:*}\",\"status\":\"${cap#*:}\""
+      if ! grep -q "$pattern" <<< "$platform"; then
         echo "   FAIL[${id}]: expected capability '${cap}' present, but it was not"; ok=0
       fi
     done
@@ -81,14 +84,6 @@ run_row() {
         echo "   FAIL[${id}]: expected capability '${cap}' absent, but it was present"; ok=0
       fi
     done
-  fi
-
-  # Security stays on in every row: an unauthenticated business call must be rejected (401/403).
-  if [ "$id" = "baseline" ]; then
-    local code; code="$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/orders/1")"
-    if [ "$code" != "401" ] && [ "$code" != "403" ]; then
-      echo "   FAIL[${id}]: unauthenticated /orders/1 returned ${code}, expected 401/403 (security off?)"; ok=0
-    fi
   fi
 
   if [ "$ok" = 1 ]; then echo "   PASS[${id}]"; else FAILURES=$((FAILURES + 1)); fi

@@ -15,8 +15,10 @@ import org.apache.maven.project.MavenProject;
 /**
  * Fails the build when a publishable reactor artifact is missing from platform-bom's
  * dependencyManagement. Publishable = every reactor artifact except pom-packaging modules
- * (parents/BOMs/aggregator), the maven-plugin itself, {@code maven-archetype} generators, and
- * {@code example-*} modules.
+ * (parents/BOMs/aggregator), the maven-plugin itself, {@code maven-archetype} generators,
+ * {@code example-*} modules, and modules that set {@code maven.deploy.skip=true} (parked modules: built
+ * and tested in the reactor, but not released). A deploy-skipped module that IS managed in the BOM also
+ * fails the build: the BOM would then promise a version no repository holds.
  *
  * <p>Usage: {@code mvn ae.gov.dubaicustoms.platform:platform-build-maven-plugin:<version>:check-bom} from the
  * repo root (also wired as a CI step; see decision D2 for why it is not bound to aggregator verify).
@@ -46,7 +48,14 @@ public class CheckBomMojo extends AbstractMojo {
         }
 
         List<String> missing = new ArrayList<>();
+        List<String> unpublished = new ArrayList<>();
         for (MavenProject p : reactorProjects) {
+            if (deploySkipped(p)) {
+                if (managed.contains(p.getArtifactId())) {
+                    unpublished.add(p.getArtifactId());
+                }
+                continue;
+            }
             if (!"pom".equals(p.getPackaging()) && !"maven-plugin".equals(p.getPackaging())
                     // maven-archetype artifacts (tooling/platform-service-archetype) are generators, not
                     // libraries: nothing depends on them through the BOM, so they are not managed there.
@@ -55,6 +64,11 @@ public class CheckBomMojo extends AbstractMojo {
                 missing.add(p.getArtifactId());
             }
         }
+        if (!unpublished.isEmpty()) {
+            throw new MojoFailureException("check-bom: platform-bom manages " + unpublished + ", which set "
+                    + "maven.deploy.skip=true and are never released. Fix: remove them from platform-bom, or "
+                    + "remove maven.deploy.skip from the module when it is ready to ship.");
+        }
         if (!missing.isEmpty()) {
             throw new MojoFailureException("check-bom: platform-bom is missing " + missing + ". Fix: add "
                     + "<dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>...</artifactId>"
@@ -62,5 +76,9 @@ public class CheckBomMojo extends AbstractMojo {
                     + "(reference/module-checklist.md).");
         }
         getLog().info("check-bom: all publishable reactor artifacts are managed in platform-bom.");
+    }
+
+    private static boolean deploySkipped(MavenProject project) {
+        return "true".equals(project.getProperties().getProperty("maven.deploy.skip"));
     }
 }

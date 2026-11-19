@@ -1,5 +1,9 @@
 # Appendix A — Configuration Property Reference
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > How platform configuration works, the keys that actually need a decision, and where the exhaustive
 > list lives.
 
@@ -103,7 +107,7 @@ Everything else has a default that is right. These do not.
 | Key | Why | Chapter |
 |---|---|---|
 | `spring.application.name` | The `service` log field **and** the `service` meter tag. Unset means `application` everywhere | [3](../chapters/03-logging-observability.md) |
-| `spring.security.oauth2.resourceserver.jwt.issuer-uri` | Authentication does nothing without it. Prefer `issuer-uri` over `jwk-set-uri` — it validates the issuer claim too | [5](../chapters/05-security-authz.md) |
+| `spring.security.oauth2.resourceserver.jwt.issuer-uri` | Authentication does nothing without it. Prefer `issuer-uri` over `jwk-set-uri` — it validates the issuer claim too | 5 |
 | `spring.datasource.*` | If you use JPA | [8](../chapters/08-data.md) |
 
 ### 3.2 Defaults that are wrong outside a laptop
@@ -198,7 +202,7 @@ Some things are deliberately **not** properties, because they are per-operation 
 
 A consequence worth knowing: durations on annotations are **strings** (`"5m"`, `"PT30S"`), because
 `Duration` is not a constant expression. Same reason `CacheNames.of(...)` cannot name a cache in
-`@Cacheable` — see [Chapter 9](../chapters/09-cache-redis.md) §4.2.
+`@Cacheable` — see Chapter 9 §4.2.
 
 ---
 
@@ -310,23 +314,23 @@ Each links to its chapter (the *why*) and the generated table (the *complete lis
 | `logging` | [3](../chapters/03-logging-observability.md) | `format`, `include-mdc`, `service-name` |
 | `observability` | [3](../chapters/03-logging-observability.md) | **`otlp.enabled`**, `common-tags.enabled`, `health.groups.enabled`, `platform-endpoint.enabled`, `capability-metrics.enabled` |
 | `openapi` | [4](../chapters/04-openapi.md) | `title`, `version`, `security-scheme` |
-| `security` | [5](../chapters/05-security-authz.md) | **`mode`**, `permit-paths` |
-| `authz` | [5](../chapters/05-security-authz.md) | `roles-claim` |
+| `security` | 5 | **`mode`**, `permit-paths` |
+| `authz` | 5 | `roles-claim` |
 | `restclient` | [6](../chapters/06-restclient-resilience.md) | `defaults.connect-timeout`, `defaults.read-timeout`, `clients.<name>.*`, `propagate-correlation` |
 | `resilience` | [6](../chapters/06-restclient-resilience.md) | `enabled` only — tuning is `resilience4j.*` |
 | `messaging` | [7](../chapters/07-messaging-events.md) | `handler.retry.*`, `dlq.suffix`, `correlation.propagate`, **`rabbit.quorum-queues`** |
 | `events` | [7](../chapters/07-messaging-events.md) | **`relay.enabled`**, `relay.destination-prefix` |
 | `data` | [8](../chapters/08-data.md) | `jpa.require-migrations` |
-| `cache` | [9](../chapters/09-cache-redis.md) | **`caches.<name>.ttl`**, `caches.<name>.max-size` |
-| `redis` | [9](../chapters/09-cache-redis.md) | `key-prefix` |
-| `locking` | [10](../chapters/10-coordination.md) | `enabled` only — `atMost` is on the annotation |
-| `scheduling` | [10](../chapters/10-coordination.md) | `enabled` only |
-| `idempotency` | [10](../chapters/10-coordination.md) | `http.enabled`, `http.header-name`, `http.ttl` |
-| `storage` | [11](../chapters/11-storage-files.md) | **`fs.root`**, `checksum.enabled` |
-| `files` | [11](../chapters/11-storage-files.md) | **`allowed-types`**, `max-file-size`, `max-request-size` |
-| `audit` | [12](../chapters/12-audit.md) | `queue-capacity` |
-| `ratelimit` | [13](../chapters/13-ratelimit-flags.md) | `http.enabled`, `http.key-by`, `http.permits`, `http.window` |
-| `flags` | [13](../chapters/13-ratelimit-flags.md) | `static.<flag>` |
+| `cache` | 9 | **`caches.<name>.ttl`**, `caches.<name>.max-size` |
+| `redis` | 9 | `key-prefix` |
+| `locking` | 10 | `enabled` only — `atMost` is on the annotation |
+| `scheduling` | 10 | `enabled` only |
+| `idempotency` | 10 | `http.enabled`, `http.header-name`, `http.ttl` |
+| `storage` | 11 | **`fs.root`**, `checksum.enabled` |
+| `files` | 11 | **`allowed-types`**, `max-file-size`, `max-request-size` |
+| `audit` | 12 | `queue-capacity` |
+| `ratelimit` | 13 | `http.enabled`, `http.key-by`, `http.permits`, `http.window` |
+| `flags` | 13 | `static.<flag>` |
 
 **Bold** keys are ones this appendix says need a decision.
 

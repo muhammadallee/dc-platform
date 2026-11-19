@@ -1,5 +1,9 @@
 # Local Development vs Production
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > The local-first guarantee, what changes in production, and how to keep the gap from surprising you.
 
 Every chapter in this book has a version of the same warning: *the local provider behaves differently
@@ -93,7 +97,7 @@ cleared on reboot.
 The chain is messaging → JDBC → log. A service in an environment missing its intended sink falls back
 to the log sink and keeps working — so a regime requiring database-backed audit is quietly unmet.
 
-[Chapter 12](../chapters/12-audit.md) §5.2 shows asserting the sink at startup, which converts a silent
+Chapter 12 §5.2 shows asserting the sink at startup, which converts a silent
 compliance gap into a deployment failure.
 
 !!! warning "The pattern across all five"
@@ -218,7 +222,7 @@ and knowing which is which is the point of this section.
 | OTLP disabled | **Yes** | Assert the bound property in a `prod`-profile context test |
 | Placeholder issuer in a deployed profile | **Yes** | Assert `issuer-uri` does not contain the placeholder |
 | `include-stacktrace` outside `local` | **Yes** | Assert the bound `ErrorsProperties` |
-| Audit sink not the expected type | **Yes** | An `ApplicationRunner` that throws — [Ch. 12](../chapters/12-audit.md) §5.2 |
+| Audit sink not the expected type | **Yes** | An `ApplicationRunner` that throws — Ch. 12 §5.2 |
 | `@LockedSchedule` without a `LockManager` | **Yes** | Assert the bean exists in a `prod`-profile context |
 | `@RequiresPermission` advisor missing | **Yes** | Assert `requiresPermissionAdvisor` exists |
 | Cluster-wide rate limiting | Partly | Assert the Redis provider is selected; the *behaviour* needs two instances |
@@ -324,8 +328,8 @@ Before a service reaches its first shared environment:
 **Next:** [Extending the Chassis](extending.md) — what to do when a default genuinely is not enough.
 
 **Related:** [Chapter 3 — Logging and Observability](../chapters/03-logging-observability.md) ·
-[Chapter 9 — Caching and Redis](../chapters/09-cache-redis.md) ·
-[Chapter 11 — Storage and Files](../chapters/11-storage-files.md) ·
+Chapter 9 — Caching and Redis ·
+Chapter 11 — Storage and Files ·
 [Chapter 14 — Testing and Developer Experience](../chapters/14-testing-dx.md) ·
 [Runbook: local development](../../runbooks/local-dev.md)
 

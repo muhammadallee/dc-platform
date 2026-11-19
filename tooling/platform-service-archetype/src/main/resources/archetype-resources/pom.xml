@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 ## Feature tokens are matched exactly: ",data," inside ",<features>,". Every file that branches on a
 ## feature re-derives $featureSet the same way. This template is processed first, so it also validates
-## the input: anything but "none" or a comma-separated subset of messaging,data,restclient (no spaces,
+## the input: anything but "none" or a comma-separated subset of messaging,data (no spaces,
 ## no duplicates) aborts generation - String.matches on an unclosed "[" throws, and Velocity surfaces the
 ## exception message (the pattern text below) as the archetype:generate error.
 #set( $featureSet = ",${features}," )
-#set( $featureRest = $featureSet.replace(",messaging,", ",").replace(",data,", ",").replace(",restclient,", ",") )
+#set( $featureRest = $featureSet.replace(",messaging,", ",").replace(",data,", ",") )
 #if( $features != "none" && ( $featureRest != "," || $featureSet.contains(",none,") ) )
-#set( $rejected = $featureSet.matches("[dc-platform archetype: unsupported features value ${features} -- use none or a comma-separated subset of messaging,data,restclient without spaces") )
+#set( $rejected = $featureSet.matches("[dc-platform archetype: unsupported features value ${features} -- use none or a comma-separated subset of messaging,data without spaces") )
 #end
 ## database: "h2" (default) or "oracle", and "oracle" only together with the data feature (HD12).
 #if( $database != "h2" && $database != "oracle" )
@@ -38,8 +38,9 @@
   <description>A DC Platform service generated from platform-service-archetype.</description>
 
   <dependencies>
-    <!-- Golden-path chassis: correlation, JSON logs, RFC-9457 errors, validation, metrics/tracing,
-         OpenAPI, and an authenticated-by-default security filter chain. Versions come from the BOM. -->
+    <!-- Golden-path chassis: correlation, JSON logs, RFC-9457 errors, metrics/tracing. Versions come from
+         the BOM. Web security (basic auth) and OpenAPI arrive with the REST API capability in iteration 2
+         of the Spring-native plan; until then the service's endpoints are not secured. -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-starter-core</artifactId>
@@ -54,24 +55,18 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-starter-validation</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-starter-observability</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-starter-openapi</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-starter-security</artifactId>
     </dependency>
     <!-- The app chooses its web stack; the platform layers cross-cutting behavior on top of it. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <!-- Bean Validation (@Valid, @NotBlank, ...). Without a provider the annotations compile but are never
+         checked; the platform's errors capability turns a failure into a 400 ProblemDetail. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 #if($featureSet.contains(",messaging,"))
 
@@ -109,17 +104,8 @@
       <scope>runtime</scope>
     </dependency>
 #end
-#if($featureSet.contains(",restclient,"))
 
-    <!-- feature: restclient — outbound HTTP via PlatformRestClientFactory (correlation propagation,
-         bearer-token relay, per-client timeouts, RemoteCallException error mapping). -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-starter-restclient</artifactId>
-    </dependency>
-#end
-
-    <!-- Platform test kit: @PlatformWebTest/@PlatformTest slices, TestTokens, assertThatProblem,
+    <!-- Platform test kit: @PlatformWebTest/@PlatformTest slices, assertThatProblem,
          and PlatformUsageRules for the generated PlatformConformanceTest. -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# NOT PORTED: this v3 run needs JWT security, which Spring-native Phase 1 cut. It runs only from tag
+# pre-spring-native. Phase 10 rebuilds the all-capabilities run.
+echo "not ported to Spring-native; run it from tag pre-spring-native" >&2; exit 2
 # Hardening phase 8, step 3: one archetype-generated consumer with all seven certified capabilities (core and errors, logging and
 # observability, Oracle data, outbox, RabbitMQ, REST client and resilience, security), in prod, running the C1 and C2 scenarios of
 # plan §9 together, and the chain only the combination has: request -> DB write + outbox -> RabbitMQ -> handler -> outbound call.

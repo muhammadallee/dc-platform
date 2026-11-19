@@ -16,8 +16,8 @@ import org.springframework.validation.annotation.Validated;
  *     destinations (not enforced; a naming convention only)
  * @param handler handler-side retry policy applied by {@code EventHandlerRegistrar}
  * @param dlq dead-letter destination naming
- * @param rabbit rabbit-provider-specific settings, read only by the kafka/rabbit nested transport
- *     configurations in {@code PlatformMessagingAutoConfiguration}
+ * @param rabbit rabbit-provider-specific settings, read only by the rabbit nested transport
+ *     configuration in {@code PlatformMessagingAutoConfiguration}
  * @since 0.2.0
  */
 @Validated

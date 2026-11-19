@@ -1,0 +1,8 @@
+1:== Smoke matrix for example-golden-path (port 18080) ==
+3:-- row: baseline  (args: none)
+4:   PASS[baseline]
+5:-- row: outbox-off  (args: -Ddc.platform.messaging.outbox.enabled=false)
+6:   PASS[outbox-off]
+7:-- row: no-cut-capabilities  (args: none)
+8:   PASS[no-cut-capabilities]
+10:SMOKE MATRIX OK

@@ -1,5 +1,9 @@
 # Chapter 8 — Data and Persistence
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Capabilities covered:** `data`
 >
 > JPA conventions, migrations, and the defaults that keep a hundred schemas comparable.
@@ -129,29 +133,15 @@ Long raw = orderId.value();
     that with small records or subtypes is your call; `EntityId` gives you the wrapper, not the
     discipline.
 
-### 2.3 Auditing without coupling data to security
+### 2.3 Auditing
 
-Every row should record who created it and who last changed it. The obvious implementation makes the
-data capability depend on the security capability — and that would violate "a capability you don't add
-costs you nothing". A batch job with a database and no HTTP surface should not carry Spring Security.
-
-The platform's answer is **two mutually exclusive bean definitions**, keyed on classpath presence:
-
-```
-   CurrentUserAccessor on the classpath?
-        |
-        +-- YES:  AuditorAwareProvider  ->  the authenticated subject, else "system"
-        |
-        +-- NO:   a plain lambda        ->  always "system"
-                  (and no security type is ever loaded)
-```
-
-`@ConditionalOnClass` / `@ConditionalOnMissingClass` on the two definitions. A data-only service audits
-everything as `"system"` and never loads a security class; add the security starter and the same rows
-start recording real subjects, with no code change.
+Every row records who created it and who last changed it. In 1.0.0 the platform's auditor always
+records `"system"`: there is no web security to name a caller (the API gateway authenticates them).
+To record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`; it
+replaces the platform's.
 
 !!! note "This is the general pattern for optional cross-capability enrichment"
-    [Audit](12-audit.md), [flags](13-ratelimit-flags.md), and
+    Audit, flags, and
     [restclient](06-restclient-resilience.md) all do the same thing with the same seam. The dependency
     constitution allows an autoconfigure module to reference another capability's **API** when guarded
     by `@ConditionalOnClass` — and this is what that allowance is for.
@@ -453,7 +443,7 @@ CREATE TABLE orders (
 
 ### 4.4 Get auditing populated
 
-Nothing to configure. Add [security](05-security-authz.md) and `created_by` becomes the authenticated
+Nothing to configure. Add security and `created_by` becomes the authenticated
 subject; without it, `"system"`.
 
 !!! tip "Verify auditing before you rely on it"
@@ -484,12 +474,10 @@ curl -s localhost:8080/actuator/env/spring.jpa.properties.hibernate.jdbc.batch_s
 class AuditorConfiguration {
 
     @Bean
-    AuditorAware<String> platformAuditorAware(CurrentUserAccessor accessor) {
-        // Record tenant/subject rather than subject alone.
-        return () -> accessor.currentUser()
-                .map(user -> user.tenant() == null
-                        ? user.subject()
-                        : user.tenant() + "/" + user.subject());
+    AuditorAware<String> platformAuditorAware() {
+        // The platform records "system" until the REST API capability (iteration 2) brings a principal.
+        // Read your own identity source here, for example a header your gateway sets.
+        return () -> Optional.of("orders-service");
     }
 }
 ```
@@ -584,7 +572,7 @@ matters.
 
 | Consideration | Detail |
 |---|---|
-| Audit columns are evidence | `created_by` is only as trustworthy as the authentication that produced it. See [Chapter 5](05-security-authz.md) |
+| Audit columns are evidence | `created_by` is only as trustworthy as the authentication that produced it. See Chapter 5 |
 | Returning entities from controllers | Serialises every column, including internal ones, and publishes them in [OpenAPI](04-openapi.md). Use a response record |
 | SQL injection | Spring Data derived queries and JPQL parameters are safe. **Native queries built by string concatenation are not** |
 | PII in audit columns | A subject identifier may itself be personal data under your regime |
@@ -724,8 +712,8 @@ orderService.updateStatus(orderId, status);            // @Transactional
     This is the rule from [Chapter 6](06-restclient-resilience.md) §2.4, restated here because this is
     where the resource is actually held. It also applies to publishing a message
     ([Chapter 7](07-messaging-events.md)), acquiring a distributed lock
-    ([Chapter 10](10-coordination.md)), and writing to object storage
-    ([Chapter 11](11-storage-files.md)) — anything that can block for an unbounded time.
+    (Chapter 10), and writing to object storage
+    (Chapter 11) — anything that can block for an unbounded time.
 
 ### 6.5 Why the nested auditing configuration is conditional on a bean
 
@@ -740,7 +728,7 @@ the time the condition is evaluated. The result is that a context without JPA st
 failing on a dangling annotation.
 
 This is the same `@ConditionalOnBean`-between-auto-configurations fragility as
-[Chapter 5](05-security-authz.md) §6.3, solved the same way: explicit ordering.
+Chapter 5 §6.3, solved the same way: explicit ordering.
 
 ### 6.6 Common pitfalls
 
@@ -786,7 +774,7 @@ subject, step 4 gives `"system"`, step 5 gives `null`.
 
 **Hints.**
 
-- For step 3, `.with(jwt())` from `spring-security-test` — see [Chapter 5](05-security-authz.md) §4.6.
+- For step 3, `.with(jwt())` from `spring-security-test` — see Chapter 5 §4.6.
 - Step 5's null is the most common real-world bug in this chapter.
 
 **How to verify.** A test asserting `assertThatThrownBy(() -> aed.add(usd))` and one asserting
@@ -927,8 +915,7 @@ curl -s localhost:8080/actuator/health/dependencies | jq       # db lives here, 
 
 ---
 
-**Next:** [Chapter 9 — Caching and Redis](09-cache-redis.md), which is what you reach for when the
-queries in this chapter are the bottleneck.
+**Next:** [Chapter 14 — Testing & Developer Experience](14-testing-dx.md).
 
 **Reference:** [modules/data.md](../../modules/data.md) ·
 [configuration properties](../../reference/properties.md) ·

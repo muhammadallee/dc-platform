@@ -1,13 +1,12 @@
 # Messaging
 
 Publish and handle integration events without coupling application code to a broker: inject
-`EventPublisher`, mark handler methods `@EventHandler`, and pick the transport (in-memory, Kafka,
-or RabbitMQ) via a starter.
+`EventPublisher`, mark handler methods `@EventHandler`, and pick the transport (in-memory for tests,
+RabbitMQ for real) via a starter.
 
-> **Kafka is experimental.** The Kafka transport has Testcontainers round-trip tests, but it is not
-> yet part of the supported platform: no example uses it, it is absent from the smoke matrix, and
-> platform infrastructure does not yet provide Kafka. **RabbitMQ is the supported broker** today;
-> adopt `platform-starter-messaging-kafka` deliberately and expect it to firm up in a later train.
+> **RabbitMQ only.** The Kafka transport was removed (Spring-native plan v2, ND10). Phase 6 of the
+> [plan](../spring-native/plan.md) moves this capability to Spring AMQP (`RabbitTemplate`,
+> `@RabbitListener`); this page describes the current API until then.
 
 ## What you get
 
@@ -44,13 +43,6 @@ Pick exactly one (each brings its own `EventTransport`):
 <dependency>
   <groupId>ae.gov.dubaicustoms.platform</groupId>
   <artifactId>platform-starter-messaging-inmemory</artifactId>
-</dependency>
-```
-
-```xml
-<dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-messaging-kafka</artifactId>
 </dependency>
 ```
 
@@ -106,22 +98,6 @@ class OrdersEventHandlers {
 | `dc.platform.messaging.rabbit.delivery-limit` | `20` | Returns a quorum queue allows before dead-lettering a message that keeps killing its consumer. A message merely held by a stopping consumer counts too, hence well above what rolling restarts reach. |
 
 (Hand-written until the generated reference lands in phase 14.)
-
-### Kafka: required `spring.kafka.*` serializer configuration
-
-`KafkaEventTransport` reuses Boot's own `KafkaTemplate`/`ConsumerFactory` beans as-is — set the
-byte-array (de)serializers yourself so the transport's `byte[]` contract matches:
-
-```yaml
-spring:
-  kafka:
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
-    consumer:
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
-```
 
 ### RabbitMQ: destination syntax
 
@@ -196,7 +172,7 @@ purpose-built for this.
 
 ## Local dev notes
 
-The in-memory provider needs no Docker or network. Kafka/RabbitMQ round-trip tests are
+The in-memory provider needs no Docker or network. RabbitMQ round-trip tests are
 `@Tag("docker")` (Testcontainers) and excluded from the default build; run them with
-`mvn -Pdocker -pl messaging/platform-messaging-kafka,messaging/platform-messaging-rabbit -am verify`
+`mvn -Pdocker -pl messaging/platform-messaging-rabbit -am verify`
 against a running Docker daemon, or start `docker-compose.local.yml` for manual exploration.

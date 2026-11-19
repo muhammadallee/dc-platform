@@ -13,8 +13,7 @@ import ae.gov.dubaicustoms.platform.messaging.autoconfigure.PlatformMessagingAut
 import ae.gov.dubaicustoms.platform.messaging.outbox.OutboxContext;
 import ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.AfterCommitOutboxPublisher;
 import ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.OutboxConnections;
-import ae.gov.dubaicustoms.platform.security.CurrentUser;
-import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
+import ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.PlatformOutboxContext;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.TraceContext;
@@ -22,9 +21,6 @@ import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
@@ -62,10 +58,10 @@ class OutboxContextWiringTest {
             setter.set(invocation.getArgument(1), "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01");
             return null;
         }).when(propagator).inject(any(), any(), any());
-        CurrentUserAccessor users = () -> Optional.of(new CurrentUser("user-1", null, Set.of(), Map.of()));
+        PlatformOutboxContext.PrincipalSource users = () -> "user-1";
 
         runner.withBean(Tracer.class, () -> tracer).withBean(Propagator.class, () -> propagator)
-                .withBean(CurrentUserAccessor.class, () -> users)
+                .withBean(PlatformOutboxContext.PrincipalSource.class, () -> users)
                 .run(context -> {
                     OutboxContext outbox = context.getBean(OutboxContext.class);
 
@@ -195,7 +191,7 @@ class OutboxContextWiringTest {
     }
 
     @Test
-    void withoutTracingOrSecurityTheContextIsEmpty() {
+    void withoutTracingOrAPrincipalSourceTheContextIsEmpty() {
         runner.run(context -> {
             OutboxContext outbox = context.getBean(OutboxContext.class);
 

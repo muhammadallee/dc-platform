@@ -8,20 +8,10 @@ description: >-
   CLAUDE.md/AGENTS.md/.mcp.json, and the conformance test are separate manual/archetype steps.
 recipeList:
   - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
-      oldGroupId: org.springframework.kafka
-      oldArtifactId: spring-kafka
-      newGroupId: ae.gov.dubaicustoms.platform
-      newArtifactId: platform-starter-messaging-kafka
-  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
       oldGroupId: org.springframework.amqp
       oldArtifactId: spring-rabbit
       newGroupId: ae.gov.dubaicustoms.platform
       newArtifactId: platform-starter-messaging-rabbit
-  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
-      oldGroupId: org.springdoc
-      oldArtifactId: springdoc-openapi-starter-webmvc-ui
-      newGroupId: ae.gov.dubaicustoms.platform
-      newArtifactId: platform-starter-openapi
   - ae.gov.dubaicustoms.platform.migrations.FlagHandRolledExceptionHandler
 ---
 type: specs.openrewrite.org/v1beta/recipe

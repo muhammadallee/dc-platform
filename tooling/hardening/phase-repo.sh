@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# HISTORICAL: used by the closed hardening record (tag pre-spring-native). It copies ~/.m2-baseline, which still
+# holds the cut modules, so it is not used on develop: Spring-native phases use tooling/hardening/native-repo.sh.
 # Creates the Maven repository a phase's consumer runs resolve from (plan §4.3): a copy of the cold
 # baseline repository with the phase's modules installed on top. ~/.m2-baseline itself is the Phase 8
 # compatibility reference and must never be installed into (both carry 1.0.0-SNAPSHOT coordinates).

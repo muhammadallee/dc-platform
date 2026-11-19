@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Hardening phase 5 (RabbitMQ messaging), Gate F: an archetype-generated consumer (-Ddatabase=oracle, prod profile) with the
 # Rabbit and outbox starters, against real Oracle and real RabbitMQ behind Toxiproxy. Proves the consumer-level acceptance
-# criteria of docs/production-readiness/phase-05-rabbitmq-messaging/scope.md. Fixtures, not certified here: security (JWKS).
+# criteria of docs/production-readiness/phase-05-rabbitmq-messaging/scope.md. Fixtures, not certified here: none.
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-05 bash tooling/hardening/scenarios/phase-05-rabbit.sh
+# Spring-native Phase 1 port: no web security (JWT security is cut), so the JWKS issuer and the token on the
+# Prometheus scrape are gone; no assertion depended on them. See docs/spring-native/phase-01-scope-cut/scope.md.
+#
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-05-rabbit.sh
 #
 # Attempts, duplicates and trace continuity are read from tables the consumer's handlers write.
 #
@@ -90,22 +93,7 @@ for GA in platform-starter-messaging-outbox platform-messaging-outbox-autoconfig
   else hh_fail "dependency tree lacks $GA"; fi
 done
 
-hh_step "loopback JWKS issuer (installed test kit), for a real principal and the Prometheus scrape"
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-BEARER="Authorization: Bearer $(cat "$IDP_DIR/token-valid")"
-AUTH=(-H "$BEARER")
+AUTH=()
 
 hh_step "infrastructure: Oracle Free, RabbitMQ, Toxiproxy in front of RabbitMQ"
 hh_infra oracle "$ORACLE_IMAGE" -e "ORACLE_PASSWORD=$SYSTEM_PW"
@@ -158,8 +146,6 @@ APP_ENV=(SPRING_PROFILES_ACTIVE=prod JAVA_TOOL_OPTIONS=-Xmx400m
   "SPRING_DATASOURCE_HIKARI_CONNECTIONINITSQL=alter session set current_schema=$OWNER"
   SPRING_FLYWAY_USER=$OWNER SPRING_FLYWAY_PASSWORD=$OWNER_PW
   SPRING_RABBITMQ_HOST=toxiproxy SPRING_RABBITMQ_USERNAME=hh SPRING_RABBITMQ_PASSWORD=$RABBIT_PW
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
-  DC_PLATFORM_EVENTS_RELAY_ENABLED=true
   DC_PLATFORM_MESSAGING_OUTBOX_POLLINTERVAL=200ms DC_PLATFORM_MESSAGING_OUTBOX_INITIALBACKOFF=200ms
   DC_PLATFORM_MESSAGING_OUTBOX_MAXBACKOFF=2s DC_PLATFORM_MESSAGING_OUTBOX_MAXREJECTIONS=2
   'SPRING_APPLICATION_JSON={"spring.jpa.properties.jakarta.persistence.database-major-version":"19"}')

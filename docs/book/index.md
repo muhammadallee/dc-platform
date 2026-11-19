@@ -1,5 +1,9 @@
 # The DC Platform Book
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **A working guide to the internal Spring Boot chassis** — what every capability does, why it was
 > built that way, how to use it well, and how to run it in production.
 >
@@ -99,8 +103,8 @@ You have never used the chassis, and Spring Boot auto-configuration is roughly m
 5. Chapters [1 (Core)](chapters/01-core.md), [2 (Errors & Validation)](chapters/02-errors-validation.md),
    [3 (Logging & Observability)](chapters/03-logging-observability.md) — the request lifecycle. Every
    service has these whether it asks for them or not.
-6. Chapter [5 (Security & Authorization)](chapters/05-security-authz.md) — because your service is
-   authenticated by default and you need to know what that means.
+6. Security: 1.0.0 ships no web security. The API gateway authenticates callers; basic auth on the
+   service arrives in iteration 2 (1.1.0).
 7. Chapter [14 (Testing & Developer Experience)](chapters/14-testing-dx.md) — the test slices, so you
    stop booting full contexts.
 8. Do the **basic** lab in each chapter you read.
@@ -118,12 +122,12 @@ You have shipped a service on the chassis. Now you are integrating.
 2. Chapter [7 (Messaging & Events)](chapters/07-messaging-events.md) — publishing and handling
    integration events, retry, and the DLQ.
 3. Chapter [8 (Data & Persistence)](chapters/08-data.md) and
-   [9 (Caching & Redis)](chapters/09-cache-redis.md).
-4. Chapter [10 (Coordination)](chapters/10-coordination.md) — locking, scheduling, idempotency. The
+   9 (Caching & Redis).
+4. Chapter 10 (Coordination) — locking, scheduling, idempotency. The
    three capabilities that separate a service that works from a service that works when you run three
    of it.
-5. Chapters [11 (Storage & Files)](chapters/11-storage-files.md),
-   [12 (Audit)](chapters/12-audit.md), [13 (Rate Limiting & Feature Flags)](chapters/13-ratelimit-flags.md)
+5. Chapters 11 (Storage & Files),
+   12 (Audit), 13 (Rate Limiting & Feature Flags)
    as your requirements demand.
 6. Cross-cutting: [Patterns and anti-patterns](crosscutting/patterns.md) and
    [Local development vs production](crosscutting/local-vs-production.md).

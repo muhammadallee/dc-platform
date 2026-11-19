@@ -65,6 +65,32 @@ class CheckBomMojoTest {
                 .hasMessageContaining("Fix:");
     }
 
+    private static MavenProject parked(String artifactId) {
+        MavenProject project = project(artifactId, "jar");
+        project.getProperties().setProperty("maven.deploy.skip", "true");
+        return project;
+    }
+
+    @Test
+    void aParkedModuleNeedsNoBomEntry() {
+        assertThatCode(mojo(
+                bom("platform-build-tools"),
+                project("platform-build-tools", "jar"),
+                parked("platform-restclient-api"))::execute)
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void aParkedModuleInTheBomFailsBecauseItIsNeverReleased() {
+        assertThatThrownBy(mojo(
+                bom("platform-build-tools", "platform-restclient-api"),
+                project("platform-build-tools", "jar"),
+                parked("platform-restclient-api"))::execute)
+                .isInstanceOf(MojoFailureException.class)
+                .hasMessageContaining("platform-restclient-api")
+                .hasMessageContaining("maven.deploy.skip");
+    }
+
     @Test
     void failsWhenBomIsNotInTheReactor() {
         assertThatThrownBy(mojo(project("platform-build-tools", "jar"))::execute)

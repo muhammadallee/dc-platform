@@ -14,6 +14,12 @@
   <artifactId>platform-openapi-autoconfigure</artifactId>
   <packaging>jar</packaging>
 
+  <properties>
+    <!-- Parked (Spring-native plan v2 §2.4): built and tested, but not released, not in platform-bom and
+         not offered by the archetype until its iteration-2 phase. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
   <name>DC Platform :: OpenAPI :: Auto Configuration</name>
   <description>
     Auto-configuration for the OpenAPI capability: a springdoc OpenAPI bean (info, servers,

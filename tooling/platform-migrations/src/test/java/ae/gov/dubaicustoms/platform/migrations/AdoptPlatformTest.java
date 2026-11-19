@@ -33,12 +33,13 @@ class AdoptPlatformTest {
         assertThat(recipe.getDisplayName()).isEqualTo("Adopt the DC Platform");
 
         String steps = recipe.getRecipeList().toString();
-        assertThat(recipe.getRecipeList()).hasSizeGreaterThanOrEqualTo(4);
+        assertThat(recipe.getRecipeList()).hasSizeGreaterThanOrEqualTo(2);
         assertThat(steps)
-                .contains("spring-kafka")
                 .contains("spring-rabbit")
-                .contains("springdoc")
-                .contains("FlagHandRolledExceptionHandler");
+                .contains("FlagHandRolledExceptionHandler")
+                // Kafka was cut and the OpenAPI starter is parked: the recipe must not add either.
+                .doesNotContain("spring-kafka")
+                .doesNotContain("springdoc");
     }
 
     @Test

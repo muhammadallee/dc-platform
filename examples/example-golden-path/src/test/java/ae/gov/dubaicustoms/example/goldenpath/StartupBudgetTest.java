@@ -17,8 +17,7 @@ import org.springframework.context.ConfigurableApplicationContext;
  * {@code startup-baseline.properties} and is governed by comment, not by silently editing this test.
  *
  * <p>Runs with {@link WebApplicationType#NONE} so the measurement is the platform/bean wiring cost,
- * not Tomcat port binding, and sets the placeholder JWKS URI so security auto-configuration boots
- * offline exactly as it does in the other tests.
+ * not Tomcat port binding.
  *
  * <p>A wall-clock budget is only meaningful on an otherwise idle JVM host. Parallel reactor builds
  * ({@code -T1C}) boot other modules' test contexts alongside this one, so CI skips it there with
@@ -38,10 +37,7 @@ class StartupBudgetTest {
         application.setWebApplicationType(WebApplicationType.NONE);
 
         long start = System.nanoTime();
-        try (ConfigurableApplicationContext context = application.run(
-                "--spring.security.oauth2.resourceserver.jwt.jwk-set-uri=https://example.test/jwks.json",
-                "--spring.security.oauth2.resourceserver.jwt.issuer-uri=https://example.test/",
-                "--spring.security.oauth2.resourceserver.jwt.audiences=example")) {
+        try (ConfigurableApplicationContext context = application.run()) {
             assertThat(context.isRunning()).isTrue();
         }
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;

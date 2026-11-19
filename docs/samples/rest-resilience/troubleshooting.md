@@ -1,5 +1,9 @@
 # Troubleshooting
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 **observed** means seen during this phase; **anticipated** means reasoned, not seen.
 
 | What you see | Why | What to do | |

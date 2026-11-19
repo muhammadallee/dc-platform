@@ -1,5 +1,7 @@
 # Chapter 6 — Outbound Calls: REST Client and Resilience
 
+> **Coming in iteration 2.** This capability is parked: it is built and tested in the repository but not released in 1.0.0, not in the BOM and not offered by the archetype. Iteration 2 of the [Spring-native plan](../../spring-native/plan.md) reworks it (Phase 9); this chapter describes the pre-rework design.
+
 > **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
 > ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
 > ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
@@ -74,7 +76,7 @@ upstream documentation, and every existing team's knowledge would stop applying.
 contribution is *tuning*, not vocabulary.
 
 !!! success "Best practice — fewer platform APIs is a feature"
-    This is the same reasoning that keeps [caching](09-cache-redis.md) on Spring's `@Cacheable` and
+    This is the same reasoning that keeps caching on Spring's `@Cacheable` and
     [tracing](03-logging-observability.md) on Micrometer. Where the industry already has a good
     abstraction, the platform configures it rather than wrapping it. When you are tempted to wrap a
     library "for consistency", ask what the wrapper adds beyond a name.
@@ -145,7 +147,7 @@ Retry is the most misapplied resilience pattern. Three conditions must all hold:
 | Condition | Why | If violated |
 |---|---|---|
 | The failure is **transient** | A retry only helps if the next attempt might differ | Retrying a 400 is pure waste — the request is wrong and will stay wrong |
-| The operation is **idempotent** | The first attempt may have succeeded before the response was lost | You double-charge, double-ship, double-post. See [Chapter 10](10-coordination.md) |
+| The operation is **idempotent** | The first attempt may have succeeded before the response was lost | You double-charge, double-ship, double-post. See Chapter 10 |
 | The dependency has **capacity** | Retries multiply load on the thing that is already struggling | A retry storm turns a brownout into an outage |
 
 The third is the one that causes incidents. When a dependency degrades, every caller retries at once —
@@ -159,7 +161,7 @@ Two mitigations, both of which the platform provides:
 !!! warning "The platform's defaults do not know whether your operation is idempotent"
     `@Retry` on a `POST` that creates an order will happily create three. The retry configuration is
     tuned for you; the *decision to retry* is yours, and it is a correctness decision, not a tuning one.
-    Pair retries on non-idempotent operations with [`@Idempotent`](10-coordination.md).
+    Pair retries on non-idempotent operations with `@Idempotent`.
 
 ### 2.4 Bulkheads, and the one the platform gives you for free
 
@@ -319,7 +321,7 @@ Package `ae.gov.dubaicustoms.platform.resilience`. All STABLE.
 | `@CircuitBreaker(name = "...")` | A failing dependency | 50% over a 10-call count window |
 | `@TimeLimiter(name = "...")` | Unbounded duration | 5 s |
 | `@Bulkhead(name = "...")` | Concurrency | Not tuned by the platform |
-| `@RateLimiter(name = "...")` | Outbound call rate | Not tuned. See [Chapter 13](13-ratelimit-flags.md) for *inbound* limiting |
+| `@RateLimiter(name = "...")` | Outbound call rate | Not tuned. See Chapter 13 for *inbound* limiting |
 
 All configured under `resilience4j.*`, which the platform seeds at lowest precedence.
 
@@ -653,7 +655,7 @@ fixes: raise `failure-rate-threshold`, or configure `ignore-exceptions` so 4xx d
 failure. The second is usually correct — **a 400 is not the dependency failing**.
 
 **Retries are not happening.** Self-invocation (`this.method()`) bypasses the proxy — the same caveat
-as [Chapter 2](02-errors-validation.md) §4.4 and [Chapter 5](05-security-authz.md) §2.8. Also check
+as [Chapter 2](02-errors-validation.md) §4.4 and Chapter 5 §2.8. Also check
 that the exception type is one Resilience4j retries; by default it retries all exceptions, but a
 `retry-exceptions` list narrows it.
 
@@ -805,7 +807,7 @@ inherit a user's.
 |---|---|---|
 | Injecting `RestClient.Builder` directly | It compiles and works | No timeouts, no correlation, no error mapping |
 | Building a client per request | It reads naturally in a method | Defeats connection pooling. Build in the constructor |
-| Retrying a non-idempotent POST | The annotation is easy to add | Duplicate effects. Pair with [`@Idempotent`](10-coordination.md) |
+| Retrying a non-idempotent POST | The annotation is easy to add | Duplicate effects. Pair with `@Idempotent` |
 | Forgetting `base-config: default` | Named instances look complete | You silently lose the platform's tuning |
 | Timeout tuned to the callee's p99 | It seems responsive | Tune to *your* caller's SLA |
 | A fallback that calls something | It looks like graceful degradation | It runs when things are broken. Return a constant |

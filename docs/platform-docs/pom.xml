@@ -109,27 +109,12 @@
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-core-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-errors-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-validation-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-observability-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-openapi-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-restclient-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-authz-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-events-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-jpa-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-cache-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-redis-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
     <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-scheduling-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-idempotency-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-messaging-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
-    <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-autoconfigure</artifactId><version>${revision}</version><scope>test</scope></dependency>
   </dependencies>
 
   <profiles>

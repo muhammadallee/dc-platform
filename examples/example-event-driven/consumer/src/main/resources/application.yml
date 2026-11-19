@@ -1,14 +1,8 @@
 # example-event-driven-consumer.
-# Default transport is in-memory (local profile). Build/run with -Prabbit to use RabbitMQ.
+# Transport: RabbitMQ (start it with `docker compose -f docker-compose.local.yml up -d rabbitmq`).
 spring:
   application:
     name: example-event-driven-consumer
-
----
-spring:
-  config:
-    activate:
-      on-profile: rabbit
   rabbitmq:
     host: localhost
     port: 5672

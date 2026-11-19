@@ -1,5 +1,9 @@
 # Observability Strategy
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
 > ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
 > ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
@@ -108,10 +112,10 @@ team exactly who has upgraded.
 | Resilience | `resilience4j_circuitbreaker_state`, `_failure_rate`, `_not_permitted_calls_total`, `resilience4j_retry_calls_total` | [6](../chapters/06-restclient-resilience.md) |
 | Messaging | `platform.messaging.published{outcome}`, `platform.messaging.handled{outcome}` | [7](../chapters/07-messaging-events.md) |
 | Data | HikariCP pool metrics, Hibernate statistics | [8](../chapters/08-data.md) |
-| Cache | `cache_gets_total{result}`, `cache_size`, `cache_evictions_total` | [9](../chapters/09-cache-redis.md) |
-| Storage | `dc.platform.storage` observation, tagged `operation` and `provider` | [11](../chapters/11-storage-files.md) |
-| Audit | The `DC-AUDIT-0500` dropped-event WARN, with a running total | [12](../chapters/12-audit.md) |
-| Rate limiting | `dc.platform.ratelimit.decisions{name, outcome}`, and `DC-RATELIMIT-0500` | [13](../chapters/13-ratelimit-flags.md) |
+| Cache | `cache_gets_total{result}`, `cache_size`, `cache_evictions_total` | 9 |
+| Storage | `dc.platform.storage` observation, tagged `operation` and `provider` | 11 |
+| Audit | The `DC-AUDIT-0500` dropped-event WARN, with a running total | 12 |
+| Rate limiting | `dc.platform.ratelimit.decisions{name, outcome}`, and `DC-RATELIMIT-0500` | 13 |
 
 ### Endpoints
 
@@ -233,7 +237,7 @@ Not everything worth measuring is worth alerting on. This is the set that earns 
 | Readiness flapping | A dependency health indicator is unstable |
 
 !!! tip "The alert nobody sets up: 'nobody ran the job'"
-    With [`@LockedSchedule`](../chapters/10-coordination.md), every instance logging "skipped" looks
+    With `@LockedSchedule`, every instance logging "skipped" looks
     healthy per instance and means the work did not happen. Emit a metric **on successful completion**
     and alert on its *absence*. That is the only signal distinguishing "another instance did it" from
     "no instance did it".
@@ -390,6 +394,6 @@ chapter are deliberately different, and what that means for you.
 
 **Related:** [Chapter 1 — Core](../chapters/01-core.md) ·
 [Chapter 3 — Logging and Observability](../chapters/03-logging-observability.md) ·
-[Chapter 12 — Audit](../chapters/12-audit.md)
+Chapter 12 — Audit
 
 [Back to the book](../index.md)

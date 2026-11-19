@@ -1,5 +1,7 @@
 # Release decision
 
+> **Superseded on `develop`** by [`docs/spring-native/`](../spring-native/plan.md): the realigned platform targets 1.0.0 (ND1), so this GO for `1.0.0-RC1` no longer applies there. It still describes `main`.
+
 **Recommendation: GO for `1.0.0-RC1` to first adopters, under the conditions below. NO-GO for general production use until
 the parked outbox issues are fixed and OpenShift is verified.** The decision is the owner's.
 

@@ -12,7 +12,6 @@ import ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.Plat
 import ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.TracingOutboxTraceSource;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
-import ae.gov.dubaicustoms.platform.security.CurrentUserAccessor;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
@@ -125,21 +124,6 @@ public class OutboxAutoConfiguration {
         PlatformOutboxContext.TraceSource outboxTraceSource(ObjectProvider<Tracer> tracer,
                 ObjectProvider<Propagator> propagator) {
             return new TracingOutboxTraceSource(tracer, propagator);
-        }
-    }
-
-    /** The current principal's subject, when the security API is on the classpath. Resolved per call. */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(CurrentUserAccessor.class)
-    static class PrincipalConfiguration {
-
-        @Bean
-        @ConditionalOnMissingBean
-        PlatformOutboxContext.PrincipalSource outboxPrincipalSource(ObjectProvider<CurrentUserAccessor> accessor) {
-            return () -> {
-                CurrentUserAccessor current = accessor.getIfUnique();
-                return current != null ? current.currentUser().map(user -> user.subject()).orElse(null) : null;
-            };
         }
     }
 }

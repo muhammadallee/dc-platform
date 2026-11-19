@@ -1,5 +1,7 @@
 # OpenAPI
 
+> **Coming in iteration 2.** This capability is parked: it is built and tested in the repository but not released in 1.0.0, not in the BOM and not offered by the archetype. Iteration 2 of the [Spring-native plan](../spring-native/plan.md) reworks it (Phase 8, as part of the REST API); this page describes the pre-rework design.
+
 A springdoc-generated OpenAPI document that already knows how the platform reports errors, so no
 team hand-writes the same 4xx/5xx shapes.
 

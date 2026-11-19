@@ -5,6 +5,33 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Spring-native Phase 1: scope cut (`develop`)
+
+The platform is cut to the plan v2 scope ([`docs/spring-native/plan.md`](docs/spring-native/plan.md)). Restore point: tag
+`pre-spring-native`.
+
+- **Removed (69 modules).** JWT security and authorization (`platform-starter-security`, `-security-authz`, their api, spi
+  and autoconfigure modules), platform validation, caching and Redis, scheduling and locking, in-process events, Kafka
+  messaging, audit, idempotency, rate limiting, storage, files, feature flags, their TCKs and
+  `example-extension-provider`. Replacements, for the parts that have one:
+  - Bean Validation: `spring-boot-starter-validation`; the errors capability still maps failures to a 400 `ProblemDetail`;
+  - in-process events: Spring's `ApplicationEventPublisher` and `@TransactionalEventListener`;
+  - REST API security: basic auth, coming in iteration 2 (1.1.0).
+- **Parked, not released in 1.0.0:** `platform-restclient-*`, `platform-resilience-*`, `platform-openapi-*`. They build
+  and test in the repository but leave `platform-bom` and are not deployed until iteration 2 reworks them.
+- **Changed.** The JPA auditor always records `"system"`. The outbox no longer records a principal unless the service
+  supplies a `PrincipalSource`. The REST client's bearer-token relay is gone. `Containers` keeps only `postgres()`.
+  The adopt recipe no longer rewrites `spring-kafka` or springdoc. `platform-service-parent` no longer bans
+  `spring-kafka`, the AWS S3 SDK, Resilience4j or springdoc.
+- **Archetype.** Generated services get no security, OpenAPI or REST-client starter and no `restclient` feature; they get
+  `spring-boot-starter-validation`, and `/actuator/platform` is exposed outside `prod` only.
+- **Build.** `check-bom` skips modules that set `maven.deploy.skip=true` and fails if the BOM manages one. That rule
+  found `platform-docs` (never deployed) in the BOM; it is removed from it.
+- **After the Codex review.** `PlatformConformanceTest` no longer bans Spring Kafka types (Kafka is not a platform
+  transport). The platform index served by the MCP server and the skill lists only released starters.
+  `example-event-driven` runs on RabbitMQ only. Consumer runs build their Maven repository with
+  `tooling/hardening/native-repo.sh`, which holds no cut artifact.
+
 ### Phase 8: final verification
 
 - **Spring Boot 4.1.2** (was 4.1.0), for known vulnerabilities in what a service ships: Spring Framework 7.0.10, Tomcat 11.0.27,

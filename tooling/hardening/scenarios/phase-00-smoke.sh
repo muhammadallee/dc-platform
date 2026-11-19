@@ -3,9 +3,10 @@
 # the repo, run it in a container, probe it, stop it with a real SIGTERM, and clean up — and that a
 # failed assertion turns the run red. No capability is certified by this scenario.
 #
-#   bash tooling/hardening/scenarios/phase-00-smoke.sh
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-00-smoke.sh
 #
-# Requires the platform installed in HH_MAVEN_REPO (default ~/.m2/repository) and Docker running.
+# Requires the platform installed in HH_MAVEN_REPO and Docker running. The default (~/.m2/repository) may hold
+# artifacts of cut modules; use a repository from native-repo.sh.
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
 
 hh_init phase-00 smoke

@@ -76,4 +76,4 @@
 
 ## Limits
 
-See [`verification`](../../samples/security/verification.md): no TLS, no spans, the 1 MiB cap not run, one Keycloak never restarted, no load.
+See [`verification`](https://github.com/muhammadallee/dc-platform/blob/pre-spring-native/docs/samples/security/verification.md): no TLS, no spans, the 1 MiB cap not run, one Keycloak never restarted, no load.

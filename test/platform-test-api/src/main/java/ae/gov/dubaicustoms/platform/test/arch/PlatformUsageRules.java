@@ -27,7 +27,7 @@ import org.apiguardian.api.API;
  * }</pre>
  *
  * <p>Rules match banned third-party types by fully-qualified name, so this module does not depend on
- * Kafka, Rabbit, or Spring MVC — a service that pulls none of them still compiles the conformance
+ * Rabbit or Spring MVC — a service that pulls none of them still compiles the conformance
  * test. The rules are an intentionally deletable escape hatch: a team with a documented reason may
  * remove {@code PlatformConformanceTest} from its service (discouraged; see {@code docs/modules/dx.md}).
  *
@@ -38,7 +38,6 @@ import org.apiguardian.api.API;
 @API(status = API.Status.STABLE, since = "0.1.0")
 public final class PlatformUsageRules {
 
-    private static final String KAFKA_TEMPLATE = "org.springframework.kafka.core.KafkaTemplate";
     private static final String RABBIT_TEMPLATE = "org.springframework.amqp.rabbit.core.RabbitTemplate";
     private static final String REST_CONTROLLER_ADVICE =
             "org.springframework.web.bind.annotation.RestControllerAdvice";
@@ -66,21 +65,21 @@ public final class PlatformUsageRules {
     }
 
     /**
-     * A service must not depend on broker templates or listener containers directly — publish via
+     * A service must not depend on RabbitMQ templates or listener containers directly — publish via
      * {@code EventPublisher} and consume via {@code @EventHandler}, which already wrap retry, DLQ,
      * correlation, serialization, and metrics.
      */
     static ArchRule noDirectMessagingInfrastructure() {
         return ArchRuleDefinition.noClasses()
                 .should().dependOnClassesThat(bannedMessagingInfrastructure())
-                .because("use EventPublisher / @EventHandler — never inject KafkaTemplate/RabbitTemplate or wire "
+                .because("use EventPublisher / @EventHandler — never inject RabbitTemplate or wire "
                         + "listener containers directly (retry, DLQ, correlation, serialization and metrics are "
                         + "already handled)")
                 .allowEmptyShould(true);
     }
 
     private static DescribedPredicate<JavaClass> bannedMessagingInfrastructure() {
-        return new DescribedPredicate<>("are Kafka/Rabbit templates or listener containers") {
+        return new DescribedPredicate<>("are Rabbit templates or listener containers") {
             @Override
             public boolean test(JavaClass clazz) {
                 return isBannedMessagingType(clazz.getName());
@@ -89,14 +88,14 @@ public final class PlatformUsageRules {
     }
 
     /**
-     * Whether {@code fullyQualifiedName} is a broker template or listener container the platform hides
+     * Whether {@code fullyQualifiedName} is a RabbitMQ template or listener container the platform hides
      * behind {@code EventPublisher}/{@code @EventHandler}. Package-private and name-based so it is
-     * testable without Kafka/Rabbit on the classpath.
+     * testable without Rabbit on the classpath. Kafka is not a platform transport, so its types are
+     * not banned.
      */
     static boolean isBannedMessagingType(String fullyQualifiedName) {
-        return KAFKA_TEMPLATE.equals(fullyQualifiedName)
-                || RABBIT_TEMPLATE.equals(fullyQualifiedName)
-                || fullyQualifiedName.matches("org\\.springframework\\.(kafka|amqp)\\..*ListenerContainer");
+        return RABBIT_TEMPLATE.equals(fullyQualifiedName)
+                || fullyQualifiedName.matches("org\\.springframework\\.amqp\\..*ListenerContainer");
     }
 
     /**

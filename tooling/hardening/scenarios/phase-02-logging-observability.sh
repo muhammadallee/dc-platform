@@ -2,9 +2,15 @@
 # Hardening phase 2 (logging + observability), Gate F: an archetype-generated consumer (prod profile, real
 # PostgreSQL, real OpenTelemetry Collector behind Toxiproxy) proves the consumer-level acceptance criteria of
 # docs/production-readiness/phase-02-logging-observability/scope.md (AC1-AC5, AC7-AC12, AC14). Fixtures,
-# not certified here: core, errors, security (JWKS issuer), data-jpa + PostgreSQL, restclient.
+# not certified here: core, errors, data-jpa + PostgreSQL, restclient (parked; its starter is added by the harness).
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-02 bash tooling/hardening/scenarios/phase-02-logging-observability.sh
+# Spring-native Phase 1 port: JWT security is cut. The JWKS issuer is gone; a JWT-shaped sample stands in
+# for the token in the redaction checks. AC9 now checks exposure without security (hidden endpoints 404,
+# /actuator/platform not exposed in prod, /actuator/info open) and its "with a token" duplicates are
+# dropped; ac7-anon (scrape refused, 401) is dropped. 11 assertions. See
+# docs/spring-native/phase-01-scope-cut/scope.md.
+#
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-02-logging-observability.sh
 #
 # The only change to the generated project is PostgreSQL support for a prod deployment: the JDBC driver
 # its pom.xml asks for ("add its JDBC driver here") and Flyway's PostgreSQL module, which Flyway 10+ also
@@ -38,8 +44,10 @@ mem_mib() { docker stats --no-stream --format '{{.MemUsage}}' "$HH_APP_CONTAINER
 
 hh_init phase-02 logging-observability
 
-hh_step "generate a consumer (data + restclient), add the probe and the PostgreSQL driver"
-hh_generate hardening-obs data,restclient
+hh_step "generate a consumer (data), add the parked REST-client starter, the probe and the PostgreSQL driver"
+hh_generate hardening-obs data
+python -I "$(hh_native "$HERE/phase-06/edit_pom.py")" "$(hh_native "$HH_APP_DIR/pom.xml")" "$HH_REV" \
+    || hh_abort "could not add the REST-client starter"
 hh_add_sources "$HERE/phase-02/probe" ae/gov/dubaicustoms/hardening/probe
 python -I - "$(hh_native "$HH_APP_DIR/pom.xml")" <<'EOF'
 import sys
@@ -56,21 +64,9 @@ EOF
 cp "$HH_APP_DIR/pom.xml" "$HH_EVIDENCE/generated-pom-with-driver.xml"
 hh_build_app
 
-hh_step "loopback JWKS issuer (installed test kit) for real bearer tokens"
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-TOKEN=$(cat "$IDP_DIR/token-valid")
+# A JWT-shaped sample: nothing validates it now; the redaction checks need a realistic token in text.
+TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6Imhhcm5lc3MifQ.eyJzdWIiOiJoYXJuZXNzLW9icyIsImF1ZCI6InBsYXRmb3JtLXRlc3QifQ.b2JzLXNhbXBsZS1zaWduYXR1cmUtbm90LXJlYWwtYnV0LWxvbmctZW5vdWdo"
+# Sent where the probe reads the Authorization header to test its masking; nothing validates it.
 AUTH=(-H "Authorization: Bearer $TOKEN")
 
 hh_step "infrastructure: PostgreSQL, OpenTelemetry Collector (file exporter), Toxiproxy in front of the collector"
@@ -110,8 +106,6 @@ for _ in $(seq 1 60); do docker exec "$HH_RUN_ID-postgres" pg_isready -U app >/d
 APP_ENV=(SPRING_PROFILES_ACTIVE=prod
   SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app SPRING_DATASOURCE_USERNAME=app
   SPRING_DATASOURCE_PASSWORD=app-pw-hardening SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=2000
-  APP_GREETING_BASE_URL=http://127.0.0.1:8080
-  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
   MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
   DC_PLATFORM_OBSERVABILITY_OTLP_ENABLED=true
   MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://toxiproxy:4318/v1/traces
@@ -124,17 +118,12 @@ hh_wait_ready 180
 STARTUP_HEALTHY=$HH_READY_SECONDS
 
 T=$(hex 16)
-hh_step "AC9 exposure under the security fixture: unexposed 401 anonymous / 404 with a token; platform 401 / 200"
+hh_step "AC9 exposure without web security: unexposed endpoints 404; /actuator/platform not exposed in prod; info open"
 for EP in env beans heapdump metrics configprops loggers threaddump; do
-  hh_http "ac9-$EP-anon" GET "/actuator/$EP"; hh_expect_status 401
-  hh_http "ac9-$EP-token" GET "/actuator/$EP" "${AUTH[@]}"; hh_expect_status 404
+  hh_http "ac9-$EP-anon" GET "/actuator/$EP"; hh_expect_status 404
 done
-hh_http ac9-platform-anon GET /actuator/platform; hh_expect_status 401
-hh_http ac9-platform-token GET /actuator/platform "${AUTH[@]}"; hh_expect_status 200
-hh_expect_json "capability report names observability ACTIVE" "'observability' in json.dumps(b) and 'ACTIVE' in json.dumps(b)"
-# Tightened in phase 7 (G7-02): only the two probes are open.
-hh_http ac9-info-anon GET /actuator/info; hh_expect_status 401
-hh_http ac9-info-token GET /actuator/info "${AUTH[@]}"; hh_expect_status 200
+hh_http ac9-platform-anon GET /actuator/platform; hh_expect_status 404
+hh_http ac9-info-anon GET /actuator/info; hh_expect_status 200
 
 hh_step "AC1 JSON line shape: a request's lines carry its traceId and spanId; ERROR lines a stack_trace"
 hh_http ac1-error GET "/probe/hostile?msg=plain-failure-$T" -H "traceparent: $(tp "$T")"
@@ -177,8 +166,7 @@ HOSTILE_PW="Hx-$(hex 5)"
 hh_http ac5-exception GET /probe/hostile --get --data-urlencode "msg=db login password=$HOSTILE_PW token=$TOKEN"
 hh_expect_status 500
 
-hh_step "AC7 Prometheus scrape: 401 anonymous, 200 with a token; common tags; no ID-like label values"
-hh_http ac7-anon GET /actuator/prometheus; hh_expect_status 401
+hh_step "AC7 Prometheus scrape; common tags; no ID-like label values"
 hh_http ac7-scrape GET /actuator/prometheus "${AUTH[@]}"; hh_expect_status 200
 check ac7-scrape scrape "$(hh_native "$HH_EVIDENCE/http/ac7-scrape.body")" "$SERVICE"
 

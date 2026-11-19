@@ -23,7 +23,7 @@
 | Targeted tests | security-autoconfigure 80, authz-autoconfigure 23, restclient-autoconfigure 108; 0 failures, coverage gates met | `evidence-raw/flaky-3.log` |
 | Downstream (§3.9) | `-am -amd test-compile`: 63 modules, BUILD SUCCESS | `evidence-raw/downstream-final.log` |
 | Golden path | **9/9** | [`evidence/golden-path-summary-3509a93.tsv`](evidence/golden-path-summary-3509a93.tsv) |
-| H samples + operations | written | [`../../samples/security/`](../../samples/security/) |
+| H samples + operations | written | [`../../samples/security/`](https://github.com/muhammadallee/dc-platform/blob/pre-spring-native/docs/samples/security) |
 | CI (PR #2) | green on the closure commit; tagged `hardening/phase-07-closed` | GitHub Actions |
 
 Gaps: G7-01 issuer, audience, algorithms and skew (R1); G7-02 exposure (R5); G7-03 fail closed (R4); G7-04 propagation (R6, AC17); G7-05 JWKS outage, unknown `kid`, rotation (R2, AC5 to AC8, AC22).
@@ -35,7 +35,7 @@ Gaps: G7-01 issuer, audience, algorithms and skew (R1); G7-02 exposure (R5); G7-
 | 7.1 override | `JwtDecoder`, `JwtAuthenticationConverter`, `CurrentUserAccessor`, `PermissionEvaluatorProvider` and a full chain replace the platform's, tested. The advisor deliberately does not back off: HI-0101 |
 | 7.2 default snapshot | properties table in `security.md`, defaults in `SecurityProperties` |
 | 7.3 kill switch | `DEFAULT_ON`; `enabled`, `mode=disabled`, `authz.enabled` tested |
-| 7.4 outage posture | down, hung, HTML, redirect, empty set, down at startup: the response recorded in [`operations`](../../samples/security/operations.md) |
+| 7.4 outage posture | down, hung, HTML, redirect, empty set, down at startup: the response recorded in [`operations`](https://github.com/muhammadallee/dc-platform/blob/pre-spring-native/docs/samples/security/operations.md) |
 | 7.5 health | the key server is in no health group |
 | 7.6 propagation | `@Async`, 200 concurrent, two principals, no bleed (AC17, C2) |
 | 7.7 error surface | only 401, 403, 503 bodies, exact generic text, no reason in the challenge |

@@ -88,7 +88,7 @@
 
     <!-- Capability kits referenced by the slices. Optional: only a test that uses the matching
          slice needs them on its classpath, and platform-starter-test re-declares the ones it bundles
-         non-optionally. Keeps a service that only uses @PlatformTest from pulling JPA/Kafka. -->
+         non-optionally. Keeps a service that only uses @PlatformTest from pulling JPA/RabbitMQ. -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-messaging-autoconfigure</artifactId>
@@ -109,16 +109,10 @@
     </dependency>
 
     <!-- Testcontainers types referenced by Containers. Optional: only @Tag("docker") tests use them;
-         a docker-free test suite never pulls Docker onto its classpath. Vault and LocalStack are driven
-         through the core GenericContainer, so no dedicated modules are needed for them. -->
+         a docker-free test suite never pulls Docker onto its classpath. -->
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers-kafka</artifactId>
       <optional>true</optional>
     </dependency>
     <dependency>

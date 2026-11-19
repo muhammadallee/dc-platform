@@ -1,3 +1,0 @@
-ae.gov.dubaicustoms.platform.idempotency.autoconfigure.RedisIdempotencyStoreAutoConfiguration
-ae.gov.dubaicustoms.platform.idempotency.autoconfigure.JdbcIdempotencyStoreAutoConfiguration
-ae.gov.dubaicustoms.platform.idempotency.autoconfigure.PlatformIdempotencyAutoConfiguration

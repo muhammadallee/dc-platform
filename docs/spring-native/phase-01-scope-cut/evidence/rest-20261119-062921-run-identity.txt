@@ -1,0 +1,17 @@
+run_id=dch-20261119062921-1024
+phase=phase-06 scenario=rest
+platform_commit=88edbf217d92b996c2a8e49feec0f8db3e21c40f
+platform_tree_dirty_paths=5
+platform_revision=1.0.0-SNAPSHOT
+maven_repo=/c/Users/Ali/.m2-hardening/native-01
+jre_image=eclipse-temurin:25-jre
+started=2026-11-19T06:29:26+04:00
+toxiproxy_image=ghcr.io/shopify/toxiproxy:2.9.0
+ready_seconds=8
+shutdown_seconds=4 exit_code=143
+ready_seconds=9
+ready_healthy=8s ready_downstream_down=9s
+shutdown_seconds=5 exit_code=143
+finished=2026-11-19T06:33:35+04:00
+assertions_passed=182 assertions_failed=0 script_rc=0
+verdict=PASS

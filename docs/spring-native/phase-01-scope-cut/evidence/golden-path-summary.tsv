@@ -1,0 +1,7 @@
+scenario	features	tests	seconds	result
+none-defaults	none	7	53	PASS
+messaging	messaging	7	53	PASS
+data	data	11	69	PASS
+messaging-data	messaging,data	11	69	PASS
+all-relocated	data,messaging	11	72	PASS
+data-oracle	data	11	71	PASS

@@ -27,43 +27,23 @@ path is always exercised. See [`ProblemResponseTest`](modules/errors.md) for the
 ## example-golden-path — the canonical reference
 
 The service to read first. A small **orders** domain (`POST /orders`, `GET /orders/{id}`) wired through
-the full golden-path stack: REST + [validation](modules/validation.md) + [security](modules/security.md)
-(authenticated by default) + [OpenAPI](modules/openapi.md) + [observability](modules/observability.md)
-+ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally) +
-[cache](modules/cache.md) + [resilience](modules/resilience.md) + [audit](modules/audit.md). Every
+the 1.0.0 stack: REST + Spring validation + [observability](modules/observability.md)
++ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally). It has no web
+security: in 1.0.0 the API gateway authenticates callers. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
-actually calls (`EventPublisher`, `RetryableOperation`, `@Audited`, `@Cacheable`, `@Transactional`),
+actually calls (`OutboxPublisher`, `@Transactional`, `NotFoundException`),
 and the class deliberately contains no error, security, or serialization code.
 
-Run it with `mvn -pl examples/example-golden-path spring-boot:run`; build the prod-sim variant against
-PostgreSQL with `-Ppg` (Kafka messaging is deferred until the infrastructure supports it — the
-in-memory transport is the local default, and `example-event-driven` demonstrates a real broker over
-RabbitMQ).
+Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is in-memory here;
+`example-event-driven` shows a real broker over RabbitMQ.
 
 Tests, all through the platform slices and Docker-free:
 
-- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — authenticated `POST /orders`
+- `OrderFlowTest` (`@PlatformWebTest` + `@AutoConfigureTestTransport`) — `POST /orders`
   persists, publishes `OrderPlaced` (asserted on `TestEventTransport`), and is read back;
 - `OrderProblemResponseTest` — unknown order → 404 problem with code, invalid body → 400 problem;
-- `PlatformSurfaceTest` — OpenAPI document served, `/actuator/platform` reports capabilities;
+- `PlatformSurfaceTest` — `/actuator/platform` reports capabilities;
 - `StartupBudgetTest` — cold-start wall-clock stays within the checked-in baseline + 15% (deliverable C).
-
-## example-extension-provider — the extension model
-
-A service that adds a **custom storage provider** without editing the platform. `EncryptingFsObjectStore`
-implements [`ObjectStore`](modules/storage.md), encrypting content at rest (AES-CTR, which is
-length-preserving so sizes and metadata still round-trip) and delegating persistence to the platform's
-`FsObjectStore`. Its `EncryptingStorageAutoConfiguration` is ordered **before** the platform's
-`FsObjectStoreAutoConfiguration`, so the platform default — guarded by
-`@ConditionalOnMissingBean(ObjectStore.class)` — backs off. This is the [extension model](concepts/extension-model.md)
-verbatim: extend by registering ahead of the default, never by forking the platform.
-
-Two tests are the acceptance:
-
-- `EncryptingFsObjectStoreTckTest extends ObjectStoreTck` — the provider is *platform-certified* iff
-  the whole storage TCK passes against it;
-- `StorageBackOffTest` — boots the app and asserts the single `ObjectStore` bean is the custom
-  encrypting provider, proving the default stepped aside.
 
 ## example-event-driven — producer/consumer over messaging
 
@@ -78,13 +58,10 @@ The **retry/DLQ** behaviour is the headline. `ShipmentHandler` throws for a ship
 republished the message to the DLQ destination (`dc.shipments.dlq`) — all Docker-free over the
 in-memory `TestEventTransport`. `ShipmentRoundTripTest` covers the happy path.
 
-The default transport is in-memory (the `local` Maven profile). Run against real **RabbitMQ** with the
-`rabbit` profile after `docker compose up rabbitmq`:
+Both services run on **RabbitMQ**, the only transport (the tests need no broker). Start it, then the two services:
 
 ```
-mvn -Prabbit -pl examples/example-event-driven/producer spring-boot:run
-mvn -Prabbit -pl examples/example-event-driven/consumer spring-boot:run
+docker compose -f docker-compose.local.yml up -d rabbitmq
+mvn -pl examples/example-event-driven/producer spring-boot:run
+mvn -pl examples/example-event-driven/consumer spring-boot:run
 ```
-
-Kafka is deferred until the infrastructure supports it; the messaging API is transport-agnostic, so
-adding it later is a starter swap, not a code change.

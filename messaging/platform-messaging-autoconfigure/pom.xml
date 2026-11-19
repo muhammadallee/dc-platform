@@ -51,19 +51,8 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-messaging-kafka</artifactId>
-      <version>${revision}</version>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-messaging-rabbit</artifactId>
       <version>${revision}</version>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.kafka</groupId>
-      <artifactId>spring-kafka</artifactId>
       <optional>true</optional>
     </dependency>
     <dependency>

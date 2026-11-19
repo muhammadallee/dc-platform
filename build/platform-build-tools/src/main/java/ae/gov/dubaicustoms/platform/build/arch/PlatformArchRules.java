@@ -72,18 +72,15 @@ public final class PlatformArchRules {
      * The ONLY sanctioned third-party exceptions to "api packages carry contracts only", keyed by
      * capability. Each entry is a standard model the capability's contract is defined in terms of:
      * errors — {@code org.springframework.http} because ProblemDetail IS the RFC-9457 model
-     * (phase-04 ADR, errors-api README); validation — {@code jakarta.validation} because Bean
-     * Validation constraints must be meta-annotated with it; restclient —
+     * (phase-04 ADR, errors-api README); restclient —
      * {@code org.springframework.web.client} because {@code RestClient.Builder} IS the model
-     * {@code PlatformRestClientFactory} hands back (phase-06 ADR, decision D19); security —
-     * {@code org.springframework.security} because {@code HttpSecurity} IS the model
-     * {@code SecurityCustomizer} configures (phase-06 ADR, decision D19). Additions require an ADR.
+     * {@code PlatformRestClientFactory} hands back (phase-06 ADR, decision D19). The validation and
+     * security entries went with those capabilities (Spring-native plan v2 scope cut). Additions
+     * require an ADR.
      */
     private static final Map<String, Set<String>> API_STANDARD_MODEL_PACKAGES = Map.of(
             "errors", Set.of("org.springframework.http"),
-            "validation", Set.of("jakarta.validation"),
-            "restclient", Set.of("org.springframework.web.client"),
-            "security", Set.of("org.springframework.security"));
+            "restclient", Set.of("org.springframework.web.client"));
 
     /** API root packages (ae.gov.dubaicustoms.platform.&lt;cap&gt; and .annotation) stay dependency-poor. */
     static ArchRule apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore() {

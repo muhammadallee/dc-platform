@@ -862,3 +862,9 @@ One line of context per decision; details live in the commit bodies referenced.
   stays a `BeanPostProcessor` (it only adds Oracle driver timeouts where none is set: HI-0061, HI-0063, HI-0070). In the
   closed hardening record, links to files the scope cut deletes are rewritten to tag `pre-spring-native`; nothing else in
   that record changes. Review: [`docs/spring-native/phase-00-baseline/review-round-1.md`](../spring-native/phase-00-baseline/review-round-1.md).
+- **D137 — Phase 1 scope-cut choices (Spring-native Phase 1, 2026-11-19).** (1) The archetype keeps the in-memory
+  messaging starter as its `messaging` default until Phase 6 moves messaging to Spring AMQP; switching to RabbitMQ first
+  would make every generated test need a broker. (2) Parked modules set `maven.deploy.skip=true` and `check-bom` treats
+  that as "not published": no BOM entry needed, and a BOM entry for one fails. (3) `platform-service-parent` drops its
+  Resilience4j and springdoc bans while those starters are parked, rather than pointing services at a starter that is not
+  released. (4) Without web security the generated `/actuator/platform` is exposed outside `prod` only, as before.

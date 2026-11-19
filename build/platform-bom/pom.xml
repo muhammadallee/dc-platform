@@ -43,105 +43,27 @@
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-logging-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-logging</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-validation-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-validation-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-validation</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-observability-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-observability</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-openapi-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-openapi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-restclient-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-restclient-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-restclient</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-security</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-authz-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-authz-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-security-authz-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-security-authz</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-spi</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-inmemory</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-kafka</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-rabbit</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-outbox</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-outbox-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-inmemory</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-kafka</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-rabbit</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-messaging-outbox</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-messaging-test</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-events-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-events-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-events</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-data-jpa-autoconfigure</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-data-jpa</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-data-jpa-oracle</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-cache-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-cache-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-cache-caffeine</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-cache-redis</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-redis-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-redis</artifactId><version>${revision}</version></dependency>
-      <!-- Phase 9: resilience, locking, scheduling, idempotency. -->
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-resilience-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-resilience</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-jdbc</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-redis</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-locking-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-locking-jdbc</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-locking-redis</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-scheduling-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-scheduling</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-idempotency-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-idempotency-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-idempotency</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-fs</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-s3</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-storage-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-storage-fs</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-storage-s3</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-inmemory</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-openfeature</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-flags-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-flags</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-log</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-jdbc</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-audit-messaging-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-audit</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-spi</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-inmemory</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-redis</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-ratelimit-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-ratelimit</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-api</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-files-autoconfigure</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-files</artifactId><version>${revision}</version></dependency>
-      <!-- Phase 12: test kit and provider TCKs (Test Support category). -->
+      <!-- Test kit and the messaging TCK (Test Support category). -->
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-test-api</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-starter-test</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-messaging</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-storage</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-locking</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-flags</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-ratelimit</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-idempotency</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-tck-audit</artifactId><version>${revision}</version></dependency>
-      <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-docs</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-mcp-server</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-skill</artifactId><version>${revision}</version></dependency>
       <dependency><groupId>ae.gov.dubaicustoms.platform</groupId><artifactId>platform-migrations</artifactId><version>${revision}</version></dependency>

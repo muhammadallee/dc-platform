@@ -2,9 +2,16 @@
 # Hardening phase 1 (core + errors), Gate F: an archetype-generated consumer, run in a container, proves
 # the correlation and error contracts of docs/production-readiness/phase-01-core-errors/scope.md
 # (AC1-AC13, AC18) over real HTTP. Fixtures, not certified here: logging, observability (tracing bridge),
-# security, openapi, validation, restclient (the archetype baseline + the `restclient` feature).
+# restclient (parked; its starter is added by the harness).
 #
-#   HH_MAVEN_REPO=~/.m2-hardening/phase-01 bash tooling/hardening/scenarios/phase-01-core-errors.sh
+# Spring-native Phase 1 port: JWT security is cut, so the JWKS issuer, the AC13 token checks (401 for
+# missing/malformed/expired/untrusted tokens, the valid-token 200, the 403) and the probe's @PreAuthorize
+# controller are gone (15 assertions). The REST client is parked: the service is generated with no features
+# and its starter added with an explicit version, so the outbound checks stay. A JWT-shaped bearer is still
+# sent on one request so "no bearer token in the log" keeps its meaning. See
+# docs/spring-native/phase-01-scope-cut/scope.md.
+#
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-01-core-errors.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECKS=(python -I "$(hh_native "$HERE/phase-01/checks.py")")
@@ -26,32 +33,19 @@ header_absent() { # name: the last response's headers must not contain it
 
 hh_init phase-01 core-errors
 
-hh_step "generate a consumer (restclient feature as the outbound fixture) and add the probe"
-hh_generate hardening-core restclient
+hh_step "generate a consumer, add the parked REST-client starter (the outbound fixture) and the probe"
+hh_generate hardening-core -
+python -I "$(hh_native "$HERE/phase-06/edit_pom.py")" "$(hh_native "$HH_APP_DIR/pom.xml")" "$HH_REV" \
+    || hh_abort "could not add the REST-client starter"
 hh_add_sources "$HERE/phase-01/probe" ae/gov/dubaicustoms/hardening/probe
 hh_build_app
 
-hh_step "loopback JWKS issuer (installed test kit) for real bearer-token validation"
-# Docker Desktop forwards host.docker.internal to the host's loopback, so the container can fetch it.
-CP_SEP=':'; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) CP_SEP=';' ;; esac
-TEST_API_JAR="$HH_MAVEN_REPO/ae/gov/dubaicustoms/platform/platform-test-api/$HH_REV/platform-test-api-$HH_REV.jar"
-SUPPORT_CLASSES="$HH_RUN_DIR/support-classes"
-javac -nowarn -d "$(hh_native "$SUPPORT_CLASSES")" -cp "$(hh_native "$TEST_API_JAR")" \
-    "$(hh_native "$HH_REPO_ROOT/tooling/scripts/support/GateSupport.java")" > "$HH_EVIDENCE/support-compile.log" 2>&1 \
-    || hh_abort "could not compile GateSupport (support-compile.log)"
-IDP_DIR="$HH_RUN_DIR/idp"; mkdir -p "$IDP_DIR"
-java -cp "$(hh_native "$SUPPORT_CLASSES")$CP_SEP$(hh_native "$TEST_API_JAR")" GateSupport idp "$(hh_native "$IDP_DIR")" \
-    > "$HH_EVIDENCE/idp.log" 2>&1 &
-HH_PIDS+=($!)
-for _ in $(seq 1 120); do [ -f "$IDP_DIR/ready" ] && break; sleep 0.5; done
-[ -f "$IDP_DIR/ready" ] || hh_abort "JWKS issuer did not start (idp.log)"
-JWKS_FOR_APP=$(sed 's#//127.0.0.1:#//host.docker.internal:#; s#//localhost:#//host.docker.internal:#' "$IDP_DIR/jwks-uri")
-TOKEN=$(cat "$IDP_DIR/token-valid"); UNTRUSTED=$(cat "$IDP_DIR/token-untrusted"); EXPIRED=$(cat "$IDP_DIR/token-expired")
+# A JWT-shaped value: nothing validates it now, and it must never reach the log.
+TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJoYXJuZXNzLWNvcmUifQ.Y29yZS1zYW1wbGUtbm90LXJlYWw"
 
 hh_step "boot (sampling 1.0, core autoconfigure package at DEBUG — env relaxed binding lowercases class names — so the rejected-traceparent marker is visible)"
 hh_app_start SPRING_PROFILES_ACTIVE=default MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0 \
-    LOGGING_LEVEL_AE_GOV_DUBAICUSTOMS_PLATFORM_CORE_AUTOCONFIGURE=DEBUG \
-    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
+    LOGGING_LEVEL_AE_GOV_DUBAICUSTOMS_PLATFORM_CORE_AUTOCONFIGURE=DEBUG
 hh_wait_ready 180
 HH_STARTUP_HEALTHY=$HH_READY_SECONDS
 
@@ -173,28 +167,7 @@ for ACCEPT in application/json text/html; do
   else hh_fail "error-dispatch-$slug is not application/problem+json"; fi
 done
 
-hh_step "AC13 401 (missing and rejected tokens), 403, framework 404 carry the full contract"
-hh_http ac13-unauthenticated GET /hello -H "traceparent: $(tp "$T")"
-hh_expect_status 401
-hh_expect_json "401 contract" "b['code'] == 'DC-SEC-0401' and b['traceId'] == '$T' and b['retryable'] is False"
-hh_expect_json "401 type + instance" "b['type'].endswith('DC-SEC-0401') and b['instance'] == '/hello'"
-for KIND in malformed expired untrusted; do
-  case $KIND in malformed) BEARER=not-a-jwt ;; expired) BEARER=$EXPIRED ;; untrusted) BEARER=$UNTRUSTED ;; esac
-  hh_http "ac13-$KIND-token" GET /hello -H "traceparent: $(tp "$T")" -H "Authorization: Bearer $BEARER" \
-      -D "$HH_EVIDENCE/http/ac13-$KIND-token.headers"
-  hh_expect_status 401
-  hh_expect_json "$KIND token: full 401 contract, no rejection reason" \
-      "b['code'] == 'DC-SEC-0401' and b['traceId'] == '$T' and b['instance'] == '/hello' and 'expired' not in b['detail'].lower()"
-  if grep -i '^www-authenticate:' "$HH_EVIDENCE/http/ac13-$KIND-token.headers" | grep -qi 'error_description'; then
-    hh_fail "$KIND token: WWW-Authenticate discloses the rejection reason"
-  else hh_pass "$KIND token: challenge carries no error description"; fi
-done
-hh_http ac13-valid-token GET "/hello?name=probe" -H "Authorization: Bearer $TOKEN"
-hh_expect_status 200
-hh_http ac13-forbidden GET /secured/admin -H "traceparent: $(tp "$T")" -H "Authorization: Bearer $TOKEN"
-hh_expect_status 403
-hh_expect_json "403 contract" \
-    "b['code'] == 'DC-SEC-0403' and b['traceId'] == '$T' and b['instance'] == '/secured/admin' and b['type'].endswith('DC-SEC-0403')"
+hh_step "AC13 a framework 404 carries the full contract (the 401/403 checks went with JWT security)"
 hh_http framework-404 GET /probe/does-not-exist -H "traceparent: $(tp "$T")"
 hh_expect_status 404
 hh_expect_json "404 contract" "b['code'] == 'DC-CORE-0499' and b['traceId'] == '$T'"
@@ -255,12 +228,11 @@ else
   hh_fail "AC2 no error log line with the error body's trace $AC2_ERROR_TRACE"
   grep -m5 -F "unhandled exception" "$HH_EVIDENCE/app.log" | cut -c1-300 > "$HH_EVIDENCE/ac2-error-lines.txt"
 fi
-if grep -qF -e "$TOKEN" -e "$EXPIRED" -e "$UNTRUSTED" "$HH_EVIDENCE/app.log"; then hh_fail "a bearer token reached the log"
+if grep -qF -e "$TOKEN" "$HH_EVIDENCE/app.log"; then hh_fail "a bearer token reached the log"
 else hh_pass "no bearer token in the log"; fi
 
 hh_step "AC6 never-sampled: trace ID still in context, MDC and error bodies"
-HH_APP_NAME=unsampled hh_app_start SPRING_PROFILES_ACTIVE=default MANAGEMENT_TRACING_SAMPLING_PROBABILITY=0.0 \
-    SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI="$JWKS_FOR_APP" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="$(cat "$IDP_DIR/issuer-uri")" SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUDIENCES=platform-test DC_PLATFORM_SECURITY_JWT_ALLOWINSECUREJWKS=true
+HH_APP_NAME=unsampled hh_app_start SPRING_PROFILES_ACTIVE=default MANAGEMENT_TRACING_SAMPLING_PROBABILITY=0.0
 hh_wait_ready 180
 U=$(hex 16)
 hh_http ac6-unsampled GET /probe/context -H "traceparent: $(tp "$U" 00)"

@@ -26,8 +26,8 @@ public class MessagingNoTransportFailureAnalyzer extends AbstractFailureAnalyzer
                 + "present, so no EventPublisher could be created (a bean of type '" + missing.getName()
                 + "' is required but missing).";
         String action = "Add exactly one messaging transport starter to the service: "
-                + "platform-starter-messaging-inmemory (development and tests), "
-                + "platform-starter-messaging-kafka, or platform-starter-messaging-rabbit. "
+                + "platform-starter-messaging-inmemory (development and tests) or "
+                + "platform-starter-messaging-rabbit. "
                 + "See docs/modules/messaging.md#transports.";
         return new FailureAnalysis(description, action, cause);
     }

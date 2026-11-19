@@ -1,5 +1,7 @@
 # Chapter 4 — OpenAPI: The Published Contract
 
+> **Coming in iteration 2.** This capability is parked: it is built and tested in the repository but not released in 1.0.0, not in the BOM and not offered by the archetype. Iteration 2 of the [Spring-native plan](../../spring-native/plan.md) reworks it (Phase 8); this chapter describes the pre-rework design.
+
 > **Capabilities covered:** `openapi`
 >
 > The document your consumers generate clients from, and how the platform keeps it honest.
@@ -40,7 +42,7 @@ things on top, and the third is the one that matters.
 definition v1.0", which identify nothing and cannot be told apart in a developer portal.
 
 **The auth scheme, documented and correct.** Bearer JWT is declared as a security scheme and applied
-as a requirement on every operation, matching what the [security](05-security-authz.md) capability
+as a requirement on every operation, matching what the security capability
 actually enforces. A generated client therefore wires credentials correctly on the first attempt
 instead of returning 401s until someone reads the security chapter.
 
@@ -181,10 +183,10 @@ useful automation turns into a thing teams disable.
 | Status | Comes from | Chapter |
 |---|---|---|
 | 400 | Validation failure, `DC-CORE-0400` | [2](02-errors-validation.md) |
-| 401 | Security chain — unauthenticated | [5](05-security-authz.md) |
-| 403 | Security chain — authenticated but not permitted | [5](05-security-authz.md) |
+| 401 | Security chain — unauthenticated | 5 |
+| 403 | Security chain — authenticated but not permitted | 5 |
 | 404 | `NotFoundException` | [2](02-errors-validation.md) |
-| 409 | `ConflictException`, and `@Idempotent` duplicates | [2](02-errors-validation.md), [10](10-coordination.md) |
+| 409 | `ConflictException`, and `@Idempotent` duplicates | [2](02-errors-validation.md), 10 |
 | 422 | `BusinessException` default | [2](02-errors-validation.md) |
 | 500 | Anything unmapped, `DC-CORE-0500` | [2](02-errors-validation.md) |
 
@@ -193,7 +195,7 @@ can produce. Every one of them is documented truthfully for every service, becau
 errors through the same handler.
 
 !!! note "429 is deliberately absent"
-    [Rate limiting](13-ratelimit-flags.md) is opt-in, so a 429 is not something *every* operation can
+    Rate limiting is opt-in, so a 429 is not something *every* operation can
     return. Documenting it universally would be a lie. If you enable rate limiting, document 429 on the
     affected operations yourself — and `putIfAbsent` means the platform will not fight you.
 
@@ -382,7 +384,7 @@ dc:
 No scheme in `components`, no security requirement on operations.
 
 !!! warning "This changes documentation, not enforcement"
-    `security-scheme: NONE` does not make anything public. The [security](05-security-authz.md) chain
+    `security-scheme: NONE` does not make anything public. The security chain
     still authenticates every request. If the API really is public you must *also* permit the paths —
     and the two settings living in different places is deliberate: documentation must never be able to
     grant access.
@@ -433,7 +435,7 @@ external boundary, turn it off in production and publish the document to a porta
     The platform's default permit list includes the api-docs and swagger paths so the document is
     reachable. If your API is externally exposed, that means **an unauthenticated caller can read your
     full API surface**. That may be exactly right, or it may be reconnaissance you did not intend.
-    Decide deliberately — see [Chapter 5](05-security-authz.md).
+    Decide deliberately — see Chapter 5.
 
 ### 5.2 What to monitor
 
@@ -506,7 +508,7 @@ That is fine, because nothing in the request path touches it — but two consequ
 |---|---|
 | The document is a map of your attack surface | Every path, parameter, and type. Reconnaissance value is real |
 | Swagger UI is an additional surface | Historically a source of XSS advisories. Keep springdoc patched — the [BOM](../../reference/bom.md) manages the version |
-| Documented ≠ enforced | `security-scheme` is documentation. Enforcement is [Chapter 5](05-security-authz.md) |
+| Documented ≠ enforced | `security-scheme` is documentation. Enforcement is Chapter 5 |
 | Schemas can leak internal fields | springdoc derives from your types. A DTO with an internal audit field documents that field. Use `@Schema(hidden = true)` or a proper response type |
 | Example values can leak real data | An `@Schema(example = "...")` copied from a production payload is a data leak in a public document |
 
@@ -588,7 +590,7 @@ the second.
 | Pitfall | Why it happens | What to do |
 |---|---|---|
 | Returning JPA entities from controllers | It is less code | Documents every column, couples the API to the schema. Use a response record |
-| Assuming `security-scheme` enforces something | It reads like it should | It is documentation. Enforcement is [Chapter 5](05-security-authz.md) |
+| Assuming `security-scheme` enforces something | It reads like it should | It is documentation. Enforcement is Chapter 5 |
 | Health-checking `/v3/api-docs` | It returns 200 and looks like a liveness check | It is the most expensive endpoint you have. Use `/actuator/health` |
 | A customizer named `platformProblemDetailOpenApiCustomizer` by accident | Copy-paste from the docs | You silently replaced the platform's. Any other name runs alongside |
 | Leaving `version: dev` in production | Nothing fails | build-info is not generated — `/actuator/info` is degraded too |
@@ -743,7 +745,7 @@ open http://localhost:8080/swagger-ui.html       # the UI
 
 ---
 
-**Next:** [Chapter 5 — Security and Authorization](05-security-authz.md), which enforces the auth
+**Next:** Chapter 5 — Security and Authorization, which enforces the auth
 scheme this chapter only describes.
 
 **Reference:** [modules/openapi.md](../../modules/openapi.md) ·

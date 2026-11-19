@@ -13,13 +13,13 @@ class MessagingNoTransportFailureAnalyzerTest {
     private final MessagingNoTransportFailureAnalyzer analyzer = new MessagingNoTransportFailureAnalyzer();
 
     @Test
-    void namesTheThreeTransportStartersWhenPublisherMissing() {
+    void namesTheTransportStartersWhenPublisherMissing() {
         FailureAnalysis analysis = analyzer.analyze(new NoSuchBeanDefinitionException(EventPublisher.class));
 
         assertThat(analysis).isNotNull();
         assertThat(analysis.getAction())
                 .contains("platform-starter-messaging-inmemory")
-                .contains("platform-starter-messaging-kafka")
+                .doesNotContain("kafka")
                 .contains("platform-starter-messaging-rabbit");
     }
 

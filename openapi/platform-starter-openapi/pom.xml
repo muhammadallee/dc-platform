@@ -15,6 +15,12 @@
   <!-- Starters contain no code (CLAUDE.md rule 4): jar packaging like Boot starters, empty jar. -->
   <packaging>jar</packaging>
 
+  <properties>
+    <!-- Parked (Spring-native plan v2 §2.4): built and tested, but not released, not in platform-bom and
+         not offered by the archetype until its iteration-2 phase. -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
   <name>DC Platform :: OpenAPI :: Starter</name>
   <description>
     OpenAPI documentation for every DC platform service: the platform OpenAPI bean and

@@ -1,12 +1,16 @@
 # Chapter 7 — Messaging and Events
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Capabilities covered:** `messaging`, `events`
 >
 > Integration events across a broker, in-process domain events, retry, and the dead-letter path.
 >
-> **Starters:** `platform-starter-messaging-{inmemory,rabbit,kafka}`, `platform-starter-events` ·
-> **Reference:** [modules/messaging.md](../../modules/messaging.md) ·
-> [modules/events.md](../../modules/events.md)
+> **Starters:** `platform-starter-messaging-{inmemory,rabbit}` (in-process events use Spring's
+> `ApplicationEventPublisher`) ·
+> **Reference:** [modules/messaging.md](../../modules/messaging.md)
 
 ---
 
@@ -135,7 +139,7 @@ The platform's stated semantic is **AT-LEAST-ONCE**, and every word of that matt
 !!! warning "Every handler must be idempotent. This is not optional."
     Processing the same event twice must have the same effect as processing it once. If it credits an
     account, ships a parcel, or sends an email, a duplicate is a customer-visible defect. Use a natural
-    key from the payload, or [`@Idempotent`](10-coordination.md). Assume duplicates will arrive,
+    key from the payload, or `@Idempotent`. Assume duplicates will arrive,
     because they will.
 
 ### 2.3 Why `@EventType` exists
@@ -414,11 +418,7 @@ Exactly one transport starter:
 ```xml
 <dependency>
   <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit, or -kafka -->
-</dependency>
-<dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-events</artifactId>
+  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit -->
 </dependency>
 ```
 
@@ -497,23 +497,27 @@ void onDispatched(EventEnvelope<ShipmentDispatched> envelope) {
 
 ### 4.4 Publish a domain event
 
+> The platform's own in-process event API (`DomainEventPublisher`, `@DomainEventHandler`) was cut
+> (Spring-native plan v2): Spring's `ApplicationEventPublisher` and `@TransactionalEventListener` do the
+> same job.
+
 ```java snippet:book-07-domain-events
-record InvoiceIssued(String invoiceId, String customerId) implements DomainEvent {
+record InvoiceIssued(String invoiceId, String customerId) {
 }
 
 @Service
 class InvoiceService {
 
-    private final DomainEventPublisher events;
+    private final ApplicationEventPublisher events;
 
-    InvoiceService(DomainEventPublisher events) {
+    InvoiceService(ApplicationEventPublisher events) {
         this.events = events;
     }
 
     @Transactional
     void issue(String invoiceId, String customerId) {
         // ... persist the invoice ...
-        events.publish(new InvoiceIssued(invoiceId, customerId));
+        events.publishEvent(new InvoiceIssued(invoiceId, customerId));
         // Handlers run AFTER this transaction commits. A rollback means they never run.
     }
 }
@@ -521,7 +525,7 @@ class InvoiceService {
 @Component
 class InvoiceEventHandlers {
 
-    @DomainEventHandler
+    @TransactionalEventListener
     void onIssued(InvoiceIssued event) {
         // Runs outside the original transaction. A failure here cannot undo the commit.
     }
@@ -533,10 +537,10 @@ class InvoiceEventHandlers {
 | You want to… | Use |
 |---|---|
 | Tell another service something happened | `EventPublisher` |
-| Update a read model in the same service after commit | `DomainEventPublisher` |
-| Send an email after a successful save | `DomainEventPublisher` |
+| Update a read model in the same service after commit | `ApplicationEventPublisher` + `@TransactionalEventListener` |
+| Send an email after a successful save | `ApplicationEventPublisher` + `@TransactionalEventListener` |
 | Trigger a workflow in another team's service | `EventPublisher` |
-| Decouple two aggregates in the same service | `DomainEventPublisher` |
+| Decouple two aggregates in the same service | `ApplicationEventPublisher` |
 | Both, from one publish | Domain event + the relay (§4.6) |
 
 ### 4.6 Turn on the relay
@@ -966,11 +970,7 @@ events.
 ```xml
 <dependency>
   <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit / -kafka -->
-</dependency>
-<dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-events</artifactId>
+  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit -->
 </dependency>
 ```
 
@@ -1049,7 +1049,7 @@ curl -s localhost:8080/actuator/metrics/platform.messaging.published | jq
 kept talking about actually commits.
 
 **Reference:** [modules/messaging.md](../../modules/messaging.md) ·
-[modules/events.md](../../modules/events.md) ·
+modules/events.md ·
 [configuration properties](../../reference/properties.md) ·
 [feature catalog](../../reference/feature-catalog.md)
 

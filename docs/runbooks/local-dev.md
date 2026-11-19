@@ -14,18 +14,19 @@ mvn -T1C install                                  # put platform into ~/.m2 for 
 
 ## Docker-backed tests & manual infra
 ```bash
-docker compose -f docker-compose.local.yml up -d  # kafka, rabbit, redis, postgres, vault(dev), localstack
+docker compose -f docker-compose.local.yml up -d  # rabbitmq, oracle (Oracle Free)
 mvn -Pdocker verify                               # runs @Tag("docker") suites (Testcontainers manages
                                                   # its own containers; compose is for MANUAL app runs)
 docker compose -f docker-compose.local.yml down -v
 ```
-Vault dev token: `dev-root`. Postgres: `platform/platform@localhost:5432/platform`.
+Connection details are in `docker-compose.local.yml`.
 
 ## Running an example against real infra
 ```bash
-(cd examples/example-golden-path && mvn spring-boot:run -Dspring-boot.run.profiles=local,kafka,pg)
+docker compose -f docker-compose.local.yml up -d rabbitmq
+mvn -pl examples/example-event-driven/producer spring-boot:run   # and the consumer, in a second shell
 ```
-Profiles: `local` (console logs, H2/inmemory), `kafka`, `pg`, `redis` switch providers to compose services.
+The golden-path example runs on H2 and the in-memory transport; `example-event-driven` uses RabbitMQ.
 
 ## Debugging platform behavior in an app
 1. `--debug` flag → ConditionEvaluationReport: why each platform auto-config did/didn't activate.

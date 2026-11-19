@@ -16,8 +16,7 @@
 
   <name>DC Platform :: Data :: JPA Auto Configuration</name>
   <description>
-    Opinionated Spring Data JPA wiring: JPA auditing (auditor = current user when the security
-    capability is present, else "system"), snake_case physical naming (Boot's default), sensible
+    Opinionated Spring Data JPA wiring: JPA auditing (auditor "system"), snake_case physical naming (Boot's default), sensible
     Hibernate defaults (batch size 50, UTC jdbc time zone, open-in-view off) contributed as
     lowest-precedence environment defaults, the Money/CorrelationId attribute converters, and a
     startup Flyway-presence guard. All on by default, all overridable.
@@ -34,15 +33,6 @@
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-core-api</artifactId>
       <version>${revision}</version>
-    </dependency>
-    <!-- Guarded optional edge to the security capability's api (CLAUDE.md rule 5): the auditor reads
-         CurrentUserAccessor ONLY inside a @ConditionalOnClass(CurrentUserAccessor) config, so this
-         never forces security onto a data-only consumer (who then audits as "system"). -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-security-api</artifactId>
-      <version>${revision}</version>
-      <optional>true</optional>
     </dependency>
     <!-- Spring Data JPA: EntityManagerFactory, AuditorAware, @EnableJpaAuditing, Hibernate. -->
     <dependency>

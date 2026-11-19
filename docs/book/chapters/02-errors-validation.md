@@ -1,5 +1,9 @@
 # Chapter 2 — Errors and Validation: The Failure Contract
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
 > ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
 > ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
@@ -12,9 +16,8 @@
 > One machine-readable shape for every failure a service can return, and the bean-validation wiring
 > that feeds it.
 >
-> **Starters:** `platform-starter-errors`, `platform-starter-validation` ·
-> **Reference:** [modules/errors.md](../../modules/errors.md) ·
-> [modules/validation.md](../../modules/validation.md)
+> **Starters:** `platform-starter-errors`, and Spring's `spring-boot-starter-validation` ·
+> **Reference:** [modules/errors.md](../../modules/errors.md)
 
 ---
 
@@ -131,7 +134,7 @@ Two consequences:
 2. **401 and 403 are not.** They are produced before `DispatcherServlet` exists. This is why almost
    every hand-rolled implementation returns Spring's default HTML or an empty body for those two
    statuses while returning nice JSON for everything else — and why every client of that service
-   carries a special case forever. The [security](05-security-authz.md) capability solves it with a
+   carries a special case forever. The security capability solves it with a
    dedicated `AuthenticationEntryPoint` and `AccessDeniedHandler` pair that write the *same* problem
    shape. Chapter 5 covers the wiring; this chapter is why it matters.
 
@@ -270,7 +273,7 @@ That is the rule that makes the taxonomy work without a mapping table.
 !!! note "The hint set is deliberately closed, and deliberately 4xx-only"
     The enum wraps the raw status int so exception types stay free of servlet-stack enums, and it
     contains no 5xx values because infrastructure failures are not *hinted* — they are 500 by
-    definition. Note there is no 429: [rate limiting](13-ratelimit-flags.md) has its own exception
+    definition. Note there is no 429: rate limiting has its own exception
     type for exactly this reason, rather than stretching this taxonomy.
 
 #### `ProblemDetailCustomizer`
@@ -371,8 +374,8 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
   <artifactId>platform-starter-errors</artifactId>
 </dependency>
 <dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-validation</artifactId>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-validation</artifactId>   <!-- Spring's own; the platform starter was cut -->
 </dependency>
 ```
 
@@ -457,12 +460,15 @@ X-Correlation-Id: 9f2c7a1e4b8d40f6a3c5e7d9b1f3a5c7
 
 ```java snippet:book-02-validated-request
 record CreateOrderRequest(
-        @NotNull @Ulid String customerId,
-        @NotBlankTrimmed String reference,
-        @SafeText String remarks,
-        @NotNull @FutureInstant Instant deliverBy) {
+        @NotBlank @Size(max = 26) String customerId,
+        @NotBlank String reference,
+        @Size(max = 500) String remarks,
+        @NotNull @jakarta.validation.constraints.Future Instant deliverBy) {
 }
 ```
+
+> The platform's own constraints (`@Ulid`, `@NotBlankTrimmed`, `@SafeText`, `@FutureInstant`) were cut with
+> the validation module (Spring-native plan v2). Use the standard Jakarta constraints, or write your own.
 
 ```java
 @PostMapping("/orders")
@@ -505,7 +511,7 @@ Constraints on a service method fire when the class is `@Validated`:
 @Validated
 class DeclarationService {
 
-    Declaration lookup(@NotNull @Ulid String declarationId) {
+    Declaration lookup(@NotBlank @Size(max = 26) String declarationId) {
         return new Declaration(declarationId);
     }
 }
@@ -521,8 +527,7 @@ Calling `lookup("nope")` throws `ConstraintViolationException`, which the platfo
     It works through a Spring AOP proxy, so it only fires on calls that go *through* the proxy. An
     internal `this.lookup(...)` call from another method on the same bean bypasses it entirely. This
     is the standard Spring self-invocation caveat, and it applies equally to
-    [`@Idempotent`](10-coordination.md), [`@RateLimited`](13-ratelimit-flags.md),
-    [`@Audited`](12-audit.md), and [`@RequiresPermission`](05-security-authz.md).
+    `@Transactional` and `@Cacheable`.
 
 ### 4.5 Enrich every problem body
 
@@ -653,7 +658,7 @@ The platform logs mapped failures at two different levels, deliberately:
 | Starter missing | `mvn dependency:tree \| grep platform-starter-errors` |
 | Capability disabled | `curl -s localhost:8080/actuator/env/dc.platform.errors.enabled` |
 | An application advice is catching it first | Search for `@RestControllerAdvice` in your code — yours wins by design |
-| The failure is a 401/403 | Expected. Those come from the security chain — add `platform-starter-security` ([Chapter 5](05-security-authz.md)) |
+| The failure is a 401/403 | Expected. Those come from the security chain — add `platform-starter-security` (Chapter 5) |
 
 **Validation is not firing.**
 
@@ -918,8 +923,8 @@ the literal secret you posted — checked against the whole serialised body, not
   <artifactId>platform-starter-errors</artifactId>
 </dependency>
 <dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-validation</artifactId>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-validation</artifactId>   <!-- Spring's own; the platform starter was cut -->
 </dependency>
 ```
 
@@ -984,7 +989,7 @@ logging.level.ae.gov.dubaicustoms.platform.errors=DEBUG
 `correlationId` in every problem body becomes a query.
 
 **Reference:** [modules/errors.md](../../modules/errors.md) ·
-[modules/validation.md](../../modules/validation.md) ·
+modules/validation.md ·
 [error codes](../../reference/error-codes.md) ·
 [configuration properties](../../reference/properties.md) ·
 [feature catalog](../../reference/feature-catalog.md)

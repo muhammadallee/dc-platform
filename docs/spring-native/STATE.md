@@ -6,20 +6,21 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-00-baseline` |
-| Current phase | 0 — Baseline, framework spikes, decisions |
-| Current gate | Phase 0 closing: Codex round done (4 High, 5 Medium, 1 Low; all fixed in the plan, verification pass accepted). Merge PR #7 on green, tag |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-01-scope-cut`, PR #8 |
+| Current phase | 1 — Scope cut |
+| Current gate | Gate B done (cut, parking, archetype, docs, rules; full verify, golden path 6/6, smoke matrix 3/3 pass). Verification in progress: consumer runs, Trivy, Codex round |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | HI-0109: `develop` push builds hit Maven Central 429s; fixed in Phase 1 |
+| Open blockers | None. HI-0109 not reproduced (push build of `085d752` green) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Merge PR #7 into `develop` on green, tag `native/phase-00-closed`, start Phase 1 (Gate A: regenerate the dependency inventory from a v2 module manifest; start from Codex P0-R1 question 2) |
+| Next action | Port and run the kept v3 consumer runs in the order of `phase-01-scope-cut/scope.md`, filling the drop ledger; Trivy on a generated service; Codex round; close |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
-| 0 | `6666618` (`develop`) | in progress | — | — |
+| 0 | `6666618` (`develop`) | PASS | `native/phase-00-closed` | 2026-11-19 |
+| 1 | `085d752` (`develop`) | in progress | — | — |
 
 ## Environment notes for resumption
 

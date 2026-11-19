@@ -27,6 +27,17 @@ Every public type in these artifacts is removed with the artifact:
 - `platform-scheduling-autoconfigure`, `platform-starter-scheduling`;
 - `platform-tck-audit`, `-flags`, `-idempotency`, `-ratelimit`, `-storage`, `-locking`.
 
+## Inside kept or parked modules (Phase 1)
+
+Public types and properties removed from modules that stay. Types in `.internal` packages are not listed: japicmp excludes
+them (`AuditorAwareProvider`, `OAuth2TokenRelayCustomizer`).
+
+| Module | Removed | Why |
+|---|---|---|
+| `platform-test-api` | `Containers.kafka()`, `Containers.redis()`, `Containers.vault()`, `Containers.localstack()` | Their capabilities are cut |
+| `platform-restclient-autoconfigure` (parked) | `TokenRelayProperties` and the `dc.platform.restclient.token-relay.*` properties | The bearer-token relay went with JWT security |
+| `platform-bom` | the managed entries of every cut and parked module, and `platform-docs` (never deployed) | Plan v2 §2.4-2.5; `check-bom` rule |
+
 `openapi/*`, `restclient/*` and `resilience/*` are parked, not removed (plan §2.4): they are absent from 1.0.0 and are
 judged against this list again in iteration 2.
 

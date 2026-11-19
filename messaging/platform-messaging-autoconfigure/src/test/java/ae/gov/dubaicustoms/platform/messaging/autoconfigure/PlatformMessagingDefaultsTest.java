@@ -22,7 +22,7 @@ class PlatformMessagingDefaultsTest {
     @Test
     void propertiesDefaultSnapshot() {
         // §7.2: a changed default fails here until the snapshot is consciously updated (CHANGELOG).
-        runner.withClassLoader(new FilteredClassLoader(org.springframework.kafka.core.KafkaTemplate.class,
+        runner.withClassLoader(new FilteredClassLoader(
                 org.springframework.amqp.rabbit.core.RabbitTemplate.class)).run(context -> {
             var properties = context.getBean(MessagingProperties.class);
             assertThat(properties.handler().retry().maxAttempts()).isEqualTo(3);
@@ -40,7 +40,7 @@ class PlatformMessagingDefaultsTest {
     void itStartsWithoutMicrometerOrTracingOrJackson() {
         // HI-0080: a missing optional jar named in an always-present bean's signature failed startup.
         runner.withClassLoader(new FilteredClassLoader(MeterRegistry.class, ObservationRegistry.class, Tracer.class,
-                ObjectMapper.class, org.springframework.kafka.core.KafkaTemplate.class,
+                ObjectMapper.class,
                 org.springframework.amqp.rabbit.core.RabbitTemplate.class))
                 .run(context -> {
                     assertThat(context).hasNotFailed();

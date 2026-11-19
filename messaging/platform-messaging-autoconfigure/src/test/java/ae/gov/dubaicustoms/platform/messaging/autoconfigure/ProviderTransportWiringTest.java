@@ -6,7 +6,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
-import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.rabbit.RabbitEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
 import org.junit.jupiter.api.Test;
@@ -15,11 +14,9 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 
 /**
- * Verifies the nested {@code KafkaTransportConfiguration}/{@code RabbitTransportConfiguration}
+ * Verifies the nested {@code InMemoryTransportConfiguration}/{@code RabbitTransportConfiguration}
  * each produce the expected {@link EventTransport} when their 3rd-party template/factory beans
  * exist and nothing else supplies an {@code EventTransport}.
  */
@@ -29,22 +26,8 @@ class ProviderTransportWiringTest {
     void inMemoryTransportConfigurationSuppliesInMemoryEventTransport() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(KafkaTemplate.class, RabbitTemplate.class))
+                .withClassLoader(new FilteredClassLoader(RabbitTemplate.class))
                 .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(InMemoryEventTransport.class));
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void kafkaTransportConfigurationSuppliesKafkaEventTransport() {
-        KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
-        ConsumerFactory<Object, Object> consumerFactory = mock(ConsumerFactory.class);
-
-        new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, RabbitTemplate.class))
-                .withBean(KafkaTemplate.class, () -> kafkaTemplate)
-                .withBean(ConsumerFactory.class, () -> consumerFactory)
-                .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(KafkaEventTransport.class));
     }
 
     @Test
@@ -57,14 +40,14 @@ class ProviderTransportWiringTest {
 
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, KafkaTemplate.class))
+                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class))
                 .withBean(RabbitTemplate.class, () -> rabbitTemplate)
                 .withBean(ConnectionFactory.class, () -> connectionFactory)
                 .run(context -> assertThat(context).getBean(EventTransport.class).isInstanceOf(RabbitEventTransport.class));
     }
 
     @Test
-    void userSuppliedEventTransportBacksOffBothProviderConfigurations() {
+    void userSuppliedEventTransportBacksOffTheProviderConfigurations() {
         EventTransport mine = new EventTransport() {
             @Override
             public String name() {
@@ -84,12 +67,10 @@ class ProviderTransportWiringTest {
             public void close() {
             }
         };
-        KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
         RabbitTemplate rabbitTemplate = mock(RabbitTemplate.class);
 
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
-                .withBean(KafkaTemplate.class, () -> kafkaTemplate)
                 .withBean(RabbitTemplate.class, () -> rabbitTemplate)
                 .withBean("mine", EventTransport.class, () -> mine)
                 .run(context -> assertThat(context.getBean(EventTransport.class)).isSameAs(mine));

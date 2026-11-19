@@ -11,7 +11,6 @@ import org.springframework.boot.amqp.autoconfigure.RabbitAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.kafka.core.KafkaTemplate;
 
 /**
  * Boot's real Rabbit auto-configuration with the platform's defaults, no mocks and no broker (connections are lazy): the
@@ -26,7 +25,7 @@ class RabbitBootWiringTest {
                 .withInitializer(context -> new PlatformMessagingEnvironmentPostProcessor()
                         .postProcessEnvironment(context.getEnvironment(), new SpringApplication()))
                 .withConfiguration(AutoConfigurations.of(RabbitAutoConfiguration.class, PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, KafkaTemplate.class))
+                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(EventTransport.class)).isInstanceOf(RabbitEventTransport.class);
@@ -39,7 +38,7 @@ class RabbitBootWiringTest {
                 .withInitializer(context -> new PlatformMessagingEnvironmentPostProcessor()
                         .postProcessEnvironment(context.getEnvironment(), new SpringApplication()))
                 .withConfiguration(AutoConfigurations.of(RabbitAutoConfiguration.class, PlatformMessagingAutoConfiguration.class))
-                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class, KafkaTemplate.class))
+                .withClassLoader(new FilteredClassLoader(InMemoryEventTransport.class))
                 .withPropertyValues("spring.rabbitmq.publisher-confirm-type=none")
                 .run(context -> assertThat(context).hasFailed().getFailure().rootCause()
                         .hasMessageContaining("spring.rabbitmq.publisher-confirm-type=correlated"));

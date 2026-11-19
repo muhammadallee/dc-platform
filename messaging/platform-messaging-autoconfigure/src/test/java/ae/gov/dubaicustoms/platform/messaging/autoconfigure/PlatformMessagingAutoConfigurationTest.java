@@ -12,7 +12,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.kafka.core.KafkaTemplate;
 
 /** The mandatory 5-case ContextRunner matrix for PlatformMessagingAutoConfiguration. */
 class PlatformMessagingAutoConfigurationTest {
@@ -65,7 +64,7 @@ class PlatformMessagingAutoConfigurationTest {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(PlatformMessagingAutoConfiguration.class))
                 .withClassLoader(new FilteredClassLoader(
-                        InMemoryEventTransport.class, KafkaTemplate.class, RabbitTemplate.class))
+                        InMemoryEventTransport.class, RabbitTemplate.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(EventPublisher.class);
                     assertThat(context).doesNotHaveBean(EventHandlerRegistrar.class);

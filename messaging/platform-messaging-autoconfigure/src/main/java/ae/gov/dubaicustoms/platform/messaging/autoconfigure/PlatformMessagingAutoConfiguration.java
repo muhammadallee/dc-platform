@@ -10,7 +10,6 @@ import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MessagingIn
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.MicrometerMessagingInstrumentation;
 import ae.gov.dubaicustoms.platform.messaging.autoconfigure.internal.TracingMessageTrace;
 import ae.gov.dubaicustoms.platform.messaging.inmemory.InMemoryEventTransport;
-import ae.gov.dubaicustoms.platform.messaging.kafka.KafkaEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.rabbit.RabbitEventTransport;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventSerializer;
 import ae.gov.dubaicustoms.platform.messaging.spi.EventTransport;
@@ -31,8 +30,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 
 /*
  * Activates when: EventTransport (platform-messaging-spi) on the classpath AND
@@ -49,12 +46,12 @@ import org.springframework.kafka.core.KafkaTemplate;
  *   platform.messaging.handled metrics; messagingCapabilityDescriptor — ACTIVE with the transport's
  *   name() when exactly one EventTransport bean exists, else INACTIVE with no publisher/registrar
  *   at all (fail-at-injection is clearer than fail-at-boot when messaging is optional).
- *   Nested InMemoryTransportConfiguration/KafkaTransportConfiguration/RabbitTransportConfiguration
+ *   Nested InMemoryTransportConfiguration/RabbitTransportConfiguration
  *   additionally provide an EventTransport bean each (@ConditionalOnClass on the respective
  *   implementation/3rd-party template type, @ConditionalOnMissingBean(EventTransport.class) so a
  *   user bean always wins) — a same-capability autoconfigure -> impl edge, allowed by CLAUDE.md
- *   rule 5. Real applications bring exactly one of the three onto the classpath via their chosen
- *   starter, so at most one of these three ever activates.
+ *   rule 5. Real applications bring exactly one of the two onto the classpath via their chosen
+ *   starter, so at most one of them ever activates.
  * Order: none required.
  */
 @AutoConfiguration
@@ -143,27 +140,6 @@ public class PlatformMessagingAutoConfiguration {
         @ConditionalOnMissingBean(EventTransport.class)
         EventTransport inMemoryEventTransport() {
             return new InMemoryEventTransport();
-        }
-    }
-
-    /** Provides the Kafka {@link EventTransport} when spring-kafka is present and nothing else supplies one. */
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(KafkaTemplate.class)
-    static class KafkaTransportConfiguration {
-
-        @Bean
-        @ConditionalOnMissingBean(EventTransport.class)
-        @SuppressWarnings("unchecked")
-        EventTransport kafkaEventTransport(
-                KafkaTemplate<Object, Object> kafkaTemplate, ConsumerFactory<Object, Object> consumerFactory,
-                MessagingProperties properties) {
-            // Unchecked but safe: Boot's KafkaAutoConfiguration always types these <Object, Object>
-            // (the real (de)serializers come from spring.kafka.{producer,consumer}.*-serializer,
-            // which docs/modules/messaging.md instructs consumers to set to the byte[]/String pair
-            // this transport expects); at runtime it's the same erased KafkaTemplate/ConsumerFactory.
-            return new KafkaEventTransport((KafkaTemplate<String, byte[]>) (KafkaTemplate<?, ?>) kafkaTemplate,
-                    (ConsumerFactory<String, byte[]>) (ConsumerFactory<?, ?>) consumerFactory,
-                    properties.handler().retry().maxAttempts(), properties.handler().retry().backoff());
         }
     }
 

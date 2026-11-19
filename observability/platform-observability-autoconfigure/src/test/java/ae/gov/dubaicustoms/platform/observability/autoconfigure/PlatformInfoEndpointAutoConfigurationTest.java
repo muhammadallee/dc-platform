@@ -46,7 +46,7 @@ class PlatformInfoEndpointAutoConfigurationTest {
 
     @Test
     void backsOffWhenUserBeanPresent() {
-        PlatformEndpoint mine = new PlatformEndpoint(null);
+        PlatformEndpoint mine = new PlatformEndpoint(null, null);
         runner.withBean("myPlatformEndpoint", PlatformEndpoint.class, () -> mine)
                 .run(ctx -> assertThat(ctx).getBean(PlatformEndpoint.class).isSameAs(mine));
     }

@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure;
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,21 +96,34 @@ public class PlatformExceptionHandler {
      *
      * @param exception the exception; never {@code null}
      * @param request the current request; never {@code null}
-     * @return the error response, whose cause is {@code exception}
+     * @param response the current response; never {@code null}
+     * @return the error response, whose cause is {@code exception}; {@code null} when nothing may be written (the
+     *         client is gone, or the response is already committed)
      * @throws Exception a Spring Security exception, rethrown unchanged
      */
     @ExceptionHandler(Exception.class)
-    public ErrorResponse handle(Exception exception, HttpServletRequest request) throws Exception {
+    public ErrorResponse handle(Exception exception, HttpServletRequest request, HttpServletResponse response)
+            throws Exception {
         // Spring Security's authentication/authorization failures (e.g. a method-security denial in a controller)
         // must reach its ExceptionTranslationFilter; swallowing them here would turn every denial into a 500.
         if (isSecurityException(exception)) {
             throw exception;
         }
-        ResponseEntity<Object> entity = framework.map(exception, new ServletWebRequest(request));
+        FrameworkErrors.Mapped mapped = framework.map(exception, new ServletWebRequest(request, response));
+        if (mapped.recognised() && mapped.entity() == null) {
+            return null; // Spring decided to write nothing (client gone, response committed) and logged it
+        }
+        if (response.isCommitted()) {
+            log.error("exception after the response was committed; nothing more is written", exception);
+            return null;
+        }
+        ResponseEntity<Object> entity = mapped.entity();
         if (entity != null && entity.getBody() instanceof ProblemDetail original) {
-            // For an ErrorResponse exception that body is the exception's own: decorate a copy, so a reused or shared
-            // exception instance never carries one request's traceId or instance into another's response.
+            // Decorate a copy: for an ErrorResponse exception the body can be the exception's own, and one instance
+            // may be thrown by many requests. The response's status is authoritative: an ErrorResponseException may
+            // carry a body whose status differs from its own.
             ProblemDetail problem = ProblemDetailFactory.copyOf(original);
+            problem.setStatus(entity.getStatusCode().value());
             String code = factory.decorate(problem, problem.getStatus() >= 500 ? UNEXPECTED_ERROR : REQUEST_REJECTED,
                     exception, request).getProperties().get(ProblemDetailFactory.CODE).toString();
             if (problem.getStatus() < 500) {

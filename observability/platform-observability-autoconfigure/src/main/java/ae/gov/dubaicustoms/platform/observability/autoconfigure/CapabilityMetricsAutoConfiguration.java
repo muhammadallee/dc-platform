@@ -37,7 +37,8 @@ public class CapabilityMetricsAutoConfiguration {
     @ConditionalOnProperty(prefix = "dc.platform.observability.capability-metrics", name = "enabled",
                            havingValue = "true", matchIfMissing = true)
     CapabilityGaugeRegistrar platformCapabilityGaugeRegistrar(
-            MeterRegistry registry, ObjectProvider<CapabilityDescriptor> descriptors) {
-        return new CapabilityGaugeRegistrar(registry, descriptors);
+            MeterRegistry registry, ObjectProvider<CapabilityDescriptor> descriptors,
+            org.springframework.core.env.Environment environment) {
+        return new CapabilityGaugeRegistrar(registry, descriptors, environment);
     }
 }

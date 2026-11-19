@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.env.Environment;
 
 /**
  * Logs the platform startup banner: one INFO line listing every {@link CapabilityDescriptor} bean,
@@ -43,19 +44,23 @@ public class PlatformBannerRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(PlatformBannerAutoConfiguration.class);
 
     private final ObjectProvider<CapabilityDescriptor> descriptors;
+    private final Environment environment;
 
     /**
      * Creates the runner.
      *
      * @param descriptors the capability descriptors to report; never {@code null}
+     * @param environment the environment whose {@code dc.platform.core.capabilities.*} overrides apply; may be
+     *        {@code null} for none
      */
-    public PlatformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors) {
+    public PlatformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors, Environment environment) {
         this.descriptors = Objects.requireNonNull(descriptors, "descriptors must not be null");
+        this.environment = environment;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        log.info("{}", describe(descriptors.orderedStream().toList()));
+        log.info("{}", describe(CapabilityOverrides.apply(descriptors.orderedStream().toList(), environment)));
     }
 
     /**

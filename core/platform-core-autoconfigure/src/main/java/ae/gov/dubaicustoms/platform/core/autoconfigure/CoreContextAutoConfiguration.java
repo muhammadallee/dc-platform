@@ -5,6 +5,7 @@ import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingFilterBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -18,7 +19,9 @@ import org.springframework.core.Ordered;
  * Activates when: servlet web application
  *                 AND dc.platform.core.enabled != false
  *                 (registration additionally: micrometer-tracing on the classpath)
- * Backs off when: user defines a CorrelationIdFilter bean or a FilterRegistrationBean<CorrelationIdFilter>
+ * Backs off when: user defines a bean named platformCorrelationFilterRegistration, of any type (the Spring-only
+ *                 path: a FilterRegistrationBean of the service's own filter, or one with setEnabled(false)), or
+ *                 user defines a CorrelationIdFilter bean or a FilterRegistrationBean<CorrelationIdFilter>
  *                 (by type, Boot's @ConditionalOnMissingFilterBean — the same shape as Boot's own
  *                 webMvcObservationFilter). A consumer's CorrelationIdFilter bean is then registered
  *                 by Boot itself: it is Ordered at FILTER_ORDER and, as a OncePerRequestFilter, runs
@@ -50,6 +53,7 @@ public class CoreContextAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingFilterBean(CorrelationIdFilter.class)
+        @ConditionalOnMissingBean(name = "platformCorrelationFilterRegistration")
         FilterRegistrationBean<CorrelationIdFilter> platformCorrelationFilterRegistration(ObjectProvider<Tracer> tracer) {
             FilterRegistrationBean<CorrelationIdFilter> registration =
                     new FilterRegistrationBean<>(new CorrelationIdFilter(tracer.getIfAvailable(() -> Tracer.NOOP)));

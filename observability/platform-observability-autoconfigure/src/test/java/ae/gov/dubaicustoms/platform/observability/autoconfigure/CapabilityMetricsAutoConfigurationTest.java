@@ -49,7 +49,7 @@ class CapabilityMetricsAutoConfigurationTest {
 
     @Test
     void backsOffWhenUserRegistrarPresent() {
-        CapabilityGaugeRegistrar mine = new CapabilityGaugeRegistrar(new SimpleMeterRegistry(), emptyProvider());
+        CapabilityGaugeRegistrar mine = new CapabilityGaugeRegistrar(new SimpleMeterRegistry(), emptyProvider(), null);
         runner.withBean("mine", CapabilityGaugeRegistrar.class, () -> mine)
                 .run(context -> assertThat(context).getBean(CapabilityGaugeRegistrar.class).isSameAs(mine));
     }

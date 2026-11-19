@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 
 /*
  * Activates when: dc.platform.core.enabled != false
@@ -34,7 +35,8 @@ public class PlatformBannerAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "dc.platform.core", name = "banner-enabled",
                            havingValue = "true", matchIfMissing = true)
-    PlatformBannerRunner platformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors) {
-        return new PlatformBannerRunner(descriptors);
+    PlatformBannerRunner platformBannerRunner(ObjectProvider<CapabilityDescriptor> descriptors,
+            Environment environment) {
+        return new PlatformBannerRunner(descriptors, environment);
     }
 }

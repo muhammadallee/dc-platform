@@ -131,4 +131,46 @@ class MdcContextTest {
             assertThat(MDC.get("traceId")).isEqualTo(ID);
         }
     }
+
+    // C7 (Codex round 1, finding 7): closing an outer scope first unwinds the inner one, inner-only keys included,
+    // and the inner handle closed later does nothing, even after a new scope was opened.
+    @Test
+    void closingAnOuterScopeFirstUnwindsTheInnerScopeExactly() throws Exception {
+        MDC.put("traceId", "before");
+        AutoCloseable outer = MdcContext.open("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Map.of("outerOnly", "1"));
+        AutoCloseable inner = MdcContext.open("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Map.of("innerOnly", "2"));
+
+        outer.close();
+        assertThat(MDC.get("traceId")).isEqualTo("before");
+        assertThat(MDC.get("outerOnly")).isNull();
+        assertThat(MDC.get("innerOnly")).as("the inner scope's own key is restored too").isNull();
+        assertThat(MdcContext.traceId()).isEmpty();
+
+        try (AutoCloseable fresh = MdcContext.open("cccccccccccccccccccccccccccccccc", Map.of())) {
+            inner.close();
+            assertThat(MdcContext.traceId()).as("a stale handle leaves newer work alone")
+                    .contains("cccccccccccccccccccccccccccccccc");
+            assertThat(MDC.get("traceId")).isEqualTo("cccccccccccccccccccccccccccccccc");
+        }
+        assertThat(MDC.get("traceId")).isEqualTo("before");
+        outer.close();
+        assertThat(MDC.get("traceId")).as("closing twice changes nothing").isEqualTo("before");
+    }
+
+    // Codex round 1, finding 6: an isolating scope also hides trace keys written to the MDC outside platform scopes.
+    @Test
+    void anIsolatingScopeHidesTraceKeysWrittenDirectlyAndRestoresThem() throws Exception {
+        MDC.put("traceId", "dddddddddddddddddddddddddddddddd");
+        MDC.put("spanId", "eeeeeeeeeeeeeeee");
+        try (AutoCloseable none = MdcContext.replace(null, Map.of())) {
+            assertThat(MDC.get("traceId")).isNull();
+            assertThat(MDC.get("spanId")).isNull();
+        }
+        try (AutoCloseable traceOnly = MdcContext.replace("ffffffffffffffffffffffffffffffff", Map.of())) {
+            assertThat(MDC.get("traceId")).isEqualTo("ffffffffffffffffffffffffffffffff");
+            assertThat(MDC.get("spanId")).as("no stale span from the thread's other work").isNull();
+        }
+        assertThat(MDC.get("traceId")).isEqualTo("dddddddddddddddddddddddddddddddd");
+        assertThat(MDC.get("spanId")).isEqualTo("eeeeeeeeeeeeeeee");
+    }
 }

@@ -48,7 +48,7 @@ class PlatformBannerAutoConfigurationTest {
     @Test
     void backsOffWhenUserRunnerPresentUnderAnyName() {
         runner.withBean("myBanner", PlatformBannerRunner.class,
-                        () -> new PlatformBannerRunner(emptyProvider()) {
+                        () -> new PlatformBannerRunner(emptyProvider(), null) {
                             @Override
                             protected String describe(java.util.List<CapabilityDescriptor> active) {
                                 return "mine";
@@ -125,5 +125,17 @@ class PlatformBannerAutoConfigurationTest {
                         () -> mine)
                 .run(context -> assertThat(context)
                         .getBean(CapabilityDescriptor.class).isSameAs(mine));
+    }
+
+    // Codex round 1, finding 10: a service changes a reported capability with properties, no platform type.
+    @Test
+    void propertiesReplaceOrAddAReportedCapability(CapturedOutput output) {
+        runner.withPropertyValues("dc.platform.core.capabilities.core.detail=tenant-aware",
+                        "dc.platform.core.capabilities.billing.status=ACTIVE",
+                        "dc.platform.core.capabilities.billing.detail=v2")
+                .run(context -> {
+                    context.getBean(PlatformBannerRunner.class).run(new DefaultApplicationArguments());
+                    assertThat(output.getOut()).contains("platform: billing[ACTIVE] (v2), core[ACTIVE] (tenant-aware)");
+                });
     }
 }

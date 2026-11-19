@@ -14,7 +14,6 @@ import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +53,9 @@ class ErrorContractIntegrationTest {
 
     /** One line per interceptor call: "interceptor instance cause-class-or-none code". */
     static final ConcurrentLinkedQueue<String> SEEN = new ConcurrentLinkedQueue<>();
-    static final AtomicBoolean FIRST_THROWS = new AtomicBoolean();
+    /** What the first interceptor throws, if anything. */
+    static final java.util.concurrent.atomic.AtomicReference<Throwable> FIRST_THROWS =
+            new java.util.concurrent.atomic.AtomicReference<>();
 
     private static ConfigurableApplicationContext context;
     private static int port;
@@ -96,8 +97,32 @@ class ErrorContractIntegrationTest {
                     interceptors.add((detail, response) -> {
                         record("first", detail, response);
                         detail.setProperty("tenant", "dxb");
-                        if (FIRST_THROWS.get()) {
-                            throw new IllegalStateException("interceptor bug");
+                        Throwable failure = FIRST_THROWS.get();
+                        if (failure instanceof RuntimeException runtime) {
+                            throw runtime;
+                        }
+                        if (failure instanceof Error error) {
+                            throw error;
+                        }
+                    });
+                }
+            };
+        }
+
+        // Writes the request's trace into a nested list of the body: with a shared exception, a list shared between
+        // responses would collect other requests' traces.
+        @Bean
+        @Order(3)
+        WebMvcConfigurer nestedWriter() {
+            return new WebMvcConfigurer() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public void addErrorResponseInterceptors(List<ErrorResponse.Interceptor> interceptors) {
+                    interceptors.add((detail, response) -> {
+                        if (detail.getProperties() != null
+                                && detail.getProperties().get("meta") instanceof Map<?, ?> meta
+                                && meta.get("seen") instanceof List<?> seen) {
+                            ((List<Object>) seen).add(detail.getProperties().get("traceId"));
                         }
                     });
                 }
@@ -123,6 +148,21 @@ class ErrorContractIntegrationTest {
 
         @RestController
         static class Endpoints {
+
+            // One instance for every request, with a nested map and list.
+            static final ErrorResponseException SHARED;
+
+            static {
+                ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "slot taken");
+                body.setProperty("code", "ORD-0410");
+                body.setProperty("meta", new java.util.LinkedHashMap<>(Map.of("seen", new java.util.ArrayList<>())));
+                SHARED = new ErrorResponseException(HttpStatus.CONFLICT, body, null);
+            }
+
+            @GetMapping("/shared-nested")
+            String sharedNested() {
+                throw SHARED;
+            }
 
             @GetMapping("/ok")
             String ok() {
@@ -185,7 +225,7 @@ class ErrorContractIntegrationTest {
     @BeforeEach
     void reset() {
         SEEN.clear();
-        FIRST_THROWS.set(false);
+        FIRST_THROWS.set(null);
     }
 
     private static Map<String, Object> call(String path, String accept, int expectedStatus) throws Exception {
@@ -293,7 +333,7 @@ class ErrorContractIntegrationTest {
 
     @Test
     void aThrowingInterceptorStopsTheRestButThePlatformBodyIsStillSent() throws Exception {
-        FIRST_THROWS.set(true);
+        FIRST_THROWS.set(new IllegalStateException("interceptor bug"));
         assertThat(call("/boom", "application/json", 500)).containsEntry("code", "DC-CORE-0500");
         assertThat(call("/duplicate", "application/json", 409)).containsEntry("code", "DC-CORE-0499");
         assertThat(SEEN).containsExactly("first /boom IllegalStateException DC-CORE-0500",
@@ -313,5 +353,36 @@ class ErrorContractIntegrationTest {
     void aDirectRequestToTheErrorPathStillHasAnInstance() throws Exception {
         Map<String, Object> body = call("/error", "application/json", 500);
         assertThat(body).containsEntry("instance", "/error").containsEntry("code", "DC-CORE-0500");
+    }
+
+    // Codex round 1, finding 9: an Error from an interceptor, not only an exception, on both paths.
+    @Test
+    void anInterceptorThrowingAnErrorStopsTheRestButThePlatformBodyIsStillSent() throws Exception {
+        FIRST_THROWS.set(new AssertionError("interceptor assertion"));
+        assertThat(call("/boom", "application/json", 500)).containsEntry("code", "DC-CORE-0500");
+        assertThat(call("/duplicate", "application/json", 409)).containsEntry("code", "DC-CORE-0499");
+        assertThat(SEEN).containsExactly("first /boom IllegalStateException DC-CORE-0500",
+                "first /duplicate none DC-CORE-0499");
+    }
+
+    // Codex round 1, finding 1: an interceptor writing into a nested list of a shared exception's body, from
+    // concurrent requests. Each response's list holds only its own request's trace; the exception's own list stays
+    // empty.
+    @Test
+    @SuppressWarnings("unchecked")
+    void nestedValuesOfASharedExceptionAreCopiedPerResponse() throws Exception {
+        try (java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(20)) {
+            List<java.util.concurrent.Future<Map<String, Object>>> results = new java.util.ArrayList<>();
+            for (int i = 0; i < 60; i++) {
+                results.add(pool.submit(() -> call("/shared-nested", "application/json", 409)));
+            }
+            for (java.util.concurrent.Future<Map<String, Object>> result : results) {
+                Map<String, Object> body = result.get();
+                List<Object> seen = (List<Object>) ((Map<String, Object>) body.get("meta")).get("seen");
+                assertThat(seen).containsExactly(body.get("traceId"));
+            }
+        }
+        assertThat((List<Object>) ((Map<String, Object>) App.Endpoints.SHARED.getBody().getProperties().get("meta"))
+                .get("seen")).isEmpty();
     }
 }

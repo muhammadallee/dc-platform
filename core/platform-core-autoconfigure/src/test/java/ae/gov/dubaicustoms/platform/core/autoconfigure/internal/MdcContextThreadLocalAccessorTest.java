@@ -141,4 +141,46 @@ class MdcContextThreadLocalAccessorTest {
             pool.shutdownNow();
         }
     }
+
+    // Codex round 1, finding 6: a trace put in the MDC directly (the outbox drainer's restore, Boot's tracing) is
+    // captured, follows the work to another thread, and leaves both threads exactly as they were.
+    @Test
+    void aTraceWrittenDirectlyToTheMdcFollowsTheWorkAndIsCleanedUp() throws Exception {
+        ContextSnapshotFactory factory = ContextSnapshotFactory.builder().clearMissing(true).build();
+        java.util.Map<String, String> seen = new java.util.concurrent.ConcurrentHashMap<>();
+        Runnable task;
+        MDC.put("traceId", ID);
+        try {
+            task = factory.captureAll().wrap(() -> java.util.Optional.ofNullable(MDC.get("traceId"))
+                    .ifPresent(id -> seen.put("traceId", id)));
+        } finally {
+            MDC.remove("traceId");
+        }
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        try {
+            worker.submit(() -> MDC.put("traceId", "99999999999999999999999999999999")).get();
+            worker.submit(task).get();
+            assertThat(seen).containsEntry("traceId", ID);
+            assertThat(worker.submit(() -> MDC.get("traceId")).get())
+                    .as("the occupied worker's own trace is restored").isEqualTo("99999999999999999999999999999999");
+        } finally {
+            worker.shutdownNow();
+        }
+    }
+
+    // An empty snapshot applied on a worker whose MDC holds another caller's trace hides it for the task only.
+    @Test
+    void anEmptySnapshotHidesADirectlyWrittenTraceForTheTaskOnly() {
+        MDC.put("traceId", ID);
+        MDC.put("spanId", "b7ad6b7169203331");
+        accessor.setValue();
+        try {
+            assertThat(MDC.get("traceId")).isNull();
+            assertThat(MDC.get("spanId")).isNull();
+        } finally {
+            accessor.restore();
+        }
+        assertThat(MDC.get("traceId")).isEqualTo(ID);
+        assertThat(MDC.get("spanId")).isEqualTo("b7ad6b7169203331");
+    }
 }

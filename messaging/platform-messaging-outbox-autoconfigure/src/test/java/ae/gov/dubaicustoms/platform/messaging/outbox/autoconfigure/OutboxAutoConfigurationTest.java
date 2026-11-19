@@ -205,4 +205,28 @@ class OutboxAutoConfigurationTest {
             assertThat(MDC.get("traceId")).isNull();
         }
     }
+
+    // Codex round 1 (Spring-native Phase 2), finding 6: work handed to another thread while a stored trace is
+    // restored carries that trace (core's context-propagation accessor captures the MDC), and both threads are clean
+    // afterwards.
+    @Test
+    void workSubmittedDuringARestoreCarriesTheStoredTrace() throws Exception {
+        var context = new PlatformOutboxContext(Map::of, () -> null);
+        var snapshots = io.micrometer.context.ContextSnapshotFactory.builder().clearMissing(true).build();
+        var seen = new java.util.concurrent.atomic.AtomicReference<String>();
+        Runnable task;
+        try (OutboxContext.Scope ignored = context.restore(
+                Map.of("traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"))) {
+            task = snapshots.captureAll().wrap(() -> seen.set(MDC.get("traceId")));
+        }
+        assertThat(MDC.get("traceId")).isNull();
+        var worker = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            worker.submit(task).get();
+            assertThat(seen.get()).isEqualTo("0af7651916cd43dd8448eb211c80319c");
+            assertThat(worker.submit(() -> MDC.get("traceId")).get()).isNull();
+        } finally {
+            worker.shutdownNow();
+        }
+    }
 }

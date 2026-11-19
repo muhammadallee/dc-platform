@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.ErrorResponseException;
+import org.springframework.web.util.UriUtils;
 
 // Shared ProblemDetail assembly for the platform advice beans and the error controller: one place sets type/title/
 // detail/instance and the code/traceId/timestamp/retryable extensions, and wraps the body as the ErrorResponse that
@@ -31,6 +33,10 @@ public final class ProblemDetailFactory {
     private static final Set<Integer> RETRYABLE_STATUSES = Set.of(429, 502, 503, 504);
 
     private static final URI ABOUT_BLANK = URI.create("about:blank");
+
+    // Never taken from a thrower's body: the standard members, and the extensions the platform owns.
+    private static final java.util.List<String> RESERVED =
+            java.util.List.of("type", "title", "status", "detail", "instance", "traceId", "stacktrace");
 
     private final ErrorsProperties properties;
     private final TraceIdSource traceIds;
@@ -71,8 +77,16 @@ public final class ProblemDetailFactory {
             code = defaultCode;
         }
         if (problem.getType() == null || ABOUT_BLANK.equals(problem.getType())) {
-            problem.setType(URI.create(properties.typeBaseUri() + code));
+            // The code is the service's: encode it, so a space or a '%' cannot break the URI.
+            problem.setType(URI.create(properties.typeBaseUri() + UriUtils.encode(code, StandardCharsets.UTF_8)));
             problem.setTitle(code);
+        }
+        Map<String, Object> extensions = problem.getProperties();
+        if (extensions != null) {
+            // Extensions are flattened into the JSON object next to the standard members: a property named like one
+            // would write that member twice (a second "detail" holding an internal message), and the platform owns
+            // traceId and stacktrace.
+            RESERVED.forEach(extensions::remove);
         }
         if (problem.getStatus() >= 500) {
             problem.setDetail(GENERIC_SERVER_ERROR_DETAIL);
@@ -111,9 +125,10 @@ public final class ProblemDetailFactory {
     }
 
     /**
-     * Copies a body: status, type, title, detail, instance and every property (the property map is copied; its values
-     * are shared). The advice decorates the copy, never the {@code ProblemDetail} an exception holds, because an
-     * exception instance can be thrown more than once and by concurrent requests.
+     * Copies a body: status, type, title, detail, instance and every property. Map and list values are copied too,
+     * however deeply nested; other values are shared, so a reused exception must hold immutable ones. The advice
+     * decorates the copy, never the {@code ProblemDetail} an exception holds, because an exception instance can be
+     * thrown more than once and by concurrent requests.
      *
      * @param source the body to copy
      * @return an independent body with the same content
@@ -125,9 +140,24 @@ public final class ProblemDetailFactory {
         copy.setDetail(source.getDetail());
         copy.setInstance(source.getInstance());
         if (source.getProperties() != null) {
-            source.getProperties().forEach(copy::setProperty);
+            source.getProperties().forEach((name, value) -> copy.setProperty(name, deepCopy(value)));
         }
         return copy;
+    }
+
+    // JSON-shaped values (maps and lists, nested) are copied; anything else is shared, and must be immutable.
+    private static Object deepCopy(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<Object, Object> copy = new java.util.LinkedHashMap<>();
+            map.forEach((key, nested) -> copy.put(key, deepCopy(nested)));
+            return copy;
+        }
+        if (value instanceof java.util.List<?> list) {
+            java.util.List<Object> copy = new java.util.ArrayList<>(list.size());
+            list.forEach(nested -> copy.add(deepCopy(nested)));
+            return copy;
+        }
+        return value;
     }
 
     /**

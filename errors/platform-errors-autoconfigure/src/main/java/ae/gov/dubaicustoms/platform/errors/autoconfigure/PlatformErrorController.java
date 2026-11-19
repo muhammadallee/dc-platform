@@ -91,7 +91,8 @@ public class PlatformErrorController implements ErrorController {
         for (ErrorResponse.Interceptor interceptor : interceptors.get()) {
             try {
                 interceptor.handleError(problem, errorResponse);
-            } catch (RuntimeException e) {
+            } catch (Throwable e) {
+                // Spring's boundary (AbstractMessageConverterMethodProcessor catches Throwable); unlike Spring, say so.
                 log.warn("error-response interceptor {} failed; the remaining interceptors are skipped",
                         interceptor.getClass().getName(), e);
                 return;

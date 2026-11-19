@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
@@ -51,11 +52,15 @@ public class PlatformConstraintViolationHandler {
      *
      * @param exception the violation set; never {@code null}
      * @param request the current request; never {@code null}
+     * @param response the current response; never {@code null}
      * @return the 400 problem response with an {@code errors[]} extension; its cause is {@code exception}
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ErrorResponse handleConstraintViolation(ConstraintViolationException exception,
-            HttpServletRequest request) {
+            HttpServletRequest request, HttpServletResponse response) {
+        if (response.isCommitted()) {
+            return null; // nothing may be written any more
+        }
         List<Map<String, Object>> errors = new ArrayList<>();
         for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {
             String field = violation.getPropertyPath().toString();

@@ -40,7 +40,8 @@ class PlatformConstraintViolationHandlerTest {
             ConstraintViolationException exception =
                     new ConstraintViolationException(validator.validate(invalidBean));
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/credentials");
-            return handler.handleConstraintViolation(exception, request).getBody();
+            return handler.handleConstraintViolation(exception, request,
+                    new org.springframework.mock.web.MockHttpServletResponse()).getBody();
         }
     }
 

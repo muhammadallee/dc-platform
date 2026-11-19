@@ -67,8 +67,15 @@ class OrderService {
 }
 ```
 
-The platform keeps a `code` only when it is a `String`. Set your own `type` and the platform keeps your `type` and
-`title` too. A subclass of `ErrorResponseException` per business outcome reads well and keeps the code in one place.
+The platform keeps a `code` only when it is a `String`; it is percent-encoded into the generated `type`, and kept as
+it is in `code` and `title`. Set your own `type` and the platform keeps your `type` and `title` too. The exception's
+status wins over its body's. Extensions named like a standard member (`type`, `title`, `status`, `detail`,
+`instance`) or a platform field (`traceId`, `stacktrace`) are dropped, so nothing can smuggle a second `detail` into
+the JSON. A subclass of `ErrorResponseException` per business outcome reads well and keeps the code in one place.
+
+**Throwing one instance more than once** is safe: the platform decorates and localises a copy, never the exception's
+own body. Map and list values in the body are copied too; any other value is shared between responses, so keep it
+immutable.
 
 ## Add a field to every error body
 
@@ -138,8 +145,11 @@ The starter brings no web stack; outside a servlet web app it does nothing.
 
 ## Back-off limits
 
-- **An interceptor that throws** stops the interceptors after it. Spring swallows the exception without a log line;
-  the platform's error page logs it at WARN. The response is sent either way, with the platform's body.
+- **An interceptor that throws** (an exception or an `Error`) stops the interceptors after it. Spring swallows it
+  without a log line; the platform's error page logs it at WARN. The response is sent either way, with the platform's
+  body.
+- **A gone client or a committed response** gets nothing more: an `AsyncRequestNotUsableException`, or any exception
+  after the response was committed, is not rendered (the second case is logged at ERROR).
 - **Your own `@RestControllerAdvice`** handles its exceptions completely: the platform adds nothing to those bodies
   unless you return an `ErrorResponse` or `ProblemDetail`, in which case your interceptors still run, but the platform's
   `code`, `traceId`, `timestamp` and `retryable` do not.

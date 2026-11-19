@@ -26,6 +26,9 @@ public final class MdcContext {
     /** MDC key of the trace ID; the key Spring Boot's tracing uses. */
     public static final String TRACE_ID_KEY = "traceId";
 
+    /** MDC key of the span ID; the key Spring Boot's tracing uses. */
+    public static final String SPAN_ID_KEY = "spanId";
+
     // Stack of open scopes per thread: innermost-wins reads and exact restoration on close.
     private static final ThreadLocal<Deque<Scope>> SCOPES = ThreadLocal.withInitial(ArrayDeque::new);
 
@@ -90,9 +93,11 @@ public final class MdcContext {
     }
 
     /**
-     * Opens an isolating scope: while it is open the thread sees exactly {@code traceId} and {@code extras}, and every
-     * outer scope's entries are removed from the MDC. With a {@code null} trace ID the thread runs with no correlation
-     * context. Used to apply a propagated snapshot on a thread that may already serve another caller. Always close it.
+     * Opens an isolating scope: while it is open the thread sees exactly {@code traceId} and {@code extras}. Every outer
+     * scope's entries are removed from the MDC, and so are {@code traceId} and {@code spanId} written there by anyone
+     * else (Boot's tracing, the outbox drainer). With a {@code null} trace ID the thread runs with no correlation
+     * context. Used to apply a propagated snapshot on a thread that may already serve another caller. Always close it;
+     * closing restores every removed entry exactly.
      *
      * @param traceId the trace ID, or {@code null} for "no context"
      * @param extras the complete set of extras; never {@code null}, may be empty
@@ -101,7 +106,13 @@ public final class MdcContext {
      */
     public static AutoCloseable replace(String traceId, Map<String, String> extras) {
         Objects.requireNonNull(extras, "extras must not be null");
-        Map<String, String> hidden = asMap();
+        Map<String, String> hidden = new HashMap<>(asMap());
+        for (String key : new String[] {TRACE_ID_KEY, SPAN_ID_KEY}) {
+            String present = MDC.get(key);
+            if (present != null) {
+                hidden.put(key, present);
+            }
+        }
         Scope scope = new Scope(traceId, Map.copyOf(extras), true);
         SCOPES.get().push(scope);
         scope.publish(hidden);
@@ -115,6 +126,7 @@ public final class MdcContext {
         private final Map<String, String> extras;
         private final boolean isolating;
         private final Map<String, String> shadowed = new HashMap<>();
+        private boolean closed;
 
         private Scope(String traceId, Map<String, String> extras, boolean isolating) {
             this.traceId = traceId;
@@ -143,11 +155,33 @@ public final class MdcContext {
 
         @Override
         public void close() {
-            Deque<Scope> scopes = SCOPES.get();
-            // Tolerate out-of-order closes: pop until this scope is gone.
-            while (!scopes.isEmpty() && scopes.pop() != this) {
-                // popped stale inner scopes; their MDC state is restored by our shadowed map below
+            if (closed) {
+                return; // already unwound by an outer scope's close, or closed twice
             }
+            Deque<Scope> scopes = SCOPES.get();
+            if (!scopes.contains(this)) {
+                closed = true;
+                if (scopes.isEmpty()) {
+                    SCOPES.remove();
+                }
+                return;
+            }
+            // Out-of-order close: inner scopes still open are unwound first, newest first, each restoring what it
+            // shadowed, so the MDC ends exactly as it was before this scope opened.
+            while (!scopes.isEmpty()) {
+                Scope top = scopes.pop();
+                top.restore();
+                if (top == this) {
+                    break;
+                }
+            }
+            if (scopes.isEmpty()) {
+                SCOPES.remove();
+            }
+        }
+
+        private void restore() {
+            closed = true;
             shadowed.forEach((key, previous) -> {
                 if (previous == null) {
                     MDC.remove(key);
@@ -155,9 +189,6 @@ public final class MdcContext {
                     MDC.put(key, previous);
                 }
             });
-            if (scopes.isEmpty()) {
-                SCOPES.remove();
-            }
         }
     }
 }

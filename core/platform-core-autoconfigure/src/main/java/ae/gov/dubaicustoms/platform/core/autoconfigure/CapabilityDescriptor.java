@@ -5,7 +5,8 @@ import java.util.Objects;
 /**
  * One active platform capability as reported in the startup banner and {@code /actuator/platform}: contributed as
  * a bean by each capability's auto-configuration and collected by {@code PlatformBannerAutoConfiguration}. Platform
- * infrastructure: services do not declare one, except to replace a platform descriptor by its bean name.
+ * infrastructure: a service changes what is reported with {@code dc.platform.core.capabilities.<name>.status} and
+ * {@code .detail} ({@link CapabilityOverrides}), not by declaring a descriptor.
  *
  * <pre>{@code
  * @Bean

@@ -5,6 +5,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.MDC;
 
 /**
  * Micrometer context-propagation accessor for {@link MdcContext}: captures the current context on the
@@ -31,10 +32,21 @@ public final class MdcContextThreadLocalAccessor implements ThreadLocalAccessor<
     }
 
     // Never null: an empty map records "no context" in the snapshot, so applying it isolates the task
-    // even under Boot's default decorator, whose snapshot factory does not clear missing values.
+    // even under a decorator whose snapshot factory does not clear missing values (Boot's default).
+    // The trace keys are read from the MDC itself, not only from platform scopes: a trace restored by the
+    // outbox drainer, or put there by Boot's tracing, follows the work too.
     @Override
     public Map<String, String> getValue() {
-        return MdcContext.asMap();
+        Map<String, String> value = new LinkedHashMap<>(MdcContext.asMap());
+        for (String key : new String[] {MdcContext.TRACE_ID_KEY, MdcContext.SPAN_ID_KEY}) {
+            String present = MDC.get(key);
+            if (present == null) {
+                value.remove(key);
+            } else {
+                value.put(key, present);
+            }
+        }
+        return Map.copyOf(value);
     }
 
     @Override

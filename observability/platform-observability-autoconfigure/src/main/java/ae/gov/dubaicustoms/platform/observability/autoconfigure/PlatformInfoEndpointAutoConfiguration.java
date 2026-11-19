@@ -38,8 +38,9 @@ public class PlatformInfoEndpointAutoConfiguration {
     @ConditionalOnAvailableEndpoint(endpoint = PlatformEndpoint.class)
     @ConditionalOnProperty(prefix = "dc.platform.observability.platform-endpoint", name = "enabled",
                            havingValue = "true", matchIfMissing = true)
-    PlatformEndpoint platformEndpoint(ObjectProvider<CapabilityDescriptor> capabilities) {
-        return new PlatformEndpoint(capabilities);
+    PlatformEndpoint platformEndpoint(ObjectProvider<CapabilityDescriptor> capabilities,
+            org.springframework.core.env.Environment environment) {
+        return new PlatformEndpoint(capabilities, environment);
     }
 
     @Bean

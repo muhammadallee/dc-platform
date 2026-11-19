@@ -77,7 +77,8 @@ Do not add the trace ID to a log message: it is already a field on the line.
 | How executors propagate context | Declare your own `TaskDecorator` bean. The platform's backs off. Setting `spring.task.execution.propagate-context=true` also makes it back off, to Boot's decorator, which does **not** isolate a context-free task |
 | An executor you build yourself | `executor.setTaskDecorator(decorator)` with the application's `TaskDecorator` bean, or `ContextSnapshotFactory.builder().clearMissing(true).build().captureAll().wrap(task)` |
 | The trace itself (sampling, propagation format) | Boot's `management.tracing.*` properties |
-| The correlation filter's registration | Declare a `FilterRegistrationBean<CorrelationIdFilter>`, or any `CorrelationIdFilter` bean. Keep it after the observation filter (`HIGHEST_PRECEDENCE + 1`), or there is no span yet |
+| The correlation filter | Declare a bean named `platformCorrelationFilterRegistration`, for example a `FilterRegistrationBean` of your own servlet `Filter`, or one with `setEnabled(false)`: the platform registers nothing. Keep your filter after the observation filter (`HIGHEST_PRECEDENCE + 1`), or there is no span yet |
+| What the banner and `/actuator/platform` report | `dc.platform.core.capabilities.<name>.status` and `.detail` replace a capability's line, or add one |
 
 ## Properties
 
@@ -85,6 +86,7 @@ Do not add the trace ID to a log message: it is already a field on the line.
 |---|---|---|
 | `dc.platform.core.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.core.banner-enabled` | `true` | Log the startup capability banner. |
+| `dc.platform.core.capabilities.<name>.status`, `.detail` | none | Replace what is reported for one capability, or add one. |
 
 Removed (deprecated, level `error`, no effect): `dc.platform.core.correlation.header-name`,
 `dc.platform.core.correlation.generate-if-missing`.
@@ -95,8 +97,9 @@ Removed (deprecated, level `error`, no effect): `dc.platform.core.correlation.he
   a thread serving another caller sees that caller's span through `Tracer`. The MDC stays isolated either way: the
   platform's context-propagation accessor captures "no context" explicitly.
 - **Two `TaskDecorator` beans** mean Boot's executor builder uses neither. The platform never adds a second one.
-- **Your own filter registration** keeps the platform's position only if you give it the same order
-  (`CoreContextAutoConfiguration.FILTER_ORDER`) and the REQUEST, ASYNC and ERROR dispatcher types.
+- **Your own filter**, registered under `platformCorrelationFilterRegistration`, replaces the platform's completely:
+  it keeps the platform's position only with order `HIGHEST_PRECEDENCE + 10` and the REQUEST, ASYNC and ERROR
+  dispatcher types, and then the MDC trace on error pages is yours to provide.
 - `dc.platform.core.enabled=false` switches correlation, isolation and the banner off. Tracing itself keeps working.
 
 ## Error codes

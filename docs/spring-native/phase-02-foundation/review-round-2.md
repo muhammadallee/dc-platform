@@ -47,5 +47,8 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   resolves them, and a key is skipped only when it is a literal other than `code`. Asked for every escape at once, Codex
   listed six classes: factory receivers, constants built by concatenation, an unresolved grandparent type, method
   references, file-wide forwarding exemptions, and unanchored directory exclusions.
-- Verification 11: each name is followed to a literal; the six classes are closed.
+- [`r2-verify11.out.md`](codex/r2-verify11.out.md): the six classes closed (`b5a89af`); five more listed (a literal
+  equal to the forwarding marker, for-each variables, blank finals read early, same-named overloads, javac's string
+  folding hiding source literals).
+- Verification 12: the five closed (`d023c5d`).
 

@@ -35,6 +35,7 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
 - [`r2-verify5.out.md`](codex/r2-verify5.out.md): the receiver-type fix accepted (every `setProperty` whose key may be
   `code` is checked wherever it is called, with one audited exemption by exact source text); a local declared in an
   inner block kept its value after the block closed.
-- Verification 6: locals follow Java's scopes; a name declared in a method never falls back to a constant
-  (`bfa346a`).
+- [`r2-verify6.out.md`](codex/r2-verify6.out.md): locals follow Java's scopes (`bfa346a`); that fix let a captured
+  local's initialiser resolve against an anonymous class's shadowing field.
+- Verification 7: names resolve as Java resolves them; anything the gate cannot place exactly is unknown and checked.
 

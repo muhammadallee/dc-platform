@@ -1,5 +1,9 @@
 # Open issues
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 | ID | Impact | Owner | Mitigation | Link |
 |---|---|---|---|---|
 | HI-0094 | Request bodies are held in memory, and the deadline starts after your own interceptors | accepted by the owner (D131) | Documented; don't use this for large uploads | [issue register](../../production-readiness/issue-register.md) |

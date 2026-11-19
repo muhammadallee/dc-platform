@@ -1,5 +1,9 @@
 # Chapter 14 — Testing and Developer Experience
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Capabilities covered:** `testing`, `dx`
 >
 > Test slices, TCKs, the archetype, conformance rules, and the tooling that keeps adoption cheap.

@@ -49,7 +49,8 @@ class OrdersEventsTest {
 
 ## Fixtures
 
-- **`TestTokens`** — JWT identities for `MockMvc` (the platform is an OAuth2 resource server):
+- **`TestTokens`** — JWT identities for `MockMvc`, for a service that adds Spring Security's OAuth2
+  resource server itself (1.0.0 ships no web security):
 
   ```java
   mvc.perform(get("/orders/42").with(TestTokens.user("alice").roles("VIEWER").jwt()))
@@ -83,12 +84,12 @@ class OrdersEventsTest {
   ```java
   @PlatformTest
   @Tag("docker")
-  class OrdersKafkaIT {
+  class OrdersRepositoryIT {
       @BeforeAll static void docker() { assumeTrue(DockerAvailable.check()); }
 
       @TestConfiguration
       static class Infra {
-          @Bean @ServiceConnection KafkaContainer kafka() { return Containers.kafka(); }
+          @Bean @ServiceConnection PostgreSQLContainer<?> postgres() { return Containers.postgres(); }
       }
   }
   ```
@@ -100,11 +101,7 @@ inherit the whole contract suite. A provider is *platform-certified* iff the TCK
 
 | Capability | TCK | Certified docker-free | Under `@Tag("docker")` |
 |---|---|---|---|
-| messaging | `EventTransportTck` | in-memory transport | Kafka, RabbitMQ |
-| storage | `ObjectStoreTck` | filesystem store | S3 / LocalStack |
-| locking | `LockProviderTck` | JDBC on H2 | Redis, PostgreSQL |
-| feature flags | `FlagProviderTck` | in-memory provider | — |
-| rate limiting | `RateLimiterProviderTck` | in-memory sliding window | Redis |
+| messaging | `EventTransportTck` | in-memory transport | RabbitMQ |
 
 ```java
 class MyTransportTckTest extends EventTransportTck {
@@ -113,16 +110,12 @@ class MyTransportTckTest extends EventTransportTck {
 ```
 
 Some invariants are **relaxable** for backends that genuinely cannot meet them, via a protected
-`boolean` hook the subclass overrides (documented on each TCK). For example the JDBC lock provider
-relaxes strict *concurrent* exclusion on H2 — whose in-memory engine does not reliably serialize the
-reclaim-then-insert acquisition across connections — while the deterministic sequential-exclusion and
-fencing invariants still prove mutual exclusion docker-free; strict concurrent exclusion is certified
-against PostgreSQL under `@Tag("docker")`.
+`boolean` hook the subclass overrides (documented on each TCK). 
 
 The TCK jars are published (Test Support category), so enterprise providers built on the platform SPIs
 self-certify by depending on the TCK in test scope.
 
 ## Running
 
-- Default (docker-free): `mvn -T1C verify` — every in-memory/fs/JDBC provider passes its TCK.
+- Default (docker-free): `mvn -T1C verify` — the in-memory transport passes its TCK.
 - Full matrix (Docker running): `mvn -Pdocker verify` — adds the `@Tag("docker")` certifications.

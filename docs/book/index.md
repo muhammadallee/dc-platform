@@ -99,8 +99,8 @@ You have never used the chassis, and Spring Boot auto-configuration is roughly m
 5. Chapters [1 (Core)](chapters/01-core.md), [2 (Errors & Validation)](chapters/02-errors-validation.md),
    [3 (Logging & Observability)](chapters/03-logging-observability.md) — the request lifecycle. Every
    service has these whether it asks for them or not.
-6. Chapter 5 (Security & Authorization) — because your service is
-   authenticated by default and you need to know what that means.
+6. Security: 1.0.0 ships no web security. The API gateway authenticates callers; basic auth on the
+   service arrives in iteration 2 (1.1.0).
 7. Chapter [14 (Testing & Developer Experience)](chapters/14-testing-dx.md) — the test slices, so you
    stop booting full contexts.
 8. Do the **basic** lab in each chapter you read.

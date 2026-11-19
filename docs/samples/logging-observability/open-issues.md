@@ -1,5 +1,9 @@
 # Open issues
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 | ID | Impact | Owner | Mitigation | Link |
 |---|---|---|---|---|
 | HI-0041 | A generated `data` service in `prod` needs `flyway-database-<db>` besides the JDBC driver; the generated comment does not say so | repository owner (Phase 3) | Add the module by hand (see troubleshooting) | [issue register](../../production-readiness/issue-register.md) |

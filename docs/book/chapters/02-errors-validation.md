@@ -1,5 +1,9 @@
 # Chapter 2 — Errors and Validation: The Failure Contract
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
 > ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
 > ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
@@ -12,9 +16,8 @@
 > One machine-readable shape for every failure a service can return, and the bean-validation wiring
 > that feeds it.
 >
-> **Starters:** `platform-starter-errors`, `platform-starter-validation` ·
-> **Reference:** [modules/errors.md](../../modules/errors.md) ·
-> modules/validation.md
+> **Starters:** `platform-starter-errors`, and Spring's `spring-boot-starter-validation` ·
+> **Reference:** [modules/errors.md](../../modules/errors.md)
 
 ---
 
@@ -371,8 +374,8 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
   <artifactId>platform-starter-errors</artifactId>
 </dependency>
 <dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-validation</artifactId>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-validation</artifactId>   <!-- Spring's own; the platform starter was cut -->
 </dependency>
 ```
 
@@ -920,8 +923,8 @@ the literal secret you posted — checked against the whole serialised body, not
   <artifactId>platform-starter-errors</artifactId>
 </dependency>
 <dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-validation</artifactId>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-validation</artifactId>   <!-- Spring's own; the platform starter was cut -->
 </dependency>
 ```
 

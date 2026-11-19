@@ -1,12 +1,16 @@
 # Chapter 7 — Messaging and Events
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Capabilities covered:** `messaging`, `events`
 >
 > Integration events across a broker, in-process domain events, retry, and the dead-letter path.
 >
-> **Starters:** `platform-starter-messaging-{inmemory,rabbit,kafka}`, `platform-starter-events` ·
-> **Reference:** [modules/messaging.md](../../modules/messaging.md) ·
-> modules/events.md
+> **Starters:** `platform-starter-messaging-{inmemory,rabbit}` (in-process events use Spring's
+> `ApplicationEventPublisher`) ·
+> **Reference:** [modules/messaging.md](../../modules/messaging.md)
 
 ---
 
@@ -414,11 +418,7 @@ Exactly one transport starter:
 ```xml
 <dependency>
   <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit, or -kafka -->
-</dependency>
-<dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-events</artifactId>
+  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit -->
 </dependency>
 ```
 
@@ -970,11 +970,7 @@ events.
 ```xml
 <dependency>
   <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit / -kafka -->
-</dependency>
-<dependency>
-  <groupId>ae.gov.dubaicustoms.platform</groupId>
-  <artifactId>platform-starter-events</artifactId>
+  <artifactId>platform-starter-messaging-inmemory</artifactId>   <!-- or -rabbit -->
 </dependency>
 ```
 

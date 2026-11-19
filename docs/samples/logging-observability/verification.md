@@ -1,5 +1,9 @@
 # Verification — what was proven, and at which level
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 Platform commit `5b8e820`. Consumer evidence (3 consecutive runs, 75/75 each):
 [`../../production-readiness/phase-02-logging-observability/evidence/consumer/`](../../production-readiness/phase-02-logging-observability/evidence/consumer/).
 Each run's `assertions.tsv` lists every check; `check-*.json` hold the counts quoted here.

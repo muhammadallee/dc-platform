@@ -1,5 +1,9 @@
 # Open issues
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 | ID | Impact | Owner | Mitigation | Link |
 |---|---|---|---|---|
 | HI-0087 | A message returned by stopping consumers counts toward `delivery-limit`, so many interrupted drains could dead-letter a healthy one | accepted by the owner, 2026-11-02 | Default 20; replay recovers it | [issue register](../../production-readiness/issue-register.md) |

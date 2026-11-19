@@ -1,5 +1,9 @@
 # Appendix C — Troubleshooting Cookbook
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
 > ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
 > ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;

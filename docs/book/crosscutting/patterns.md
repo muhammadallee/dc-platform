@@ -1,5 +1,9 @@
 # Patterns and Anti-patterns
 
+> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
+
 > The shapes that recur across every capability, and the ones that look reasonable and are not.
 
 The fourteen capability chapters each covered one thing. This chapter covers what they have in common.

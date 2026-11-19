@@ -27,18 +27,15 @@ path is always exercised. See [`ProblemResponseTest`](modules/errors.md) for the
 ## example-golden-path — the canonical reference
 
 The service to read first. A small **orders** domain (`POST /orders`, `GET /orders/{id}`) wired through
-the full golden-path stack: REST + validation + security
-(authenticated by default) + [OpenAPI](modules/openapi.md) + [observability](modules/observability.md)
-+ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally) +
-cache + [resilience](modules/resilience.md) + audit. Every
+the 1.0.0 stack: REST + Spring validation + [observability](modules/observability.md)
++ [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally). It has no web
+security: in 1.0.0 the API gateway authenticates callers. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
-actually calls (`EventPublisher`, `RetryableOperation`, `@Audited`, `@Cacheable`, `@Transactional`),
+actually calls (`OutboxPublisher`, `@Transactional`, `NotFoundException`),
 and the class deliberately contains no error, security, or serialization code.
 
-Run it with `mvn -pl examples/example-golden-path spring-boot:run`; build the prod-sim variant against
-PostgreSQL with `-Ppg` (Kafka messaging is deferred until the infrastructure supports it — the
-in-memory transport is the local default, and `example-event-driven` demonstrates a real broker over
-RabbitMQ).
+Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is in-memory here;
+`example-event-driven` shows a real broker over RabbitMQ.
 
 Tests, all through the platform slices and Docker-free:
 
@@ -78,13 +75,10 @@ The **retry/DLQ** behaviour is the headline. `ShipmentHandler` throws for a ship
 republished the message to the DLQ destination (`dc.shipments.dlq`) — all Docker-free over the
 in-memory `TestEventTransport`. `ShipmentRoundTripTest` covers the happy path.
 
-The default transport is in-memory (the `local` Maven profile). Run against real **RabbitMQ** with the
-`rabbit` profile after `docker compose up rabbitmq`:
+Both services run on **RabbitMQ**, the only transport (the tests need no broker). Start it, then the two services:
 
 ```
-mvn -Prabbit -pl examples/example-event-driven/producer spring-boot:run
-mvn -Prabbit -pl examples/example-event-driven/consumer spring-boot:run
+docker compose -f docker-compose.local.yml up -d rabbitmq
+mvn -pl examples/example-event-driven/producer spring-boot:run
+mvn -pl examples/example-event-driven/consumer spring-boot:run
 ```
-
-Kafka is deferred until the infrastructure supports it; the messaging API is transport-agnostic, so
-adding it later is a starter swap, not a code change.

@@ -6,7 +6,7 @@
 >
 > **Starters:** `platform-starter-messaging-{inmemory,rabbit,kafka}`, `platform-starter-events` ·
 > **Reference:** [modules/messaging.md](../../modules/messaging.md) ·
-> [modules/events.md](../../modules/events.md)
+> modules/events.md
 
 ---
 
@@ -135,7 +135,7 @@ The platform's stated semantic is **AT-LEAST-ONCE**, and every word of that matt
 !!! warning "Every handler must be idempotent. This is not optional."
     Processing the same event twice must have the same effect as processing it once. If it credits an
     account, ships a parcel, or sends an email, a duplicate is a customer-visible defect. Use a natural
-    key from the payload, or [`@Idempotent`](10-coordination.md). Assume duplicates will arrive,
+    key from the payload, or `@Idempotent`. Assume duplicates will arrive,
     because they will.
 
 ### 2.3 Why `@EventType` exists
@@ -1049,7 +1049,7 @@ curl -s localhost:8080/actuator/metrics/platform.messaging.published | jq
 kept talking about actually commits.
 
 **Reference:** [modules/messaging.md](../../modules/messaging.md) ·
-[modules/events.md](../../modules/events.md) ·
+modules/events.md ·
 [configuration properties](../../reference/properties.md) ·
 [feature catalog](../../reference/feature-catalog.md)
 

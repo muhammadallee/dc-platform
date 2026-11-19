@@ -27,10 +27,10 @@ path is always exercised. See [`ProblemResponseTest`](modules/errors.md) for the
 ## example-golden-path — the canonical reference
 
 The service to read first. A small **orders** domain (`POST /orders`, `GET /orders/{id}`) wired through
-the full golden-path stack: REST + [validation](modules/validation.md) + [security](modules/security.md)
+the full golden-path stack: REST + validation + security
 (authenticated by default) + [OpenAPI](modules/openapi.md) + [observability](modules/observability.md)
 + [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally) +
-[cache](modules/cache.md) + [resilience](modules/resilience.md) + [audit](modules/audit.md). Every
+cache + [resilience](modules/resilience.md) + audit. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
 actually calls (`EventPublisher`, `RetryableOperation`, `@Audited`, `@Cacheable`, `@Transactional`),
 and the class deliberately contains no error, security, or serialization code.
@@ -51,7 +51,7 @@ Tests, all through the platform slices and Docker-free:
 ## example-extension-provider — the extension model
 
 A service that adds a **custom storage provider** without editing the platform. `EncryptingFsObjectStore`
-implements [`ObjectStore`](modules/storage.md), encrypting content at rest (AES-CTR, which is
+implements `ObjectStore`, encrypting content at rest (AES-CTR, which is
 length-preserving so sizes and metadata still round-trip) and delegating persistence to the platform's
 `FsObjectStore`. Its `EncryptingStorageAutoConfiguration` is ordered **before** the platform's
 `FsObjectStoreAutoConfiguration`, so the platform default — guarded by

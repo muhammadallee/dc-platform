@@ -102,7 +102,7 @@ Two consequences fall out of that diagram, and both shape the platform:
   chain — runs with a correlation id already established.
 - `@RestControllerAdvice` sits *inside* `DispatcherServlet`, so it **cannot** see failures produced by
   the security chain. That is why the [errors](02-errors-validation.md) and
-  [security](05-security-authz.md) capabilities install a separate entry-point and denied-handler pair
+  security capabilities install a separate entry-point and denied-handler pair
   to render 401 and 403 — covered in those chapters, and a direct consequence of this ordering.
 
 Spring Boot registers a filter through a `FilterRegistrationBean`, which is where the order is set:
@@ -685,7 +685,7 @@ Not arbitrary. A UUID with dashes stripped:
 |---|---|---|
 | Logging the id explicitly in the message | Habit from projects without MDC | Trust the field; log what is not already there |
 | Passing `CorrelationId` through method signatures | Feels explicit and safe | It is thread-confined *and* already available. Only pass it across a thread boundary |
-| Using the id as an idempotency key | Both are "a unique id per request" | A retry sends a *new* correlation id. Use [`@Idempotent`](10-coordination.md) with a business key |
+| Using the id as an idempotency key | Both are "a unique id per request" | A retry sends a *new* correlation id. Use `@Idempotent` with a business key |
 | Putting PII in extras | Extras look like a convenient bag | Everything in extras lands in every log line, forever |
 | Registering a filter that resets the response | Usually a CORS or header filter | Check anything calling `response.reset()`; it drops the echoed header |
 | Catching `PlatformException` broadly | Looks like good hygiene | You are swallowing the code the errors capability needs. Let it propagate |

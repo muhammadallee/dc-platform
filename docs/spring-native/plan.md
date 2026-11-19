@@ -594,8 +594,10 @@ current phase.
    - Replace `platform-starter-validation` with `spring-boot-starter-validation`, here and in the kept examples. Without it a
      service has the constraint annotations but no validator, so its constraints silently stop being checked (Codex P0-R1
      finding 1). A consumer-run assertion on an ordinary `@NotBlank` failure stays; only platform-constraint assertions go.
-   - Remove the in-memory messaging default: messaging becomes RabbitMQ.
-   - Keep the `database=h2|oracle` and `features=data,messaging,outbox` options.
+   - Remove the `restclient` feature (parked). Keep the `database=h2|oracle` and `features=data,messaging` options.
+   - The in-memory messaging starter stays the `messaging` default until Phase 6, which moves messaging to Spring AMQP and
+     adds an `outbox` option. Switching to RabbitMQ before that would make every generated test need a broker
+     (amended in Phase 1, D137).
 5. **Examples:** keep `example-minimal` and `example-golden-path` (pruned to kept capabilities). Delete
    `example-extension-provider` (it extends the cut storage SPI). `example-event-driven` uses the platform messaging API with
    in-memory and RabbitMQ profiles: keep it with the RabbitMQ profile only, and port it to Spring AMQP in Phase 6.
@@ -620,7 +622,8 @@ current phase.
 9. **Build:** fix HI-0109 (`develop` push builds hitting Maven Central 429s) first, so the cut is judged on a green CI.
 10. **Verify:**
     - a full `verify`, with no test newly skipped;
-    - the golden path (its count may drop where a step covered a cut module, with each dropped step justified);
+    - the golden path (its count may drop where a step covered a cut module, with each dropped step justified: 9 scenarios
+      become 6, the three `restclient` combinations going with the parked feature);
     - the kept v3 consumer runs: core + errors, logging + observability, data, outbox, RabbitMQ, C1 and REST client (it
       still runs while parked). They lose their token, platform-constraint and JWT-auditor parts. Each dropped or changed
       assertion is listed in `scope.md`, with why, and each run must reach its v3 count minus those listed drops (rule 14);

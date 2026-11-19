@@ -14,7 +14,7 @@
 >
 > **Starters:** `platform-starter-errors`, `platform-starter-validation` ·
 > **Reference:** [modules/errors.md](../../modules/errors.md) ·
-> [modules/validation.md](../../modules/validation.md)
+> modules/validation.md
 
 ---
 
@@ -131,7 +131,7 @@ Two consequences:
 2. **401 and 403 are not.** They are produced before `DispatcherServlet` exists. This is why almost
    every hand-rolled implementation returns Spring's default HTML or an empty body for those two
    statuses while returning nice JSON for everything else — and why every client of that service
-   carries a special case forever. The [security](05-security-authz.md) capability solves it with a
+   carries a special case forever. The security capability solves it with a
    dedicated `AuthenticationEntryPoint` and `AccessDeniedHandler` pair that write the *same* problem
    shape. Chapter 5 covers the wiring; this chapter is why it matters.
 
@@ -270,7 +270,7 @@ That is the rule that makes the taxonomy work without a mapping table.
 !!! note "The hint set is deliberately closed, and deliberately 4xx-only"
     The enum wraps the raw status int so exception types stay free of servlet-stack enums, and it
     contains no 5xx values because infrastructure failures are not *hinted* — they are 500 by
-    definition. Note there is no 429: [rate limiting](13-ratelimit-flags.md) has its own exception
+    definition. Note there is no 429: rate limiting has its own exception
     type for exactly this reason, rather than stretching this taxonomy.
 
 #### `ProblemDetailCustomizer`
@@ -521,8 +521,8 @@ Calling `lookup("nope")` throws `ConstraintViolationException`, which the platfo
     It works through a Spring AOP proxy, so it only fires on calls that go *through* the proxy. An
     internal `this.lookup(...)` call from another method on the same bean bypasses it entirely. This
     is the standard Spring self-invocation caveat, and it applies equally to
-    [`@Idempotent`](10-coordination.md), [`@RateLimited`](13-ratelimit-flags.md),
-    [`@Audited`](12-audit.md), and [`@RequiresPermission`](05-security-authz.md).
+    `@Idempotent`, `@RateLimited`,
+    `@Audited`, and `@RequiresPermission`.
 
 ### 4.5 Enrich every problem body
 
@@ -653,7 +653,7 @@ The platform logs mapped failures at two different levels, deliberately:
 | Starter missing | `mvn dependency:tree \| grep platform-starter-errors` |
 | Capability disabled | `curl -s localhost:8080/actuator/env/dc.platform.errors.enabled` |
 | An application advice is catching it first | Search for `@RestControllerAdvice` in your code — yours wins by design |
-| The failure is a 401/403 | Expected. Those come from the security chain — add `platform-starter-security` ([Chapter 5](05-security-authz.md)) |
+| The failure is a 401/403 | Expected. Those come from the security chain — add `platform-starter-security` (Chapter 5) |
 
 **Validation is not firing.**
 
@@ -984,7 +984,7 @@ logging.level.ae.gov.dubaicustoms.platform.errors=DEBUG
 `correlationId` in every problem body becomes a query.
 
 **Reference:** [modules/errors.md](../../modules/errors.md) ·
-[modules/validation.md](../../modules/validation.md) ·
+modules/validation.md ·
 [error codes](../../reference/error-codes.md) ·
 [configuration properties](../../reference/properties.md) ·
 [feature catalog](../../reference/feature-catalog.md)

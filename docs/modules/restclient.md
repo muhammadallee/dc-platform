@@ -1,5 +1,7 @@
 # REST Client
 
+> **Coming in iteration 2.** This capability is parked: it is built and tested in the repository but not released in 1.0.0, not in the BOM and not offered by the archetype. Iteration 2 of the [Spring-native plan](../spring-native/plan.md) reworks it (Phase 9); this page describes the pre-rework design.
+
 Platform-conventional outbound REST calls: inject `PlatformRestClientFactory` instead of
 `RestClient.Builder` to get W3C trace propagation, timeouts and a deadline, safe retries, a circuit
 breaker, a bulkhead and one failure type on every outbound call.

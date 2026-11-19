@@ -162,7 +162,7 @@ prose in the interface javadoc; the TCK is the same prose, executable.
 Some backends genuinely cannot satisfy an invariant. The TCKs handle this with a documented `protected
 boolean` hook a subclass overrides, rather than by weakening the contract for everyone.
 
-The worked example from [Chapter 10](10-coordination.md) §2.5: `LockProviderTck` relaxes strict
+The worked example from Chapter 10 §2.5: `LockProviderTck` relaxes strict
 *concurrent* exclusion on H2, whose engine cannot reliably serialise reclaim-then-insert across
 connections. Sequential exclusion and fencing still prove mutual exclusion Docker-free; strict
 concurrency is certified against PostgreSQL under `@Tag("docker")`.
@@ -583,7 +583,7 @@ is not inheriting `platform-service-parent`, or the goal was disabled.
 | Consideration | Detail |
 |---|---|
 | `TestTokens` mints unsigned test identities | Test-scope only. It must never reach a production classpath |
-| The archetype's placeholder issuer | Boots offline and validates nothing. Replace before any shared environment ([Ch. 5](05-security-authz.md) §5.1) |
+| The archetype's placeholder issuer | Boots offline and validates nothing. Replace before any shared environment (Ch. 5 §5.1) |
 | Test fixtures with realistic data | A fixture built from a production export is a data leak in your repository |
 | `noSystemGetenv` | Enforces the Vault placeholder path — the rule exists because environment variables leak into process listings and crash dumps |
 | Docker tests with real credentials | Testcontainers should use ephemeral credentials, never shared ones |

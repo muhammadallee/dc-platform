@@ -30,8 +30,8 @@ platform default backs off. Certify your provider against the capability's TCK.
 Each multi-provider capability ships a `platform-<cap>-tck` test-jar with an abstract JUnit class.
 A provider proves conformance by extending it and pointing it at their implementation — the same
 contract the platform's own providers pass. See [testing](../testing.md) and the module pages for
-[messaging](../modules/messaging.md), [storage](../modules/storage.md), [locking](../modules/locking.md),
-[flags](../modules/flags.md), and [ratelimit](../modules/ratelimit.md).
+[messaging](../modules/messaging.md), storage, locking,
+flags, and ratelimit.
 
 ## Next
 

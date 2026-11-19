@@ -165,7 +165,7 @@ deduplication and an opt-in `Idempotency-Key` HTTP filter.
     contract around the guarantee you actually have — the platform documents this limitation plainly
     rather than letting you assume otherwise.
 
-Covered in [Chapter 10](../chapters/10-coordination.md).
+Covered in Chapter 10.
 
 ### 2.6 Running N replicas breaks anything that assumed one
 
@@ -188,7 +188,7 @@ rather than trusting blindly:
 - **Token fencing.** Which creates a new hazard: a slow holder whose lock has already expired must not
   release a lock now legitimately owned by someone else. Both providers fence with a token.
 
-Covered in [Chapter 10](../chapters/10-coordination.md).
+Covered in Chapter 10.
 
 ### 2.7 Configuration belongs outside the artifact
 
@@ -233,7 +233,7 @@ Beyond authentication:
   extension or the client-supplied header; storage keys are validated against path traversal at two
   layers; single-line text fields reject control characters to stop log injection.
 
-Covered in [Chapter 5](../chapters/05-security-authz.md) and the
+Covered in Chapter 5 and the
 [platform security model](../crosscutting/security-model.md).
 
 ### 2.9 An API is a contract, and contracts must be published
@@ -286,7 +286,7 @@ Two design points are easy to get wrong:
   or back-pressure to the request path. That is an explicit, documented trade of completeness for
   availability — and it comes with the knob to reverse it if your regime requires the opposite.
 
-Covered in [Chapter 12](../chapters/12-audit.md).
+Covered in Chapter 12.
 
 ---
 
@@ -361,18 +361,18 @@ tracing stays on Micrometer. Fewer platform APIs is a feature.
 | Free-text logs cannot be queried | Structured JSON by default, MDC lifted to fields | [3](../chapters/03-logging-observability.md) |
 | Dashboards cannot span services | Common meter tags; correlation kept out of tags | [3](../chapters/03-logging-observability.md) |
 | Consumers reverse-engineer the API | OpenAPI by default, with the error model attached | [4](../chapters/04-openapi.md) |
-| Endpoints ship unauthenticated | Deny-by-default chain; customizers ordered before `anyRequest()` | [5](../chapters/05-security-authz.md) |
+| Endpoints ship unauthenticated | Deny-by-default chain; customizers ordered before `anyRequest()` | 5 |
 | A slow dependency takes you down | Per-client timeouts, retries, circuit breakers, all instrumented | [6](../chapters/06-restclient-resilience.md) |
 | Synchronous coupling caps availability | Transport-agnostic events with bounded retry and DLQ | [7](../chapters/07-messaging-events.md) |
 | Schema drift and unmanaged migrations | Flyway-presence guard that fails startup with an actionable message | [8](../chapters/08-data.md) |
-| Shared cache key collisions | `CacheKeyConvention` namespacing every key | [9](../chapters/09-cache-redis.md) |
-| Scheduled jobs multiply by replica count | `@LockedSchedule` with fenced, auto-expiring locks | [10](../chapters/10-coordination.md) |
-| Retries cause duplicate effects | `@Idempotent` and the `Idempotency-Key` filter | [10](../chapters/10-coordination.md) |
-| Blob APIs leak into domain code | Streaming `ObjectStore` behind one contract | [11](../chapters/11-storage-files.md) |
-| Uploads are trusted on extension | Magic-byte content sniffing, filename sanitising, size limits | [11](../chapters/11-storage-files.md) |
-| No evidence of who did what | `@Audited` capturing success *and* failure, with a degrading sink chain | [12](../chapters/12-audit.md) |
-| One client can overwhelm a service | `@RateLimited` and an optional edge filter, with `Retry-After` | [13](../chapters/13-ratelimit-flags.md) |
-| Releasing means deploying | Feature flags with fail-safe-off semantics | [13](../chapters/13-ratelimit-flags.md) |
+| Shared cache key collisions | `CacheKeyConvention` namespacing every key | 9 |
+| Scheduled jobs multiply by replica count | `@LockedSchedule` with fenced, auto-expiring locks | 10 |
+| Retries cause duplicate effects | `@Idempotent` and the `Idempotency-Key` filter | 10 |
+| Blob APIs leak into domain code | Streaming `ObjectStore` behind one contract | 11 |
+| Uploads are trusted on extension | Magic-byte content sniffing, filename sanitising, size limits | 11 |
+| No evidence of who did what | `@Audited` capturing success *and* failure, with a degrading sink chain | 12 |
+| One client can overwhelm a service | `@RateLimited` and an optional edge filter, with `Retry-After` | 13 |
+| Releasing means deploying | Feature flags with fail-safe-off semantics | 13 |
 | Tests need infrastructure and flake | Local-first providers, platform slices, deterministic transports | [14](../chapters/14-testing-dx.md) |
 
 ---

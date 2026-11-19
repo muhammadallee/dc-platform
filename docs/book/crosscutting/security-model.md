@@ -5,9 +5,9 @@
 
 Security is not a capability. It is a property that emerges — or fails to — from decisions spread
 across [core](../chapters/01-core.md), [errors](../chapters/02-errors-validation.md),
-[security](../chapters/05-security-authz.md), [restclient](../chapters/06-restclient-resilience.md),
-[storage and files](../chapters/11-storage-files.md), [audit](../chapters/12-audit.md), and
-[flags](../chapters/13-ratelimit-flags.md).
+security, [restclient](../chapters/06-restclient-resilience.md),
+storage and files, audit, and
+flags.
 
 This chapter assembles them into one picture, states plainly what the platform does **not** do, and
 gives you a review checklist.
@@ -106,8 +106,8 @@ Configuration uses **Spring Security's own** property namespace — `issuer-uri`
 
 ### `CurrentUser`, and why it matters for security specifically
 
-Five capabilities depend on identity: [audit](../chapters/12-audit.md) (the actor),
-[data](../chapters/08-data.md) (audit columns), [flags](../chapters/13-ratelimit-flags.md) (targeting),
+Five capabilities depend on identity: audit (the actor),
+[data](../chapters/08-data.md) (audit columns), flags (targeting),
 [restclient](../chapters/06-restclient-resilience.md) (token relay), and authorization (the principal).
 
 All five depend on `CurrentUser`, not on `Jwt`. The security consequence: changing IdP, adding opaque
@@ -156,8 +156,8 @@ without editing a single annotated method.
        without evaluating the permission.
 
     None of the three produces an error. All three are covered in
-    [Chapter 5](../chapters/05-security-authz.md) and
-    [Chapter 9](../chapters/09-cache-redis.md); they are repeated here because they are the security
+    Chapter 5 and
+    Chapter 9; they are repeated here because they are the security
     failures most likely to reach production.
 
 ---
@@ -169,10 +169,10 @@ without editing a single annotated method.
 | `@SafeText` | Log injection, terminal-escape smuggling | [2](../chapters/02-errors-validation.md) |
 | `CorrelationId` format validation | Header-injected content reaching the log store | [1](../chapters/01-core.md) |
 | `@Valid` on request bodies | Malformed input reaching the domain | [2](../chapters/02-errors-validation.md) |
-| Magic-byte sniffing | Renamed executables passing upload validation | [11](../chapters/11-storage-files.md) |
-| `SafeFilename.sanitize` | Path traversal on write, header injection on read | [11](../chapters/11-storage-files.md) |
-| `KeyValidator` + path containment | Storage keys escaping their container | [11](../chapters/11-storage-files.md) |
-| Servlet multipart limits | Oversized-upload DoS, before buffering | [11](../chapters/11-storage-files.md) |
+| Magic-byte sniffing | Renamed executables passing upload validation | 11 |
+| `SafeFilename.sanitize` | Path traversal on write, header injection on read | 11 |
+| `KeyValidator` + path containment | Storage keys escaping their container | 11 |
+| Servlet multipart limits | Oversized-upload DoS, before buffering | 11 |
 
 Two of these are worth restating because the naive version is so plausible:
 
@@ -300,7 +300,7 @@ Two properties make the audit trail useful as *evidence* rather than as logging:
     falls back silently — a service that quietly used the log sink when the regime required a database
     is not compliant, it just does not know yet.
 
-    [Chapter 12](../chapters/12-audit.md) gives the knobs to move toward completeness, and shows how to
+    Chapter 12 gives the knobs to move toward completeness, and shows how to
     assert the selected sink at startup so the gap becomes a deployment failure.
 
 ---
@@ -401,9 +401,9 @@ becomes an answer.
 
 **Related:** [Chapter 1 — Core](../chapters/01-core.md) ·
 [Chapter 2 — Errors and Validation](../chapters/02-errors-validation.md) ·
-[Chapter 5 — Security and Authorization](../chapters/05-security-authz.md) ·
+Chapter 5 — Security and Authorization ·
 [Chapter 6 — REST Client and Resilience](../chapters/06-restclient-resilience.md) ·
-[Chapter 11 — Storage and Files](../chapters/11-storage-files.md) ·
-[Chapter 12 — Audit](../chapters/12-audit.md)
+Chapter 11 — Storage and Files ·
+Chapter 12 — Audit
 
 [Back to the book](../index.md)

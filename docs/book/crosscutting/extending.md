@@ -81,7 +81,7 @@ applies them in `@Order`. You **add** behaviour without owning the bean that doe
 | `ProblemDetailCustomizer` | Every outgoing error body | [2](../chapters/02-errors-validation.md) |
 | `LogSanitizer` | Values on their way to a log field | [3](../chapters/03-logging-observability.md) |
 | `OpenApiCustomizer` | The generated document | [4](../chapters/04-openapi.md) |
-| `SecurityCustomizer` | The filter chain, **before** `anyRequest()` | [5](../chapters/05-security-authz.md) |
+| `SecurityCustomizer` | The filter chain, **before** `anyRequest()` | 5 |
 | `PlatformRestClientCustomizer` | A named client's builder | [6](../chapters/06-restclient-resilience.md) |
 | `MeterRegistryCustomizer` | Every meter (Spring's own type) | [3](../chapters/03-logging-observability.md) |
 
@@ -285,10 +285,10 @@ A custom Maven enforcer rule plus ArchUnit in every module make a violating chan
 
 !!! note "The constitution visibly shapes the code, and that is the point"
     Three examples from this book:
-    [`StreamingDownloads`](../chapters/11-storage-files.md) lives in `files-autoconfigure` rather than
+    `StreamingDownloads` lives in `files-autoconfigure` rather than
     the api module, because its signature needs Spring MVC. The
-    [audit messaging sink](../chapters/12-audit.md) is its own module, because an impl may not reach
-    another capability. [Authz](../chapters/05-security-authz.md) orders itself by class **name**
+    audit messaging sink is its own module, because an impl may not reach
+    another capability. Authz orders itself by class **name**
     rather than a class literal, because the literal would require a forbidden dependency.
 
     Each looks slightly odd until you know why. The alternative was a convenient exception — and an

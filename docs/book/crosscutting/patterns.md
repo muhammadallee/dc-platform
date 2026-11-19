@@ -58,7 +58,7 @@ The distinction is worth internalising:
 
 !!! success "Reach for a customizer first, always"
     Replacing a bean means you now own everything it did — including the parts you did not want to
-    change and will not remember to maintain. [Chapter 5](../chapters/05-security-authz.md) §5.5 has
+    change and will not remember to maintain. Chapter 5 §5.5 has
     the sharpest version: declaring one `SecurityFilterChain` to add a CORS rule silently discards
     deny-by-default, the RFC-9457 auth bodies, and the stateless posture.
 
@@ -74,11 +74,11 @@ A capability that could use another does so **only when it is actually present**
 | Enriched | By | When absent |
 |---|---|---|
 | [Data](../chapters/08-data.md) auditing | security | Auditor is `"system"` |
-| [Audit](../chapters/12-audit.md) actor | security | Actor is `"anonymous"` |
-| [Flags](../chapters/13-ratelimit-flags.md) targeting | security | No subject or tenant in context |
+| Audit actor | security | Actor is `"anonymous"` |
+| Flags targeting | security | No subject or tenant in context |
 | [REST client](../chapters/06-restclient-resilience.md) token relay | security | No relay customizer exists |
-| [Scheduling](../chapters/10-coordination.md) `@LockedSchedule` | locking | Runs **unlocked**, with a startup WARN |
-| [Audit](../chapters/12-audit.md) sink | messaging, then JDBC | Falls back to the log sink |
+| Scheduling `@LockedSchedule` | locking | Runs **unlocked**, with a startup WARN |
+| Audit sink | messaging, then JDBC | Falls back to the log sink |
 
 This is what "a capability you don't add costs you nothing" means concretely. A batch job with a
 database and no HTTP surface gets JPA audit columns without a single Spring Security class on its
@@ -183,7 +183,7 @@ HTTP filter's TTL is a property of the *client contract*, which is service-wide.
 | audit | `AuditSink` | Three sinks |
 | errors, logging | none — "SPI-lite" customizers instead | One implementation; only enrichment varies |
 
-Storage is the instructive case ([Chapter 11](../chapters/11-storage-files.md) §6.5): four providers
+Storage is the instructive case (Chapter 11 §6.5): four providers
 exist and there is still no `StorageProvider` interface, because `put`/`get`/`delete`/`list` is exactly
 what a caller wants *and* exactly what a backend does. An SPI needs a **second plausible provider and
 genuinely different contracts**.
@@ -211,13 +211,13 @@ The single most transferable idea in this book:
 
 | Control | On failure | Because |
 |---|---|---|
-| [Rate limiter](../chapters/13-ratelimit-flags.md) | **Allows** | A limiter must not become an availability incident |
-| [Feature flags](../chapters/13-ratelimit-flags.md) | **Off** | A typo must never enable unfinished code |
-| [Audit](../chapters/12-audit.md) | **Sheds** | An audit-store outage must not be a service outage |
+| Rate limiter | **Allows** | A limiter must not become an availability incident |
+| Feature flags | **Off** | A typo must never enable unfinished code |
+| Audit | **Sheds** | An audit-store outage must not be a service outage |
 | [Logging](../chapters/03-logging-observability.md) | **Degrades** | Observability is not worth an outage |
 | [OpenAPI](../chapters/04-openapi.md) | **Breaks only the document** | Documentation must not break traffic |
-| [Authorization](../chapters/05-security-authz.md) | Should fail **closed** | Permitting the unauthorised is worse than rejecting the legitimate |
-| [Security chain](../chapters/05-security-authz.md) | **Denies** | Deny-by-default; an unprotected endpoint is the worst outcome |
+| Authorization | Should fail **closed** | Permitting the unauthorised is worse than rejecting the legitimate |
+| Security chain | **Denies** | Deny-by-default; an unprotected endpoint is the worst outcome |
 
 Six point one way, one points the other. There is no house style here — each direction was chosen from
 **what a wrong answer costs**.
@@ -375,7 +375,7 @@ and namespace idempotency keys per authenticated caller.
 | "Invalidation is global" | Caffeine eviction is instance-local |
 | "The uploaded file is here" | `storage-fs` writes to whichever instance served the request |
 
-**Fix:** [Chapter 10](../chapters/10-coordination.md) for locking and idempotency; a shared provider
+**Fix:** Chapter 10 for locking and idempotency; a shared provider
 for cache, rate limiting, and storage.
 
 ### A7. Keys that are not stable across retries

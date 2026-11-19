@@ -210,7 +210,7 @@ validator's `ClockProvider`, so tests inject a fixed clock instead of sleeping).
 enabled, so `@Validated` service-layer preconditions throw `ConstraintViolationException` and are mapped
 to a 400 with field-level detail. A platform message bundle supplies defaults you override per key.
 
-**Security** — `platform-starter-security` · [Chapter 5](chapters/05-security-authz.md)
+**Security** — `platform-starter-security` · Chapter 5
 A secure-by-default filter chain: stateless, security headers on, method security enabled,
 `anyRequest().authenticated()` with a short explicit permit list (actuator health/info, api-docs,
 swagger). JWT resource-server wiring uses the *standard* `spring.security.oauth2.resourceserver.jwt.*`
@@ -220,7 +220,7 @@ other error. `CurrentUser` gives you a token-format-neutral principal, which is 
 auditing, and restclient depend on rather than on JWT internals. Disabling is explicit
 (`mode=disabled`) and never implied by a profile.
 
-**Authorization** — `platform-starter-security-authz` · [Chapter 5](chapters/05-security-authz.md)
+**Authorization** — `platform-starter-security-authz` · Chapter 5
 `@RequiresPermission("orders:read")` on a method or type, enforced by a Spring AOP advisor, so
 authorization intent sits next to the code it protects and is reviewable in a diff. The
 `PermissionEvaluatorProvider` SPI makes evaluation pluggable — the default reads a configurable claim
@@ -239,7 +239,7 @@ clients have a real error model. The bearer-JWT scheme is documented by default,
 capability. Fail-soft: documents are generated per request, so a bad customizer can only break the
 document, never request handling.
 
-**Rate limiting** — `platform-starter-ratelimit` · [Chapter 13](chapters/13-ratelimit-flags.md)
+**Rate limiting** — `platform-starter-ratelimit` · Chapter 13
 `@RateLimited(name, permits, window, keyExpression)` protects an expensive *method*, not only the edge;
 a programmatic `RateLimiter` returning `Decision(allowed, retryAfter)` handles dynamic keys such as
 per-tenant quotas. An optional filter limits every inbound request by IP or user. Every 429 carries
@@ -309,7 +309,7 @@ pulls in a security type. Hibernate defaults arrive at lowest precedence: `open-
 size 50 with ordered writes, UTC JDBC time zone. A Flyway-presence guard plus `FailureAnalyzer` fails
 startup with an actionable message when JPA is configured without migrations.
 
-**Cache** — `platform-starter-cache-{caffeine,redis}` · [Chapter 9](chapters/09-cache-redis.md)
+**Cache** — `platform-starter-cache-{caffeine,redis}` · Chapter 9
 No platform cache annotation — the programming model stays Spring's own `@Cacheable`. What the platform
 adds is a `CacheKeyConvention` composing `<appName>:<cacheName>[:<part>]*`, which prevents two services
 writing different values to the same key in a shared backend (a silent, extremely hard-to-diagnose
@@ -319,7 +319,7 @@ when Spring Data Redis is present. Because the `CacheManager` is a plain bean, B
 instrument it automatically — and hit ratio is the only way to know whether a cache is helping or just
 adding a hop.
 
-**Redis** — `platform-starter-redis` · [Chapter 9](chapters/09-cache-redis.md)
+**Redis** — `platform-starter-redis` · Chapter 9
 *Direct* Redis access — sessions, counters, operational state — deliberately kept distinct from caching,
 because cache eviction destroying operational state is a real failure mode. A `BeanPostProcessor`
 installs a prefixing key serializer on `StringRedisTemplate` (default `<spring.application.name>:`), so
@@ -328,7 +328,7 @@ per-call-site discipline. Connection tuning stays on Boot's own `spring.data.red
 edge is documented rather than hidden: `SCAN` and `KEYS` operate on raw stored keys, so your patterns
 must include the prefix.
 
-**Storage** — `platform-starter-storage-{fs,s3}` · [Chapter 11](chapters/11-storage-files.md)
+**Storage** — `platform-starter-storage-{fs,s3}` · Chapter 11
 A streaming-first `ObjectStore` addressed by `(bucket, key)`: `put` returns an `ObjectRef`, `get`
 returns `Optional<StoredObject>`, `list` returns a `Stream<ObjectSummary>`. There is deliberately **no
 `byte[]` overload** — callers must wrap in-memory content themselves, which makes heap buffering an
@@ -339,7 +339,7 @@ pools in ways that surface hours later. SHA-256 is computed on put and stored as
 path stays inside its root — defence in depth, because blob keys are frequently user-derived. Filesystem
 by default; S3 when you supply an `S3Client`.
 
-**Files** — `platform-starter-files` · [Chapter 11](chapters/11-storage-files.md)
+**Files** — `platform-starter-files` · Chapter 11
 Safe handling of what users upload. `ContentTypeValidator` sniffs **magic bytes** against a strict
 allow-list (PDF, PNG, JPEG, ZIP, CSV, text) — extension and client-supplied content type are not
 trusted, because both are trivially forged and a renamed executable passing upload validation is a
@@ -351,7 +351,7 @@ buffered. `StreamingDownloads.write(...)` streams a stored object at constant me
 
 ### Cross-cutting concerns
 
-**Locking** — `platform-starter-locking-{jdbc,redis}` · [Chapter 10](chapters/10-coordination.md)
+**Locking** — `platform-starter-locking-{jdbc,redis}` · Chapter 10
 `LockManager.withLock(name, atMost, action)` runs an action under a cluster-wide lock and returns its
 result, or `Optional.empty()` when the lock is held elsewhere — making "skipped" an explicit outcome you
 must handle rather than a silent no-op. Acquisition is **non-blocking**: waiting would pile threads up
@@ -360,14 +360,14 @@ the cluster, and both providers **fence with a token** so a slow holder whose lo
 release someone else's. JDBC (with a `platform_lock` table whose Flyway migration location is appended
 automatically) is the default; Redis when a `StringRedisTemplate` is present.
 
-**Scheduling** — `platform-starter-scheduling` · [Chapter 10](chapters/10-coordination.md)
+**Scheduling** — `platform-starter-scheduling` · Chapter 10
 `@EnableScheduling` on by default with a **virtual-thread** `TaskScheduler`, so one blocking job cannot
 starve the pool and delay every other scheduled task. `@LockedSchedule(name, atMost)` sits beside
 `@Scheduled` and runs the method under a cluster-wide lock, so scaling to N replicas does not multiply
 your nightly reconciliation by N. Without a `LockManager` it runs unlocked and warns once at startup —
 visible degradation rather than a silent one. No `aspectjweaver` required.
 
-**Idempotency** — `platform-starter-idempotency` · [Chapter 10](chapters/10-coordination.md)
+**Idempotency** — `platform-starter-idempotency` · Chapter 10
 `@Idempotent(keyExpression, ttl)` derives a key from SpEL over the method arguments, records it, and
 rejects a duplicate within the TTL as a 409. An opt-in filter does the same for the industry-standard
 `Idempotency-Key` header on POST. JDBC-backed by default (`platform_idempotency`, expiry-column TTL,
@@ -375,7 +375,7 @@ migration shipped), Redis via `SET NX PX` when available. Scope is documented ho
 **reject-duplicate**, not response replay — a client that treats 409 as failure will report an error for
 an operation that succeeded.
 
-**Audit** — `platform-starter-audit` · [Chapter 12](chapters/12-audit.md)
+**Audit** — `platform-starter-audit` · Chapter 12
 `@Audited(action, resourceExpression)` records an event whether the method **returns or throws**
 (`SUCCESS` / `FAILURE`) — failed privileged operations are the most security-relevant records there are,
 and capturing only successes misses the attack. Actor comes from the current user, correlation id from
@@ -386,7 +386,7 @@ daemon worker; under sustained overload records are **shed with a warning** rath
 to the request path — an explicit, documented trade of completeness for availability, with the knob to
 reverse it.
 
-**Feature flags** — `platform-starter-flags` · [Chapter 13](chapters/13-ratelimit-flags.md)
+**Feature flags** — `platform-starter-flags` · Chapter 13
 `FeatureFlags.enabled(flag)` and `value(flag, default)` with **fail-safe-off** semantics: an unknown
 flag returns `false` or your default, so a typo can never enable an unfinished path in production.
 `@FeatureGate("flag")` skips a whole method when off and returns a neutral value. The in-memory provider
@@ -490,20 +490,20 @@ single security type onto its classpath.
 | Start any service at all | `core`, `errors`, `logging`, `observability` (the archetype does this) | [1](chapters/01-core.md), [2](chapters/02-errors-validation.md), [3](chapters/03-logging-observability.md) |
 | Accept a request body | `validation` | [2](chapters/02-errors-validation.md) |
 | Expose the API to anyone else | `openapi` | [4](chapters/04-openapi.md) |
-| Handle a real user | `security`; add `security-authz` when roles are not enough | [5](chapters/05-security-authz.md) |
+| Handle a real user | `security`; add `security-authz` when roles are not enough | 5 |
 | Call another service | `restclient`, and `resilience` the moment it matters | [6](chapters/06-restclient-resilience.md) |
 | Tell other services something happened | `messaging` (pick a transport starter) | [7](chapters/07-messaging-events.md) |
 | React to your own writes after commit | `events` | [7](chapters/07-messaging-events.md) |
 | Store relational data | `data-jpa` — and set up Flyway before you start | [8](chapters/08-data.md) |
-| Stop recomputing something expensive | `cache-caffeine`, then `cache-redis` when you scale out | [9](chapters/09-cache-redis.md) |
-| Keep counters or sessions in Redis | `redis` (not `cache` — different lifecycle) | [9](chapters/09-cache-redis.md) |
-| Run a scheduled job on >1 replica | `scheduling` **and** a `locking` provider | [10](chapters/10-coordination.md) |
-| Accept a retryable POST | `idempotency` | [10](chapters/10-coordination.md) |
-| Store documents or images | `storage-fs` locally, `storage-s3` in production | [11](chapters/11-storage-files.md) |
-| Accept an upload from a browser | `files` **and** `storage` | [11](chapters/11-storage-files.md) |
-| Answer "who did this?" to an auditor | `audit` | [12](chapters/12-audit.md) |
-| Protect an expensive operation | `ratelimit` | [13](chapters/13-ratelimit-flags.md) |
-| Ship code before it is switched on | `flags` | [13](chapters/13-ratelimit-flags.md) |
+| Stop recomputing something expensive | `cache-caffeine`, then `cache-redis` when you scale out | 9 |
+| Keep counters or sessions in Redis | `redis` (not `cache` — different lifecycle) | 9 |
+| Run a scheduled job on >1 replica | `scheduling` **and** a `locking` provider | 10 |
+| Accept a retryable POST | `idempotency` | 10 |
+| Store documents or images | `storage-fs` locally, `storage-s3` in production | 11 |
+| Accept an upload from a browser | `files` **and** `storage` | 11 |
+| Answer "who did this?" to an auditor | `audit` | 12 |
+| Protect an expensive operation | `ratelimit` | 13 |
+| Ship code before it is switched on | `flags` | 13 |
 | Write a test of any of the above | `platform-starter-test` (test scope) | [14](chapters/14-testing-dx.md) |
 
 ---

@@ -14,14 +14,14 @@ Every platform annotation is implemented as one. Proxy-based, hence the self-inv
 
 **Allow-list** — An enumeration of what is permitted; everything else is refused. The platform uses
 allow-lists for upload content types and permitted paths, never deny-lists, because a deny-list is
-unbounded and always incomplete. → [11](../chapters/11-storage-files.md)
+unbounded and always incomplete. → 11
 
 **At-least-once** — A delivery guarantee: a message arrives one **or more** times. Never fewer, possibly
 more. The platform's messaging semantic, which is why every handler must be idempotent.
 → [7](../chapters/07-messaging-events.md)
 
 **`atMost`** — The lease on a distributed lock, after which it auto-expires even if the holder is still
-working. Sized above the **worst-case** runtime, not the average. → [10](../chapters/10-coordination.md)
+working. Sized above the **worst-case** runtime, not the average. → 10
 
 **Auto-configuration** — Conditional bean declaration that runs **after** your own beans are registered.
 The mechanism the entire platform rides on. Listed in
@@ -86,7 +86,7 @@ throw. → [Patterns](../crosscutting/patterns.md)
 
 **Deny-by-default** — Everything requires authentication unless explicitly permitted. Fails *loudly* on
 the developer's machine, where allow-by-default fails *silently* in production months later.
-→ [5](../chapters/05-security-authz.md)
+→ 5
 
 **DLQ** *(dead-letter queue)* — Where a message goes after bounded retries are exhausted. The platform's
 DLQ republish is transport-agnostic, so behaviour is identical across in-memory, RabbitMQ, and Kafka.
@@ -121,19 +121,19 @@ fails **open** (a limiter must not become an availability incident); authorizati
 chosen from what a wrong answer costs. → [Patterns](../crosscutting/patterns.md)
 
 **Fail-safe-off** — An unknown feature flag evaluates to `false`; an unknown value returns your default.
-A typo can never enable unfinished code. → [13](../chapters/13-ratelimit-flags.md)
+A typo can never enable unfinished code. → 13
 
 **`FailureAnalyzer`** — A Spring Boot hook turning a startup exception into a *Description / Action*
 block naming the fix. The platform ships several for its most common misconfigurations.
 
 **Fencing** *(token fencing)* — Tagging each lock acquisition with a token so a holder whose lease has
 already expired cannot release a lock now owned by someone else. Prevents lock *theft*; does not
-prevent the overlap an expired lease already caused. → [10](../chapters/10-coordination.md)
+prevent the overlap an expired lease already caused. → 10
 
 **Fixed window / sliding window** — Rate-limiting algorithms. Fixed counts per calendar window (cheap,
 allows a 2× burst across a boundary); sliding counts over a trailing window (accurate, more memory).
 The platform's Redis provider uses fixed; the in-memory one uses sliding.
-→ [13](../chapters/13-ratelimit-flags.md)
+→ 13
 
 ---
 
@@ -144,7 +144,7 @@ by a script with a **10-minute SLA**. The developer experience has a budget, and
 → [14](../chapters/14-testing-dx.md)
 
 **Idempotent** — Performing an operation *n* times has the same effect as performing it once. Mandatory
-for message handlers under at-least-once delivery. → [10](../chapters/10-coordination.md)
+for message handlers under at-least-once delivery. → 10
 
 **Integration event** — Something that happened, published **across service boundaries** over a broker,
 to services you do not deploy with. Distinct from a domain event.
@@ -162,7 +162,7 @@ a checked promise rather than an intention.
 
 **JWT** *(JSON Web Token)* — The bearer token format the platform's security capability validates
 locally against the IdP's published keys — no per-request call to the IdP.
-→ [5](../chapters/05-security-authz.md)
+→ 5
 
 **Kill switch** — `dc.platform.<capability>.enabled`, defaulting to `true`. Stops the platform
 *contributing*; what remains is the underlying library's default, not nothing.
@@ -261,7 +261,7 @@ platform's `@Ulid` constraint. → [2](../chapters/02-errors-validation.md)
 
 **Virtual thread** — A JVM-managed lightweight thread. Blocking one costs a few hundred bytes rather
 than a megabyte of stack, which is why the platform's scheduler gives each firing its own.
-→ [10](../chapters/10-coordination.md)
+→ 10
 
 ---
 
@@ -269,18 +269,18 @@ than a megabyte of stack, which is why the platform's scheduler gives each firin
 
 | Annotation | Capability | Chapter |
 |---|---|---|
-| `@Audited` | audit | [12](../chapters/12-audit.md) |
+| `@Audited` | audit | 12 |
 | `@DomainEventHandler` | events | [7](../chapters/07-messaging-events.md) |
 | `@EventHandler` | messaging | [7](../chapters/07-messaging-events.md) |
 | `@EventType` | messaging | [7](../chapters/07-messaging-events.md) |
-| `@FeatureGate` | flags | [13](../chapters/13-ratelimit-flags.md) |
+| `@FeatureGate` | flags | 13 |
 | `@FutureInstant` | validation | [2](../chapters/02-errors-validation.md) |
-| `@Idempotent` | idempotency | [10](../chapters/10-coordination.md) |
-| `@LockedSchedule` | scheduling | [10](../chapters/10-coordination.md) |
+| `@Idempotent` | idempotency | 10 |
+| `@LockedSchedule` | scheduling | 10 |
 | `@NotBlankTrimmed` | validation | [2](../chapters/02-errors-validation.md) |
 | `@PlatformApi` / `@PlatformInternal` | core | [1](../chapters/01-core.md) |
-| `@RateLimited` | ratelimit | [13](../chapters/13-ratelimit-flags.md) |
-| `@RequiresPermission` | authz | [5](../chapters/05-security-authz.md) |
+| `@RateLimited` | ratelimit | 13 |
+| `@RequiresPermission` | authz | 5 |
 | `@SafeText` | validation | [2](../chapters/02-errors-validation.md) |
 | `@Ulid` | validation | [2](../chapters/02-errors-validation.md) |
 

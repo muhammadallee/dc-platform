@@ -97,7 +97,7 @@ Micrometer, the Spring modules — comes from `spring-boot-dependencies` and mov
 |---|---|---|---|
 | **springdoc-openapi** | 3.0.3 | [openapi](../chapters/04-openapi.md) | Boot does not manage it, and springdoc's 3.x line is the Boot-4-compatible one |
 | **Resilience4j** | 2.4.0 (BOM) | [resilience](../chapters/06-restclient-resilience.md) | Not Boot-managed; the BOM aligns retry, breaker, time limiter, and the Micrometer binding |
-| **AWS SDK v2** | 2.x (BOM) | [storage-s3](../chapters/11-storage-files.md) | Only reaches you via the S3 starter |
+| **AWS SDK v2** | 2.x (BOM) | storage-s3 | Only reaches you via the S3 starter |
 | **logstash-logback-encoder** | 8.x | [logging](../chapters/03-logging-observability.md) | The JSON encoder |
 | **ArchUnit** | pinned | [testing](../chapters/14-testing-dx.md) | Conformance rules and the constitution gates |
 | **apiguardian** | 1.1.2 | Every api/spi module | `@API(status, since)` markers |
@@ -147,11 +147,11 @@ Useful when triaging a CVE or explaining a dependency tree.
 | `test` | spring-boot-starter-test, ArchUnit, json-path |
 
 !!! note "Two deliberate non-dependencies"
-    **Tika** ([11](../chapters/11-storage-files.md)) — hundreds of formats and a large transitive tree
+    **Tika** (11) — hundreds of formats and a large transitive tree
     with its own CVE cadence, for a handful of types a government service actually accepts. Supply a
     `ContentTypeValidator` if you need its breadth.
 
-    **aspectjweaver** ([10](../chapters/10-coordination.md)) — every platform annotation uses plain
+    **aspectjweaver** (10) — every platform annotation uses plain
     Spring AOP auto-proxying, so there is no load-time weaving, no agent flags, and none of the
     class-loading failure modes that come with them.
 

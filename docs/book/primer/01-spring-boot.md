@@ -390,7 +390,7 @@ production behaviour.** The `local` profile switches logs to console format; tha
     profile. Profile-triggered security disabling is a well-documented production-breach pattern: a
     `local` profile leaks into a production deployment through a misconfigured environment variable,
     and authentication silently disappears. The platform makes that impossible by construction. Read
-    [Chapter 5](../chapters/05-security-authz.md) before you touch security configuration.
+    Chapter 5 before you touch security configuration.
 
 ---
 
@@ -434,7 +434,7 @@ and `redis` in readiness **only when present**.
     The platform's security chain permits `health` and `info` and authenticates everything else. The
     `/actuator/platformflags` endpoint accepts `POST` and `DELETE` to flip flags at runtime; that is
     documented as a deliberate write operation you must expose and secure knowingly. See
-    [Chapter 13](../chapters/13-ratelimit-flags.md).
+    Chapter 13.
 
 ---
 

@@ -1,5 +1,7 @@
 # Final release assessment
 
+> **Superseded on `develop`** by [`docs/spring-native/`](../spring-native/plan.md): the realigned platform targets 1.0.0 (ND1). This record stays as the evidence behind tag `hardening/phase-08-closed`.
+
 Hardening initiative, plan v3, on `hardening/v1`. Baseline `7b248e9`; final code `639e9d5` (2026-11-04), Spring Boot 4.1.2,
 JDK 25. Phase 8 results: [`phase-08-final/run-results.md`](phase-08-final/run-results.md). Decision:
 [`release-decision.md`](release-decision.md).

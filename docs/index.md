@@ -3,9 +3,10 @@
 > **Version:** `0.2.0-SNAPSHOT` (release train) · **Spring Boot:** 4.x · **Java:** 25
 
 An internal Spring Boot **chassis**. It gives every service the same cross-cutting behaviour —
-correlation IDs, JSON logs, RFC-9457 errors, validation, metrics/tracing, OpenAPI, an
-authenticated-by-default security chain, messaging, and persistence conventions — with **zero
-configuration**. You write business logic; the platform does the plumbing.
+correlation IDs, JSON logs, RFC-9457 errors, metrics/tracing, RabbitMQ messaging with a
+transactional outbox, and persistence conventions — with **zero configuration**. REST API security
+(basic auth) with OpenAPI, and the REST client, follow in the next release
+([Spring-native plan](spring-native/plan.md)). You write business logic; the platform does the plumbing.
 
 ## Why it exists
 

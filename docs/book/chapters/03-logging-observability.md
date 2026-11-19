@@ -678,7 +678,7 @@ long-retained, widely readable, and rarely reviewed.
 
 !!! warning "`/actuator/env` and `/actuator/configprops` are not public endpoints"
     They are exposed over HTTP by the platform's default and **authenticated** by the security chain.
-    If you are running without [security](05-security-authz.md), they are open. Check that before you
+    If you are running without security, they are open. Check that before you
     deploy.
 
 ---

@@ -9,7 +9,7 @@
 # now expects no principal on the message (none is configured). AC16 (the in-process events relay) went with
 # the events module. See docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-04-outbox.sh
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-04-outbox.sh
 #
 # Edits to the generated project: pom.xml swaps the sample's in-memory transport for RabbitMQ and adds the outbox
 # starters; the probe and two migrations are added. The drainer's retry timings are shortened through its documented

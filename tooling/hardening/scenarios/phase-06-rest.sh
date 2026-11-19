@@ -9,7 +9,7 @@
 # forwarded; the final "no token in the evidence" check uses that bearer. See
 # docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-06-rest.sh
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-06-rest.sh
 #
 # Request counts, headers and bytes sent are read from what the downstream recorded, not from the client.
 #

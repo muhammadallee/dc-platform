@@ -6,7 +6,7 @@
 # Spring-native Phase 1 port: no web security (JWT security is cut), so the JWKS issuer and the token on the
 # Prometheus scrape are gone; no assertion depended on them. See docs/spring-native/phase-01-scope-cut/scope.md.
 #
-#   HH_MAVEN_REPO=$(bash tooling/hardening/native-repo.sh native-NN) bash tooling/hardening/scenarios/phase-05-rabbit.sh
+#   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-05-rabbit.sh
 #
 # Attempts, duplicates and trace continuity are read from tables the consumer's handlers write.
 #

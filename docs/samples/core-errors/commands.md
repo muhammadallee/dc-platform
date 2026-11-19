@@ -8,7 +8,7 @@ Run from the repository root on a machine with JDK 25, Maven 3.9 and Docker.
 
 ```bash
 export JAVA_HOME=<jdk-25>; export PATH="$JAVA_HOME/bin:$PATH"
-bash tooling/hardening/native-repo.sh native-01   # prints ~/.m2-hardening/native-01
+repo=$(bash tooling/hardening/native-repo.sh native-01)   # ~/.m2-hardening/native-01; stop if it fails
 ```
 
 It installs this checkout into a fresh repository with no older platform artifact in it. The REST client is parked, so the
@@ -17,7 +17,7 @@ runs that use it add its starter with an explicit version.
 ## 2. Generate, build, run and probe a consumer (one command)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-01-core-errors.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-01-core-errors.sh
 ```
 
 What it does:

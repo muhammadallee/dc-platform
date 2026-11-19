@@ -10,7 +10,7 @@ included. Each run keeps about 200 MB under `~/dc-hardening-runs/`: delete old o
 
 ```bash
 export JAVA_HOME=<jdk-25>; export PATH="$JAVA_HOME/bin:$PATH"
-bash tooling/hardening/native-repo.sh native-01   # prints ~/.m2-hardening/native-01
+repo=$(bash tooling/hardening/native-repo.sh native-01)   # ~/.m2-hardening/native-01; stop if it fails
 ```
 
 It installs this checkout into a fresh repository with no older platform artifact in it. The REST client is parked, so the
@@ -19,13 +19,13 @@ runs that use it add its starter with an explicit version.
 ## 2. Generate, build, run and probe a consumer (one command)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-04-outbox.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-04-outbox.sh
 ```
 
 What it does:
 - generates `hardening-outbox` with `-Dfeatures=data,messaging -Ddatabase=oracle` (exact command in each run's `generate.cmd`);
-- adopts the outbox as `outbox.md` says: swaps the sample's in-memory transport for RabbitMQ, adds the outbox and events
-  starters, copies `platform_outbox.sql` out of the jar as `V2`, and adds a probe and a `V3` migration;
+- adopts the outbox as `outbox.md` says: swaps the sample's in-memory transport for RabbitMQ, adds the outbox
+  starter, copies `platform_outbox.sql` out of the jar as `V2`, and adds a probe and a `V3` migration;
 - starts Oracle Free, RabbitMQ and Toxiproxy in front of both (digests in `run-identity.txt`);
 - creates a schema owner and a runtime user with a DML-only role;
 - boots in `prod` and runs the scenarios in `verification.md`, including real `SIGKILL`s and a second instance;
@@ -38,7 +38,7 @@ than inferences. The drainer's retry timings are shortened through its documente
 ## 3. Targeted platform tests
 
 ```bash
-mvn -B -T1 -pl messaging/platform-messaging-outbox-autoconfigure,messaging/platform-messaging-rabbit,events/platform-events-autoconfigure -am verify
+mvn -B -T1 -pl messaging/platform-messaging-outbox-autoconfigure,messaging/platform-messaging-rabbit -am verify
 # Oracle and RabbitMQ container tests; Docker required; Oracle is reusable with testcontainers.reuse.enable=true
 mvn -B -T1 -Pdocker -pl messaging/platform-messaging-outbox,messaging/platform-messaging-rabbit -am verify
 ```
@@ -46,9 +46,9 @@ mvn -B -T1 -Pdocker -pl messaging/platform-messaging-outbox,messaging/platform-m
 ## 4. Earlier phases' consumers against Phase 4 code (regression)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-01-core-errors.sh
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-02-logging-observability.sh
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-03-data-access.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-01-core-errors.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-02-logging-observability.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-03-data-access.sh
 ```
 
 ## 5. Cleanup

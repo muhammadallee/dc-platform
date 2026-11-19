@@ -9,7 +9,7 @@ about 3 GB of free memory: PostgreSQL, the collector, Toxiproxy and the app JVM.
 
 ```bash
 export JAVA_HOME=<jdk-25>; export PATH="$JAVA_HOME/bin:$PATH"
-bash tooling/hardening/native-repo.sh native-01   # prints ~/.m2-hardening/native-01
+repo=$(bash tooling/hardening/native-repo.sh native-01)   # ~/.m2-hardening/native-01; stop if it fails
 ```
 
 It installs this checkout into a fresh repository with no older platform artifact in it. The REST client is parked, so the
@@ -18,7 +18,7 @@ runs that use it add its starter with an explicit version.
 ## 2. Generate, build, run and probe a consumer (one command)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-02-logging-observability.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-02-logging-observability.sh
 ```
 
 What it does:
@@ -48,7 +48,7 @@ mvn -B -T1 -pl observability/platform-observability-autoconfigure -am verify
 ## 4. Phase 1 consumer against Phase 2 code (regression)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-01-core-errors.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-01-core-errors.sh
 ```
 
 ## 5. Cleanup

@@ -16,7 +16,11 @@ seed="${HH_SEED_REPO:-$HOME/.m2/repository}"
 target="$HOME/.m2-hardening/$phase"
 native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 
-case "$target" in "$HOME/.m2-baseline"*|"$HOME/.m2-native-baseline"*) echo "refusing to write $target" >&2; exit 1;; esac
+# A plain slug only: no "/", no "..", so the target can never leave ~/.m2-hardening (nor reach a baseline).
+if [[ ! "$phase" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ || "$phase" == *..* ]]; then
+  echo "phase slug must be letters, digits, dot, dash or underscore: $phase" >&2; exit 1
+fi
+if [[ -L "$HOME/.m2-hardening" || -L "$target" ]]; then echo "refusing a symlinked target: $target" >&2; exit 1; fi
 
 rm -rf "$target"
 mkdir -p "$(dirname "$target")"

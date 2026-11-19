@@ -8,7 +8,7 @@ Run from the repository root with JDK 25, Maven 3.9 and Docker. A consumer run n
 
 ```bash
 export JAVA_HOME=<jdk-25>; export PATH="$JAVA_HOME/bin:$PATH"
-bash tooling/hardening/native-repo.sh native-01   # prints ~/.m2-hardening/native-01
+repo=$(bash tooling/hardening/native-repo.sh native-01)   # ~/.m2-hardening/native-01; stop if it fails
 ```
 
 It installs this checkout into a fresh repository with no older platform artifact in it. The REST client is parked, so the
@@ -19,7 +19,7 @@ After a revert, run `mvn -o clean` first: a stale `jacoco.exec` fails the covera
 ## Consumer run (one command)
 
 ```bash
-HH_MAVEN_REPO=~/.m2-hardening/native-01 bash tooling/hardening/scenarios/phase-05-rabbit.sh
+HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenarios/phase-05-rabbit.sh
 ```
 
 It generates a service, starts Oracle, RabbitMQ and Toxiproxy, runs the scenarios in `verification.md`, removes everything it started,

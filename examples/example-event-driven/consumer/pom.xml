@@ -47,6 +47,12 @@
       <artifactId>platform-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- RabbitMQ is the only transport (Spring-native plan v2, Phase 1). Tests use the recording
+         test transport from platform-starter-test, so they need no broker. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-messaging-rabbit</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -58,28 +64,4 @@
     </plugins>
   </build>
 
-  <profiles>
-    <!-- One transport starter on the classpath at a time; see the producer pom for the rationale. -->
-    <profile>
-      <id>local</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>ae.gov.dubaicustoms.platform</groupId>
-          <artifactId>platform-starter-messaging-inmemory</artifactId>
-        </dependency>
-      </dependencies>
-    </profile>
-    <profile>
-      <id>rabbit</id>
-      <dependencies>
-        <dependency>
-          <groupId>ae.gov.dubaicustoms.platform</groupId>
-          <artifactId>platform-starter-messaging-rabbit</artifactId>
-        </dependency>
-      </dependencies>
-    </profile>
-  </profiles>
 </project>

@@ -52,6 +52,12 @@
       <artifactId>platform-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- RabbitMQ is the only transport (Spring-native plan v2, Phase 1). Tests use the recording
+         test transport from platform-starter-test, so they need no broker. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-starter-messaging-rabbit</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -63,33 +69,4 @@
     </plugins>
   </build>
 
-  <profiles>
-    <!-- Transport selection is a profile choice so exactly one transport starter is ever on the
-         classpath (the platform's transport auto-configs are first-wins by declaration order, so
-         merely adding rabbit alongside in-memory would not switch). The default (local) profile
-         deactivates automatically when another profile is selected with -P. -->
-    <profile>
-      <id>local</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>ae.gov.dubaicustoms.platform</groupId>
-          <artifactId>platform-starter-messaging-inmemory</artifactId>
-        </dependency>
-      </dependencies>
-    </profile>
-    <!-- Run against real RabbitMQ: mvn -Prabbit spring-boot:run (after `docker compose up rabbitmq`).
-         Kafka is deferred until the infrastructure supports it. -->
-    <profile>
-      <id>rabbit</id>
-      <dependencies>
-        <dependency>
-          <groupId>ae.gov.dubaicustoms.platform</groupId>
-          <artifactId>platform-starter-messaging-rabbit</artifactId>
-        </dependency>
-      </dependencies>
-    </profile>
-  </profiles>
 </project>

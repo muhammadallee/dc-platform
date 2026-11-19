@@ -230,6 +230,25 @@ class ErrorCodeSourceUniquenessTest {
                                     }
                                 };
                             }
+                            static final String BLOCK_KEY = "detail";
+                            {
+                                String BLOCK_KEY = "code";
+                                org.springframework.http.ProblemDetail.forStatus(500).setProperty(BLOCK_KEY, "INSTANCE_BLOCK");
+                            }
+                            static {
+                                String BLOCK_KEY = "code";
+                                org.springframework.http.ProblemDetail.forStatus(500).setProperty(BLOCK_KEY, "STATIC_BLOCK");
+                            }
+                            {
+                                String assignedInBlock = "detail";
+                                assignedInBlock = "code";
+                                org.springframework.http.ProblemDetail.forStatus(500)
+                                        .setProperty(assignedInBlock, "ASSIGNED_IN_BLOCK");
+                            }
+                            Runnable lambdaField = () -> {
+                                String BLOCK_KEY = "code";
+                                org.springframework.http.ProblemDetail.forStatus(500).setProperty(BLOCK_KEY, "FIELD_LAMBDA");
+                            };
                             void innerKey(org.springframework.http.ProblemDetail problem) {
                                 { String inner = "detail"; problem.setProperty(inner, "IN_SCOPE_NOT_A_CODE"); }
                             }
@@ -296,6 +315,10 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("CROSS_FILE"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("VARIABLE_RECEIVER"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("FIELD_RECEIVER"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("INSTANCE_BLOCK"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("STATIC_BLOCK"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("ASSIGNED_IN_BLOCK"))
+                .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("FIELD_LAMBDA"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("LOCAL_CLASS_FIELD"))
                 .noneSatisfy(entry -> assertThat(entry).contains("QUALIFIED_NOT_CODE"))
                 .noneSatisfy(entry -> assertThat(entry).contains("D_CODE"))
@@ -334,59 +357,51 @@ class ErrorCodeSourceUniquenessTest {
             String file = fileName(unit);
             new TreeScanner<Void, Void>() {
 
-                // Local names of the enclosing methods (parameters included). A name declared anywhere in a method is
-                // a local for the whole method: inside its scope it holds the values its initialiser had where it was
-                // declared; before its declaration, after its scope closes, or when reassigned, never initialised or a
-                // parameter, it is unknown (null). A local never falls back to a same-named constant.
+                // Local names in scope: every variable that is not a field (method and lambda parameters, locals of
+                // methods, initialiser blocks and field initialisers). A local holds the values its initialiser had
+                // where it was declared; after its scope closes, when it is assigned anywhere in the file, or when it
+                // has no initialiser, it is unknown (null). A local never falls back to a same-named constant.
                 private Map<String, Set<String>> locals = new HashMap<>();
-                private Set<String> reassigned = new java.util.HashSet<>();
-                private int methodDepth;
+                // Names assigned anywhere in the file (x = ..., x += ...): never known.
+                private final Set<String> reassigned = assignedNames(unit);
 
                 @Override
                 public Void visitMethod(MethodTree node, Void unused) {
                     Map<String, Set<String>> outer = locals;
-                    Set<String> outerReassigned = reassigned;
-                    // A nested class's method still sees the captured locals of the method around it.
+                    // A name declared anywhere in a method is a local for the whole method, unknown until declared.
                     locals = new HashMap<>(outer);
                     declaredNames(node).forEach(name -> locals.put(name, null));
-                    reassigned = new java.util.HashSet<>(outerReassigned);
-                    reassigned.addAll(assignedNames(node));
-                    methodDepth++;
                     try {
                         return super.visitMethod(node, unused);
                     } finally {
-                        methodDepth--;
                         locals = outer;
-                        reassigned = outerReassigned;
                     }
                 }
 
                 @Override
                 public Void visitClass(ClassTree node, Void unused) {
                     Map<String, Set<String>> outer = locals;
-                    if (methodDepth > 0) {
-                        // In a local or anonymous class, an inherited or declared member can shadow any of the
-                        // method's names: none of them is known inside the class body.
+                    if (!outer.isEmpty()) {
+                        // In a local or anonymous class, an inherited or declared member can shadow any name of the
+                        // code around it: none of them is known inside the class body.
                         locals = new HashMap<>();
                         outer.keySet().forEach(name -> locals.put(name, null));
                         declaredNames(node).forEach(name -> locals.put(name, null));
                     }
-                    int outerDepth = methodDepth;
-                    // A class body's fields are fields, never locals, even inside a method.
-                    methodDepth = 0;
                     constants.enclosing().push(node);
                     try {
                         return super.visitClass(node, unused);
                     } finally {
                         constants.enclosing().pop();
-                        methodDepth = outerDepth;
                         locals = outer;
                     }
                 }
 
                 @Override
                 public Void visitVariable(VariableTree node, Void unused) {
-                    if (methodDepth > 0) {
+                    ClassTree owner = constants.enclosing().peek();
+                    boolean field = owner != null && owner.getMembers().stream().anyMatch(member -> member == node);
+                    if (!field) {
                         String name = node.getName().toString();
                         boolean known = node.getInitializer() != null && !reassigned.contains(name);
                         // Resolved now, in the scope of the declaration: a later shadowing name cannot change it.
@@ -520,8 +535,8 @@ class ErrorCodeSourceUniquenessTest {
         return names;
     }
 
-    // Names assigned anywhere in a method after their declaration (x = ..., x += ...).
-    private static Set<String> assignedNames(MethodTree method) {
+    // Names assigned anywhere in a tree (x = ..., x += ...).
+    private static Set<String> assignedNames(Tree tree) {
         Set<String> names = new java.util.HashSet<>();
         new TreeScanner<Void, Void>() {
             @Override
@@ -539,7 +554,7 @@ class ErrorCodeSourceUniquenessTest {
                 }
                 return super.visitCompoundAssignment(node, unused);
             }
-        }.scan(method, null);
+        }.scan(tree, null);
         return names;
     }
 

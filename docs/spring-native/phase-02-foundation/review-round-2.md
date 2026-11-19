@@ -41,5 +41,6 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   like a class was read as the class, and a local class's fields still entered the locals.
 - [`r2-verify8.out.md`](codex/r2-verify8.out.md): a variable is never read as a type and class bodies hold fields,
   not locals (`f6c9862`); `this.D.KEY` still escaped, as only the leftmost name was checked.
-- Verification 9: every name of a qualified receiver is checked.
+- [`r2-verify9.out.md`](codex/r2-verify9.out.md): every name of a qualified receiver is checked (`155ba21`); a local
+  in an initialiser block was not recorded.
 

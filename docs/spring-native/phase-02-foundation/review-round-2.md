@@ -32,6 +32,9 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   calls escape.
 - [`r2-verify3.out.md`](codex/r2-verify3.out.md): fixed; a bounded type-parameter receiver escaped.
 - [`r2-verify4.out.md`](codex/r2-verify4.out.md): fixed; a block-scoped local of another type leaked its type.
-- Verification 5: the gate no longer guesses receiver types. Every `setProperty` whose key may be `code` is checked
-  wherever it is called, with one audited exemption by exact source text. Pending: Codex usage limit until 23:40.
+- [`r2-verify5.out.md`](codex/r2-verify5.out.md): the receiver-type fix accepted (every `setProperty` whose key may be
+  `code` is checked wherever it is called, with one audited exemption by exact source text); a local declared in an
+  inner block kept its value after the block closed.
+- Verification 6: locals follow Java's scopes; a name declared in a method never falls back to a constant
+  (`bfa346a`).
 

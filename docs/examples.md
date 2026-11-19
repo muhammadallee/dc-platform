@@ -17,7 +17,7 @@ thing the platform guarantees:
 
 - every request carries a correlation ID and structured JSON logs, with no code in the service doing
   it;
-- a thrown [`NotFoundException`](modules/errors.md) renders as an RFC-9457
+- a thrown Spring [`ErrorResponseException`](modules/errors.md) with the service's `code` renders as an RFC-9457
   `application/problem+json` 404 with a stable [error code](reference/error-codes.md) — there is
   deliberately no `@RestControllerAdvice` anywhere in the service.
 
@@ -31,7 +31,7 @@ the 1.0.0 stack: REST + Spring validation + [observability](modules/observabilit
 + [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally). It has no web
 security: in 1.0.0 the API gateway authenticates callers. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
-actually calls (`OutboxPublisher`, `@Transactional`, `NotFoundException`),
+actually calls (`OutboxPublisher`, `@Transactional`, Spring's `ErrorResponseException`),
 and the class deliberately contains no error, security, or serialization code.
 
 Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is in-memory here;

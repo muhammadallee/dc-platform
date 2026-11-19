@@ -1,7 +1,7 @@
 # Chapter 14 — Testing and Developer Experience
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > **Capabilities covered:** `testing`, `dx`
@@ -187,7 +187,7 @@ through the generated `PlatformConformanceTest`:
 | Rule | Bans | Because |
 |---|---|---|
 | `noDirectMessagingInfrastructure` | `KafkaTemplate`, `RabbitTemplate`, listener containers | Use `EventPublisher` / `@EventHandler` ([Ch. 7](07-messaging-events.md)) |
-| `noHandRolledExceptionHandler` | `@RestControllerAdvice` shaping errors | Throw `PlatformException` subtypes ([Ch. 2](02-errors-validation.md)) |
+| `noHandRolledExceptionHandler` | `@RestControllerAdvice` shaping errors | Throw Spring's `ErrorResponseException` with a `code` property ([Ch. 2](02-errors-validation.md)) |
 | `noResponseEntityExceptionHandlerSubclass` | Subclassing Spring's handler | Same — it silently disables the platform's |
 | `noSystemGetenv` | `System.getenv(...)` | Spring `${...}` placeholders, populated by Vault |
 | `noDirectObjectMapperInstantiation` | `new ObjectMapper()` | Use the configured bean, or serialisation diverges |

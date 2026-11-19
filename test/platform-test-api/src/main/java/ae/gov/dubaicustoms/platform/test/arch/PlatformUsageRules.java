@@ -101,7 +101,8 @@ public final class PlatformUsageRules {
     /**
      * A service must not define its own {@code @RestControllerAdvice} extending Spring's
      * {@code ResponseEntityExceptionHandler} — the platform maps everything to RFC 9457 already.
-     * Throw {@code PlatformException} subtypes with an {@code ErrorCode} instead.
+     * Throw Spring's {@code ErrorResponseException} with a {@code code} property instead, and add fields to every
+     * error body with a Spring {@code ErrorResponse.Interceptor}.
      */
     static ArchRule noHandRolledExceptionHandler() {
         return ArchRuleDefinition.noClasses()
@@ -118,9 +119,9 @@ public final class PlatformUsageRules {
                         });
                     }
                 })
-                .because("throw PlatformException subtypes (BusinessException/NotFoundException/ConflictException) "
-                        + "with an ErrorCode — the platform maps them to RFC 9457 with trace IDs; do not "
-                        + "write your own @RestControllerAdvice")
+                .because("throw Spring's ErrorResponseException with a code property (or use @ResponseStatus) — the "
+                        + "platform maps every exception to RFC 9457 with trace IDs; add fields with an "
+                        + "ErrorResponse.Interceptor instead of re-implementing the handler (docs/modules/errors.md)")
                 .allowEmptyShould(true);
     }
 
@@ -142,9 +143,9 @@ public final class PlatformUsageRules {
                         });
                     }
                 })
-                .because("subclassing ResponseEntityExceptionHandler is banned here → throw PlatformException "
-                        + "subtypes with an ErrorCode; the platform maps them to RFC 9457 with trace IDs "
-                        + "(docs/modules/errors.md)")
+                .because("subclassing ResponseEntityExceptionHandler is banned here → throw Spring's "
+                        + "ErrorResponseException with a code property; the platform maps every exception to "
+                        + "RFC 9457 with trace IDs (docs/modules/errors.md)")
                 .allowEmptyShould(true);
     }
 

@@ -42,7 +42,7 @@ about 30 minutes, 10 of them for the silent-peer start. Evidence lands in
 ## 3. Targeted platform tests
 
 ```bash
-mvn -B -T1 -pl errors/platform-errors-autoconfigure,data/platform-data-api,data/platform-data-jpa-autoconfigure -am verify
+mvn -B -T1 -pl errors/platform-errors-autoconfigure,data/platform-data-jpa-autoconfigure -am verify
 # Oracle container tests (44), Docker required; the container is reusable with testcontainers.reuse.enable=true
 mvn -B -T1 -Pdocker -pl data/platform-data-jpa-autoconfigure verify
 ```

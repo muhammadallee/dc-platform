@@ -83,6 +83,19 @@
       <artifactId>micrometer-core</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- SNIPPET COMPILATION ONLY. Core and errors teach Spring types (D138): Micrometer's Tracer for the trace,
+         ErrorResponseException and WebMvcConfigurer's ErrorResponse.Interceptor for errors. Both are optional in
+         the autoconfigure modules, so they do not arrive here transitively. Versions from Boot's BOM. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-webmvc</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- SNIPPET COMPILATION ONLY. The OpenAPI chapter teaches OpenApiCustomizer. springdoc is
          optional in platform-openapi-autoconfigure (a capability you don't add costs you nothing),
          so it does not arrive here transitively. Version from platform-dependencies. -->

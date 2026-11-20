@@ -1,0 +1,2 @@
+org.springframework.boot.logging.structured.StructuredLoggingJsonMembersCustomizer=\
+  spikes.S5bStructuredMaskingTest$Masking

@@ -51,12 +51,20 @@ Recorded as D141 in [`../../decisions/decision-log.md`](../../decisions/decision
    - **Field names:** `logging.structured.json.rename`, `exclude` and `add` keep the platform's field names without code.
 
    So the platform:
-   - sets `logging.structured.format.console=logstash` and `logging.structured.format.file=logstash`, the renames and
-     the `service` field as lowest-precedence defaults (rule 12, step 1). Setting the file format matters: a service that
-     sets `logging.file.name` would otherwise get Boot's plain pattern file, unmasked;
+   - sets `logging.structured.format.console` and `.file` to its own formatter, `PlatformLogstashFormatter`, as
+     lowest-precedence defaults (rule 12, step 1). It is Boot's Logstash layout with the platform's field names, written
+     by Boot's JSON writer with every members customizer Boot applies to its own formats. Setting the file format
+     matters: a service that sets `logging.file.name` would otherwise get Boot's plain pattern file, unmasked;
    - registers its customizer in `META-INF/spring.factories`, which Boot 4.1.2 loads
      (`StructuredLogFormatterFactory.JsonMembersCustomizerBuilder`). The customizer reuses the v3 masker
-     (`PlatformValueMasker`) with every boundary case Codex found in v3.
+     (`PlatformValueMasker`) with every boundary case Codex found in v3, and masks every format, Boot's ECS and GELF
+     included.
+
+   **Amended after Codex round 1** ([`review-round-1.md`](review-round-1.md)). The first version used Boot's own
+   `logstash` format with renames. A value processor cannot see the logging event, so it could not mask a message
+   argument by its structure (finding 3), and the renames and an added `service` member broke ECS and GELF (findings 12
+   and 13). The platform's formatter renders the message from its pattern, each argument masked by its structure first
+   (as v3's `SanitizedMessageView` did), and sanitizes each key-value pair before Boot writes it.
 
    **Removed:** `logback-platform.xml`, `PlatformJsonEncoder`, the raw-JSON and `Kv` serializers, and the
    `logstash-logback-encoder` dependency. The other option would keep a Logstash encoder that services cannot configure
@@ -73,13 +81,11 @@ Recorded as D141 in [`../../decisions/decision-log.md`](../../decisions/decision
    - **`LogSanitizer`:** its use, masking a service's own data, is covered by `dc.platform.logging.redaction.patterns`. A
      service that needs code can add its own customizer next to the platform's.
    - **Module:** `platform-logging-api` goes (ND15), and so does `LogSanitizerRegistry`.
-4. **The strict MDC allow-list is kept** (`dc.platform.logging.mdc.include`, D101). Boot writes MDC keys and key-value
-   pairs as top-level members alike, so in strict mode the customizer's path filter keeps only:
-   - Boot's standard fields;
-   - `traceId` and `spanId`;
-   - the listed keys, whether MDC or key-value.
-
-   The change is written on the module page.
+4. **The strict MDC allow-list is kept** (`dc.platform.logging.mdc.include`, D101). In strict mode the platform's
+   formatter writes only `traceId`, `spanId` and the listed keys of the MDC and the key-value pairs. It filters those
+   context keys only, so an unlisted key cannot pass under a name the layout uses (`stack_trace`, `tags`), and Boot's
+   other formats keep their own fields. Strict mode applies to the platform's format. The module page says that key-value
+   pairs are filtered too.
 5. **Actuator on its own port (ND13).**
    - **Default:** the observability defaults set `management.server.port=8081`. Probes and the Prometheus scrape live
      there, and the application port serves only the API. Gate F proves `/actuator/prometheus` is a 404 on the
@@ -96,8 +102,9 @@ Recorded as D141 in [`../../decisions/decision-log.md`](../../decisions/decision
 
 | Behaviour | Step | Mechanism |
 |---|---|---|
-| JSON lines, platform field names, `service`, no banner | 1 | `PlatformLoggingEnvironmentPostProcessor`: `logging.structured.format.console`, `logging.structured.json.rename.*`, `exclude`, `add.service`, `spring.main.banner-mode=off`, in `platform-logging-defaults` |
-| Masking, extra patterns, strict MDC | Boot | an internal `StructuredLoggingJsonMembersCustomizer` in `META-INF/spring.factories`; Boot instantiates it with the `Environment`, and it reads the kill switches |
+| JSON lines, platform field names, `service`, no banner | 1 | `PlatformLoggingEnvironmentPostProcessor`: `logging.structured.format.console` and `.file` (the platform's formatter), `logging.structured.json.context.include`, `spring.main.banner-mode=off`, in `platform-logging-defaults` |
+| Message arguments and key-value pairs masked by structure, strict MDC | Boot | the internal `PlatformLogstashFormatter`, which Boot instantiates for the format the defaults name |
+| Masking and extra patterns, in every format | Boot | an internal `StructuredLoggingJsonMembersCustomizer` in `META-INF/spring.factories`; Boot instantiates it with the `Environment`, and it reads the kill switches |
 | A user Logback file warned about | 3 | a startup WARN from `LoggingAutoConfiguration`, kill switch `dc.platform.logging.enabled` |
 | Readable console under `local` | 1 | the post-processor contributes nothing; Boot's own console logging |
 | Exposure, health groups, OTLP switch, management port | 1 | `PlatformObservabilityEnvironmentPostProcessor`, in `platform-observability-defaults` |
@@ -154,10 +161,16 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 | Credentials and the default PII set masked in message, MDC, arguments, exceptions and stack traces | HI-0033, D102, AC5 | `PlatformJsonEncoder`, `PlatformValueMasker`, `CredentialFieldMasker` | the platform customizer + `PlatformValueMasker` | `RedactedJsonLogOutputTest.masksEveryFieldTheEncoderWrites` (ported to Boot's output) | CARRIED |
 | Every v3 masker boundary case (quoted values, cookies, short credentials, `basic Basic`, compound names, long inputs) | HI-0040, HI-0042, HI-0044, D102 addendum | `PlatformValueMasker` | `PlatformValueMasker` | `PlatformValueMaskerTest` (all), `EncoderRedactionTest` rows ported | CARRIED |
 | Card numbers logged as numbers (`double`, arrays) masked | HI-0050 | `PlatformValueMasker`, encoder | customizer value processor (sees `Double`, spike) | `cardNumbersLoggedAsNumbersAreMasked` | CARRIED |
-| A credential-named field is masked whatever its value type or nesting | HI-0049, D102 | `CredentialFieldMasker`, `KvJsonSerializer` | customizer, by member path name | `credentialNamesWinForEveryValueTypeAndNesting` | CARRIED |
-| An object value (record, POJO) reaches the log only as masked text | spike S5b | Jackson through the Logstash encoder | customizer: unknown objects rendered with `toString()` and masked | new `objectValuesAreRenderedAsMaskedText` | NEW RISK |
-| `raw(...)` JSON and Logstash markers cannot bypass masking | HI-0047, HI-0048 | `RawJsonMaskingGenerator`, `SanitizedMessageView` | — (no Logstash markers or raw JSON on the classpath) | AC18 source scan | RETIRED |
-| `LogSanitizer` beans applied to MDC and arguments | HI-0034, AC6 | `LogSanitizerRegistry`, `SanitizedMessageView` | `dc.platform.logging.redaction.patterns`; a service's own customizer | `redactionCanBeSwitchedOffAndExtended` | RETIRED |
+| A credential-named field is masked whatever its value type or nesting, renamed too | HI-0049, D102 | `CredentialFieldMasker`, `KvJsonSerializer` | `PlatformValueMasker` walk, by name; `PlatformLogMasking` for a rename | `credentialNamesWinForEveryValueTypeAndNesting`, `aMemberRenamedToACredentialNameIsMasked` | CARRIED |
+| An object value keeps its property names: records by component, beans by getter; JDK value types, `Path`, `char[]` and other character data as masked text read once; every `Number` checked | HI-0049, Codex r1 4-7 | Jackson through the Logstash encoder | `PlatformValueMasker` walk | `objectValuesAreRenderedAsMaskedText`, `beanPropertiesKeepTheirNames`, `textLikeValuesAreRenderedOnceAndMasked`, `everyKindOfNumberIsChecked`, `characterArraysAreText` | CARRIED |
+| A message argument is masked by its structure; one whose `toString()` throws costs only its place | `SanitizedMessageView`, R2-F4, R2-F8 | `SanitizedMessageView` | `PlatformLogstashFormatter.message` | `messageArgumentsAreMaskedByTheirStructure`, `aThrowingMessageArgumentCostsOnlyItsPlaceInTheJsonLine` | CARRIED |
+| A throwing `toString()` in a message argument is reported on stderr by SLF4J, unmasked, when the appender formats the message | Codex r1 3 | Logback `OutputStreamAppender` (`prepareForDeferredProcessing`) | unchanged | documented limit (module page) | CARRIED (limit) |
+| Raw JSON cannot bypass masking: a logged `WritableJson` is masked text | HI-0047, HI-0048, Codex r1 2 | `RawJsonMaskingGenerator`, `SanitizedMessageView` | `PlatformLogstashFormatter` (key-value pairs), `PlatformValueMasker` walk | `writableJsonIsMaskedText` | CARRIED |
+| Containers holding themselves, branching cycles and very large values stay bounded; a shared value is shown at each place | `SanitizedMessageView`, Codex r1 14 | `SanitizedMessageView` | `PlatformValueMasker` walk (identity ancestors, node budget) | `aContainerHoldingItselfEndsTheDescentMasked`, `branchingCyclesAndLargeValuesStayBounded`, `aSharedButAcyclicValueIsShownAtEachPlace` | CARRIED |
+| A service masks its own data, numbers included | HI-0034, AC6 | `LogSanitizerRegistry`, `SanitizedMessageView` | `dc.platform.logging.redaction.patterns`; a service's own customizer | `redactionCanBeSwitchedOffAndExtended`, `extraPatternsReachNumbers`, `aServicesOwnCustomizerAddsToThePlatformMasking` | CARRIED |
+| Boot's ECS and GELF formats, if a service picks one, stay valid and masked | Codex r1 12, 13 | — | `PlatformLogMasking` | `bootsOtherFormatsStillWorkAndAreMasked` | NEW RISK |
+| An invalid extra pattern fails startup only when masking is on | Codex r1 17 | encoder start | `PlatformLogMasking.masker` | `anInvalidPatternFailsOnlyWhenMaskingIsOn` | CARRIED |
+| Console logging after a JSON start in the same JVM is console | Codex r1 18 | — | post-processor clears the platform's format system properties | `consoleLoggingAfterAJsonStartInTheSameJvmIsConsole`, `aFormatThePlatformSetInAnEarlierStartIsClearedForConsoleLogging` | NEW RISK |
 | Masking applies alongside a service's own customizer | decision 2 | — | `META-INF/spring.factories` | new `aServicesOwnCustomizerAddsToThePlatformMasking` | NEW RISK |
 | A log file (`logging.file.name`) is masked JSON, not plain text | contract 8 | `logback-platform.xml` (no file appender) | post-processor `logging.structured.format.file` | new `aLogFileIsMaskedJson` | NEW RISK |
 | A service's own Logback file bypasses masking (as in v3) | decision 2 | `logback-platform.xml` comment | module page + startup WARN | new `aUserLogbackFileLogsAWarning` | NEW RISK |
@@ -173,6 +186,7 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 | The `dependencies` group names only shipped capabilities | HI-0112 | observability post-processor (`db,rabbit,redis,restclient`) | `db,rabbit` | `contributedDefaultsSnapshot` | NEW (fix) |
 | Minimal exposure: `health,info,prometheus` | HI-0032, D105 | observability post-processor | unchanged | `onlyHealthInfoAndPrometheusAreExposed` | CARRIED |
 | Actuator unreachable on the application port | ND13 | — | observability post-processor (`management.server.port`) | new `managementRunsOnItsOwnPort`; AC9 (consumer) | NEW RISK |
+| An application port moved onto the management port fails startup instead of exposing actuator | Codex r1 1 | — | observability post-processor | `anApplicationPortOnThePlatformsManagementPortFailsStartup`, `anApplicationPortOnTheManagementPortRefusesToStart` | NEW RISK |
 | Tests with a random port get a random management port | decision 5 | — | observability post-processor | new `aRandomServerPortGivesARandomManagementPort` | NEW RISK |
 | `otlp.enabled=true` really exports spans | HI-0039 | starter + post-processor | unchanged | `theSwitchTurnsOnTheOtlpSpanExporter` | CARRIED |
 | The capability gauge exists when Boot creates the registry | HI-0043 | `CapabilityMetricsAutoConfiguration` | unchanged | `scrapeCarriesCommonTagsAndNoHighCardinalityValues` | CARRIED |
@@ -183,8 +197,10 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 | Shutdown lines are JSON on stdout; exit 143 | AC14, contract 10 | encoder | Boot's writer | AC14 (consumer) | CARRIED |
 
 **Mitigations for the `NEW RISK` rows:**
-- **Object values:** objects are rendered as masked text; records keep their component names. A service that needs
-  field-name masking logs a `Map`. The module page says so.
+- **Other formats:** the customizer masks every value in ECS and GELF; masking a message argument by its structure and
+  strict mode need the platform's format. The module page says so.
+- **Same-JVM restarts:** the post-processor clears only a format system property that holds the platform's formatter.
+- **Port collision:** startup fails with a message naming both properties.
 - **A service's own customizer:** the platform's comes from `spring.factories`, so it cannot be listed away.
 - **Log file:** the file format defaults to the same masked JSON.
 - **A service's own Logback file:** a WARN at startup, and a documented limit.

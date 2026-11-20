@@ -1,7 +1,9 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogstashFormatter;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
@@ -19,13 +21,14 @@ import org.springframework.core.env.MapPropertySource;
  *
  * <p>In JSON mode it defaults, for the console and for a log file:
  * <ul>
- *   <li>{@code logging.structured.format.console} and {@code .file} to {@code logstash};</li>
- *   <li>{@code logger_name} renamed {@code logger}; {@code @version}, {@code thread_name} and {@code level_value}
- *       left out; a {@code service} member ({@code dc.platform.logging.service-name}, else
- *       {@code spring.application.name}, else {@code application});</li>
+ *   <li>{@code logging.structured.format.console} and {@code .file} to the platform's formatter,
+ *       {@code PlatformLogstashFormatter}: the Logstash layout with the platform's field names and a {@code service}
+ *       member;</li>
  *   <li>{@code logging.structured.json.context.include} from {@code dc.platform.logging.include-mdc};</li>
  *   <li>no ASCII banner, which would put non-JSON lines on stdout (D108).</li>
  * </ul>
+ * In console mode, or switched off, it contributes nothing, and clears a format system property the platform set in
+ * an earlier start in the same JVM.
  *
  * <p>Defaults land in a LOWEST-precedence property source named {@code platform-logging-defaults}, so user
  * configuration always wins and the source name is visible in {@code /actuator/env} (property-conventions §7).
@@ -39,38 +42,31 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     /** Property-source name; keep stable — operators grep for it in /actuator/env. */
     static final String PROPERTY_SOURCE_NAME = "platform-logging-defaults";
 
-    /** Boot's structured format the platform uses. */
-    static final String FORMAT = "logstash";
+    /** The platform's structured format: the Logstash layout with the platform's field names. */
+    static final String FORMAT = PlatformLogstashFormatter.class.getName();
+
+    // Boot copies logging.structured.format.* into these JVM system properties when logging starts, and only when they
+    // are not set yet; it never clears them.
+    static final List<String> FORMAT_SYSTEM_PROPERTIES = List.of("CONSOLE_LOG_STRUCTURED_FORMAT",
+            "FILE_LOG_STRUCTURED_FORMAT");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)) {
-            return;
-        }
-        if (!jsonFormatResolved(environment)) {
-            // Console format = Boot's own logging defaults; nothing to contribute.
+        if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)
+                || !jsonFormatResolved(environment)) {
+            // Boot's own logging. A format the platform set in an earlier start in this JVM must not outlive it.
+            FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> FORMAT.equals(System.getProperty(name)))
+                    .forEach(System::clearProperty);
             return;
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("logging.structured.format.console", FORMAT);
         // A service that sets logging.file.name gets the same masked JSON, not Boot's plain pattern file.
         defaults.put("logging.structured.format.file", FORMAT);
-        defaults.put("logging.structured.json.rename.logger_name", "logger");
-        defaults.put("logging.structured.json.exclude", "@version,thread_name,level_value");
-        defaults.put("logging.structured.json.add.service", serviceName(environment));
         defaults.put("logging.structured.json.context.include",
                 environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
-    }
-
-    // dc.platform.logging.service-name > spring.application.name > "application".
-    private static String serviceName(Environment environment) {
-        String explicit = environment.getProperty("dc.platform.logging.service-name");
-        if (explicit != null && !explicit.isBlank()) {
-            return explicit;
-        }
-        return environment.getProperty("spring.application.name", "application");
     }
 
     /**

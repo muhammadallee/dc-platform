@@ -186,6 +186,38 @@ class RedactedJsonLogOutputTest {
     }
 
     @SuppressWarnings("unchecked")
+    @Test
+    void aThrowingMessageArgumentCostsOnlyItsPlaceInTheJsonLine(CapturedOutput output) {
+        // Codex phase 3 round 1, finding 3, through a real console appender. The appender also has SLF4J format the
+        // message before any encoder runs (Logback's prepareForDeferredProcessing), and SLF4J reports a throwing
+        // toString() on stderr itself: a documented limit, as in v3, which wrote through the same appender.
+        Object hostile = new Object() {
+            @Override
+            public String toString() {
+                throw new IllegalStateException("lazy state");
+            }
+        };
+        try (ConfigurableApplicationContext context = boot()) {
+            log.info("argument probe {} {}", Map.of("password", "correct horse battery staple"), hostile);
+        }
+        Map<String, Object> event = parse(line(output, "argument probe"));
+        assertThat(event).containsEntry("message", "argument probe {password=****} [unrenderable]");
+    }
+
+    @Test
+    void consoleLoggingAfterAJsonStartInTheSameJvmIsConsole(CapturedOutput output) {
+        // Codex phase 3 round 1, finding 18: no cleanup between the two starts.
+        try (ConfigurableApplicationContext context = boot()) {
+            log.info("first start");
+        }
+        ((LoggerContext) LoggerFactory.getILoggerFactory()).reset();
+        try (ConfigurableApplicationContext context = boot("--spring.profiles.active=local")) {
+            log.info("second start");
+        }
+        assertThat(line(output, "first start")).startsWith("{");
+        assertThat(line(output, "second start")).doesNotStartWith("{");
+    }
+
     private static Map<String, Object> parse(String line) {
         return new JsonMapper().readValue(line, Map.class);
     }

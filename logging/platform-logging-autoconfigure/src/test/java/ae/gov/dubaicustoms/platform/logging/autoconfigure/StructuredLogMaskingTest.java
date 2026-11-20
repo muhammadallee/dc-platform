@@ -187,7 +187,7 @@ class StructuredLogMaskingTest {
         };
         String line = encode(event("stored").pair("password", "hunter2").pair("entity", hostile));
         assertThat(line).doesNotContain("hunter2").doesNotContain("hunter3")
-                .contains("\"entity\":\"[toString() failed: java.lang.IllegalStateException]\"");
+                .contains("\"entity\":\"[unrenderable]\"");
     }
 
     @Test
@@ -210,7 +210,7 @@ class StructuredLogMaskingTest {
             }
         };
         String line = encode(event("stored").pair("a", asserting).pair("entity", flaky));
-        assertThat(line).contains("\"a\":\"[toString() failed: java.lang.AssertionError]\"").contains("\"entity\":\"ok\"")
+        assertThat(line).contains("\"a\":\"[unrenderable]\"").contains("\"entity\":\"ok\"")
                 .doesNotContain("hunter4");
     }
 
@@ -294,6 +294,206 @@ class StructuredLogMaskingTest {
         environment.setProperty("logging.structured.format.console", "logstash");
         start(environment);
         assertThat(encode(event("password=hunter2"))).contains("password=hunter2").contains("\"logger_name\"");
+    }
+
+    // --- Codex phase 3 round 1 -------------------------------------------------------------------------------
+
+    @Test
+    void writableJsonIsMaskedText() {
+        // Finding 2: Boot writes a WritableJson as raw JSON, past the value processor.
+        String line = encode(event("stored").pair("raw",
+                org.springframework.boot.json.JsonWriter.standard().write(Map.of("password", "hunter2"))));
+        assertThat(line).doesNotContain("hunter2");
+        assertThat(parse(line).get("raw")).isInstanceOf(String.class);
+    }
+
+    @Test
+    void messageArgumentsAreMaskedByTheirStructure() {
+        // Finding 3: a map argument's credential value is masked whole, spaces and all; a throwing argument costs only
+        // its own place.
+        Object hostile = new Object() {
+            @Override
+            public String toString() {
+                throw new IllegalStateException("password=hunter6");
+            }
+        };
+        String line = encode(event("login {} by {} as {}", Map.of("password", "correct horse battery staple"), hostile,
+                List.of(Map.of("token", "tk-1"))));
+        assertThat(line).doesNotContain("horse").doesNotContain("staple").doesNotContain("hunter6")
+                .doesNotContain("tk-1");
+        assertThat(parse(line).get("message"))
+                .isEqualTo("login {password=****} by [unrenderable] as [{token=****}]");
+    }
+
+    /** A bean whose credential is a property and whose toString does not label it (finding 4). */
+    public static final class Account {
+        public String getUser() {
+            return "ali";
+        }
+
+        public String getPassword() {
+            return "unlabelled-secret-7";
+        }
+
+        public boolean isActive() {
+            return true;
+        }
+
+        public String getBroken() {
+            throw new IllegalStateException("password=hunter8");
+        }
+
+        @Override
+        public String toString() {
+            return "Account ali unlabelled-secret-7";
+        }
+    }
+
+    @Test
+    void beanPropertiesKeepTheirNames() {
+        String line = encode(event("stored {}", new Account()).pair("account", new Account()));
+        assertThat(line).doesNotContain("unlabelled-secret-7").doesNotContain("hunter8");
+        assertThat(parse(line).get("account")).isEqualTo(Map.of("active", true, "broken", "[unrenderable]",
+                "password", "****", "user", "ali"));
+    }
+
+    @Test
+    void textLikeValuesAreRenderedOnceAndMasked() {
+        // Finding 5: a Path, and a CharSequence whose text changes after the first read.
+        CharSequence stateful = new CharSequence() {
+            private int reads;
+
+            @Override
+            public String toString() {
+                return ++reads == 1 ? "ok" : "password=hunter9";
+            }
+
+            @Override
+            public int length() {
+                return toString().length();
+            }
+
+            @Override
+            public char charAt(int index) {
+                return toString().charAt(index);
+            }
+
+            @Override
+            public CharSequence subSequence(int start, int end) {
+                return toString().subSequence(start, end);
+            }
+        };
+        String line = encode(event("stored").pair("path", java.nio.file.Path.of("password=hunter2"))
+                .pair("stateful", stateful));
+        assertThat(line).doesNotContain("hunter2").doesNotContain("hunter9");
+        assertThat(parse(line)).containsEntry("path", "password=****").containsEntry("stateful", "ok");
+    }
+
+    @Test
+    void everyKindOfNumberIsChecked() {
+        // Finding 6: an AtomicLong card number, and non-finite doubles as valid JSON.
+        String line = encode(event("stored").pair("card", new java.util.concurrent.atomic.AtomicLong(4111111111111111L))
+                .pair("nan", Double.NaN).pair("infinite", Float.NEGATIVE_INFINITY).pair("count", new
+                        java.util.concurrent.atomic.AtomicInteger(3)));
+        assertThat(line).doesNotContain("4111111111111111");
+        assertThat(parse(line)).containsEntry("card", "****").containsEntry("nan", "NaN")
+                .containsEntry("infinite", "-Infinity").containsEntry("count", 3);
+    }
+
+    @Test
+    void characterArraysAreText() {
+        // Finding 7.
+        String line = encode(event("stored").pair("contact", "alice@example.com".toCharArray())
+                .pair("nested", List.of((Object) "Bearer abcdefgh12345678".toCharArray())));
+        assertThat(line).doesNotContain("alice").doesNotContain("abcdefgh12345678");
+        assertThat(parse(line)).containsEntry("contact", "****").containsEntry("nested", List.of("Bearer ****"));
+    }
+
+    @Test
+    void extraPatternsReachNumbers() {
+        // Finding 8: the replacement for a LogSanitizer bean on numbers, nested too.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "^12345678$"));
+        String line = encode(event("stored {}", 12345678L).pair("accountNo", 12345678L)
+                .pair("nested", Map.of("accounts", List.of(12345678, 42))));
+        assertThat(line).doesNotContain("12345678");
+        assertThat(parse(line)).containsEntry("accountNo", "****")
+                .containsEntry("nested", Map.of("accounts", List.of("****", 42)));
+    }
+
+    @Test
+    void aMemberRenamedToACredentialNameIsMasked() {
+        // Finding 9: Boot's rename keeps the original name in the path.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("logging.structured.json.rename.auth", "password"));
+        String line = encode(event("stored").pair("auth", "correct horse battery staple"));
+        assertThat(line).doesNotContain("horse");
+        assertThat(parse(line)).containsEntry("password", "****");
+    }
+
+    @Test
+    void strictModeFiltersOnlyContextKeysWhateverTheirNames() {
+        // Finding 11: an unlisted MDC key named like a layout member is left out too.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.mdc.include", "tenant"));
+        String line = encode(event("strict").mdc("stack_trace", "mdc-secret").mdc("tags", "mdc-tags")
+                .mdc("tenant", "dubai").mdc("traceId", "4bf92f3577b34da6a3ce929d0e0e4736").pair("unlisted", "y"));
+        assertThat(line).doesNotContain("mdc-secret").doesNotContain("mdc-tags").doesNotContain("unlisted");
+        assertThat(parse(line)).containsEntry("tenant", "dubai").containsEntry("traceId", "4bf92f3577b34da6a3ce929d0e0e4736")
+                .containsKeys("@timestamp", "message", "logger", "level", "service");
+    }
+
+    @Test
+    void bootsOtherFormatsStillWorkAndAreMasked() {
+        // Findings 12 and 13: a service that picks ECS or GELF gets that format, masked, with its own fields.
+        for (String format : List.of("ecs", "gelf", "logstash")) {
+            encoder.stop();
+            MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.mdc.include", "tenant");
+            environment.setProperty("logging.structured.format.console", format);
+            environment.setProperty("spring.application.name", "orders");
+            start(environment);
+            String line = encode(event("as {} password=hunter2", format).mdc("tenant", "dubai"));
+            assertThat(line).as(format).doesNotContain("hunter2").contains("password=****");
+            assertThat(parse(line)).as(format).isNotEmpty();
+        }
+    }
+
+    @Test
+    void branchingCyclesAndLargeValuesStayBounded() {
+        // Finding 14: a map holding itself under two keys, and a value with more nodes than the budget.
+        Map<String, Object> loop = new HashMap<>();
+        loop.put("left", loop);
+        loop.put("right", loop);
+        List<Object> wide = new ArrayList<>();
+        for (int i = 0; i < 50_000; i++) {
+            wide.add(i);
+        }
+        long started = System.nanoTime();
+        String line = encode(event("stored").pair("loop", loop).pair("wide", wide));
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
+        assertThat(parse(line).get("loop")).isEqualTo(Map.of("left", "****", "right", "****"));
+        assertThat(line).contains("\"****\"");
+    }
+
+    @Test
+    void aSharedButAcyclicValueIsShownAtEachPlace() {
+        List<String> shared = List.of("x");
+        String line = encode(event("stored").pair("pair", List.of(shared, shared)));
+        assertThat(parse(line).get("pair")).isEqualTo(List.of(List.of("x"), List.of("x")));
+    }
+
+    @Test
+    void anInvalidPatternFailsOnlyWhenMaskingIsOn() {
+        // Finding 17.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "[")
+                .withProperty("dc.platform.logging.redaction.enabled", "false"));
+        assertThat(message("password=hunter2")).isEqualTo("password=hunter2");
+        encoder.stop();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogMasking.masker(
+                new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "[")))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("dc.platform.logging.redaction.patterns");
+        start(new MockEnvironment());
     }
 
     // --- helpers -------------------------------------------------------------------------------------------------

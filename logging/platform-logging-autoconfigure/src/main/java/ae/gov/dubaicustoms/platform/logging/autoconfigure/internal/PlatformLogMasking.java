@@ -1,9 +1,8 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.springframework.boot.context.properties.bind.Bindable;
@@ -14,32 +13,22 @@ import org.springframework.boot.logging.structured.StructuredLoggingJsonMembersC
 import org.springframework.core.env.Environment;
 
 /**
- * The platform's masking and strict MDC mode for Boot's structured JSON logging (D141). Registered in
+ * The platform's masking for Boot's structured JSON logging, in every format (D141). Registered in
  * {@code META-INF/spring.factories}, so Boot applies it alongside any customizer a service names in
  * {@code logging.structured.json.customizer}; a service never names this class.
  *
- * <p>Boot creates it when logging starts, before the application context, with the {@code Environment}:
- * <ul>
- *   <li>{@code dc.platform.logging.enabled=false}: does nothing (Boot's own logging, unchanged);</li>
- *   <li>{@code dc.platform.logging.redaction.enabled} (default {@code true}): masks every value with
- *       {@link PlatformValueMasker}, plus the patterns in {@code dc.platform.logging.redaction.patterns};</li>
- *   <li>{@code dc.platform.logging.mdc.include} (strict mode when not empty): writes only Boot's own top-level
- *       members, {@code service}, {@code traceId}, {@code spanId} and the listed keys. Boot writes MDC keys and
- *       key-value pairs alike as top-level members, so strict mode filters both.</li>
- * </ul>
+ * <p>Boot creates it when logging starts, before the application context, with the {@code Environment}. It masks
+ * every value with {@link PlatformValueMasker} (plus the patterns in {@code dc.platform.logging.redaction.patterns}),
+ * and a member that {@code logging.structured.json.rename} renames to a credential name is masked whole. It does
+ * nothing when {@code dc.platform.logging.enabled} or {@code dc.platform.logging.redaction.enabled} is {@code false};
+ * the patterns are then not even read.
  *
  * <p>Immutable once created; thread-safe.
  */
 public final class PlatformLogMasking implements StructuredLoggingJsonMembersCustomizer<Object> {
 
-    // Top-level members Boot's formats and the platform's defaults write, under their own and their renamed names.
-    private static final Set<String> STANDARD_MEMBERS = Set.of("@timestamp", "@version", "message", "logger_name",
-            "logger", "thread_name", "level", "level_value", "tags", "stack_trace", "service", "traceId", "spanId");
-
-    private final boolean enabled;
-    private final boolean redaction;
-    private final Set<String> strictMembers;
     private final PlatformValueMasker masker;
+    private final Map<String, String> renames;
 
     /**
      * Reads the logging switches.
@@ -47,37 +36,47 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
      * @param environment the application's environment, as Boot passes it when logging starts; never {@code null}
      */
     public PlatformLogMasking(Environment environment) {
-        Binder binder = Binder.get(environment);
-        this.enabled = environment.getProperty("dc.platform.logging.enabled", Boolean.class, true);
-        this.redaction = environment.getProperty("dc.platform.logging.redaction.enabled", Boolean.class, true);
-        List<String> include = binder.bind("dc.platform.logging.mdc.include", Bindable.listOf(String.class))
-                .orElse(List.of());
-        Set<String> strict = new LinkedHashSet<>();
-        if (!include.isEmpty()) {
-            strict.addAll(STANDARD_MEMBERS);
-            include.stream().map(String::strip).filter(key -> !key.isEmpty()).forEach(strict::add);
-        }
-        this.strictMembers = Set.copyOf(strict);
-        this.masker = new PlatformValueMasker(compile(binder.bind("dc.platform.logging.redaction.patterns",
-                Bindable.listOf(String.class)).orElse(List.of())));
+        this.masker = masker(environment);
+        this.renames = masker == null ? Map.of() : Binder.get(environment)
+                .bind("logging.structured.json.rename", Bindable.mapOf(String.class, String.class)).orElse(Map.of());
     }
 
     @Override
     public void customize(Members<Object> members) {
-        if (!enabled) {
-            return;
-        }
-        if (!strictMembers.isEmpty()) {
-            members.applyingPathFilter(this::filteredOut);
-        }
-        if (redaction) {
-            members.applyingValueProcessor(masker::mask);
+        if (masker != null) {
+            members.applyingValueProcessor((MemberPath path, Object value) ->
+                    renamedToACredential(path) ? PlatformValueMasker.MASK : masker.mask(path, value));
         }
     }
 
-    // Strict mode: a top-level member that is neither standard nor listed is left out.
-    private boolean filteredOut(MemberPath path) {
-        return PlatformValueMasker.topLevel(path) && !strictMembers.contains(path.name());
+    /**
+     * The masker the switches call for: {@code null} when logging or redaction is switched off.
+     *
+     * @param environment the application's environment; never {@code null}
+     * @return the masker, or {@code null}
+     * @throws IllegalStateException when an extra pattern is not a valid regular expression
+     */
+    public static PlatformValueMasker masker(Environment environment) {
+        if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)
+                || !environment.getProperty("dc.platform.logging.redaction.enabled", Boolean.class, true)) {
+            return null;
+        }
+        return new PlatformValueMasker(compile(Binder.get(environment)
+                .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())));
+    }
+
+    // Boot keeps the original name in the path and writes the renamed one: the renamed name counts too.
+    private boolean renamedToACredential(MemberPath path) {
+        if (renames.isEmpty()) {
+            return false;
+        }
+        for (MemberPath p = path; p != null && p.parent() != null; p = p.parent()) {
+            String target = renames.get(p.toUnescapedString());
+            if (target != null && PlatformValueMasker.isCredentialKey(target.substring(target.lastIndexOf('.') + 1))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<Pattern> compile(List<String> patterns) {

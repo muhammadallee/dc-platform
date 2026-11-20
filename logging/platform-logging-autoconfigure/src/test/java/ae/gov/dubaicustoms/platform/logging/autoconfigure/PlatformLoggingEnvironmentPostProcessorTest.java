@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogstashFormatter;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.mock.env.MockEnvironment;
@@ -12,7 +13,7 @@ import org.springframework.mock.env.MockEnvironment;
 class PlatformLoggingEnvironmentPostProcessorTest {
 
     private static final String CONSOLE_FORMAT = "logging.structured.format.console";
-    private static final String SERVICE = "logging.structured.json.add.service";
+    private static final String FORMATTER = PlatformLogstashFormatter.class.getName();
 
     private final PlatformLoggingEnvironmentPostProcessor postProcessor =
             new PlatformLoggingEnvironmentPostProcessor();
@@ -23,41 +24,11 @@ class PlatformLoggingEnvironmentPostProcessorTest {
 
         postProcessor.postProcessEnvironment(environment, null);
 
-        assertThat(environment.getProperty(CONSOLE_FORMAT)).isEqualTo("logstash");
-        assertThat(environment.getProperty("logging.structured.format.file")).isEqualTo("logstash");
+        assertThat(environment.getProperty(CONSOLE_FORMAT)).isEqualTo(FORMATTER);
+        assertThat(environment.getProperty("logging.structured.format.file")).isEqualTo(FORMATTER);
         assertThat(environment.getProperty("logging.config")).isNull();
         assertThat(environment.getPropertySources()
                 .contains(PlatformLoggingEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isTrue();
-    }
-
-    @Test
-    void serviceNameDefaultsToSpringApplicationName() {
-        MockEnvironment environment = new MockEnvironment()
-                .withProperty("spring.application.name", "orders");
-
-        postProcessor.postProcessEnvironment(environment, null);
-
-        assertThat(environment.getProperty(SERVICE)).isEqualTo("orders");
-    }
-
-    @Test
-    void anExplicitServiceNameBeatsTheApplicationName() {
-        MockEnvironment environment = new MockEnvironment()
-                .withProperty("spring.application.name", "orders")
-                .withProperty("dc.platform.logging.service-name", "orders-api");
-
-        postProcessor.postProcessEnvironment(environment, null);
-
-        assertThat(environment.getProperty(SERVICE)).isEqualTo("orders-api");
-    }
-
-    @Test
-    void serviceNameFallsBackToApplicationWhenUnnamed() {
-        MockEnvironment environment = new MockEnvironment();
-
-        postProcessor.postProcessEnvironment(environment, null);
-
-        assertThat(environment.getProperty(SERVICE)).isEqualTo("application");
     }
 
     @Test
@@ -97,7 +68,35 @@ class PlatformLoggingEnvironmentPostProcessorTest {
 
         postProcessor.postProcessEnvironment(environment, null);
 
-        assertThat(environment.getProperty(CONSOLE_FORMAT)).isEqualTo("logstash");
+        assertThat(environment.getProperty(CONSOLE_FORMAT)).isEqualTo(FORMATTER);
+    }
+
+    @Test
+    void aFormatThePlatformSetInAnEarlierStartIsClearedForConsoleLogging() {
+        // Codex phase 3 round 1, finding 18: Boot never clears the system property it copied the format into.
+        String previousConsole = System.getProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
+        String previousFile = System.getProperty("FILE_LOG_STRUCTURED_FORMAT");
+        try {
+            System.setProperty("CONSOLE_LOG_STRUCTURED_FORMAT", FORMATTER);
+            System.setProperty("FILE_LOG_STRUCTURED_FORMAT", "ecs");
+            MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.format", "console");
+
+            postProcessor.postProcessEnvironment(environment, null);
+
+            assertThat(System.getProperty("CONSOLE_LOG_STRUCTURED_FORMAT")).isNull();
+            assertThat(System.getProperty("FILE_LOG_STRUCTURED_FORMAT")).as("not the platform's: kept").isEqualTo("ecs");
+        } finally {
+            restore("CONSOLE_LOG_STRUCTURED_FORMAT", previousConsole);
+            restore("FILE_LOG_STRUCTURED_FORMAT", previousFile);
+        }
+    }
+
+    private static void restore(String name, String value) {
+        if (value == null) {
+            System.clearProperty(name);
+        } else {
+            System.setProperty(name, value);
+        }
     }
 
     @Test
@@ -142,11 +141,8 @@ class PlatformLoggingEnvironmentPostProcessorTest {
         MapPropertySource defaults = (MapPropertySource) environment.getPropertySources()
                 .get(PlatformLoggingEnvironmentPostProcessor.PROPERTY_SOURCE_NAME);
         Map<String, Object> expected = new LinkedHashMap<>();
-        expected.put(CONSOLE_FORMAT, "logstash");
-        expected.put("logging.structured.format.file", "logstash");
-        expected.put("logging.structured.json.rename.logger_name", "logger");
-        expected.put("logging.structured.json.exclude", "@version,thread_name,level_value");
-        expected.put(SERVICE, "orders");
+        expected.put(CONSOLE_FORMAT, FORMATTER);
+        expected.put("logging.structured.format.file", FORMATTER);
         expected.put("logging.structured.json.context.include", "true");
         expected.put("spring.main.banner-mode", "off");
         assertThat(defaults.getSource()).containsExactlyEntriesOf(expected);

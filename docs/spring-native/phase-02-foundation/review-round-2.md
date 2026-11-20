@@ -52,6 +52,11 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   folding hiding source literals).
 - [`r2-verify12.out.md`](codex/r2-verify12.out.md): the five closed (`d023c5d`); three gaps in finding `DataAccessFailure`
   constructions (delegating `this(…)`, `::new`, generic or annotated type names) and a string-truncating erasure.
-- Verification 13: constructions resolved by element; javac's erasure. Pending: Codex usage limit until
-  2026-11-20 02:59.
+- [`r2-verify13.out.md`](codex/r2-verify13.out.md): constructions resolved by element, and javac's erasure
+  (`dbb00db`). Five more escapes, all in unusual `DataAccessFailure` shapes (a compound-assigned `code`, a varargs
+  constructor, unresolved constructions guessed at argument 1, a record's compact constructor), plus `setProperty`
+  with three arguments; an empty varargs call crashed the scanner.
+- Verification 14: the gate stopped supporting general shapes. Only the audited enum may be named `DataAccessFailure`,
+  with its one `(int status, String code, String detail)` constructor; everything else, and any unresolved
+  construction of that name, is reported. `setProperty` with other than two arguments is reported.
 

@@ -232,10 +232,11 @@ assert_jar() { # project package features artifactId -> echoes jar path
   grep -q '^Main-Class: org.springframework.boot.loader.launch.JarLauncher' <<<"$manifest" || fail "$artifact: jar not repackaged"
   grep -q "^Start-Class: $pkg.Application" <<<"$manifest" || fail "$artifact: wrong Start-Class"
   listing=$(unzip -l "$jar")
-  for entry in "BOOT-INF/classes/application.yml" "BOOT-INF/lib/platform-logging-autoconfigure-$REV.jar" \
-               "BOOT-INF/lib/logstash-logback-encoder-"; do
+  for entry in "BOOT-INF/classes/application.yml" "BOOT-INF/lib/platform-logging-autoconfigure-$REV.jar"; do
     grep -q "$entry" <<<"$listing" || fail "$artifact: jar lacks $entry"
   done
+  # JSON logs are Boot's structured logging (D141): the Logstash encoder is gone.
+  ! grep -q "BOOT-INF/lib/logstash-logback-encoder-" <<<"$listing" || fail "$artifact: jar still carries logstash-logback-encoder"
   if has "$features" data; then
     grep -q "BOOT-INF/classes/db/migration/V1__create_note.sql" <<<"$listing" || fail "$artifact: migration not packaged"
     grep -q "BOOT-INF/lib/spring-boot-flyway-" <<<"$listing" || fail "$artifact: Boot Flyway integration not packaged"

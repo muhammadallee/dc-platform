@@ -36,7 +36,6 @@ class AdoptPlatformTest {
         assertThat(recipe.getRecipeList()).hasSizeGreaterThanOrEqualTo(2);
         assertThat(steps)
                 .contains("spring-rabbit")
-                .contains("logstash-logback-encoder").contains("platform-starter-logging")
                 .contains("FlagHandRolledExceptionHandler")
                 // Kafka was cut and the OpenAPI starter is parked: the recipe must not add either.
                 .doesNotContain("spring-kafka")

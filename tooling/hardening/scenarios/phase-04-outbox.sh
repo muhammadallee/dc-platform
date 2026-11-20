@@ -141,7 +141,7 @@ printf '%s\n' "${APP_ENV[@]}" | sed -E 's/(PASSWORD=).*/\1****/' > "$HH_EVIDENCE
 
 hh_step "boot in prod; Flyway applies the copied DDL as the owner; the runtime user has DML only"
 HH_APP_NAME=first hh_app_start "${APP_ENV[@]}" PROBE_INSTANCE=first
-FIRST="$HH_APP_CONTAINER"; FIRST_BASE="$HH_BASE"
+FIRST="$HH_APP_CONTAINER"; FIRST_BASE="$HH_BASE"; FIRST_MGMT_BASE="$HH_MGMT_BASE"
 hh_wait_ready 300
 HISTORY=$(printf 'set heading off feedback off pagesize 0\nselect "version" || %s || "success" from %s."flyway_schema_history" order by "installed_rank";\nexit\n' "' '" "$OWNER" | sys_sql)
 echo "$HISTORY" > "$HH_EVIDENCE/flyway-history.out"
@@ -273,27 +273,27 @@ done
 
 hh_step "AC8 two instances, 500 events: none lost, none sent twice, both instances share the work"
 HH_APP_NAME=second hh_app_start "${APP_ENV[@]}" PROBE_INSTANCE=second
-SECOND="$HH_APP_CONTAINER"; SECOND_BASE="$HH_BASE"
+SECOND="$HH_APP_CONTAINER"; SECOND_BASE="$HH_BASE"; SECOND_MGMT_BASE="$HH_MGMT_BASE"
 hh_wait_ready 300
 SENT_BEFORE_2=$(metric platform_outbox_sent_total)
-HH_BASE=$FIRST_BASE; SENT_BEFORE_1=$(metric platform_outbox_sent_total)
+HH_BASE=$FIRST_BASE; HH_MGMT_BASE=$FIRST_MGMT_BASE; SENT_BEFORE_1=$(metric platform_outbox_sent_total)
 for BATCH in 1 2 3 4 5; do post_ok "ac8-$BATCH" "/probe/orders/many?prefix=ac8-$BATCH&count=100"; done
 wait_delivered ac8- 500 180 || hh_fail "AC8 not all delivered within 180 s"
 assert_all_delivered AC8 ac8- 500 0
 SENT_1=$(( $(metric platform_outbox_sent_total) - SENT_BEFORE_1 ))
-HH_BASE=$SECOND_BASE; SENT_2=$(( $(metric platform_outbox_sent_total) - SENT_BEFORE_2 ))
+HH_BASE=$SECOND_BASE; HH_MGMT_BASE=$SECOND_MGMT_BASE; SENT_2=$(( $(metric platform_outbox_sent_total) - SENT_BEFORE_2 ))
 echo "ac8 sent_first=$SENT_1 sent_second=$SENT_2" >> "$HH_EVIDENCE/run-identity.txt"
 [ "$SENT_1" -gt 0 ] && [ "$SENT_2" -gt 0 ] && hh_pass "AC8 both instances drained ($SENT_1 + $SENT_2)" || hh_fail "AC8 work not shared ($SENT_1 + $SENT_2)"
 
 hh_step "AC7 pod killed mid-drain (SIGKILL), with another instance alive: nothing lost, duplicates at most one batch"
 toxi POST /proxies/rabbit/toxics '{"name":"pace","type":"latency","stream":"downstream","attributes":{"latency":100}}' >/dev/null
-HH_BASE=$SECOND_BASE
+HH_BASE=$SECOND_BASE; HH_MGMT_BASE=$SECOND_MGMT_BASE
 post_ok ac7-a "/probe/orders/many?prefix=ac7a&count=300"
 sleep 4
 docker kill "$SECOND" >/dev/null
 [ "$(docker inspect -f '{{.State.ExitCode}}' "$SECOND")" = 137 ] && hh_pass "AC7 the instance was killed (137)" || hh_fail "AC7 exit code"
 docker logs "$SECOND" > "$HH_EVIDENCE/second.log" 2>&1 || true
-HH_BASE=$FIRST_BASE
+HH_BASE=$FIRST_BASE; HH_MGMT_BASE=$FIRST_MGMT_BASE
 toxi DELETE /proxies/rabbit/toxics/pace >/dev/null
 wait_delivered ac7a 300 180 || hh_fail "AC7 survivor did not deliver the backlog"
 assert_all_delivered AC7-one-killed ac7a 300 50

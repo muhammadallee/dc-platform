@@ -64,6 +64,8 @@ pom = open(path, encoding='utf-8').read()
 driver = ''.join('    <dependency>\n      <groupId>%s</groupId>\n      <artifactId>%s</artifactId>\n'
                  '      <scope>runtime</scope>\n    </dependency>\n' % ga
                  for ga in (('org.postgresql', 'postgresql'), ('org.flywaydb', 'flyway-database-postgresql'))) \
+    + '    <dependency>\n      <groupId>org.springframework.boot</groupId>\n' \
+      '      <artifactId>spring-boot-starter-restclient</artifactId>\n    </dependency>\n' \
     + '  </dependencies>'
 assert pom.count('</dependencies>') >= 1
 head, tail = pom.rsplit('</dependencies>', 1)

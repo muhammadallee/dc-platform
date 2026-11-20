@@ -5,6 +5,31 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Spring-native Phase 3: logging + observability (`develop`; breaking)
+
+JSON logs come from Spring Boot's structured logging; service code logs with SLF4J only (D141). Removed, with the
+replacement:
+- **Module:** `platform-logging-api`.
+- `Kv` → SLF4J key-value pairs: `log.atInfo().addKeyValue("orderId", id).log("…")`. Each pair is a JSON field.
+- `LogSanitizer` → `dc.platform.logging.redaction.patterns` (extra regular expressions), or a service's own
+  `StructuredLoggingJsonMembersCustomizer` named in `logging.structured.json.customizer`; the platform's masking
+  applies alongside it.
+- `PlatformJsonEncoder`, `logback-platform.xml` and the `logstash-logback-encoder` dependency → Boot's structured
+  logging in the Logstash format, with the platform's field names (`logger`, `service`, `traceId`, `spanId`,
+  `stack_trace`) set as defaults. A log file (`logging.file.name`) gets the same masked JSON.
+
+Changed:
+- **Actuator on its own port** (ND13): `management.server.port` defaults to `8081` (`0` when `server.port` is `0`).
+  Probes and the Prometheus scrape move there; the application port serves only the API. Set
+  `management.server.port` yourself to change it.
+- The `dependencies` health group is `db,rabbit` (HI-0112).
+- Strict MDC mode (`dc.platform.logging.mdc.include`) also filters key-value pairs; `include-mdc=false` leaves out
+  both.
+- A card number logged as a double is masked in message text too.
+- A WARN at startup when the service's own Logback file replaces Boot's structured logging, which bypasses the
+  platform's masking.
+- `@PlatformWebTest` keeps actuator on the mock servlet, so MockMvc still reaches it.
+
 ### Spring-native Phase 2: foundation, core + errors (`develop`; breaking)
 
 Service code uses Spring types for errors and trace identity (ADR-011, D138). Removed, with the replacement:

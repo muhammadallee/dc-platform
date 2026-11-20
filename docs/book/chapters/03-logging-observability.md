@@ -396,8 +396,9 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 </dependency>
 ```
 
-Delete any `logback-spring.xml` that exists only to produce JSON. Start the app; logs should be one
-JSON object per line, and `/actuator/health/readiness` should exist.
+Delete any `logback-spring.xml` that exists only to produce JSON: the platform switches on Spring Boot's structured
+logging, and your own Logback file would replace it, masking included. Start the app; logs should be one JSON object
+per line, and `/actuator/health/readiness` should answer on the management port, 8081.
 
 ### 4.2 Log something worth querying
 
@@ -408,10 +409,11 @@ class ShipmentService {
     private static final Logger log = LoggerFactory.getLogger(ShipmentService.class);
 
     void dispatch(String shipmentId, String carrier, int parcels) {
-        log.info("shipment dispatched {} {} {}",
-                Kv.of("shipmentId", shipmentId),
-                Kv.of("carrier", carrier),
-                Kv.of("parcels", parcels));
+        log.atInfo()
+                .addKeyValue("shipmentId", shipmentId)
+                .addKeyValue("carrier", carrier)
+                .addKeyValue("parcels", parcels)
+                .log("shipment dispatched");
     }
 }
 ```
@@ -419,19 +421,19 @@ class ShipmentService {
 JSON:
 
 ```json
-{"@timestamp":"2026-08-04T10:15:30.123Z","level":"INFO","logger":"...ShipmentService",
- "message":"shipment dispatched shipmentId=SHP-1 carrier=DHL parcels=3",
- "service":"shipping-service","correlationId":"9f2c...",
- "shipmentId":"SHP-1","carrier":"DHL","parcels":3}
+{"@timestamp":"2026-08-04T10:15:30.123Z","message":"shipment dispatched","logger":"...ShipmentService",
+ "level":"INFO","traceId":"9f2c...","spanId":"4a1e...",
+ "shipmentId":"SHP-1","carrier":"DHL","parcels":3,"service":"shipping-service"}
 ```
 
 Console, on a laptop:
 
 ```
-10:15:30.123 INFO  ...ShipmentService : shipment dispatched shipmentId=SHP-1 carrier=DHL parcels=3
+10:15:30.123 INFO  ...ShipmentService : shipment dispatched
 ```
 
-Same call site, both readable. That is the point of `Kv`.
+The key-value pairs are SLF4J's own (`addKeyValue`), so the call site needs no platform type. In JSON they become
+fields a log store can query; the console line keeps the message short.
 
 !!! success "Best practice — one event, many fields"
     Prefer one log line carrying five fields over five lines carrying one each. Log stores charge by
@@ -457,22 +459,23 @@ The format decision is: explicit `dc.platform.logging.format` wins; otherwise `c
 
 ### 4.4 Scrub sensitive values from logs
 
-```java snippet:book-03-log-sanitizer
-@Configuration
-class LogSanitizers {
+The platform already masks credentials (JWTs, `Bearer` and `Basic` credentials, values of keys such as `password`,
+`token` or `apiKey`) and the default personal-data set (Emirates ID, card numbers, e-mail addresses, phone numbers) in
+every JSON line. For data of your own, list regular expressions; each match becomes `****`:
 
-    @Bean
-    @Order(10)
-    LogSanitizer emiratesIdSanitizer() {
-        return (key, value) -> "emiratesId".equals(key) ? "784-****" : value;
-    }
-}
+```yaml
+dc:
+  platform:
+    logging:
+      redaction:
+        patterns:
+          - "CASE-\\d{6}"
 ```
 
-!!! warning "A sanitizer runs on every log line — make it fast and total"
-    Return the value unchanged for keys that are not yours, never return null for a non-null input, and
-    never throw. A regex over every value on the logging hot path is a measurable cost; an exact key
-    match is not.
+!!! warning "A pattern runs on every value of every log line — keep it anchored and bounded"
+    `CASE-\d{6}` is cheap; `.*secret.*` scans each value from every position. To mask a whole value by its name,
+    log it as a key-value pair under a credential name (`password`, `token`, …): the platform masks those whole,
+    whatever the value.
 
 ### 4.5 Turn on OTLP export
 

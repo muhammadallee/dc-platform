@@ -56,7 +56,10 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   (`dbb00db`). Five more escapes, all in unusual `DataAccessFailure` shapes (a compound-assigned `code`, a varargs
   constructor, unresolved constructions guessed at argument 1, a record's compact constructor), plus `setProperty`
   with three arguments; an empty varargs call crashed the scanner.
-- Verification 14: the gate stopped supporting general shapes. Only the audited enum may be named `DataAccessFailure`,
-  with its one `(int status, String code, String detail)` constructor; everything else, and any unresolved
-  construction of that name, is reported. `setProperty` with other than two arguments is reported.
+- [`r2-verify14.out.md`](codex/r2-verify14.out.md): the gate stopped supporting general shapes (`6b70e57`). Only the
+  audited enum may be named `DataAccessFailure`, with its one `(int status, String code, String detail)` constructor;
+  everything else, and any unresolved construction of that name, is reported, as is `setProperty` with other than two
+  arguments. Codex found no escape within the pinned-constructor contract; it listed `++`/`--` on an unresolved `code`
+  and one false positive, an annotation's `code = …` argument.
+- Verification 15: both fixed (`2737a57`).
 

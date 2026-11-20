@@ -146,9 +146,9 @@ public final class PlatformValueMasker {
      * @return the value to write
      */
     public Object mask(MemberPath path, Object value) {
-        if (value == null || path != null && "".equals(path.name()) || writerInternal(value)) {
-            // An unnamed member, or the logging event itself, is Boot's own writer of further members (context
-            // pairs, ECS and GELF objects): those members come through here one by one.
+        if (value == null || path != null && "".equals(path.name()) || writerInternal(path, value)) {
+            // An unnamed member, the logging event, or a nested object of Boot's own format: Boot's writer of further
+            // members, which come through here one by one.
             return value;
         }
         if (depth(path) > MAX_DEPTH || underCredentialKey(path)) {
@@ -156,26 +156,47 @@ public final class PlatformValueMasker {
         }
         if (value instanceof CharSequence text) {
             // A snapshot: Boot writes this string, never the original object a second time.
-            String snapshot = text.toString();
-            if (topLevel(path) && ("traceId".equals(path.name()) || "spanId".equals(path.name()))
-                    && TRACE_OR_SPAN_ID.matcher(snapshot).matches()) {
-                return snapshot;
-            }
-            return maskPatterns(snapshot);
+            String snapshot = guarded(text::toString);
+            return correlationId(topLevel(path) ? path.name() : null, snapshot) ? snapshot : maskPatterns(snapshot);
         }
         return sanitize(path == null ? null : path.name(), value);
     }
 
     /**
      * A JSON-safe, masked copy of one value filed under a name: maps, lists, strings, numbers, booleans and
-     * {@code null} only.
+     * {@code null} only. Whatever the value throws while it is read becomes {@value #UNRENDERABLE}; nothing propagates.
      *
      * @param name the name the value is filed under; may be {@code null}
      * @param value the value; may be {@code null}
      * @return the copy, or the value itself when it is already safe
      */
     public Object sanitize(String name, Object value) {
-        return new Walk().copy(name, value, 0);
+        try {
+            return new Walk().copy(name, value, 0);
+        } catch (VirtualMachineError fatal) {
+            if (fatal instanceof StackOverflowError) {
+                return UNRENDERABLE;
+            }
+            throw fatal;
+        } catch (Throwable failure) {
+            return UNRENDERABLE;
+        }
+    }
+
+    /**
+     * A top-level key-value pair as the platform's format writes it: like {@link #sanitize}, except that a
+     * {@code traceId} or {@code spanId} holding a W3C hex ID is kept, as for the same keys in the MDC.
+     *
+     * @param key the pair's key; may be {@code null}
+     * @param value the pair's value; may be {@code null}
+     * @return the value to write
+     */
+    public Object sanitizePair(String key, Object value) {
+        if (value instanceof CharSequence text) {
+            String snapshot = guarded(text::toString);
+            return correlationId(key, snapshot) ? snapshot : sanitize(key, snapshot);
+        }
+        return sanitize(key, value);
     }
 
     /**
@@ -188,14 +209,32 @@ public final class PlatformValueMasker {
         return String.valueOf(sanitized);
     }
 
-    // The event and the writers Boot builds a line from: Boot writes a nested object (ECS, GELF) as a WritableJson
-    // too, so a WritableJson is left to Boot here. One a service logs reaches the platform's format as a key-value
-    // pair or a message argument, which PlatformLogstashFormatter sanitizes before Boot sees it.
-    private static boolean writerInternal(Object value) {
+    // A top-level traceId/spanId member holding a W3C hex ID (which may contain a Luhn-valid digit run).
+    static boolean correlationId(String topLevelName, String text) {
+        return ("traceId".equals(topLevelName) || "spanId".equals(topLevelName))
+                && TRACE_OR_SPAN_ID.matcher(text).matches();
+    }
+
+    // The nested objects Boot's own formats write as deferred JSON (ECS: log, process, service, ecs, error).
+    private static final Set<String> FORMAT_OBJECTS = Set.of("log", "process", "service", "ecs", "error", "event",
+            "host", "trace", "span", "transaction");
+
+    // The event and Boot's writers, which Boot builds a line from. A WritableJson is Boot's own only under one of its
+    // formats' nested objects; any other is JSON a service logged, and is masked whole by the walk.
+    private static boolean writerInternal(MemberPath path, Object value) {
         String type = value.getClass().getName();
-        return type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.log4j.")
-                || type.startsWith("org.springframework.boot.logging.")
-                || type.startsWith("org.springframework.boot.json.") || value instanceof WritableJson;
+        if (type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.log4j.")
+                || type.startsWith("org.springframework.boot.logging.")) {
+            return true;
+        }
+        if (!(value instanceof WritableJson)) {
+            return false;
+        }
+        MemberPath root = path;
+        while (root != null && root.parent() != null && root.parent().parent() != null) {
+            root = root.parent();
+        }
+        return root != null && FORMAT_OBJECTS.contains(root.name());
     }
 
     /** Applies the pattern masks (credentials, PII, extra patterns) to free text. */
@@ -271,14 +310,14 @@ public final class PlatformValueMasker {
             if (isCredentialKey(name)) {
                 return MASK;
             }
-            if (value == null) {
-                return null;
-            }
             if (--budget < 0 || depth >= MAX_DEPTH) {
                 return MASK;
             }
+            if (value == null) {
+                return null;
+            }
             if (value instanceof CharSequence text) {
-                return maskPatterns(text.toString());
+                return maskPatterns(guarded(text::toString));
             }
             if (value instanceof char[] chars) {
                 return maskPatterns(new String(chars));
@@ -287,18 +326,22 @@ public final class PlatformValueMasker {
                     || value instanceof Class<?> || value instanceof Throwable) {
                 return maskPatterns(render(value));
             }
-            if (value instanceof WritableJson json) {
-                return maskPatterns(guarded(json::toJsonString));
+            if (value instanceof WritableJson) {
+                // Opaque JSON a service logged: its names may be escaped and its text need not be one value.
+                return MASK;
             }
-            if (value instanceof Boolean) {
-                return value;
+            if (value instanceof Boolean flag) {
+                return scalar(flag, flag.toString());
             }
             if (value instanceof Number number) {
                 return number(number);
             }
             boolean container = value instanceof Map<?, ?> || value instanceof Iterable<?> || value.getClass().isArray()
                     || value instanceof Record;
-            if (container && !ancestors.add(value)) {
+            if (!container) {
+                return object(name, value, depth);
+            }
+            if (!ancestors.add(value)) {
                 // A container holding itself: shown masked rather than walked again.
                 return MASK;
             }
@@ -306,38 +349,46 @@ public final class PlatformValueMasker {
                 if (value instanceof Map<?, ?> map) {
                     Map<String, Object> copy = new LinkedHashMap<>();
                     for (Map.Entry<?, ?> entry : map.entrySet()) {
-                        String key = String.valueOf(entry.getKey());
+                        if (budget <= 0) {
+                            copy.put(MASK, MASK);
+                            break;
+                        }
+                        String key = guarded(() -> String.valueOf(entry.getKey()));
                         copy.put(key, copy(key, entry.getValue(), depth + 1));
                     }
                     return copy;
                 }
+                List<Object> copy = new ArrayList<>();
                 if (value instanceof Iterable<?> iterable) {
-                    List<Object> copy = new ArrayList<>();
                     for (Object element : iterable) {
+                        if (budget <= 0) {
+                            copy.add(MASK);
+                            break;
+                        }
                         copy.add(copy(name, element, depth + 1));
                     }
                     return copy;
                 }
                 if (value.getClass().isArray()) {
-                    List<Object> copy = new ArrayList<>();
                     for (int i = 0, length = Array.getLength(value); i < length; i++) {
+                        if (budget <= 0) {
+                            copy.add(MASK);
+                            break;
+                        }
                         copy.add(copy(name, Array.get(value, i), depth + 1));
                     }
                     return copy;
                 }
-                if (value instanceof Record record) {
-                    Map<String, Object> copy = new LinkedHashMap<>();
-                    for (RecordComponent component : record.getClass().getRecordComponents()) {
-                        Object componentValue = read(component.getAccessor(), record);
-                        copy.put(component.getName(), componentValue == UNREADABLE ? UNRENDERABLE
-                                : copy(component.getName(), componentValue, depth + 1));
-                    }
-                    return copy;
+                Map<String, Object> components = new LinkedHashMap<>();
+                for (RecordComponent component : ((Record) value).getClass().getRecordComponents()) {
+                    Object componentValue = read(component.getAccessor(), value);
+                    components.put(component.getName(), componentValue == UNREADABLE ? UNRENDERABLE
+                            : copy(component.getName(), componentValue, depth + 1));
                 }
+                return components;
             } finally {
                 ancestors.remove(value);
             }
-            return object(name, value, depth);
         }
 
         // A JDK value type is text; any other object is its bean properties, or its text when it has none.
@@ -356,6 +407,10 @@ public final class PlatformValueMasker {
             try {
                 Map<String, Object> copy = new LinkedHashMap<>();
                 for (Method getter : getters) {
+                    if (budget <= 0) {
+                        copy.put(MASK, MASK);
+                        break;
+                    }
                     String property = property(getter);
                     Object read = read(getter, value);
                     copy.put(property, read == UNREADABLE ? UNRENDERABLE : copy(property, read, depth + 1));
@@ -366,32 +421,34 @@ public final class PlatformValueMasker {
             }
         }
 
+        // Only the JDK's own number classes are trusted as they are: a subclass could write any text. Anything else
+        // becomes a BigDecimal read from one snapshot of its text, or masked text.
         private Object number(Number number) {
-            if ((number instanceof Double || number instanceof Float) && !Double.isFinite(number.doubleValue())) {
-                return String.valueOf(number);
+            Class<?> type = number.getClass();
+            if ((type == Double.class || type == Float.class) && !Double.isFinite(number.doubleValue())) {
+                return String.valueOf(number.doubleValue());
             }
             Number value = number;
-            if (!(number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte
-                    || number instanceof BigInteger || number instanceof BigDecimal || number instanceof Double
-                    || number instanceof Float)) {
-                // AtomicLong, LongAdder, a custom Number: its decimal text, as Boot would write it.
+            if (type != Long.class && type != Integer.class && type != Short.class && type != Byte.class
+                    && type != BigInteger.class && type != BigDecimal.class && type != Double.class
+                    && type != Float.class) {
+                String text = render(number);
                 try {
-                    value = new BigDecimal(render(number));
+                    value = new BigDecimal(text.strip());
                 } catch (NumberFormatException notDecimal) {
-                    return maskPatterns(render(number));
+                    return maskPatterns(text);
                 }
             }
-            if (cardNumber(value)) {
-                return MASK;
+            return cardNumber(value) ? MASK : scalar(value, value.toString());
+        }
+
+        // A number or boolean stays one unless an extra pattern matches its text.
+        private Object scalar(Object value, String text) {
+            if (extraPatterns.isEmpty()) {
+                return value;
             }
-            if (!extraPatterns.isEmpty()) {
-                String text = value.toString();
-                String masked = maskPatterns(text);
-                if (!masked.equals(text)) {
-                    return masked;
-                }
-            }
-            return value;
+            String masked = maskPatterns(text);
+            return masked.equals(text) ? value : masked;
         }
     }
 

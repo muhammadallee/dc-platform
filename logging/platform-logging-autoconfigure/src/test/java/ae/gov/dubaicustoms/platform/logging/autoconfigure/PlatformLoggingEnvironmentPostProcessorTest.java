@@ -72,22 +72,34 @@ class PlatformLoggingEnvironmentPostProcessorTest {
     }
 
     @Test
-    void aFormatThePlatformSetInAnEarlierStartIsClearedForConsoleLogging() {
-        // Codex phase 3 round 1, finding 18: Boot never clears the system property it copied the format into.
-        String previousConsole = System.getProperty("CONSOLE_LOG_STRUCTURED_FORMAT");
-        String previousFile = System.getProperty("FILE_LOG_STRUCTURED_FORMAT");
+    void formatsAnEarlierPlatformStartLeftBehindAreClearedWhateverComesNext() {
+        // Codex phase 3 round 1, findings 18 and J: Boot never clears the system property it copied the format into.
+        String[] names = {"CONSOLE_LOG_STRUCTURED_FORMAT", "FILE_LOG_STRUCTURED_FORMAT",
+            PlatformLoggingEnvironmentPostProcessor.OWNED_FORMAT_PROPERTIES};
+        String[] previous = {System.getProperty(names[0]), System.getProperty(names[1]), System.getProperty(names[2])};
         try {
-            System.setProperty("CONSOLE_LOG_STRUCTURED_FORMAT", FORMATTER);
-            System.setProperty("FILE_LOG_STRUCTURED_FORMAT", "ecs");
-            MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.format", "console");
-
-            postProcessor.postProcessEnvironment(environment, null);
-
-            assertThat(System.getProperty("CONSOLE_LOG_STRUCTURED_FORMAT")).isNull();
-            assertThat(System.getProperty("FILE_LOG_STRUCTURED_FORMAT")).as("not the platform's: kept").isEqualTo("ecs");
+            for (String name : names) {
+                System.clearProperty(name);
+            }
+            // A JSON start: Boot will copy the platform's format into both properties.
+            postProcessor.postProcessEnvironment(new MockEnvironment(), null);
+            System.setProperty(names[0], FORMATTER);
+            System.setProperty(names[1], FORMATTER);
+            // The next start picks ECS: both left-behind properties are cleared, so Boot copies ECS in.
+            postProcessor.postProcessEnvironment(new MockEnvironment().withProperty(CONSOLE_FORMAT, "ecs"), null);
+            assertThat(System.getProperty(names[0])).isNull();
+            assertThat(System.getProperty(names[1])).isNull();
+            // A property the service set itself, before any start, is never cleared.
+            System.setProperty(names[0], "gelf");
+            System.clearProperty(names[2]);
+            postProcessor.postProcessEnvironment(new MockEnvironment(), null);
+            postProcessor.postProcessEnvironment(new MockEnvironment().withProperty("dc.platform.logging.format",
+                    "console"), null);
+            assertThat(System.getProperty(names[0])).isEqualTo("gelf");
         } finally {
-            restore("CONSOLE_LOG_STRUCTURED_FORMAT", previousConsole);
-            restore("FILE_LOG_STRUCTURED_FORMAT", previousFile);
+            for (int i = 0; i < names.length; i++) {
+                restore(names[i], previous[i]);
+            }
         }
     }
 

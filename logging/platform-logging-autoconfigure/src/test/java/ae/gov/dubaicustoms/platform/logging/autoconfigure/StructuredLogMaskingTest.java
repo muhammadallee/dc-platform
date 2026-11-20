@@ -452,7 +452,9 @@ class StructuredLogMaskingTest {
             environment.setProperty("logging.structured.format.console", format);
             environment.setProperty("spring.application.name", "orders");
             start(environment);
-            String line = encode(event("as {} password=hunter2", format).mdc("tenant", "dubai"));
+            String line = encode(event("as {} password=hunter2", format).mdc("tenant", "dubai").pair("raw",
+                    org.springframework.boot.json.JsonWriter.standard().write(Map.of("password", "hunter2"))));
+            // C: a WritableJson a service logs is masked whole in every format.
             assertThat(line).as(format).doesNotContain("hunter2").contains("password=****");
             assertThat(parse(line)).as(format).isNotEmpty();
         }
@@ -472,6 +474,7 @@ class StructuredLogMaskingTest {
         String line = encode(event("stored").pair("loop", loop).pair("wide", wide));
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
         assertThat(parse(line).get("loop")).isEqualTo(Map.of("left", "****", "right", "****"));
+        assertThat((List<?>) parse(line).get("wide")).hasSizeLessThanOrEqualTo(10_001);
         assertThat(line).contains("\"****\"");
     }
 
@@ -494,6 +497,138 @@ class StructuredLogMaskingTest {
                 new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "[")))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("dc.platform.logging.redaction.patterns");
         start(new MockEnvironment());
+    }
+
+    // --- Codex phase 3 round 1 reassessment (issues A-K) -------------------------------------------------------
+
+    @Test
+    void writableJsonIsMaskedWholeWhateverItsEscapes() {
+        // B: an escaped credential name inside raw JSON.
+        String line = encode(event("stored").pair("raw", (org.springframework.boot.json.WritableJson) out ->
+                out.append("{\"\\u0070assword\":\"hunter2\"}")));
+        assertThat(line).doesNotContain("hunter2");
+        assertThat(parse(line)).containsEntry("raw", "****");
+    }
+
+    @Test
+    void throwingCharacterDataAndMapKeysCostOnlyTheirPlace() {
+        // D: a CharSequence argument and a map key whose rendering throws; the line is still written.
+        CharSequence hostile = new CharSequence() {
+            @Override
+            public String toString() {
+                throw new IllegalStateException("password=hunter10");
+            }
+
+            @Override
+            public int length() {
+                return 0;
+            }
+
+            @Override
+            public char charAt(int index) {
+                return 'x';
+            }
+
+            @Override
+            public CharSequence subSequence(int start, int end) {
+                return this;
+            }
+        };
+        Object hostileKey = new Object() {
+            @Override
+            public String toString() {
+                throw new IllegalStateException("password=hunter11");
+            }
+        };
+        String line = encode(event("probe {} {}", hostile, Map.of(hostileKey, "v")).pair("text", hostile));
+        assertThat(line).doesNotContain("hunter10").doesNotContain("hunter11");
+        assertThat(parse(line)).containsEntry("text", "[unrenderable]")
+                .containsEntry("message", "probe [unrenderable] {[unrenderable]=v}");
+    }
+
+    @Test
+    void theBudgetStopsTheWalk() {
+        // E: a million elements write at most the budget, and an endless Iterable as a message argument ends.
+        List<Integer> huge = java.util.stream.IntStream.range(0, 1_000_000).boxed().toList();
+        Iterable<Integer> endless = () -> java.util.stream.Stream.iterate(0, i -> i + 1).iterator();
+        String line = encode(event("endless {}", endless).pair("huge", huge));
+        @SuppressWarnings("unchecked")
+        List<Object> written = (List<Object>) parse(line).get("huge");
+        assertThat(written).hasSizeLessThanOrEqualTo(10_001).last().isEqualTo("****");
+    }
+
+    /** A bean whose getter returns itself (F). */
+    public static final class Node {
+        public Node getSelf() {
+            return this;
+        }
+
+        public String getName() {
+            return "n";
+        }
+    }
+
+    @Test
+    void aBeanHoldingItselfEndsTheDescentMasked() {
+        assertThat(parse(encode(event("stored").pair("node", new Node()))).get("node"))
+                .isEqualTo(Map.of("name", "n", "self", "****"));
+    }
+
+    @Test
+    void numberSubclassesAreReadFromTheirText() {
+        // G: a BigDecimal subclass whose value is zero and whose text is a card number.
+        BigDecimal disguised = new BigDecimal(0) {
+            @Override
+            public String toString() {
+                return "4111111111111111";
+            }
+        };
+        String line = encode(event("stored").pair("amount", disguised));
+        assertThat(line).doesNotContain("4111111111111111");
+        assertThat(parse(line)).containsEntry("amount", "****");
+    }
+
+    @Test
+    void extraPatternsReachBooleans() {
+        // H.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "^true$"));
+        String line = encode(event("stored").pair("sensitiveFlag", true).pair("nested", Map.of("flag", true, "off", false)));
+        assertThat(parse(line)).containsEntry("sensitiveFlag", "****")
+                .containsEntry("nested", Map.of("flag", "****", "off", false));
+    }
+
+    @Test
+    void keyValueCorrelationIdsAreKept() {
+        // I: a 16-digit span ID that is also a Luhn-valid number.
+        String line = encode(event("stored").pair("spanId", "4111111111111111")
+                .pair("traceId", "4bf92f3577b34da6a3ce929d0e0e4736").pair("other", "4111111111111111"));
+        assertThat(parse(line)).containsEntry("spanId", "4111111111111111")
+                .containsEntry("traceId", "4bf92f3577b34da6a3ce929d0e0e4736").containsEntry("other", "****");
+    }
+
+    /** A service customizer whose nested processor turns harmless text into an e-mail address (K). */
+    public static class Deobfuscating implements org.springframework.boot.logging.structured.StructuredLoggingJsonMembersCustomizer<Object> {
+        @Override
+        public void customize(org.springframework.boot.json.JsonWriter.Members<Object> members) {
+            members.add("contact").usingMembers(contact -> {
+                contact.add("email", "alice(at)example.com");
+                contact.applyingValueProcessor(org.springframework.boot.json.JsonWriter.ValueProcessor.of(String.class,
+                        text -> text.replace("(at)", "@")));
+            });
+        }
+    }
+
+    @Test
+    void aValueANestedProcessorProducesIsMaskedToo() {
+        encoder.stop();
+        start(new MockEnvironment().withProperty("logging.structured.json.customizer", Deobfuscating.class.getName()));
+        String line = encode(event("stored"));
+        assertThat(line).doesNotContain("alice@example.com");
+        // A service customizer's nested object reaches the processor as deferred JSON, as raw JSON a service logs
+        // does; outside Boot's own format objects it is masked whole (fails closed; the module page says to add
+        // flat members).
+        assertThat(parse(line)).containsEntry("contact", "****");
     }
 
     // --- helpers -------------------------------------------------------------------------------------------------

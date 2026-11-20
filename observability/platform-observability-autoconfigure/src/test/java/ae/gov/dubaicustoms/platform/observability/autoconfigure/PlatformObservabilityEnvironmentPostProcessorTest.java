@@ -55,6 +55,16 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
                 .withMessageContaining("server.port is 8081").withMessageContaining("management.server.port");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"08081", "+8081", " 8081 "})
+    void portsAreComparedAsNumbers(String spelling) {
+        // Codex phase 3 round 1 reassessment, A: Boot compares the ports as numbers.
+        MockEnvironment environment = new MockEnvironment().withProperty("server.port", spelling);
+
+        assertThatIllegalStateException().isThrownBy(() -> postProcessor.postProcessEnvironment(environment, null))
+                .withMessageContaining("server.port is 8081");
+    }
+
     @Test
     void anExplicitSamePortIsTheServicesChoice() {
         MockEnvironment environment = new MockEnvironment().withProperty("server.port", "8081")

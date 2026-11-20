@@ -81,16 +81,30 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     // The platform's management port, unless the service set one. Fails closed when the service moved its application
     // port onto the platform's management port: Boot would then serve actuator on the application port (ND13).
     static String managementPort(Environment environment) {
-        String server = environment.getProperty("server.port");
-        if ("0".equals(server)) {
+        // Compared as numbers, as Boot compares them: 08081 and +8081 are 8081.
+        Integer server = port(environment.getProperty("server.port"));
+        if (server != null && server == 0) {
             return "0";
         }
-        if (environment.getProperty("management.server.port") == null && MANAGEMENT_PORT.equals(server)) {
+        if (environment.getProperty("management.server.port") == null && server != null
+                && server == Integer.parseInt(MANAGEMENT_PORT)) {
             throw new IllegalStateException("server.port is " + server + ", the port the platform gives actuator "
                     + "(ND13), so actuator would answer on the application port. Set management.server.port to another "
                     + "port, or to " + server + " to serve actuator on the application port on purpose.");
         }
         return MANAGEMENT_PORT;
+    }
+
+    private static Integer port(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.strip());
+        } catch (NumberFormatException notAPort) {
+            // Boot fails on it itself, when it binds server.port.
+            return null;
+        }
     }
 
     @Override

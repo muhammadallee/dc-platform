@@ -27,8 +27,9 @@ import org.springframework.core.env.MapPropertySource;
  *   <li>{@code logging.structured.json.context.include} from {@code dc.platform.logging.include-mdc};</li>
  *   <li>no ASCII banner, which would put non-JSON lines on stdout (D108).</li>
  * </ul>
- * In console mode, or switched off, it contributes nothing, and clears a format system property the platform set in
- * an earlier start in the same JVM.
+ * In console mode, or switched off, it contributes nothing. Either way it first clears the format system properties
+ * Boot set from an earlier platform-configured start in the same JVM, so a later start's own choice (console, ECS, the
+ * platform's format) applies; a property a service set itself is left alone.
  *
  * <p>Defaults land in a LOWEST-precedence property source named {@code platform-logging-defaults}, so user
  * configuration always wins and the source name is visible in {@code /actuator/env} (property-conventions §7).
@@ -50,13 +51,20 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     static final List<String> FORMAT_SYSTEM_PROPERTIES = List.of("CONSOLE_LOG_STRUCTURED_FORMAT",
             "FILE_LOG_STRUCTURED_FORMAT");
 
+    // The format system properties Boot set from a start the platform configured (they were absent before it), so the
+    // next start in the same JVM may clear them; one a service set itself is never listed here.
+    static final String OWNED_FORMAT_PROPERTIES = "dc.platform.logging.internal.owned-format-properties";
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        // A format an earlier start in this JVM left behind must not decide this start's logging.
+        String owned = System.getProperty(OWNED_FORMAT_PROPERTIES);
+        if (owned != null) {
+            Arrays.stream(owned.split(",")).filter(name -> !name.isBlank()).forEach(System::clearProperty);
+            System.clearProperty(OWNED_FORMAT_PROPERTIES);
+        }
         if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)
                 || !jsonFormatResolved(environment)) {
-            // Boot's own logging. A format the platform set in an earlier start in this JVM must not outlive it.
-            FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> FORMAT.equals(System.getProperty(name)))
-                    .forEach(System::clearProperty);
             return;
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
@@ -67,6 +75,11 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
                 environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
+        String unset = String.join(",", FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> System.getProperty(name) == null)
+                .toList());
+        if (!unset.isEmpty()) {
+            System.setProperty(OWNED_FORMAT_PROPERTIES, unset);
+        }
     }
 
     /**

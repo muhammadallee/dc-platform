@@ -4,7 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.convert.ApplicationConversionService;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
@@ -83,7 +83,7 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     // port onto the platform's management port: Boot would then serve actuator on the application port (ND13).
     static String managementPort(Environment environment) {
         // Converted as Boot converts server.port (08081, 0x1f91, "8 081" are all 8081), then compared as numbers.
-        Integer server = port(environment.getProperty("server.port"));
+        Integer server = port(environment);
         if (server != null && server == 0) {
             return "0";
         }
@@ -96,12 +96,13 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
         return MANAGEMENT_PORT;
     }
 
-    private static Integer port(String value) {
-        if (value == null) {
+    // Bound as Boot binds server.port, from its original value (a YAML number such as 8081.0 included).
+    private static Integer port(Environment environment) {
+        if (!(environment instanceof ConfigurableEnvironment configurable)) {
             return null;
         }
         try {
-            return ApplicationConversionService.getSharedInstance().convert(value, Integer.class);
+            return Binder.get(configurable).bind("server.port", Integer.class).orElse(null);
         } catch (RuntimeException notAPort) {
             // Boot fails on it itself, when it binds server.port.
             return null;

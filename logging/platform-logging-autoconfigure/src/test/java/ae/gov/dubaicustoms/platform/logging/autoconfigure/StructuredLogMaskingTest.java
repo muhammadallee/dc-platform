@@ -661,6 +661,61 @@ class StructuredLogMaskingTest {
         assertThat(parse(line)).containsEntry("contact", "****");
     }
 
+    @Test
+    void ecsObjectNamesAreExemptOnlyUnderEcs() {
+        // Verification 2, C: under Boot's logstash format a raw writer named "log" is masked like any other.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("logging.structured.format.console", "logstash");
+        start(environment);
+        String line = encode(event("stored").pair("log",
+                org.springframework.boot.json.JsonWriter.standard().write(Map.of("password", "hunter2"))));
+        assertThat(line).doesNotContain("hunter2");
+    }
+
+    /** A bean whose getters all throw (verification 2, E). */
+    public static final class Broken {
+        public String getA() {
+            throw new IllegalStateException();
+        }
+
+        public String getB() {
+            throw new IllegalStateException();
+        }
+    }
+
+    @Test
+    void failedGettersAndFilteringIteratorsAreChargedToTheBudget() {
+        List<Object> broken = new ArrayList<>();
+        for (int i = 0; i < 20_000; i++) {
+            broken.add(new Broken());
+        }
+        // An iterator that never yields: hasNext() would search forever once called.
+        int[] calls = {0};
+        Iterable<Object> silent = () -> new java.util.Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return ++calls[0] < 50_000_000;
+            }
+
+            @Override
+            public Object next() {
+                return "x";
+            }
+        };
+        String line = encode(event("stored").pair("broken", broken).pair("silent", silent));
+        assertThat(line.length()).isLessThan(2_000_000);
+        assertThat(calls[0]).isLessThan(20_000);
+    }
+
+    @Test
+    void aLoggingLibraryObjectIsMaskedText() {
+        // Verification 2, new 2: a Logback logger named with an e-mail address.
+        Object logger = context.getLogger("alice@example.com");
+        String line = encode(event("stored").pair("auditLogger", logger));
+        assertThat(line).doesNotContain("alice@example.com");
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private String message(String text) {

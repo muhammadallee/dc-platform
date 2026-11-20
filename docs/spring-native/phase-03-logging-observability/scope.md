@@ -79,11 +79,14 @@ Recorded as D141 in [`../../decisions/decision-log.md`](../../decisions/decision
    - **What the guarantee covers (revised after Codex round 1, finding 10):** every value the service logs (message,
      arguments, MDC, key-value pairs, exceptions) and every flat member a service's own customizer adds is masked. A
      nested object a service's customizer adds is masked whole, because it reaches the platform as deferred JSON, unless
-     it is named like one of the objects Boot's ECS format writes (`log`, `process`, `service`, `ecs`, `error`); there,
-     and for any value the customizer's own nested value processors produce, the output is the service's responsibility.
-     A customizer is service code running inside the JSON writer. The module page says so.
+     it is named like one of the objects Boot's ECS format writes (`log`, `process`, `service`, `ecs`, `error`) while an
+     ECS format is configured. Whatever a service customizer's own processors produce (value or name processors, at the
+     root or nested, in whatever order they run) is the service's responsibility: a customizer is service code running
+     inside the JSON writer. The module page says so.
    - **Raw JSON (`WritableJson`):** masked whole in every format, except a value a service logs under one of those five
      ECS object names while it uses Boot's ECS format (the platform's format sanitizes it before Boot writes it).
+   - **Objects of a logging library** (a Logback logger, say) are masked text; only the logging event and Boot's own
+     writers pass the processor untouched.
 3. **`Kv` and `LogSanitizer` are removed.**
    - **`Kv`:** SLF4J's `addKeyValue` covers it.
    - **`LogSanitizer`:** its use, masking a service's own data, is covered by `dc.platform.logging.redaction.patterns`. A

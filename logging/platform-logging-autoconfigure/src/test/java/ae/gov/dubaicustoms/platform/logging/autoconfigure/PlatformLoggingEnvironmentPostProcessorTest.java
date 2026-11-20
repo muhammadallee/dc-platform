@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogstashFormatter;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LoggingFormatOwnership;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.mock.env.MockEnvironment;
@@ -73,39 +74,45 @@ class PlatformLoggingEnvironmentPostProcessorTest {
 
     @Test
     void formatsAnEarlierPlatformStartLeftBehindAreClearedWhateverComesNext() {
-        // Codex phase 3 round 1, findings 18 and J: Boot never clears the system property it copied the format into.
+        // Codex phase 3 round 1: Boot never clears the system property it copied the format into. Ownership is what
+        // Boot actually wrote, confirmed after logging started (LoggingFormatOwnership).
         String console = "CONSOLE_LOG_STRUCTURED_FORMAT";
         String file = "FILE_LOG_STRUCTURED_FORMAT";
+        String probe = "user.timezone.probe";
         String[] names = {console, file, PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + console,
-            PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + file, "user.timezone.probe"};
+            PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + file, probe,
+            PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + probe};
         String[] previous = new String[names.length];
         for (int i = 0; i < names.length; i++) {
             previous[i] = System.getProperty(names[i]);
             System.clearProperty(names[i]);
         }
+        LoggingFormatOwnership ownership = new LoggingFormatOwnership();
         try {
-            // A JSON start; Boot then copies the platform's format into both properties.
+            // A JSON start; a listener between the post-processor and logging changes the console format to GELF, and
+            // Boot writes what it finally sees.
             postProcessor.postProcessEnvironment(new MockEnvironment(), null);
-            System.setProperty(console, FORMATTER);
+            System.setProperty(console, "gelf");
             System.setProperty(file, FORMATTER);
-            // The next start picks ECS: both left-behind values are cleared, so Boot copies ECS in.
+            ownership.onApplicationEvent(null);
+            // The next start picks ECS: both values Boot wrote are cleared, so Boot copies ECS in.
             postProcessor.postProcessEnvironment(new MockEnvironment().withProperty(CONSOLE_FORMAT, "ecs"), null);
             assertThat(System.getProperty(console)).isNull();
             assertThat(System.getProperty(file)).isNull();
             // A value the service set after a platform start is its own: never cleared.
-            System.setProperty(console, FORMATTER);
             postProcessor.postProcessEnvironment(new MockEnvironment(), null);
+            System.setProperty(console, FORMATTER);
+            ownership.onApplicationEvent(null);
             System.setProperty(console, "gelf");
             postProcessor.postProcessEnvironment(new MockEnvironment().withProperty("dc.platform.logging.format",
                     "console"), null);
             assertThat(System.getProperty(console)).isEqualTo("gelf");
             // Only the two bridge properties are ever cleared.
-            System.setProperty(names[4], "kept");
-            System.setProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + names[4], "kept");
+            System.setProperty(probe, "kept");
+            System.setProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + probe, "kept");
             postProcessor.postProcessEnvironment(new MockEnvironment(), null);
-            assertThat(System.getProperty(names[4])).isEqualTo("kept");
+            assertThat(System.getProperty(probe)).isEqualTo("kept");
         } finally {
-            System.clearProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + names[4]);
             for (int i = 0; i < names.length; i++) {
                 restore(names[i], previous[i]);
             }

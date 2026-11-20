@@ -61,8 +61,10 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
                 || !environment.getProperty("dc.platform.logging.redaction.enabled", Boolean.class, true)) {
             return null;
         }
+        boolean ecs = "ecs".equalsIgnoreCase(environment.getProperty("logging.structured.format.console"))
+                || "ecs".equalsIgnoreCase(environment.getProperty("logging.structured.format.file"));
         return new PlatformValueMasker(compile(Binder.get(environment)
-                .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())));
+                .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())), ecs);
     }
 
     // Boot keeps the original name in the path and writes the renamed one: the renamed name counts too.

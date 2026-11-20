@@ -51,16 +51,28 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     static final List<String> FORMAT_SYSTEM_PROPERTIES = List.of("CONSOLE_LOG_STRUCTURED_FORMAT",
             "FILE_LOG_STRUCTURED_FORMAT");
 
-    // Where Boot reads each bridge property from.
-    private static final Map<String, String> FORMAT_SOURCES = Map.of("CONSOLE_LOG_STRUCTURED_FORMAT",
-            "logging.structured.format.console", "FILE_LOG_STRUCTURED_FORMAT", "logging.structured.format.file");
+    // The bridge properties that were unset when the platform configured this start.
+    static final java.util.Set<String> UNSET_BEFORE_LOGGING = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
-    // For each bridge property that was unset when the platform configured a start, the value Boot copies into it from
-    // that start's environment: the next start clears it only if it still holds exactly that value.
-    static final String OWNED_PREFIX = "dc.platform.logging.internal.owned.";
+    /**
+     * The bridge properties that were unset when the platform configured the current start; read by the internal
+     * ownership listener once logging has started.
+     *
+     * @return the property names, taken (the set is emptied)
+     */
+    public static java.util.List<String> unsetBeforeLogging() {
+        java.util.List<String> names = java.util.List.copyOf(UNSET_BEFORE_LOGGING);
+        UNSET_BEFORE_LOGGING.clear();
+        return names;
+    }
+
+    // For each bridge property Boot filled from a platform-configured start, the value it actually wrote: the next start
+    // clears it only while it still holds exactly that value.
+    public static final String OWNED_PREFIX = "dc.platform.logging.internal.owned.";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        UNSET_BEFORE_LOGGING.clear();
         // A format an earlier start in this JVM left behind must not decide this start's logging; a value set since
         // (by the service) stays.
         for (String name : FORMAT_SYSTEM_PROPERTIES) {
@@ -84,12 +96,10 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
                 environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
-        for (String name : FORMAT_SYSTEM_PROPERTIES) {
-            String value = environment.getProperty(FORMAT_SOURCES.get(name));
-            if (System.getProperty(name) == null && value != null) {
-                System.setProperty(OWNED_PREFIX + name, value);
-            }
-        }
+        // Which bridge properties Boot will fill from this start: confirmed with their actual values by
+        // LoggingFormatOwnership once logging has started.
+        FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> System.getProperty(name) == null)
+                .forEach(UNSET_BEFORE_LOGGING::add);
     }
 
     /**

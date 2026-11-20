@@ -66,6 +66,17 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
     }
 
     @Test
+    void aTypedPortValueIsBoundAsBootBindsIt() {
+        // Verification 2, A: an unquoted YAML 8081.0 is a number; Boot binds it to 8081.
+        MockEnvironment environment = new MockEnvironment();
+        environment.getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource("yaml",
+                java.util.Map.of("server.port", 8081.0)));
+
+        assertThatIllegalStateException().isThrownBy(() -> postProcessor.postProcessEnvironment(environment, null))
+                .withMessageContaining("server.port is 8081");
+    }
+
+    @Test
     void anExplicitSamePortIsTheServicesChoice() {
         MockEnvironment environment = new MockEnvironment().withProperty("server.port", "8081")
                 .withProperty("management.server.port", "8081");

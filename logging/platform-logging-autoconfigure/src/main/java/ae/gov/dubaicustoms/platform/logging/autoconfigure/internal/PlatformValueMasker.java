@@ -129,14 +129,26 @@ public final class PlatformValueMasker {
             Pattern.compile("(?<![\\w-])05[02-8][ -]?\\d{3}[ -]?\\d{4}(?![\\w-])");
 
     private final List<Pattern> extraPatterns;
+    private final boolean ecsObjects;
+
+    /**
+     * Creates the masker for the platform's own format.
+     *
+     * @param extraPatterns additional regular expressions whose matches are masked; never {@code null}
+     */
+    public PlatformValueMasker(List<Pattern> extraPatterns) {
+        this(extraPatterns, false);
+    }
 
     /**
      * Creates the masker.
      *
      * @param extraPatterns additional regular expressions whose matches are masked; never {@code null}
+     * @param ecsObjects whether an ECS format is configured, whose own nested objects Boot writes as deferred JSON
      */
-    public PlatformValueMasker(List<Pattern> extraPatterns) {
+    public PlatformValueMasker(List<Pattern> extraPatterns, boolean ecsObjects) {
         this.extraPatterns = List.copyOf(extraPatterns);
+        this.ecsObjects = ecsObjects;
     }
 
     /**
@@ -219,15 +231,19 @@ public final class PlatformValueMasker {
     // The nested objects Boot's ECS format writes as deferred JSON; Boot's Logstash and GELF formats write none.
     private static final Set<String> FORMAT_OBJECTS = Set.of("log", "process", "service", "ecs", "error");
 
-    // The event and Boot's writers, which Boot builds a line from. A WritableJson is Boot's own only under one of its
-    // formats' nested objects; any other is JSON a service logged, and is masked whole by the walk.
-    private static boolean writerInternal(MemberPath path, Object value) {
+    // The logging event and Boot's writers, which Boot builds a line from; and, only where an ECS format is configured,
+    // deferred JSON under one of ECS's object names. Anything else (a Logback logger a customizer adds, raw JSON a
+    // service logs) is sanitized like any value.
+    private boolean writerInternal(MemberPath path, Object value) {
         String type = value.getClass().getName();
-        if (type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.log4j.")
-                || type.startsWith("org.springframework.boot.logging.")) {
+        if (type.startsWith("org.springframework.boot.logging.") || implementsAny(value.getClass(),
+                Set.of("ch.qos.logback.classic.spi.ILoggingEvent", "org.apache.logging.log4j.core.LogEvent"))) {
             return true;
         }
         if (!(value instanceof WritableJson)) {
+            return type.startsWith("org.springframework.boot.json.");
+        }
+        if (!ecsObjects) {
             return false;
         }
         MemberPath root = path;
@@ -235,6 +251,20 @@ public final class PlatformValueMasker {
             root = root.parent();
         }
         return root != null && FORMAT_OBJECTS.contains(root.name());
+    }
+
+    private static boolean implementsAny(Class<?> type, Set<String> names) {
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            if (names.contains(c.getName())) {
+                return true;
+            }
+            for (Class<?> each : c.getInterfaces()) {
+                if (implementsAny(each, names)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Applies the pattern masks (credentials, PII, extra patterns) to free text. */
@@ -348,9 +378,12 @@ public final class PlatformValueMasker {
                 if (value instanceof Map<?, ?> map) {
                     Map<String, Object> copy = new LinkedHashMap<>();
                     Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
-                    while (entries.hasNext()) {
+                    while (true) {
                         if (budget <= 0) {
                             copy.put(MASK, MASK);
+                            break;
+                        }
+                        if (!entries.hasNext()) {
                             break;
                         }
                         Map.Entry<?, ?> entry = entries.next();
@@ -362,9 +395,12 @@ public final class PlatformValueMasker {
                 List<Object> copy = new ArrayList<>();
                 if (value instanceof Iterable<?> iterable) {
                     Iterator<?> elements = iterable.iterator();
-                    while (elements.hasNext()) {
+                    while (true) {
                         if (budget <= 0) {
                             copy.add(MASK);
+                            break;
+                        }
+                        if (!elements.hasNext()) {
                             break;
                         }
                         copy.add(copy(name, elements.next(), depth + 1));
@@ -387,6 +423,7 @@ public final class PlatformValueMasker {
                         components.put(MASK, MASK);
                         break;
                     }
+                    budget--;
                     Object componentValue = read(component.getAccessor(), value);
                     components.put(component.getName(), componentValue == UNREADABLE ? UNRENDERABLE
                             : copy(component.getName(), componentValue, depth + 1));
@@ -400,7 +437,9 @@ public final class PlatformValueMasker {
         // A JDK value type is text; any other object is its bean properties, or its text when it has none.
         private Object object(String name, Object value, int depth) {
             String type = value.getClass().getName();
-            if (type.startsWith("java.") || type.startsWith("javax.") || type.startsWith("jdk.")) {
+            if (type.startsWith("java.") || type.startsWith("javax.") || type.startsWith("jdk.")
+                    || type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.")
+                    || type.startsWith("org.slf4j.")) {
                 return maskPatterns(render(value));
             }
             List<Method> getters = getters(value.getClass());
@@ -418,6 +457,7 @@ public final class PlatformValueMasker {
                         break;
                     }
                     String property = property(getter);
+                    budget--;
                     Object read = read(getter, value);
                     copy.put(property, read == UNREADABLE ? UNRENDERABLE : copy(property, read, depth + 1));
                 }

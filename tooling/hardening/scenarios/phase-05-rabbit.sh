@@ -59,7 +59,7 @@ wait_delivered() {
   return 1
 }
 metric() { # name [filter]: first sample from the current app's scrape, without the fraction
-  curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" | { grep -E "^$1(\{| )" || true; } | { grep -F "${2:-}" || true; } \
+  curl -s --max-time 10 "${AUTH[@]}" "$HH_MGMT_BASE/actuator/prometheus" | { grep -E "^$1(\{| )" || true; } | { grep -F "${2:-}" || true; } \
       | head -1 | awk '{print $NF}' | cut -d. -f1
 }
 assert_all_delivered() { # label prefix count max-duplicates

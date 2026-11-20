@@ -79,17 +79,21 @@ The build runs the generated tests too, including the conformance test that chec
 
 ```bash lab-step
 mvn -B -q -o -Dmaven.repo.local="$PLATFORM_REPO" package
-java -jar target/first-service-*.jar --server.port=18080 > app.log 2>&1 &
+java -jar target/first-service-*.jar --server.port=18080 --management.server.port=18081 > app.log 2>&1 &
 echo $! > ../app.pid
 for attempt in $(seq 1 90); do
-  curl -fs http://localhost:18080/actuator/health > /dev/null && break
+  curl -fs http://localhost:18081/actuator/health > /dev/null && break
   sleep 1
 done
 ```
 
+The API answers on port 18080. Actuator (health, info, Prometheus) has its own port, 18081 here and 8081 by default,
+so it is never reachable through the route that serves the API:
+
 ```bash lab-check
-curl -fs http://localhost:18080/actuator/health -o health.json
+curl -fs http://localhost:18081/actuator/health -o health.json
 grep -q '"status":"UP"' health.json
+test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/actuator/health)" = 404
 ```
 
 ## Step 5 — A business failure, with your trace

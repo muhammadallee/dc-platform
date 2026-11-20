@@ -8,11 +8,14 @@
 #   hh_add_sources <dir> <package-subpath>      # consumer code (e.g. a probe controller) into the app
 #   hh_add_migrations <dir>                     # consumer Flyway migrations (V*.sql) into db/migration
 #   hh_build_app                                # generated `mvn package`, then a container image
-#   hh_app_start [env KEY=VALUE…]               # app container on the run network, port published
-#                                               # (HH_APP_NAME selects the container name; default "app")
-#   hh_wait_ready [timeout-s]                   # /actuator/health/readiness == UP
+#   hh_app_start [env KEY=VALUE…]               # app container on the run network, ports published
+#                                               # (HH_APP_NAME selects the container name; default "app");
+#                                               # HH_BASE is the application port, HH_MGMT_BASE actuator's (ND13)
+#   hh_wait_ready [timeout-s]                   # /actuator/health/readiness == UP (management port)
 #   hh_wait_exit [timeout-s]                    # a start that must fail: exit code + seconds, no readiness
-#   hh_http <name> <method> <path> [curl args…] # saves status + body to evidence, sets HH_STATUS/HH_BODY
+#   hh_http <name> <method> <path> [curl args…] # saves status + body to evidence, sets HH_STATUS/HH_BODY;
+#                                               # /actuator/* goes to the management port
+#   hh_http_app <name> <method> <path> [curl…]  # the same, always on the application port
 #   hh_expect_status <code> / hh_expect_json <python-expr>
 #   hh_app_stop_graceful [grace-s]              # docker stop = real SIGTERM, asserts clean exit + log line
 #   hh_finish                                   # teardown, leftover check, single truthful exit code
@@ -158,7 +161,7 @@ hh_build_app() {
 FROM $HH_JRE_IMAGE
 WORKDIR /app
 COPY app.jar /app/app.jar
-EXPOSE 8080
+EXPOSE 8080 8081
 ENTRYPOINT ["java", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]
 EOF
   HH_APP_IMAGE="dc-hardening/$HH_APP_ARTIFACT:$HH_RUN_ID"
@@ -173,20 +176,24 @@ hh_app_start() {
   for kv in "$@"; do env_args+=(-e "$kv"); done
   HH_APP_CONTAINER="$HH_RUN_ID-${HH_APP_NAME:-app}"
   docker run -d --name "$HH_APP_CONTAINER" --network "$HH_NETWORK" --network-alias "${HH_APP_NAME:-app}" \
-      --label "dc-hardening=$HH_RUN_ID" -p 127.0.0.1::8080 ${env_args[@]+"${env_args[@]}"} "$HH_APP_IMAGE" >/dev/null \
+      --label "dc-hardening=$HH_RUN_ID" -p 127.0.0.1::8080 -p 127.0.0.1::8081 ${env_args[@]+"${env_args[@]}"} \
+      "$HH_APP_IMAGE" >/dev/null \
       || hh_abort "app container did not start"
   HH_CONTAINERS+=("$HH_APP_CONTAINER")
   HH_APP_PORT=$(docker port "$HH_APP_CONTAINER" 8080/tcp | head -1 | sed 's/.*://')
   HH_BASE="http://127.0.0.1:$HH_APP_PORT"
+  # Actuator runs on its own port, 8081 by default (ND13).
+  HH_MGMT_PORT=$(docker port "$HH_APP_CONTAINER" 8081/tcp | head -1 | sed 's/.*://')
+  HH_MGMT_BASE="http://127.0.0.1:$HH_MGMT_PORT"
   HH_APP_STARTED_AT=$(date +%s)
-  hh_log "app container $HH_APP_CONTAINER on $HH_BASE"
+  hh_log "app container $HH_APP_CONTAINER on $HH_BASE (management $HH_MGMT_BASE)"
 }
 
 hh_wait_ready() {
   local timeout=${1:-120} body
   local deadline=$(( $(date +%s) + timeout ))
   while :; do
-    body=$(curl -s --max-time 5 "$HH_BASE/actuator/health/readiness" 2>/dev/null || true)
+    body=$(curl -s --max-time 5 "$HH_MGMT_BASE/actuator/health/readiness" 2>/dev/null || true)
     if printf '%s' "$body" | grep -q '"status":"UP"'; then
       HH_READY_SECONDS=$(( $(date +%s) - HH_APP_STARTED_AT ))
       hh_pass "app ready in ${HH_READY_SECONDS}s"
@@ -210,7 +217,7 @@ hh_wait_exit() {
   local deadline=$(( $(date +%s) + timeout ))
   HH_EXIT_CODE=""
   while [ "$(docker inspect -f '{{.State.Running}}' "$HH_APP_CONTAINER" 2>/dev/null)" = "true" ]; do
-    if curl -s --max-time 2 "$HH_BASE/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; then
+    if curl -s --max-time 2 "$HH_MGMT_BASE/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; then
       hh_fail "$name became ready although startup was expected to fail"
       docker stop -t 10 "$HH_APP_CONTAINER" >/dev/null 2>&1
       break
@@ -230,11 +237,20 @@ hh_wait_exit() {
 }
 
 # hh_http <name> <method> <path> [extra curl args…]: response body + status into evidence/http/<name>.*
+# An /actuator path goes to the management port (ND13); hh_http_app sends any path to the application port.
 hh_http() {
-  local name=$1 method=$2 path=$3; shift 3
+  local base=$HH_BASE
+  case "$3" in /actuator*) base=$HH_MGMT_BASE ;; esac
+  hh_http_to "$base" "$@"
+}
+
+hh_http_app() { hh_http_to "$HH_BASE" "$@"; }
+
+hh_http_to() {
+  local base=$1 name=$2 method=$3 path=$4; shift 4
   mkdir -p "$HH_EVIDENCE/http"
   HH_STATUS=$(curl -s -o "$HH_EVIDENCE/http/$name.body" -w '%{http_code}' --max-time 30 \
-      -X "$method" "$@" "$HH_BASE$path" || echo 000)
+      -X "$method" "$@" "$base$path" || echo 000)
   HH_BODY=$(cat "$HH_EVIDENCE/http/$name.body" 2>/dev/null || true)
   printf '%s %s -> %s\n' "$method" "$path" "$HH_STATUS" > "$HH_EVIDENCE/http/$name.status"
   HH_LAST_HTTP=$name

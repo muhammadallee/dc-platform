@@ -12,6 +12,12 @@ recipeList:
       oldArtifactId: spring-rabbit
       newGroupId: ae.gov.dubaicustoms.platform
       newArtifactId: platform-starter-messaging-rabbit
+  # JSON logs come from Boot's structured logging, masked by the logging starter (D141).
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: net.logstash.logback
+      oldArtifactId: logstash-logback-encoder
+      newGroupId: ae.gov.dubaicustoms.platform
+      newArtifactId: platform-starter-logging
   - ae.gov.dubaicustoms.platform.migrations.FlagHandRolledExceptionHandler
 ---
 type: specs.openrewrite.org/v1beta/recipe

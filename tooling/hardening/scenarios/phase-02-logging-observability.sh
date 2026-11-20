@@ -2,7 +2,13 @@
 # Hardening phase 2 (logging + observability), Gate F: an archetype-generated consumer (prod profile, real
 # PostgreSQL, real OpenTelemetry Collector behind Toxiproxy) proves the consumer-level acceptance criteria of
 # docs/production-readiness/phase-02-logging-observability/scope.md (AC1-AC5, AC7-AC12, AC14). Fixtures,
-# not certified here: core, errors, data-jpa + PostgreSQL, restclient (parked; its starter is added by the harness).
+# not certified here: core, errors, data-jpa + PostgreSQL.
+#
+# Spring-native Phase 3 port (docs/spring-native/phase-03-logging-observability/scope.md §10): the probe uses
+# Spring, SLF4J and Micrometer types only (key-value pairs with addKeyValue, the trace from Tracer, outbound
+# calls through Boot's RestClient.Builder), and a check fails the run if it imports a platform type. The
+# parked REST-client starter is no longer added. Actuator runs on its own port (ND13): the harness sends
+# /actuator requests there, and AC9 checks the application port answers 404 for them. Floor 65.
 #
 # Spring-native Phase 1 port: JWT security is cut. The JWKS issuer is gone; a JWT-shaped sample stands in
 # for the token in the redaction checks. AC9 now checks exposure without security (hidden endpoints 404,
@@ -44,11 +50,13 @@ mem_mib() { docker stats --no-stream --format '{{.MemUsage}}' "$HH_APP_CONTAINER
 
 hh_init phase-02 logging-observability
 
-hh_step "generate a consumer (data), add the parked REST-client starter, the probe and the PostgreSQL driver"
+hh_step "generate a consumer (data), add the probe and the PostgreSQL driver"
 hh_generate hardening-obs data
-python -I "$(hh_native "$HERE/phase-06/edit_pom.py")" "$(hh_native "$HH_APP_DIR/pom.xml")" "$HH_REV" \
-    || hh_abort "could not add the REST-client starter"
 hh_add_sources "$HERE/phase-02/probe" ae/gov/dubaicustoms/hardening/probe
+# Contract 12: the consumer probe uses Spring types only.
+if grep -n "^import ae\.gov\.dubaicustoms\.platform" "$HERE/phase-02/probe"/*.java > "$HH_EVIDENCE/probe-platform-imports.txt"; then
+  hh_fail "the probe imports a platform type (probe-platform-imports.txt)"
+else hh_pass "the probe imports no platform type"; fi
 python -I - "$(hh_native "$HH_APP_DIR/pom.xml")" <<'EOF'
 import sys
 path = sys.argv[1]
@@ -124,6 +132,10 @@ for EP in env beans heapdump metrics configprops loggers threaddump; do
 done
 hh_http ac9-platform-anon GET /actuator/platform; hh_expect_status 404
 hh_http ac9-info-anon GET /actuator/info; hh_expect_status 200
+hh_step "AC9 ND13: actuator answers only on the management port"
+for EP in prometheus health info; do
+  hh_http_app "ac9-$EP-app-port" GET "/actuator/$EP"; hh_expect_status 404
+done
 
 hh_step "AC1 JSON line shape: a request's lines carry its traceId and spanId; ERROR lines a stack_trace"
 hh_http ac1-error GET "/probe/hostile?msg=plain-failure-$T" -H "traceparent: $(tp "$T")"
@@ -211,7 +223,7 @@ docker start "$HH_RUN_ID-postgres" >/dev/null
 for _ in $(seq 1 60); do docker exec "$HH_RUN_ID-postgres" pg_isready -U app >/dev/null 2>&1 && break; sleep 1; done
 RECOVERED=no
 for _ in $(seq 1 60); do
-  [ "$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "$HH_BASE/actuator/health/dependencies")" = 200 ] && { RECOVERED=yes; break; }
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "$HH_MGMT_BASE/actuator/health/dependencies")" = 200 ] && { RECOVERED=yes; break; }
   sleep 1
 done
 [ "$RECOVERED" = yes ] && hh_pass "AC10 dependencies UP again after the database returned" \

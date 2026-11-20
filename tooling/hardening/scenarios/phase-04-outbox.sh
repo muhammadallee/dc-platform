@@ -48,7 +48,7 @@ wait_delivered() {
   return 1
 }
 metric() { # name [filter]: first sample from the current app's scrape, without the fraction
-  curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" | { grep -E "^$1(\{| )" || true; } | { grep -F "${2:-}" || true; } \
+  curl -s --max-time 10 "${AUTH[@]}" "$HH_MGMT_BASE/actuator/prometheus" | { grep -E "^$1(\{| )" || true; } | { grep -F "${2:-}" || true; } \
       | head -1 | awk '{print $NF}' | cut -d. -f1
 }
 assert_all_delivered() { # label prefix count max-duplicates
@@ -226,7 +226,7 @@ sys.exit(0 if ok else 1)
 EOF
 sleep 6
 DRAINER_ACTIVE=$(metric hikaricp_connections_active 'pool="platform-outbox"'); DRAINER_MAX=$(metric hikaricp_connections_max 'pool="platform-outbox"')
-curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" > "$HH_EVIDENCE/ac10-scrape.txt"
+curl -s --max-time 10 "${AUTH[@]}" "$HH_MGMT_BASE/actuator/prometheus" > "$HH_EVIDENCE/ac10-scrape.txt"
 { grep -E '^hikaricp_connections_(max|pending)' "$HH_EVIDENCE/ac10-scrape.txt" || true; } > "$HH_EVIDENCE/ac10-pools.txt"
 MAIN_PENDING=$({ grep -E '^hikaricp_connections_pending' "$HH_EVIDENCE/ac10-scrape.txt" || true; } | { grep -v 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)
 echo "ac10 drainer_active=$DRAINER_ACTIVE drainer_max=$DRAINER_MAX main_pending=$MAIN_PENDING" >> "$HH_EVIDENCE/run-identity.txt"
@@ -373,7 +373,7 @@ hh_http dbslow-request POST "/probe/orders?ref=dbslowone"; hh_expect_status 200
 SLOW_SECONDS=$(( $(date +%s) - SLOW_STARTED ))
 [ "$SLOW_SECONDS" -le 30 ] && hh_pass "DB-slow a request completes in ${SLOW_SECONDS}s" || hh_fail "DB-slow a request took ${SLOW_SECONDS}s"
 sleep 15
-curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus" > "$HH_EVIDENCE/dbslow-scrape.txt"
+curl -s --max-time 10 "${AUTH[@]}" "$HH_MGMT_BASE/actuator/prometheus" > "$HH_EVIDENCE/dbslow-scrape.txt"
 { grep -E '^hikaricp_connections_(max|active|pending)' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } > "$HH_EVIDENCE/dbslow-pools.txt"
 DB_DRAINER_ACTIVE=$({ grep -E '^hikaricp_connections_active' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } | { grep -F 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)
 DB_MAIN_PENDING=$({ grep -E '^hikaricp_connections_pending' "$HH_EVIDENCE/dbslow-scrape.txt" || true; } | { grep -v 'pool="platform-outbox"' || true; } | head -1 | awk '{print $NF}' | cut -d. -f1)

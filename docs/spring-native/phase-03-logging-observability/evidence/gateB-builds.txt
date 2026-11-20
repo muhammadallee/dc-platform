@@ -1,0 +1,32 @@
+# Gate B builds, Spring-native Phase 3 (branch native/phase-03-logging-observability)
+# JDK 25 (Corretto 25.0.3), Maven 3.9.9 offline, -T1. Raw logs in evidence-raw/ (git-ignored), by SHA-256.
+
+1. Logging module after the rewrite (commit c1298b6)
+   mvn -o -T1 -B -ntp -pl logging/platform-logging-autoconfigure verify -> exit 0
+   Tests run: 136, Failures: 0, Errors: 0, Skipped: 0   (baseline 150, plus logging-api 5: see scope §7)
+   gateB-logging-2.log fd9b3c6707ec8e0aeccecdca0bc70e749803686754e2388bf4aa799c2e3c5361
+   (gateB-logging-1.log: the first run, 5 failures, all fixed in the tests: JVM-wide logging system
+   properties between boots, Boot's BasicJsonParser dropping escapes, a varargs List.of, one v3-equal
+   expectation)
+
+2. Observability module, management port and dependencies group (commit 6568b24)
+   mvn -o -T1 -B -ntp -pl observability/platform-observability-autoconfigure verify -> exit 0
+   Tests run: 40, Failures: 0, Errors: 0, Skipped: 0   (baseline 37)
+   gateB-observability-1.log 018185fce63ce4d719bb96b890528e607a9bab0241d796869f00247685b205bc
+
+3. Full reactor (after commit 97926b8)
+   mvn -o -T1 -B -ntp verify -> exit 1 (7 min 12 s): every module SUCCESS except platform-docs:
+   UsageSnippetCompileTest, two book chapter 3 snippets still used Kv and LogSanitizer
+   gateB-full-1.log a68d5d74ce341912a5ba420e2cb4495adcd50ac7563d863d2ab6dc215f0b1edc
+   After the snippet fix: mvn -o -T1 -B -ntp -rf :platform-docs verify -> exit 0
+   (platform-docs, MCP server, skill, migrations: all tests pass)
+   gateB-full-2.log 63f0d54c0be04151792b66f9c798b2602f04fa48ebb97932a90d7ae126b81909
+
+4. Logging and observability together, with the zero-config acceptance test (commit after 3d2387b)
+   mvn -o -T1 -B -ntp -pl logging/platform-logging-autoconfigure,observability/platform-observability-autoconfigure -am verify -> exit 0
+   build tools 38, core-autoconfigure 73, logging-autoconfigure 136, observability-autoconfigure 41; all 0 failures, 0 skipped
+   gateB-observability-3.log 49c1ce473c70049effcef2d14dcbd8621d456724995a7c2dcff4d7e8b8497c3b
+   (gateB-observability-2.log: without -am the local repository's older logging jar was used; not a defect)
+
+Downstream compile check (rule 9): the full reactor run (3) compiles and tests every module downstream of
+logging and observability, including the examples, the archetype, test support and the migrations.

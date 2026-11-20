@@ -1,7 +1,7 @@
 # Chapter 8 — Data and Persistence
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others; the `Money`, `EntityId` and `PersistenceConventions` value types went in Phase 2.
 > What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > **Capabilities covered:** `data`
@@ -349,30 +349,11 @@ cleanly rather than failing on a dangling `@EnableJpaAuditing`.
 </dependency>
 ```
 
-### 4.2 Use the value types
+### 4.2 Value types (removed)
 
-```java snippet:book-08-value-types
-record OrderTotal(EntityId<Long> orderId, Money net, Money tax) {
-
-    Money gross() {
-        // Throws IllegalArgumentException if net and tax are in different currencies —
-        // which is exactly what you want to happen, loudly, in a test.
-        return net.add(tax);
-    }
-}
-
-class PricingExample {
-
-    OrderTotal build() {
-        return new OrderTotal(
-                EntityId.of(42L),
-                Money.of("19.99", "AED"),
-                Money.of("1.00", "AED"));
-    }
-}
-```
-
-Note this snippet needs no persistence framework at all — that is §2.1 in practice.
+`Money`, `EntityId` and `PersistenceConventions` were removed in Spring-native Phase 2 (ND7), and with them the
+platform's JPA converters. Use `BigDecimal` with a `Currency` column, or a small record and converter of your own.
+The rest of this section, and the mentions above, are rewritten in Phase 4.
 
 ### 4.3 Write an entity that follows the conventions
 
@@ -385,36 +366,36 @@ class OrderEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "reference_code", length = PersistenceConventions.CODE_LENGTH, nullable = false)
+    @Column(name = "reference_code", length = 64, nullable = false)
     private String referenceCode;
 
-    @Column(name = "customer_name", length = PersistenceConventions.NAME_LENGTH)
+    @Column(name = "customer_name", length = 200)
     private String customerName;
 
-    // Converters are opt-in per field — they are never auto-applied. Note the package: the
-    // converter lives in .internal, which carries no compatibility guarantee. See §6.2.
-    @Convert(converter = ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.internal.MoneyConverter.class)
-    @Column(name = "total", length = PersistenceConventions.MONEY_LENGTH)
-    private Money total;
+    @Column(name = "total_amount", precision = 19, scale = 4)
+    private java.math.BigDecimal totalAmount;
+
+    @Column(name = "total_currency", length = 3)
+    private String totalCurrency;
 
     @CreatedDate
-    @Column(name = PersistenceConventions.CREATED_AT, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
     @CreatedBy
-    @Column(name = PersistenceConventions.CREATED_BY, updatable = false)
+    @Column(name = "created_by", updatable = false)
     private String createdBy;
 
     @LastModifiedDate
-    @Column(name = PersistenceConventions.LAST_MODIFIED_AT)
+    @Column(name = "last_modified_at")
     private Instant lastModifiedAt;
 
     @LastModifiedBy
-    @Column(name = PersistenceConventions.LAST_MODIFIED_BY)
+    @Column(name = "last_modified_by")
     private String lastModifiedBy;
 
     @Version
-    @Column(name = PersistenceConventions.VERSION)
+    @Column(name = "version")
     private Long version;
 }
 ```

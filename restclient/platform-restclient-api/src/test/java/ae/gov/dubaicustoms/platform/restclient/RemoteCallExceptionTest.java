@@ -19,7 +19,8 @@ class RemoteCallExceptionTest {
         assertThat(exception.status()).isEqualTo(503);
         assertThat(exception.bodySnippet()).isEqualTo("service unavailable");
         assertThat(exception.remoteCorrelationId()).contains("abc123");
-        assertThat(exception.code().value()).isEqualTo("DC-RCLIENT-0500");
+        assertThat(exception.getBody().getProperties()).containsEntry("code", "DC-RCLIENT-0500");
+        assertThat(exception.getStatusCode().value()).isEqualTo(exception.problemStatus());
     }
 
     @Test

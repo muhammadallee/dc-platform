@@ -2,8 +2,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
-import ae.gov.dubaicustoms.platform.errors.ProblemDetailCustomizer;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
@@ -48,9 +47,20 @@ class PlatformErrorHandlingAutoConfigurationTest {
     }
 
     @Test
-    void inactiveWhenErrorsApiMissing() {
-        runner.withClassLoader(new FilteredClassLoader(ProblemDetailCustomizer.class))
+    void inactiveWithoutSpringMvc() {
+        runner.withClassLoader(new FilteredClassLoader(org.springframework.web.servlet.DispatcherServlet.class))
                 .run(context -> assertThat(context).doesNotHaveBean(PlatformErrorHandlingAutoConfiguration.class));
+    }
+
+    @Test
+    void theTraceIdSourceNeedsTracingAndTheAdviceStillWorksWithoutIt() {
+        runner.run(context -> assertThat(context).hasBean("platformErrorsTraceIdSource"));
+        runner.withClassLoader(new FilteredClassLoader(io.micrometer.tracing.Tracer.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean("platformErrorsTraceIdSource");
+                    assertThat(context).hasBean("platformExceptionHandler");
+                });
     }
 
     @Test
@@ -76,7 +86,7 @@ class PlatformErrorHandlingAutoConfigurationTest {
         ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
         PlatformExceptionHandler mine = new PlatformExceptionHandler(properties,
                 new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
-                        java.util.List.of(), java.time.Clock.systemUTC())) {
+                        ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.TraceIdSource.NONE, java.time.Clock.systemUTC())) {
         };
         runner.withBean("platformExceptionHandler", PlatformExceptionHandler.class, () -> mine)
                 .run(context -> {
@@ -90,7 +100,7 @@ class PlatformErrorHandlingAutoConfigurationTest {
         ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
         PlatformExceptionHandler mine = new PlatformExceptionHandler(properties,
                 new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
-                        java.util.List.of(), java.time.Clock.systemUTC())) {
+                        ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.TraceIdSource.NONE, java.time.Clock.systemUTC())) {
         };
         runner.withBean("myHandler", PlatformExceptionHandler.class, () -> mine)
                 .run(context -> {
@@ -104,7 +114,7 @@ class PlatformErrorHandlingAutoConfigurationTest {
         ErrorsProperties properties = new ErrorsProperties(true, false, "https://problems.example/", true, false);
         PlatformConstraintViolationHandler mine = new PlatformConstraintViolationHandler(
                 new ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory(properties,
-                        java.util.List.of(), java.time.Clock.systemUTC()));
+                        ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.TraceIdSource.NONE, java.time.Clock.systemUTC()));
         runner.withBean("myValidation", PlatformConstraintViolationHandler.class, () -> mine)
                 .run(context -> {
                     assertThat(context).getBean(PlatformConstraintViolationHandler.class).isSameAs(mine);

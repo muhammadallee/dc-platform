@@ -160,7 +160,7 @@ See [`docs/modules/dx.md`](modules/dx.md) for the archetype, `upgrade-check`, an
 # Architecture
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > Condensed from the platform architecture design (§1–2, §14). The full reasoning, candidate
@@ -381,7 +381,7 @@ imported from application code.
 # Extension model
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > From the architecture design §6. One pattern for all extension (ADR-008): **implement the SPI, ship
@@ -392,7 +392,7 @@ imported from application code.
 ## Two tiers
 
 **Customizer tier — tweak the default.** Contribute `*Customizer` beans (`RestClientCustomizer`,
-`ProblemDetailCustomizer`, `RabbitTemplateCustomizer`, …). The platform collects them via
+`RabbitTemplateCustomizer`, Spring's `ErrorResponse.Interceptor`, …). The platform collects them via
 `ObjectProvider<List<…Customizer>>.orderedStream()` and applies them in `@Order`. You add behaviour
 without replacing beans.
 
@@ -487,34 +487,56 @@ tests fail the build if a generated surface drifts from the code, so the discove
 
 # Core
 
-The smallest useful chassis: request correlation by W3C trace ID, context propagation, the platform
-exception model, and the startup capability banner.
+Every generated service has it. Core makes one ID follow a request everywhere: the W3C trace ID. It is in every log
+line, in every error body, and on every thread the request's work runs on. Your code reads it from Micrometer's
+`Tracer`. There is no platform type to learn.
 
-## What you get
+## What the platform configures
 
-- **Correlation = the W3C trace ID** — the only correlation identifier is the trace ID of the
-  current span. A request carrying a valid `traceparent` continues that trace; a missing or invalid
-  one starts a new trace (Boot's observation filter and the OpenTelemetry W3C propagator do this — the
-  platform never parses the header). The platform filter then opens `RequestContext` with the trace
-  ID, so `RequestContext.correlationId()`, the SLF4J `MDC` (`traceId`, `spanId`) and every error body
-  (`traceId`) carry it. No custom correlation header is read, generated, echoed or sent: a caller's
-  `X-Correlation-Id` is ignored. A `traceparent` the propagator did not continue is logged only as a fixed DEBUG marker
-  with the header's length — no header content ever reaches a log line.
-- **Works when unsampled** — unsampled spans still carry a valid trace ID, so correlation does not
-  depend on `management.tracing.sampling.probability`.
-- **Every dispatch** — the context is re-established on ASYNC redispatches (a `Callable`/`CompletableFuture`
-  handler that completes or fails later) and on the servlet ERROR dispatch (`sendError`, exceptions
-  escaping the filter chain), so those error bodies carry the request's `traceId` too.
-- **Context propagation** — the platform turns on Boot's own
-  `spring.task.execution.propagate-context`, and registers a Micrometer `ThreadLocalAccessor` for
-  `RequestContext`: `@Async` methods and Boot-built executors see the caller's trace in
-  `RequestContext` and the MDC, and pool threads are clean after each task. Executors you build
-  yourself need `ContextPropagatingTaskDecorator` (or `ContextSnapshot.wrap`) to get the same.
-- **Exception model** — subclass `PlatformException` with a stable `ErrorCode`
-  (`DC-<CAP>-<NNNN>`); the errors capability maps them to RFC-9457 problem responses.
-- **Capability banner** — one INFO line at startup listing every active platform capability:
-  `platform: core[ACTIVE], messaging[ACTIVE] (rabbit)`.
-- **API markers** — `@PlatformApi` (SemVer-guaranteed) and `@PlatformInternal` (no guarantees).
+- **Correlation is the trace ID.** A request with a valid `traceparent` continues that trace; a missing or invalid one
+  starts a new trace. Boot's observation filter and the OpenTelemetry W3C propagator decide that; the platform never
+  parses the header. No custom correlation header is read, generated, echoed or sent: a caller's `X-Correlation-Id`
+  is ignored.
+- **The trace ID is in the MDC on every dispatch.** A servlet filter puts `traceId` and `spanId` into the SLF4J MDC for
+  the request, its ASYNC redispatch (a `Callable` or `CompletableFuture` that finishes later) and its ERROR dispatch
+  (`sendError`, an exception escaping the filter chain), and restores the MDC exactly afterwards. On an ERROR
+  dispatch no span is in scope, so it takes the trace from the observation Boot stored on the request.
+- **A rejected `traceparent` leaves a marker, not a value.** When the propagator did not continue the header's trace,
+  the filter logs `rejected inbound traceparent (length=N)` at DEBUG. No header content ever reaches a log line.
+- **Unsampled traces still correlate.** An unsampled span has a valid trace ID, so correlation does not depend on
+  `management.tracing.sampling.probability`.
+- **Work on other threads keeps the trace, and only its own.** The platform supplies Spring's
+  `ContextPropagatingTaskDecorator` as the application's `TaskDecorator`. Boot's task executors (`@Async`, async MVC,
+  any executor built with Boot's builders) use it, so a task sees the caller's trace in the `Tracer` and the MDC. Its
+  snapshot factory clears missing values: a task captured with no trace runs with none, even on a thread that is
+  serving another caller. Boot's own decorator does not clear them.
+- **A tracer is always there.** The starter brings the Micrometer Tracing OpenTelemetry bridge with no exporter; spans
+  are shipped only when the observability starter adds one. Without a tracer the platform never invents an ID:
+  requests run without a correlation context and error bodies have no `traceId`.
+- **One banner line at startup** lists the active capabilities: `platform: core[ACTIVE], errors[ACTIVE] (rfc9457)`.
+
+## Read the trace in your code
+
+You rarely need to: logs, error bodies, outbound calls and messages carry it already. When you do, ask the tracer:
+
+```java snippet:core-read-trace
+@Service
+class InvoiceArchiver {
+
+    private final Tracer tracer;
+
+    InvoiceArchiver(Tracer tracer) {
+        this.tracer = tracer;
+    }
+
+    String supportReference() {
+        Span span = tracer.currentSpan();
+        return span == null ? "none" : span.context().traceId();
+    }
+}
+```
+
+Do not add the trace ID to a log message: it is already a field on the line.
 
 ## Starter coordinates
 
@@ -525,105 +547,60 @@ exception model, and the startup capability banner.
 </dependency>
 ```
 
-The core starter brings the tracer correlation needs: the Micrometer Tracing OpenTelemetry bridge and
-Boot's tracing/observation auto-configuration (no exporter — spans are only shipped when the
-observability starter adds one). A service with just core + errors + logging therefore still continues
-an inbound `traceparent` into its logs and error bodies. If tracing is removed or disabled, requests
-run with no correlation context and error bodies omit `traceId` — the platform never invents an id.
+## Zero-config behaviour
 
-## Zero-config behavior
+| With only the starter | You set nothing for it |
+|---|---|
+| Inbound `traceparent` continued; a new trace otherwise | ✓ |
+| `traceId` and `spanId` in the MDC on REQUEST, ASYNC and ERROR dispatches | ✓ (servlet apps) |
+| The trace follows `@Async` and Boot-built executors, isolated per task | ✓ |
+| Startup banner | ✓ |
+| Spans exported somewhere | ✗ add the observability starter |
 
-On a servlet web app: the correlation filter runs at order `HIGHEST_PRECEDENCE + 10` — after Boot's
-`ServerHttpObservationFilter` (`HIGHEST_PRECEDENCE + 1`, which continues or starts the trace) and
-before Spring Security (`-100`), so 401/403 bodies and security log lines already carry the trace ID.
-In any app: Boot's task executors propagate context, and the banner logs once the context is ready.
-Non-web apps get no filter; everything else is unchanged.
+## Change it with Spring
+
+| To change | Use |
+|---|---|
+| How executors propagate context | Declare your own `TaskDecorator` bean. The platform's backs off. Setting `spring.task.execution.propagate-context=true` also makes it back off, to Boot's decorator, which does **not** isolate a context-free task |
+| An executor you build yourself | `executor.setTaskDecorator(decorator)` with the application's `TaskDecorator` bean, or `ContextSnapshotFactory.builder().clearMissing(true).build().captureAll().wrap(task)` |
+| The trace itself (sampling, propagation format) | Boot's `management.tracing.*` properties |
+| The correlation filter | Declare a bean named `platformCorrelationFilterRegistration`, for example a `FilterRegistrationBean` of your own servlet `Filter`, or one with `setEnabled(false)`: the platform registers nothing. Keep your filter after the observation filter (`HIGHEST_PRECEDENCE + 1`), or there is no span yet |
+| What the banner and `/actuator/platform` report | `dc.platform.core.capabilities.<name>.status` and `.detail` replace a capability's line, or add one |
 
 ## Properties
 
 | Key | Default | Meaning |
 |---|---|---|
-| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability (tier `DEFAULT_ON`). |
+| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.core.banner-enabled` | `true` | Log the startup capability banner. |
-| `spring.task.execution.propagate-context` | `true` (platform default; Boot's is `false`) | Boot's own context propagation for its executors. |
+| `dc.platform.core.capabilities.<name>.status`, `.detail` | none | Replace what is reported for one capability, or add one. |
 
-Removed (deprecated, level `error` — setting them has no effect): `dc.platform.core.correlation.header-name`,
-`dc.platform.core.correlation.generate-if-missing`. There is no header to name and nothing to generate:
-a request without a valid `traceparent` always starts a new trace.
+Removed (deprecated, level `error`, no effect): `dc.platform.core.correlation.header-name`,
+`dc.platform.core.correlation.generate-if-missing`.
 
-## Customize
+## Back-off limits
 
-- Contribute a capability line to the banner from your own auto-configuration:
-
-```java
-@Bean
-CapabilityDescriptor myCapabilityDescriptor() {
-    return new CapabilityDescriptor("mycap", "ACTIVE", "provider-x");
-}
-```
-
-- Read the correlation id anywhere on a request (or `@Async`) thread:
-
-```java
-RequestContext.correlationId()
-        .map(CorrelationId::value)          // the W3C trace ID
-        .ifPresent(traceId -> receipt.setSupportReference(traceId));
-```
-
-## Replace / Disable
-
-Overrides are by type, under any bean name (D98), the way Boot backs off its own filters:
-
-- Define your own `CorrelationIdFilter` bean (a subclass, say) to replace the filter. The platform
-  registration backs off and Boot registers yours; `CorrelationIdFilter` is `Ordered` at
-  `CoreContextAutoConfiguration.FILTER_ORDER` and runs on REQUEST, ASYNC and ERROR dispatches, so it
-  keeps the platform's position.
-- Define a `FilterRegistrationBean<CorrelationIdFilter>` to control the registration yourself (order,
-  URL patterns, or `setEnabled(false)`). Keep it after the observation filter, or there is no span yet:
-
-  ```java
-  @Bean
-  FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
-      var registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
-      registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
-      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
-      return registration;
-  }
-  ```
-
-  Unrelated filters and registrations never affect the platform's.
-- Define a `PlatformBannerRunner` bean (subclass it and override `describe`) to change the banner, or
-  set `dc.platform.core.banner-enabled=false` and add your own `ApplicationRunner`. Other
-  `ApplicationRunner` beans never suppress the banner.
-- Capability descriptors are one bean per capability, so they back off **by name**, like Boot's health
-  indicators (D97): a bean named `coreCapabilityDescriptor` replaces the core entry. A descriptor under
-  any other name is simply one more entry.
-- `dc.platform.core.enabled=false` switches the capability off wholesale (no correlation context, no
-  platform executor default); tracing itself keeps working.
+- **Your own `TaskDecorator`** replaces the platform's. If it does not clear missing values, a context-free task run on
+  a thread serving another caller sees that caller's span through `Tracer`. The MDC stays isolated either way: the
+  platform's context-propagation accessor captures "no context" explicitly.
+- **Two `TaskDecorator` beans** mean Boot's executor builder uses neither. The platform never adds a second one.
+- **Your own filter**, registered under `platformCorrelationFilterRegistration`, replaces the platform's completely:
+  it keeps the platform's position only with order `HIGHEST_PRECEDENCE + 10` and the REQUEST, ASYNC and ERROR
+  dispatcher types, and then the MDC trace on error pages is yours to provide.
+- `dc.platform.core.enabled=false` switches correlation, isolation and the banner off. Tracing itself keeps working.
 
 ## Error codes
 
-None — core defines the model (`PlatformException`, `ErrorCode`); see the errors capability for the
-codes the platform maps.
+None.
 
 ## Testing
 
-`RequestContext.open(id, extras)` is `@PlatformInternal` but usable from tests to establish a
-context around code under test (try-with-resources). For a real request, send a `traceparent`
-(`00-<32 hex trace id>-<16 hex span id>-01`) and assert the trace ID in the response's ProblemDetail or
-the JSON log's `traceId`; the archetype's `HttpIntegrationTestSupport` does exactly that.
-
-## Upgrading from the `X-Correlation-Id` model
-
-Callers that sent `X-Correlation-Id` should send `traceparent` instead (any OpenTelemetry/W3C client
-does this automatically). Log queries on `correlationId` become queries on `traceId`; ProblemDetail
-consumers read `traceId`. `CorrelationId` and `RequestContext.correlationId()` keep their API.
+Send a `traceparent` (`00-<32 hex trace id>-<16 hex span id>-01`) and assert the same trace ID in the response's
+`traceId` or the JSON log's `traceId`. The archetype's tests do exactly that.
 
 ## Local dev notes
 
-No Docker, no network: everything in this capability is in-process. The banner is the quickest
-smoke check that platform auto-configuration ran at all — if it is missing, check that the
-starter is on the classpath and `dc.platform.core.enabled` is not `false`.
+Nothing to run: core is in-process. The banner is the quickest check that platform auto-configuration ran at all.
 
 
 ---
@@ -632,50 +609,106 @@ starter is on the classpath and `dc.platform.core.enabled` is not `false`.
 
 # Errors
 
-RFC-9457 problem responses with stable, machine-readable error codes: throw a
-`BusinessException`, get a correct `application/problem+json` body with `code`, `traceId`,
-`timestamp` and `retryable` — correlated with the JSON log line by the W3C trace ID.
+Every error a service returns is an RFC 9457 `application/problem+json` body with a stable `code`, the request's
+`traceId`, a `timestamp` and a `retryable` hint. Your code throws Spring's own exceptions; the platform adds the rest.
+No platform type is involved.
 
-## What you get
+## What the platform configures
 
-- **Business exception hierarchy** — `BusinessException` (422 by default), `NotFoundException`
-  (404), `ConflictException` (409); each carries an `ErrorCode` (`DC-<CAP>-<NNNN>`) that becomes
-  the problem `type`/`title` and the `code` extension.
-- **Platform exception mapping** — any other `PlatformException` maps to 500 with its own code;
-  a data-access failure maps to 409/503 with a `DC-DATA-*` code (below); anything else unmapped maps
-  to 500 with `DC-CORE-0500`.
-- **Data-access failures** — recognised anywhere in the cause chain, whether Spring translated them
-  (`DataIntegrityViolationException`, `OptimisticLockingFailureException`, …) or not (raw
-  Hibernate/JPA/JDBC types from code that uses the `EntityManager` directly; SQLState `23`/`40`/`08`):
-  constraint violation → 409 `DC-DATA-0409`, concurrent update or lock → 409 `DC-DATA-0410`,
-  unavailable database or timeout → 503 `DC-DATA-0503` (`retryable: true`). The detail is fixed — the
-  database's message, which names SQL, tables and constraints, never reaches the caller; it is logged
-  at WARN on the request's trace. A SQL bug (bad grammar, unknown table) stays a 500. **No 5xx body ever carries an exception
-  message** — every 5xx gets the generic detail `An unexpected error occurred.`; the full exception
-  goes to the log with the trace ID. 4xx business exceptions keep their application-authored message.
-- **Framework errors get the same contract** — Spring MVC's own rejections (404, 405, 406, 415, …) keep
-  their statuses and gain `code` (`DC-CORE-0499`), `traceId`, `timestamp`, `retryable`; an unreadable
-  or malformed body is `DC-CORE-0410` with a fixed detail (the JSON parser's message, which names
-  classes and offsets, never reaches the caller).
-- **`retryable`** — `true` for 429, 502, 503, 504, otherwise `false`: a hint for clients deciding
-  whether to retry the identical request after backing off.
-- **The servlet error page too** — `PlatformErrorController` replaces Boot's `BasicErrorController`:
-  a filter's `sendError(…)` or an exception escaping the filter chain is rendered as
-  `application/problem+json` (whatever the `Accept` header) with `instance` = the original URI and
-  the request's `traceId`. Define your own `ErrorController` bean to replace it.
-- **Security denials pass through** — an `AccessDeniedException`/`AuthenticationException` thrown in
-  a controller (e.g. method security) is handed back to Spring Security, which renders the platform
-  403/401, instead of being swallowed into a 500.
-- **Validation mapping** — `@Valid` body failures and method-validation
-  `ConstraintViolationException`s map to 400 with an `errors[]` extension
-  (`field`, `message`). `rejectedValue` is **omitted by default** — rejected values are raw user
-  input and may be personal data; turn it on with `dc.platform.errors.include-rejected-values=true`,
-  and even then password/secret/token-shaped fields are `REDACTED`.
-- **Customization SPI-lite** — `ProblemDetailCustomizer` beans applied in `@Order` to every
-  outgoing problem body.
-- **Error-code registry** — build-time gates assert code format and platform-wide uniqueness:
-  one scans the classpath and exports `target/error-codes.csv` (feeds the reference), the other reads
-  the production sources of every platform module, so a duplicate anywhere fails the build.
+- **One advice for everything a controller lets through**, ordered last so your own `@RestControllerAdvice` wins for
+  its exceptions:
+
+  | Exception | Status | `code` |
+  |---|---|---|
+  | Your `ErrorResponseException` (or subclass) | its status | the `code` property you set; otherwise `DC-CORE-0499` (4xx) or `DC-CORE-0500` (5xx) |
+  | `ResponseStatusException`, or an exception annotated `@ResponseStatus` | its status | `DC-CORE-0499` / `DC-CORE-0500` |
+  | Bean Validation: `@Valid` body (`MethodArgumentNotValidException`), method validation (`HandlerMethodValidationException`, `ConstraintViolationException`) | 400 | `DC-CORE-0400`, with `errors[]` of `field` and `message` |
+  | Unreadable or malformed body | 400 | `DC-CORE-0410` |
+  | Spring MVC's own rejections: 404, 405, 406, 415, … | theirs | `DC-CORE-0499` |
+  | A data-access failure anywhere in the cause chain | 409 / 503 | `DC-DATA-0409`, `DC-DATA-0410`, `DC-DATA-0503` |
+  | Anything else | 500 | `DC-CORE-0500` |
+
+- **No 5xx body carries an exception message.** Every 5xx detail is `An unexpected error occurred.`; the full
+  exception is logged at ERROR on the request's trace. A 4xx keeps the detail you wrote.
+- **Data-access failures never name SQL, tables or constraints.** Spring's translated exceptions and the raw
+  Hibernate, JPA and JDBC ones (from code that uses the `EntityManager` directly) are recognised: a constraint
+  violation is 409 `DC-DATA-0409`, a concurrent update or lock is 409 `DC-DATA-0410`, an unavailable database or a
+  timeout is 503 `DC-DATA-0503` (`retryable: true`). A connection lost while committing is a 500: the outcome is
+  unknown, so it is not retryable. A SQL bug stays a 500.
+- **`retryable`** is `true` for 429, 502, 503 and 504.
+- **`rejectedValue` is omitted** from `errors[]` by default: it is raw user input and may be personal data. With
+  `include-rejected-values=true`, fields named like a password, secret or token are still `REDACTED`.
+- **The servlet error page too.** A filter's `sendError(…)` or an exception escaping the filter chain is rendered as
+  `application/problem+json`, whatever the `Accept` header, with `instance` set to the original URI and the request's
+  `traceId`.
+- **Spring Security exceptions pass through** to Spring Security's own handling instead of becoming a 500.
+
+## Throw an error from your code
+
+Put your service's code on the body Spring's exception already carries:
+
+```java snippet:errors-service-error
+@Service
+class OrderService {
+
+    static final String ORDER_PAID = "ORD-0409";
+
+    void cancel(long orderId) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "order %d is already paid".formatted(orderId));
+        problem.setProperty("code", ORDER_PAID);
+        throw new ErrorResponseException(HttpStatus.CONFLICT, problem, null);
+    }
+}
+```
+
+```json
+{
+  "type": "urn:dc:problem:ORD-0409",
+  "title": "ORD-0409",
+  "status": 409,
+  "detail": "order 42 is already paid",
+  "instance": "/orders/42/cancel",
+  "code": "ORD-0409",
+  "traceId": "0123456789abcdef0123456789abcdef",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "retryable": false
+}
+```
+
+The platform keeps a `code` only when it is a `String`; it is percent-encoded into the generated `type`, and kept as
+it is in `code` and `title`. Set your own `type` and the platform keeps your `type` and `title` too. The exception's
+status wins over its body's. Extensions named like a standard member (`type`, `title`, `status`, `detail`,
+`instance`) or a platform field (`traceId`, `stacktrace`) are dropped, so nothing can smuggle a second `detail` into
+the JSON. A subclass of `ErrorResponseException` per business outcome reads well and keeps the code in one place.
+
+**Throwing one instance more than once** is safe: the platform decorates and localises a copy, never the exception's
+own body. Map and list values in the body are copied too; any other value is shared between responses, so keep it
+immutable.
+
+## Add a field to every error body
+
+Use Spring's `ErrorResponse.Interceptor`. Each one sees the finished body and, as the response's cause, the exception
+that caused it:
+
+```java snippet:errors-interceptor
+@Configuration
+class ErrorBodyConfiguration implements WebMvcConfigurer {
+
+    @Override
+    public void addErrorResponseInterceptors(List<ErrorResponse.Interceptor> interceptors) {
+        interceptors.add((body, response) -> {
+            Throwable cause = response instanceof ErrorResponseException e ? e.getCause() : null;
+            if (cause instanceof java.util.concurrent.TimeoutException) {
+                body.setProperty("hint", "try again in a minute");
+            }
+        });
+    }
+}
+```
+
+Interceptors from every `WebMvcConfigurer` run in order. The platform's error page runs them too, so they also see a
+`sendError` (with no cause) and an exception that escaped a filter.
 
 ## Starter coordinates
 
@@ -686,102 +719,82 @@ RFC-9457 problem responses with stable, machine-readable error codes: throw a
 </dependency>
 ```
 
-The starter brings no web stack — your service already chooses one; outside servlet web apps the
-advice backs off entirely.
+The starter brings no web stack; outside a servlet web app it does nothing.
 
-## Zero-config behavior
+## Zero-config behaviour
 
-On a servlet web app, two `@RestControllerAdvice` beans register: the constraint-violation
-advice at `@Order(0)` and the catch-all platform advice at lowest precedence, so your own advice
-beans always win for your exceptions. Framework exceptions (404 no-handler, 405, 415, …) keep
-their proper statuses — the platform advice extends `ResponseEntityExceptionHandler`.
+| With only the starter | You set nothing for it |
+|---|---|
+| Every controller error, framework rejection and error-page response is a problem body with `code`, `traceId`, `timestamp`, `retryable` | ✓ |
+| Bean Validation failures are 400 with field paths | ✓ (add `spring-boot-starter-validation` for a validator) |
+| Data-access failures are 409/503 without internals | ✓ |
+| Your interceptors run on every error body | ✓ once you add one |
 
-```java
-throw new NotFoundException(new ErrorCode("DC-ORDER-0404"), "order 42 not found");
-```
+## Change it with Spring
 
-```json
-{
-  "type": "urn:dc:problem:DC-ORDER-0404",
-  "title": "DC-ORDER-0404",
-  "status": 404,
-  "detail": "order 42 not found",
-  "instance": "/orders/42",
-  "code": "DC-ORDER-0404",
-  "traceId": "0123456789abcdef0123456789abcdef",
-  "timestamp": "2026-01-01T00:00:00Z",
-  "retryable": false
-}
-```
+| To change | Use |
+|---|---|
+| A field on every error body | `ErrorResponse.Interceptor` through `WebMvcConfigurer.addErrorResponseInterceptors` |
+| The handling of your own exception | your own `@RestControllerAdvice`: it runs before the platform's |
+| The status and code of a business outcome | `ErrorResponseException` with a `code` property, `ResponseStatusException`, or `@ResponseStatus` |
+| The servlet error page | your own `ErrorController` bean replaces the platform's |
 
 ## Properties
 
 | Key | Default | Meaning |
 |---|---|---|
 | `dc.platform.errors.enabled` | `true` | Kill switch for the whole capability. |
-| `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debug only). |
-| `dc.platform.errors.type-base-uri` | `urn:dc:problem:` | Base URI forming the problem `type`. |
-| `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 + `errors[]`. |
-| `dc.platform.errors.include-rejected-values` | `false` | Echo invalid values as `errors[].rejectedValue` (raw user input; credentials stay redacted). |
+| `dc.platform.errors.include-stacktrace` | `false` | Add a `stacktrace` extension (debugging only). |
+| `dc.platform.errors.type-base-uri` | `urn:dc:problem:` | Prefix of the problem `type`; the code follows it. |
+| `dc.platform.errors.map-validation` | `true` | Map validation failures to 400 with `errors[]`. |
+| `dc.platform.errors.include-rejected-values` | `false` | Echo invalid values as `errors[].rejectedValue`; credentials stay redacted. |
 
-The default `type` prefix `urn:dc:problem:` is a neutral, non-dereferenceable identifier (RFC 9457
-allows a `type` that is not a locator): clients match on it, nothing tries to fetch it, and it points at
-no host the platform does not own. Once your organisation publishes error documentation, set
-`type-base-uri` to that `https://…/` base so `type` links to the page for each code (D99).
+`urn:dc:problem:` is a neutral identifier nobody tries to fetch. When your organisation publishes error pages, set the
+`https://…/` base so each `type` links to its page.
 
-(Hand-written until the generated reference lands in phase 14.)
+## Back-off limits
 
-## Customize
-
-```java
-@Bean
-@Order(10)
-ProblemDetailCustomizer tenantCustomizer() {
-    return (detail, source) -> detail.setProperty("tenant", TenantContext.current());
-}
-```
-
-Customizers run last, in order, on every problem body the platform emits.
-
-## Replace / Disable
-
-- Define a `PlatformExceptionHandler` (subclass) bean, or any bean named `platformExceptionHandler`,
-  to replace the main advice; likewise `PlatformConstraintViolationHandler` /
-  `platformValidationExceptionHandler` for the constraint-violation advice; any `ErrorController` bean
-  replaces the error page; a bean named `errorsCapabilityDescriptor` replaces the banner line.
-- `dc.platform.errors.map-validation=false` reverts validation failures to Spring's default
-  problem body.
-- `dc.platform.errors.enabled=false` switches the capability off wholesale.
+- **An interceptor that throws** (an exception or an `Error`) stops the interceptors after it. Spring swallows it
+  without a log line; the platform's error page logs it at WARN. The response is sent either way, with the platform's
+  body.
+- **A gone client or a committed response** gets nothing more: an `AsyncRequestNotUsableException`, or any exception
+  after the response was committed, is not rendered (the second case is logged at ERROR).
+- **Your own `@RestControllerAdvice`** handles its exceptions completely: the platform adds nothing to those bodies
+  unless you return an `ErrorResponse` or `ProblemDetail`, in which case your interceptors still run, but the platform's
+  `code`, `traceId`, `timestamp` and `retryable` do not.
+- **Your own `ErrorController`** replaces the error page: `sendError` responses lose the platform contract and your
+  interceptors.
+- Replacing the advice: a bean named `platformExceptionHandler` (or a `PlatformExceptionHandler` subclass), or
+  `platformValidationExceptionHandler` for the constraint-violation advice. Both are platform types; prefer an
+  interceptor.
+- `map-validation=false` returns Spring's default validation body (with the platform's extensions).
+- `spring.mvc.problemdetails.enabled=true` changes nothing: Boot's own problem-details advice backs off to the
+  platform's, which keeps the contract.
+- `dc.platform.errors.enabled=false` switches the capability off; Boot's default error handling returns.
 
 ## Error codes
 
 | Code | Meaning |
 |---|---|
-| `DC-CORE-0400` | Request validation failed (`errors[]` lists the violations). |
-| `DC-CORE-0410` | Request body unreadable or malformed (e.g. invalid JSON). |
-| `DC-CORE-0499` | Any other request the servlet stack rejected (404, 405, 406, 415, …); status preserved. |
-| `DC-CORE-0500` | Unhandled exception; generic body, full details in the log. |
-| `DC-DATA-0409` | 409 — the request conflicts with stored data (unique, foreign-key, NOT NULL or check constraint). |
-| `DC-DATA-0410` | 409 — the data was changed or is locked by another request; reload and retry. |
-| `DC-DATA-0503` | 503 — the database is unavailable: no pooled connection in time, statement/transaction timeout, lost connection. Retryable. |
-| `DC-SEC-0401` | Missing or unacceptable credentials (security entry point). |
-| `DC-SEC-0403` | Authenticated, but lacking the required authority (security denied handler). |
+| `DC-CORE-0400` | Request validation failed; `errors[]` lists the violations. |
+| `DC-CORE-0410` | Request body unreadable or malformed. |
+| `DC-CORE-0499` | Any other client error without a code of its own (404, 405, 415, a 4xx `@ResponseStatus`, …). |
+| `DC-CORE-0500` | Server error without a code of its own; generic detail, full exception in the log. |
+| `DC-DATA-0409` | The request conflicts with stored data (unique, foreign-key, NOT NULL or check constraint). |
+| `DC-DATA-0410` | The data was changed or is locked by another request; reload and retry. |
+| `DC-DATA-0503` | The database is unavailable or timed out. Retryable. |
 
-Applications register their own codes by declaring `static final ErrorCode` constants — the
-registry gate picks them up automatically.
+Platform codes are checked at build time: each `DC-<CAP>-<NNNN>` value is declared once across every platform module.
 
 ## Testing
 
-The advices are plain beans:
-`MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(handler)` exercises mappings
-without a full context. Open a `RequestContext` (try-with-resources) around the call to see the
-`traceId` extension. Inject a fixed `Clock` bean to make `timestamp` deterministic.
+`MockMvc` or a real server: assert `code`, `status` and `traceId` in the body. Send a `traceparent` to know the trace
+ID in advance; inject a fixed `Clock` bean to make `timestamp` deterministic.
 
 ## Local dev notes
 
-No Docker, no network. Quick smoke check: `curl -s localhost:8080/nonexistent | jq .type` — a
-`urn:dc:problem:…` URI proves the advice is active; Spring's default body means the
-starter is missing or the kill switch is off.
+Nothing to run. Quick check: `curl -s localhost:8080/nonexistent` returns a body whose `type` starts with
+`urn:dc:problem:`; Spring's default body means the starter is missing or switched off.
 
 
 ---
@@ -1109,32 +1122,17 @@ management default is not taking effect, `/actuator/env` shows whether
 
 # Data / JPA
 
-Tech-neutral persistence value objects (`platform-data-api`) plus opinionated Spring Data JPA
-wiring (`platform-data-jpa-autoconfigure`): auditing, snake_case naming, sane Hibernate defaults,
-a `Money` attribute converter, and a Flyway-presence guard — all on by default, all overridable.
+Opinionated Spring Data JPA wiring (`platform-data-jpa-autoconfigure`): auditing, snake_case naming, sane
+Hibernate defaults and a Flyway-presence guard, all on by default, all overridable. The `Money`, `EntityId` and
+`PersistenceConventions` value types and their converters were removed in Spring-native Phase 2 (ND7).
 
 ## What you get
-
-### `platform-data-api` (tech-neutral, no JPA on the classpath)
-
-- **`Money`** — an immutable amount + ISO-4217 `Currency`. Same-currency `add`/`subtract` that fail
-  loudly on a currency mismatch. Persisted to one column via the storage form
-  `"<amount> <currencyCode>"` (`toStorageString()` / `parse(String)`) — the contract the JPA
-  attribute converter implements.
-- **`EntityId<T>`** — a typed wrapper around a raw id so an `OrderId` cannot be passed where a
-  `CustomerId` is expected.
-- **`PersistenceConventions`** — shared constants: `PHYSICAL_NAMING` (`snake_case`), standard column
-  lengths (`CODE_LENGTH`, `NAME_LENGTH`, `DESCRIPTION_LENGTH`, `MONEY_LENGTH`, …), and the audit
-  column names (`created_at`, `created_by`, `last_modified_at`, `last_modified_by`, `version`).
 
 ### `platform-data-jpa-autoconfigure` (opinionated Spring Data JPA)
 
 - **Auditing** — `@CreatedDate`/`@CreatedBy`/`@LastModifiedDate`/`@LastModifiedBy` are populated
   automatically. The platform's auditor always records `"system"` (1.0.0 has no web security); to
   record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`.
-- **Money / CorrelationId converters** — `MoneyConverter` and `CorrelationIdConverter` persist those
-  value types to a single column. Opt in per field with `@Convert` (see below); they are not
-  auto-applied (a library converter is not part of your scanned persistence unit, decision D34).
 - **Hibernate defaults** — contributed as standard `spring.jpa.*` values at lowest precedence
   (source `platform-data-jpa-defaults`, visible in `/actuator/env`): `open-in-view=false`, batch
   size 50 with ordered inserts/updates, UTC jdbc time zone. snake_case physical naming is Boot's own
@@ -1295,29 +1293,9 @@ RAC failover (FCF/ONS, Application Continuity) is not covered.
 | `dc.platform.data.jpa.enabled` | `true` | Kill switch for the JPA capability. |
 | `dc.platform.data.jpa.require-migrations` | `true` | Fail startup when JPA is present but Flyway is absent. |
 
-## Persisting Money / CorrelationId
-
-```java
-@Convert(converter = MoneyConverter.class)
-private Money price;                 // stored as "19.99 AED"
-
-@Convert(converter = CorrelationIdConverter.class)
-private CorrelationId correlationId; // stored as 32 hex chars
-```
-
-## Using the value types
-
-```java
-@Column(name = "reference_code", length = PersistenceConventions.CODE_LENGTH)
-private String referenceCode;
-
-Money price = Money.of("19.99", "AED");
-Money total = price.add(Money.of("1.00", "AED"));   // 20.99 AED
-```
-
 ## Local dev notes
 
-`platform-data-api` has no datastore dependency at all. The JPA slice tests against H2; no
+The JPA slice tests against H2; no
 Docker or network is required for the default build. The Oracle tests run under `mvn -Pdocker verify`;
 a cold Oracle container copies about 3 GB of datafiles (minutes on a laptop disk), so set
 `testcontainers.reuse.enable=true` in `~/.testcontainers.properties` to keep the instance warm between
@@ -1702,7 +1680,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 | Rule | Banned | Use instead |
 |---|---|---|
 | `noDirectMessagingInfrastructure` | `RabbitTemplate` / RabbitMQ listener containers | `EventPublisher` / `@EventHandler` |
-| `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
+| `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw Spring's `ErrorResponseException` with a `code` property; add fields with an `ErrorResponse.Interceptor` |
 | `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
 Rules match banned types by fully-qualified name, so a service that does not pull in Rabbit
@@ -2282,7 +2260,7 @@ thing the platform guarantees:
 
 - every request carries a correlation ID and structured JSON logs, with no code in the service doing
   it;
-- a thrown [`NotFoundException`](modules/errors.md) renders as an RFC-9457
+- a thrown Spring [`ErrorResponseException`](modules/errors.md) with the service's `code` renders as an RFC-9457
   `application/problem+json` 404 with a stable [error code](reference/error-codes.md) — there is
   deliberately no `@RestControllerAdvice` anywhere in the service.
 
@@ -2296,7 +2274,7 @@ the 1.0.0 stack: REST + Spring validation + [observability](modules/observabilit
 + [JPA/H2](modules/data.md) + [messaging](modules/messaging.md) (in-memory locally). It has no web
 security: in 1.0.0 the API gateway authenticates callers. Every
 cross-cutting concern comes from a `platform-starter-*`; `OrderService` is a tour of the APIs a service
-actually calls (`OutboxPublisher`, `@Transactional`, `NotFoundException`),
+actually calls (`OutboxPublisher`, `@Transactional`, Spring's `ErrorResponseException`),
 and the class deliberately contains no error, security, or serialization code.
 
 Run it with `mvn -pl examples/example-golden-path spring-boot:run`. Messaging is in-memory here;
@@ -2334,6 +2312,231 @@ mvn -pl examples/example-event-driven/consumer spring-boot:run
 
 ---
 
+<!-- source: labs/index.md -->
+
+# Labs
+
+Each lab takes you from nothing to a running service generated by the archetype, showing one capability at work.
+The commands are exactly the ones `tooling/labs/run-lab.sh <lab>` runs on every phase's final commit, so they work as
+written.
+
+## What you need
+
+- JDK 25 and Maven 3.9 on the path.
+- `curl`.
+- This repository checked out. Nothing is published yet, so each lab starts by building the platform into a local
+  Maven repository of its own (about three minutes, 1–2 GB of disk). It copies third-party artifacts from your
+  `~/.m2`, so build the repository once online first (`mvn install -DskipTests`).
+- Docker only where a lab says so.
+
+Set `PLATFORM_HOME` to your checkout before you start:
+
+```bash
+export PLATFORM_HOME=/path/to/dc-platform
+```
+
+## Order
+
+| Lab | Capability | Infrastructure |
+|---|---|---|
+| [First service](first-service/index.md) | core + errors | none |
+
+Later labs (logging and observability, data, outbox, messaging) arrive with their capabilities.
+
+## Running a lab automatically
+
+```bash
+bash tooling/labs/run-lab.sh first-service
+```
+
+It runs every command in a fresh directory under `~/dc-labs/`, checks every expected result, stops whatever the lab
+started, and exits 0 only if everything passed.
+
+
+---
+
+<!-- source: labs/first-service/index.md -->
+
+# Lab: your first service
+
+You generate a service from the archetype, give it one endpoint that fails in two ways, and follow a failure from the
+error body a caller sees to the log line support will read. About ten minutes, most of it Maven.
+
+**You need:** JDK 25, Maven 3.9, `curl`, this repository, and `PLATFORM_HOME` set to it ([labs](../index.md)). No
+Docker. **Capabilities:** [core](../../modules/core.md) and [errors](../../modules/errors.md); background in
+[chapter 1](../../book/chapters/01-core.md) and [chapter 2](../../book/chapters/02-errors-validation.md).
+
+## Step 0 — Put the platform in a local Maven repository
+
+Nothing is published yet. This builds your checkout into a repository of its own, `~/.m2-hardening/lab-first-service`,
+with no older platform artifact in it:
+
+```bash lab-step
+PLATFORM_REPO=$(bash "$PLATFORM_HOME/tooling/hardening/native-repo.sh" lab-first-service)
+export PLATFORM_REPO
+echo "platform repository: $PLATFORM_REPO"
+```
+
+## Step 1 — Generate the service
+
+```bash lab-step
+mvn -B -q -o -Dmaven.repo.local="$PLATFORM_REPO" \
+    org.apache.maven.plugins:maven-archetype-plugin:3.1.2:generate -DarchetypeCatalog=local \
+    -DarchetypeGroupId=ae.gov.dubaicustoms.platform -DarchetypeArtifactId=platform-service-archetype \
+    -DarchetypeVersion=1.0.0-SNAPSHOT -DgroupId=com.example -DartifactId=first-service \
+    -Dpackage=com.example.orders -DinteractiveMode=false
+cd first-service
+```
+
+You get core, errors, logging and observability, Spring's validation, and a sample `/hello` endpoint. No feature
+options are needed for this lab.
+
+## Step 2 — Configuration
+
+None. Correlation and the error contract work with only the starters; `application.yml` names the service and nothing
+else. The only setting this lab uses is the port, on the command line in step 4.
+
+## Step 3 — An endpoint that fails
+
+A business refusal, with a code of your own, and an unexpected failure whose message names an internal host:
+
+```java lab-file src/main/java/com/example/orders/OrderController.java
+package com.example.orders;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+class OrderController {
+
+    @PostMapping("/orders/{id}/cancel")
+    String cancel(@PathVariable long id) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "order %d is already paid".formatted(id));
+        problem.setProperty("code", "ORD-0409");
+        throw new ErrorResponseException(HttpStatus.CONFLICT, problem, null);
+    }
+
+    @GetMapping("/orders/{id}/invoice")
+    String invoice(@PathVariable long id) {
+        throw new IllegalStateException("invoice store db-7.internal refused the connection");
+    }
+}
+```
+
+Only Spring types: `ErrorResponseException` and `ProblemDetail`. There is no `@RestControllerAdvice`; the platform's
+does the rest.
+
+## Step 4 — Build and start
+
+The build runs the generated tests too, including the conformance test that checks the service uses Spring types.
+
+```bash lab-step
+mvn -B -q -o -Dmaven.repo.local="$PLATFORM_REPO" package
+java -jar target/first-service-*.jar --server.port=18080 > app.log 2>&1 &
+echo $! > ../app.pid
+for attempt in $(seq 1 90); do
+  curl -fs http://localhost:18080/actuator/health > /dev/null && break
+  sleep 1
+done
+```
+
+```bash lab-check
+curl -fs http://localhost:18080/actuator/health -o health.json
+grep -q '"status":"UP"' health.json
+```
+
+## Step 5 — A business failure, with your trace
+
+Send a `traceparent`, as any traced caller does:
+
+```bash lab-step
+TRACE=4bf92f3577b34da6a3ce929d0e0e4736
+curl -s -X POST -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" http://localhost:18080/orders/42/cancel | tee cancel.json
+echo
+```
+
+```json
+{"detail":"order 42 is already paid","instance":"/orders/42/cancel","status":409,"title":"ORD-0409",
+ "type":"urn:dc:problem:ORD-0409","code":"ORD-0409","traceId":"4bf92f3577b34da6a3ce929d0e0e4736",
+ "timestamp":"2026-11-19T12:46:42.991006300Z","retryable":false}
+```
+
+Your code and your detail, plus the platform's `traceId`, `timestamp` and `retryable`:
+
+```bash lab-check
+grep -q '"code":"ORD-0409"' cancel.json
+grep -q '"detail":"order 42 is already paid"' cancel.json
+grep -q "\"traceId\":\"$TRACE\"" cancel.json
+```
+
+## Step 6 — An unexpected failure, and its log line
+
+```bash lab-step
+curl -s -H "traceparent: 00-$TRACE-00f067aa0ba902b7-01" http://localhost:18080/orders/42/invoice | tee invoice.json
+echo
+```
+
+The caller gets a 500 with code `DC-CORE-0500`, the same `traceId`, and a generic detail. The internal host name is
+not in the body:
+
+```bash lab-check
+grep -q '"code":"DC-CORE-0500"' invoice.json
+grep -q '"detail":"An unexpected error occurred."' invoice.json
+grep -q "\"traceId\":\"$TRACE\"" invoice.json
+test "$(grep -c 'db-7' invoice.json)" -eq 0
+```
+
+Support takes the `traceId` from the body and searches the log. The ERROR line carries the same trace ID and the full
+exception, host name included:
+
+```bash lab-check
+test "$(grep "$TRACE" app.log | grep -c 'db-7.internal')" -gt 0
+```
+
+## Step 7 — Try this: no `traceparent`
+
+Call it the way a caller without tracing would:
+
+```bash lab-step
+curl -s http://localhost:18080/orders/42/invoice | tee fresh.json
+echo
+```
+
+The platform starts a new trace and reports it. It is a new 32-hex ID, not yours, and it is in the log too:
+
+```bash lab-check
+grep -Eq '"traceId":"[0-9a-f]{32}"' fresh.json
+test "$(grep -c "$TRACE" fresh.json)" -eq 0
+FRESH=$(grep -Eo '"traceId":"[0-9a-f]{32}"' fresh.json | cut -d'"' -f4)
+grep -q "$FRESH" app.log
+```
+
+## Step 8 — Clean up
+
+```bash lab-step
+kill "$(cat ../app.pid)"
+rm ../app.pid
+```
+
+The generated project stays in the lab directory; delete it when you are done. The local repository stays in
+`~/.m2-hardening/lab-first-service` for the next lab.
+
+## Where next
+
+- [Errors module page](../../modules/errors.md): every code, and how to add a field to every error body with an
+  `ErrorResponse.Interceptor`.
+- [Core module page](../../modules/core.md): the trace across threads and executors.
+- [The core + errors sample](../../samples/core-errors/README.md): what was proven, and how to operate it.
+
+
+---
+
 <!-- source: reference/properties.md -->
 
 # Configuration properties
@@ -2347,6 +2550,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 | Key | Type | Default | Description | Deprecation |
 |-----|------|---------|-------------|-------------|
 | `dc.platform.core.banner-enabled` | Boolean | `true` | whether the startup capability banner is logged |  |
+| `dc.platform.core.capabilities` | Map<String,Map<String,String>> |  | Per-capability overrides of what the platform reports (banner, /actuator/platform, capability gauge): dc.platform.core.capabilities.<name>.status and .detail replace that capability's status or detail, or add a capability when none has the name. |  |
 | `dc.platform.core.correlation.generate-if-missing` | Boolean |  | Removed: a request without a valid traceparent always starts a new trace, whose trace ID is the correlation id. | error (The tracing bridge always starts a new trace when traceparent is missing or invalid.) |
 | `dc.platform.core.correlation.header-name` | String |  | Removed: the correlation id is the W3C trace ID and travels in the standard traceparent header, so there is no custom header to configure. | error (Correlation is the W3C trace ID (traceparent); custom correlation headers are no longer read or written.) |
 | `dc.platform.core.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
@@ -2484,7 +2688,6 @@ Every platform error carries a stable `DC-<CAP>-<NNNN>` code. Codes are unique p
 | `DC-DATA-0409` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
 | `DC-DATA-0410` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
 | `DC-DATA-0503` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
-| `DC-TEST-0001` | test | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactoryTest` |
 
 
 ---
@@ -2517,10 +2720,8 @@ Import one BOM to align every platform artifact to a single release-train versio
 |----------|---------|
 | `ae.gov.dubaicustoms.platform:platform-dependencies` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-build-tools` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-core-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-core-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-core` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-errors-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-errors-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-errors` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-logging-api` | `${revision}` |
@@ -2539,7 +2740,6 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-rabbit` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-outbox` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-messaging-test` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-data-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-data-jpa-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-data-jpa` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle` | `${revision}` |
@@ -3859,14 +4059,14 @@ Updated at each phase closure. Until a capability's phase closes, its v3 status
 
 | Capability | Iteration | v3 verdict | Phase | Lab | Status |
 |---|---|---|---|---|---|
-| Foundation: core + errors | 1 | PASS | 2 | first service | not started |
+| Foundation: core + errors | 1 | PASS | 2 | first service | in progress (Gate B) |
 | Logging + observability | 1 | PASS | 3 | logging and observability | not started |
 | Data (Spring Data JPA, Oracle) | 1 | PASS, RAC `BLOCKED` | 4 | data | not started |
 | Outbox (RabbitMQ) | 1 | PASS with parked issues | 5 (trial), 6 | outbox | not started |
 | Messaging (RabbitMQ) | 1 | PASS | 6 | messaging | not started |
 | REST API (basic auth) | 2 | new (v3 certified JWT security, which is cut) | 8 | REST API | not started |
 | REST client + resilience | 2 | PASS | 9 | REST client | parked during iteration 1 |
-| Cut (plan §2.5) | — | — | 1 | — | to be removed |
+| Cut (plan §2.5) | — | — | 1 | — | removed in Phase 1 (69 modules; tag `pre-spring-native` restores them) |
 
 
 ---
@@ -3881,21 +4081,22 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-01-scope-cut`, PR #8 |
-| Current phase | 1 — Scope cut |
-| Current gate | Gate F done: all seven kept consumer runs and C1 pass at their floors (drop ledger in `phase-01-scope-cut/scope.md`); golden path 6/6; smoke 3/3; Trivy 0 findings; CI green on `451420b`. Gate C: Codex round pending |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-02-foundation`, PR #9 |
+| Current phase | 2 — Foundation: core + errors |
+| Current gate | Gate C done (`review-round-1.md`, fixes `b3bcc7c`). Gate D (Codex round 2) waits for the Codex reset at 18:37; Gate F consumer run in progress meanwhile |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | Codex usage limit (2026-11-19 06:55): the Phase 1 review waits for the reset at 08:33 (plan §5.3: wait, never buy credits) |
+| Open blockers | Codex usage limit (2026-11-19 16:19): round 2 waits for the reset at 18:37 (plan §5.3: wait, never buy credits) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | After 08:33: rerun `phase-01-scope-cut/codex/r1-review.prompt.md` against `451420b`, settle findings, write `closure.md`, merge PR #8 on green, tag `native/phase-01-closed` |
+| Next action | After 18:37: run `phase-02-foundation/codex/r2-review.prompt.md` against the latest commit (update its reviewed commit first). Meanwhile: consumer run (`native-repo.sh native-02`, floor 77), Gate E entries, lab and sample |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
 | 0 | `6666618` (`develop`) | PASS | `native/phase-00-closed` | 2026-11-19 |
-| 1 | `085d752` (`develop`) | in progress | — | — |
+| 1 | `085d752` (`develop`) | PASS | `native/phase-01-closed` | 2026-11-19 |
+| 2 | `516f54c` (`develop`) | in progress | — | — |
 
 ## Environment notes for resumption
 
@@ -4206,6 +4407,22 @@ frozen hardening record is the assessment, the release decision and the phase fo
 | HI-0116 | N1 | Medium | `docs/testing.md`, `docs/examples.md`, book chapters 2 and 7, book index, other book and sample pages | Live pages tell a reader to use `Containers.kafka()`, the validation or events starter, or rely on "authenticated by default" | Codex Phase 1 r1 #4 | Agree | Docs build and `DocsLinkCheckTest` pass | FIXED | Instructions fixed in place; banners on pages still to be rewritten (HI-0110) | Phase 1 fix commit | — |
 | HI-0117 | N1 | Medium | `docs/production-readiness/issue-register.md` | Codex: the HI-0109 update and HI-0110 to HI-0112 break the frozen hardening record | Codex Phase 1 r1 #5 | Disagree: plan Gate E makes this register the home of Spring-native findings; the frozen record is the assessment, the decision and the phase folders | Plan §8 Gate E, §10 Phase 1 step 7 | REJECTED | Register header states where rows from HI-0109 on come from; later prompts name the frozen files | Phase 1 fix commit | — |
 | HI-0118 | N1 | Medium | `examples/example-event-driven` | An in-memory profile is active by default, so the producer and consumer started normally cannot reach each other; Phase 1 step 5 says RabbitMQ only | Codex Phase 1 r1 #6 | Agree | Producer and consumer tests pass with RabbitMQ on the classpath | FIXED | Profiles removed; both services use the RabbitMQ starter; tests use the recording test transport | Phase 1 fix commit | `ApplicationSmokeTest`, `ShipmentRoundTripTest`, `ShipmentRetryDlqTest` |
+| HI-0119 | N2 | High | `core/platform-core-autoconfigure` executor propagation | A task captured with no trace, run by Boot's default `ContextPropagatingTaskDecorator` on a thread serving caller A (caller-runs), sees A's span through `Tracer` (the MDC was isolated) | — (Gate A risk N1, confirmed at Gate B) | Confirmed by a failing test with Boot's decorator | `TraceCorrelationIntegrationTest.aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer` | FIXED | The platform's task decorator clears missing values; it replaces the `propagate-context` default and backs off to any `TaskDecorator` (D139) | `04e7e29` | the same test; `CoreContextPropagationAutoConfigurationTest` |
+| HI-0120 | N2 | Medium | `errors` error-response interceptors | An `ErrorResponse.Interceptor` that throws stops the ones after it; Spring swallows it without a log line | — (Gate A risk N2) | Spring's behaviour, kept on the MVC path | `ErrorContractIntegrationTest.aThrowingInterceptorStopsTheRestButThePlatformBodyIsStillSent`, `anInterceptorThrowingAnErrorStopsTheRestButThePlatformBodyIsStillSent` | ACCEPTED | Documented limit on the errors page; the platform's error page logs a WARN; the response is always the platform's | `b3bcc7c` | the same tests |
+| HI-0121 | N2 | Low | `errors` `ProblemDetailFactory.serviceCode` | A service sets `code` to a non-`String` value or leaves it blank | — (Gate A risk N3) | — | `ProblemDetailFactoryTest.aStringCodeTheThrowerSetIsKeptWithItsTypeAndAnythingElseIsReplaced` | FIXED | Only a non-blank `String` is kept; otherwise `DC-CORE-0499`/`0500` | `04e7e29` | the same test |
+| HI-0122 | N2 | High | `errors` advice ordering against Boot | With `spring.mvc.problemdetails.enabled=true`, Boot's `@Order(0)` `ProblemDetailsExceptionHandler` answers framework and `ErrorResponse` exceptions first: no `traceId`, and a service's 5xx detail in the body | — (found by Claude before round 1, advisor review) | Boot backs off only to a `ResponseEntityExceptionHandler` bean, which the old advice was | `BootProblemDetailsPropertyTest` | FIXED | The advice's delegate `FrameworkErrors` is a `ResponseEntityExceptionHandler` bean, registered before `WebMvcAutoConfiguration` | `c7d0bcf` | `BootProblemDetailsPropertyTest` |
+| HI-0123 | N2 | High | `errors` `PlatformExceptionHandler` | A service's reused exception instance: the advice decorated (and Spring localised) the exception's own `ProblemDetail`, so concurrent requests mixed `traceId`, `instance` or locale | — (found by Claude before round 1); widened by Codex Phase 2 r1 #1 | Negative control: without the copy the test fails in round 0 | `PlatformExceptionHandlerTest.aSharedExceptionInstanceNeverCarriesOneRequestsTraceIntoAnother` | FIXED | Decorate and localise a deep copy; other values must be immutable (errors page) | `c7d0bcf`, `b3bcc7c` | the same test; `aSharedExceptionIsLocalisedPerRequestWithoutWritingItsOwnBody` |
+| HI-0124 | N2 | High (Codex: Critical; agreed High at reassessment) | `errors` `FrameworkErrors`, `ProblemDetailFactory.copyOf` | Spring localised the exception's own body before the copy; nested map/list values were shared, so an interceptor's per-request writes crossed responses | Codex Phase 2 r1 #1 | Partly agree; severity High | `r1-answer.out.md` #1 | FIXED | Localise a copy as Spring does, including a `ResponseStatusException`'s reason; deep-copy maps and lists | `b3bcc7c` | `aSharedExceptionIsLocalisedPerRequestWithoutWritingItsOwnBody`, `nestedValuesOfASharedExceptionAreCopiedPerResponse` |
+| HI-0125 | N2 | High | `errors` `PlatformExceptionHandler.handle` | An `ErrorResponseException` whose status differs from its body's: the body's status won, so a 503 with a 400 body kept an internal detail | Codex Phase 2 r1 #2 | Agree | `r1-answer.out.md` #2 | FIXED | The response's status is set on the copy first | `b3bcc7c` | `theExceptionsStatusWinsOverItsBodysInBothDirections` |
+| HI-0126 | N2 | High | `errors` `ProblemDetailFactory.decorate` | Extensions named `detail`, `status`, `stacktrace` or `traceId` survived; the JSON could carry a second `detail` with an internal message | Codex Phase 2 r1 #3 | Agree | `r1-answer.out.md` #3 | FIXED | Reserved names are removed before the platform writes its fields | `b3bcc7c` | `extensionsNamedLikeStandardOrPlatformFieldsNeverReachTheBody` |
+| HI-0127 | N2 | Medium | `errors` `FrameworkErrors.map` | `AsyncRequestNotUsableException` (write nothing) became a 500; the committed-response check was lost | Codex Phase 2 r1 #4 | Agree | `r1-answer.out.md` #4 | FIXED | `map` tells "not Spring's" from "write nothing"; every path goes through Spring's committed check | `b3bcc7c` | `aGoneClientOrACommittedResponseGetsNothingMoreAndNoUnexpectedErrorLog` |
+| HI-0128 | N2 | Medium | `errors` `ProblemDetailFactory.decorate` | A service code with a space or `%` broke `URI.create`, losing the contract | Codex Phase 2 r1 #5 | Agree | `r1-answer.out.md` #5 | FIXED | The code is percent-encoded in `type`, raw in `code` and `title` | `b3bcc7c` | `aCodeWithURIUnsafeCharactersIsEncodedInTheTypeAndKeptRawElsewhere` |
+| HI-0129 | N2 | Medium | `messaging-outbox` restore, `core` context accessor | The outbox's restored trace went straight to the MDC and was no longer captured for work handed to another thread | Codex Phase 2 r1 #6 | Agree | `r1-answer.out.md` #6 | FIXED | The accessor reads the MDC's own trace keys; isolating scopes hide and restore them | `b3bcc7c` | `workSubmittedDuringARestoreCarriesTheStoredTrace`, `aTraceWrittenDirectlyToTheMdcFollowsTheWorkAndIsCleanedUp` |
+| HI-0130 | N2 | Medium | `core` `MdcContext` | Closing an outer scope first left an inner scope's keys behind (carried defect) | Codex Phase 2 r1 #7 | Agree | `r1-answer.out.md` #7 | FIXED | Inner scopes unwind newest first; a stale handle does nothing | `b3bcc7c` | `closingAnOuterScopeFirstUnwindsTheInnerScopeExactly` |
+| HI-0131 | N2 | Medium | `errors` `ErrorCodeSourceUniquenessTest` | A dynamic or malformed platform code passed the gate (it saw only `DC-` literals) | Codex Phase 2 r1 #8 | Partly agree; Codex rejected the first proposal | `r1-answer.out.md` #8 | FIXED | Every `DC`-like literal and every code-bearing entry point is checked, with audited forwarding paths | `b3bcc7c` | `theScannerSeesEveryFormattingAndRejectsEveryUncheckedCode` |
+| HI-0132 | N2 | Medium | `errors` `PlatformErrorController` | An interceptor throwing an `Error` escaped the error page | Codex Phase 2 r1 #9 | Agree | `r1-answer.out.md` #9 | FIXED | Catch `Throwable` as Spring does; WARN | `b3bcc7c` | `anInterceptorThrowingAnErrorStopsTheRestButThePlatformBodyIsStillSent` |
+| HI-0133 | N2 | Medium | `core` filter registration, capability descriptors | Replacing the correlation filter or a reported capability needed a platform type (rule 12) | Codex Phase 2 r1 #10 | Partly agree; Codex rejected the descriptor answer | `r1-answer.out.md` #10 | FIXED | Back-off to a bean named `platformCorrelationFilterRegistration`; `dc.platform.core.capabilities.<name>.status`/`.detail` | `b3bcc7c` | `backsOffToABeanNamedLikeThePlatformRegistrationWithoutAPlatformType`, `propertiesReplaceOrAddAReportedCapability` |
+| HI-0134 | N2 | Low | `docs/samples/core-errors/**`, `docs/book/crosscutting/extending.md` | Live foundation docs taught removed types | Codex Phase 2 r1 #11 | Agree | `r1-answer.out.md` #11 | FIXED | `extending.md` fixed (snippet compiled); the sample rewritten at Gate H | `b3bcc7c`, `2882f72` | `UsageSnippetCompileTest`, `DocsLinkCheckTest` |
 
 
 ---
@@ -5575,6 +5792,27 @@ One line of context per decision; details live in the commit bodies referenced.
   that as "not published": no BOM entry needed, and a BOM entry for one fails. (3) `platform-service-parent` drops its
   Resilience4j and springdoc bans while those starters are parked, rather than pointing services at a starter that is not
   released. (4) Without web security the generated `/actuator/platform` is exposed outside `prod` only, as before.
+- **D138 — Phase 2 foundation choices (Spring-native Phase 2 Gate A, 2026-11-19).** (1) A service customizes error
+  bodies with Spring's `ErrorResponse.Interceptor` (added through `WebMvcConfigurer`). The platform advice returns an
+  `ErrorResponseException` whose cause is the original exception on every path, and the platform error controller applies
+  the same interceptors on the error dispatch, so each interceptor sees the originating exception; `ProblemDetailCustomizer`
+  is deleted. (2) A service's error code is the `code` property of its `ProblemDetail`; a `String` the thrower set is kept,
+  otherwise `DC-CORE-0499`/`0500`. (3) `CapabilityDescriptor` moves into `platform-core-autoconfigure`, and the enforcer
+  lets an autoconfigure module depend on `platform-core-autoconfigure` in place of `platform-core-api`. (4) Trace identity
+  comes from Micrometer's `Tracer`, falling back to the request's observation on an ERROR dispatch. (5) The platform
+  exceptions of the parked REST client and of messaging become `ErrorResponseException` subclasses with their codes and
+  statuses. (6) The core + errors consumer floor is 77 (92 less Phase 1's 15 JWT drops). Evidence:
+  `docs/spring-native/phase-02-foundation/scope.md`.
+- **D139 — Phase 2 Gate B choices (Spring-native Phase 2, 2026-11-19).** (1) Per-build japicmp is off
+  (`platform.japicmp.skip=true`) for the realignment: its breaks are deliberate and listed in
+  `docs/spring-native/expected-removals.md`, japicmp runs at each iteration's release check against the
+  `pre-spring-native` baseline, and the per-build run only met stale local release candidates (CI has none). (2) The
+  ArchUnit api-package rule lets the messaging and REST-client api packages use Spring's error model
+  (`org.springframework.web`, `org.springframework.http`) until Phases 6 and 9 remove them. (3) Context propagation to
+  executors is a `ContextPropagatingTaskDecorator` bean over a snapshot factory that clears missing values, replacing
+  the `spring.task.execution.propagate-context=true` default: Boot's own decorator lets a context-free task see another
+  caller's observation through `Tracer` (Phase 2 risk N1, test `aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`).
+  It backs off to any `TaskDecorator`, Boot's included, because Boot's executor builder applies only a unique one.
 
 
 ---

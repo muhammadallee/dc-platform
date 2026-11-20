@@ -1,0 +1,15 @@
+# Gate A spike: which error paths reach a WebMvcConfigurer ErrorResponse.Interceptor
+# Commit 516f54c + InterceptorSpikeTest (temporary, deleted after this run). Command:
+# mvn -o -T1 -B -ntp -pl errors/platform-errors-autoconfigure test -Dtest=InterceptorSpikeTest -Djacoco.skip=true -DforkCount=0  -> exit 0
+# Format: instance -> ErrorResponse argument [cause] code=<code property>. /wrapped uses a prototype advice returning ErrorResponseException(cause=original).
+SPIKE /ere -> null code=ORD-0001
+SPIKE /rse -> null code=DC-CORE-0499
+SPIKE /boom -> null code=DC-CORE-0500
+SPIKE /data -> null code=DC-DATA-0409
+SPIKE /missing -> null code=DC-CORE-0499
+SPIKE /wrapped -> ErrorResponseException cause=UnsupportedOperationException code=DC-CORE-0500
+SPIKE /valid -> null code=DC-CORE-0400
+SPIKE /ok -> null code=DC-CORE-0499
+SPIKE total=8
+# Not in the list: /senderror (a filter's sendError(409), rendered by PlatformErrorController): the interceptor did not fire.
+# raw log: evidence-raw/gateA-interceptor-spike.log sha256 bc29252a50a8bd952f091a7a85281ac50926935aedb0778c0ebd4421a0da619e

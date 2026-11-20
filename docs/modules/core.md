@@ -1,33 +1,55 @@
 # Core
 
-The smallest useful chassis: request correlation by W3C trace ID, context propagation, the platform
-exception model, and the startup capability banner.
+Every generated service has it. Core makes one ID follow a request everywhere: the W3C trace ID. It is in every log
+line, in every error body, and on every thread the request's work runs on. Your code reads it from Micrometer's
+`Tracer`. There is no platform type to learn.
 
-## What you get
+## What the platform configures
 
-- **Correlation = the W3C trace ID** — the only correlation identifier is the trace ID of the
-  current span. A request carrying a valid `traceparent` continues that trace; a missing or invalid
-  one starts a new trace (Boot's observation filter and the OpenTelemetry W3C propagator do this — the
-  platform never parses the header). The platform filter then opens `RequestContext` with the trace
-  ID, so `RequestContext.correlationId()`, the SLF4J `MDC` (`traceId`, `spanId`) and every error body
-  (`traceId`) carry it. No custom correlation header is read, generated, echoed or sent: a caller's
-  `X-Correlation-Id` is ignored. A `traceparent` the propagator did not continue is logged only as a fixed DEBUG marker
-  with the header's length — no header content ever reaches a log line.
-- **Works when unsampled** — unsampled spans still carry a valid trace ID, so correlation does not
-  depend on `management.tracing.sampling.probability`.
-- **Every dispatch** — the context is re-established on ASYNC redispatches (a `Callable`/`CompletableFuture`
-  handler that completes or fails later) and on the servlet ERROR dispatch (`sendError`, exceptions
-  escaping the filter chain), so those error bodies carry the request's `traceId` too.
-- **Context propagation** — the platform turns on Boot's own
-  `spring.task.execution.propagate-context`, and registers a Micrometer `ThreadLocalAccessor` for
-  `RequestContext`: `@Async` methods and Boot-built executors see the caller's trace in
-  `RequestContext` and the MDC, and pool threads are clean after each task. Executors you build
-  yourself need `ContextPropagatingTaskDecorator` (or `ContextSnapshot.wrap`) to get the same.
-- **Exception model** — subclass `PlatformException` with a stable `ErrorCode`
-  (`DC-<CAP>-<NNNN>`); the errors capability maps them to RFC-9457 problem responses.
-- **Capability banner** — one INFO line at startup listing every active platform capability:
-  `platform: core[ACTIVE], messaging[ACTIVE] (rabbit)`.
-- **API markers** — `@PlatformApi` (SemVer-guaranteed) and `@PlatformInternal` (no guarantees).
+- **Correlation is the trace ID.** A request with a valid `traceparent` continues that trace; a missing or invalid one
+  starts a new trace. Boot's observation filter and the OpenTelemetry W3C propagator decide that; the platform never
+  parses the header. No custom correlation header is read, generated, echoed or sent: a caller's `X-Correlation-Id`
+  is ignored.
+- **The trace ID is in the MDC on every dispatch.** A servlet filter puts `traceId` and `spanId` into the SLF4J MDC for
+  the request, its ASYNC redispatch (a `Callable` or `CompletableFuture` that finishes later) and its ERROR dispatch
+  (`sendError`, an exception escaping the filter chain), and restores the MDC exactly afterwards. On an ERROR
+  dispatch no span is in scope, so it takes the trace from the observation Boot stored on the request.
+- **A rejected `traceparent` leaves a marker, not a value.** When the propagator did not continue the header's trace,
+  the filter logs `rejected inbound traceparent (length=N)` at DEBUG. No header content ever reaches a log line.
+- **Unsampled traces still correlate.** An unsampled span has a valid trace ID, so correlation does not depend on
+  `management.tracing.sampling.probability`.
+- **Work on other threads keeps the trace, and only its own.** The platform supplies Spring's
+  `ContextPropagatingTaskDecorator` as the application's `TaskDecorator`. Boot's task executors (`@Async`, async MVC,
+  any executor built with Boot's builders) use it, so a task sees the caller's trace in the `Tracer` and the MDC. Its
+  snapshot factory clears missing values: a task captured with no trace runs with none, even on a thread that is
+  serving another caller. Boot's own decorator does not clear them.
+- **A tracer is always there.** The starter brings the Micrometer Tracing OpenTelemetry bridge with no exporter; spans
+  are shipped only when the observability starter adds one. Without a tracer the platform never invents an ID:
+  requests run without a correlation context and error bodies have no `traceId`.
+- **One banner line at startup** lists the active capabilities: `platform: core[ACTIVE], errors[ACTIVE] (rfc9457)`.
+
+## Read the trace in your code
+
+You rarely need to: logs, error bodies, outbound calls and messages carry it already. When you do, ask the tracer:
+
+```java snippet:core-read-trace
+@Service
+class InvoiceArchiver {
+
+    private final Tracer tracer;
+
+    InvoiceArchiver(Tracer tracer) {
+        this.tracer = tracer;
+    }
+
+    String supportReference() {
+        Span span = tracer.currentSpan();
+        return span == null ? "none" : span.context().traceId();
+    }
+}
+```
+
+Do not add the trace ID to a log message: it is already a field on the line.
 
 ## Starter coordinates
 
@@ -38,102 +60,57 @@ exception model, and the startup capability banner.
 </dependency>
 ```
 
-The core starter brings the tracer correlation needs: the Micrometer Tracing OpenTelemetry bridge and
-Boot's tracing/observation auto-configuration (no exporter — spans are only shipped when the
-observability starter adds one). A service with just core + errors + logging therefore still continues
-an inbound `traceparent` into its logs and error bodies. If tracing is removed or disabled, requests
-run with no correlation context and error bodies omit `traceId` — the platform never invents an id.
+## Zero-config behaviour
 
-## Zero-config behavior
+| With only the starter | You set nothing for it |
+|---|---|
+| Inbound `traceparent` continued; a new trace otherwise | ✓ |
+| `traceId` and `spanId` in the MDC on REQUEST, ASYNC and ERROR dispatches | ✓ (servlet apps) |
+| The trace follows `@Async` and Boot-built executors, isolated per task | ✓ |
+| Startup banner | ✓ |
+| Spans exported somewhere | ✗ add the observability starter |
 
-On a servlet web app: the correlation filter runs at order `HIGHEST_PRECEDENCE + 10` — after Boot's
-`ServerHttpObservationFilter` (`HIGHEST_PRECEDENCE + 1`, which continues or starts the trace) and
-before Spring Security (`-100`), so 401/403 bodies and security log lines already carry the trace ID.
-In any app: Boot's task executors propagate context, and the banner logs once the context is ready.
-Non-web apps get no filter; everything else is unchanged.
+## Change it with Spring
+
+| To change | Use |
+|---|---|
+| How executors propagate context | Declare your own `TaskDecorator` bean. The platform's backs off. Setting `spring.task.execution.propagate-context=true` also makes it back off, to Boot's decorator, which does **not** isolate a context-free task |
+| An executor you build yourself | `executor.setTaskDecorator(decorator)` with the application's `TaskDecorator` bean, or `ContextSnapshotFactory.builder().clearMissing(true).build().captureAll().wrap(task)` |
+| The trace itself (sampling, propagation format) | Boot's `management.tracing.*` properties |
+| The correlation filter | Declare a bean named `platformCorrelationFilterRegistration`, for example a `FilterRegistrationBean` of your own servlet `Filter`, or one with `setEnabled(false)`: the platform registers nothing. Keep your filter after the observation filter (`HIGHEST_PRECEDENCE + 1`), or there is no span yet |
+| What the banner and `/actuator/platform` report | `dc.platform.core.capabilities.<name>.status` and `.detail` replace a capability's line, or add one |
 
 ## Properties
 
 | Key | Default | Meaning |
 |---|---|---|
-| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability (tier `DEFAULT_ON`). |
+| `dc.platform.core.enabled` | `true` | Kill switch for the whole capability. |
 | `dc.platform.core.banner-enabled` | `true` | Log the startup capability banner. |
-| `spring.task.execution.propagate-context` | `true` (platform default; Boot's is `false`) | Boot's own context propagation for its executors. |
+| `dc.platform.core.capabilities.<name>.status`, `.detail` | none | Replace what is reported for one capability, or add one. |
 
-Removed (deprecated, level `error` — setting them has no effect): `dc.platform.core.correlation.header-name`,
-`dc.platform.core.correlation.generate-if-missing`. There is no header to name and nothing to generate:
-a request without a valid `traceparent` always starts a new trace.
+Removed (deprecated, level `error`, no effect): `dc.platform.core.correlation.header-name`,
+`dc.platform.core.correlation.generate-if-missing`.
 
-## Customize
+## Back-off limits
 
-- Contribute a capability line to the banner from your own auto-configuration:
-
-```java
-@Bean
-CapabilityDescriptor myCapabilityDescriptor() {
-    return new CapabilityDescriptor("mycap", "ACTIVE", "provider-x");
-}
-```
-
-- Read the correlation id anywhere on a request (or `@Async`) thread:
-
-```java
-RequestContext.correlationId()
-        .map(CorrelationId::value)          // the W3C trace ID
-        .ifPresent(traceId -> receipt.setSupportReference(traceId));
-```
-
-## Replace / Disable
-
-Overrides are by type, under any bean name (D98), the way Boot backs off its own filters:
-
-- Define your own `CorrelationIdFilter` bean (a subclass, say) to replace the filter. The platform
-  registration backs off and Boot registers yours; `CorrelationIdFilter` is `Ordered` at
-  `CoreContextAutoConfiguration.FILTER_ORDER` and runs on REQUEST, ASYNC and ERROR dispatches, so it
-  keeps the platform's position.
-- Define a `FilterRegistrationBean<CorrelationIdFilter>` to control the registration yourself (order,
-  URL patterns, or `setEnabled(false)`). Keep it after the observation filter, or there is no span yet:
-
-  ```java
-  @Bean
-  FilterRegistrationBean<CorrelationIdFilter> correlationRegistration(Tracer tracer) {
-      var registration = new FilterRegistrationBean<>(new CorrelationIdFilter(tracer));
-      registration.setOrder(CoreContextAutoConfiguration.FILTER_ORDER);
-      registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC, DispatcherType.ERROR);
-      return registration;
-  }
-  ```
-
-  Unrelated filters and registrations never affect the platform's.
-- Define a `PlatformBannerRunner` bean (subclass it and override `describe`) to change the banner, or
-  set `dc.platform.core.banner-enabled=false` and add your own `ApplicationRunner`. Other
-  `ApplicationRunner` beans never suppress the banner.
-- Capability descriptors are one bean per capability, so they back off **by name**, like Boot's health
-  indicators (D97): a bean named `coreCapabilityDescriptor` replaces the core entry. A descriptor under
-  any other name is simply one more entry.
-- `dc.platform.core.enabled=false` switches the capability off wholesale (no correlation context, no
-  platform executor default); tracing itself keeps working.
+- **Your own `TaskDecorator`** replaces the platform's. If it does not clear missing values, a context-free task run on
+  a thread serving another caller sees that caller's span through `Tracer`. The MDC stays isolated either way: the
+  platform's context-propagation accessor captures "no context" explicitly.
+- **Two `TaskDecorator` beans** mean Boot's executor builder uses neither. The platform never adds a second one.
+- **Your own filter**, registered under `platformCorrelationFilterRegistration`, replaces the platform's completely:
+  it keeps the platform's position only with order `HIGHEST_PRECEDENCE + 10` and the REQUEST, ASYNC and ERROR
+  dispatcher types, and then the MDC trace on error pages is yours to provide.
+- `dc.platform.core.enabled=false` switches correlation, isolation and the banner off. Tracing itself keeps working.
 
 ## Error codes
 
-None — core defines the model (`PlatformException`, `ErrorCode`); see the errors capability for the
-codes the platform maps.
+None.
 
 ## Testing
 
-`RequestContext.open(id, extras)` is `@PlatformInternal` but usable from tests to establish a
-context around code under test (try-with-resources). For a real request, send a `traceparent`
-(`00-<32 hex trace id>-<16 hex span id>-01`) and assert the trace ID in the response's ProblemDetail or
-the JSON log's `traceId`; the archetype's `HttpIntegrationTestSupport` does exactly that.
-
-## Upgrading from the `X-Correlation-Id` model
-
-Callers that sent `X-Correlation-Id` should send `traceparent` instead (any OpenTelemetry/W3C client
-does this automatically). Log queries on `correlationId` become queries on `traceId`; ProblemDetail
-consumers read `traceId`. `CorrelationId` and `RequestContext.correlationId()` keep their API.
+Send a `traceparent` (`00-<32 hex trace id>-<16 hex span id>-01`) and assert the same trace ID in the response's
+`traceId` or the JSON log's `traceId`. The archetype's tests do exactly that.
 
 ## Local dev notes
 
-No Docker, no network: everything in this capability is in-process. The banner is the quickest
-smoke check that platform auto-configuration ran at all — if it is missing, check that the
-starter is on the classpath and `dc.platform.core.enabled` is not `false`.
+Nothing to run: core is in-process. The banner is the quickest check that platform auto-configuration ran at all.

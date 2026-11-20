@@ -47,7 +47,7 @@ Filled in by each phase from [`phase-00-baseline/removal-map.md`](phase-00-basel
 
 | Phase | Removed | Notes |
 |---|---|---|
-| 2 | — | |
+| 2 | Whole modules `platform-core-api` (`CorrelationId`, `RequestContext`, `ErrorCode`, `PlatformException`, `CapabilityDescriptor`, `PlatformApi`, `PlatformInternal`), `platform-errors-api` (`BusinessException`, `NotFoundException`, `ConflictException`, `HttpStatusHint`, `ProblemDetailCustomizer`), `platform-data-api` (`EntityId`, `Money`, `PersistenceConventions`). In kept modules: `PlatformCoreEnvironmentPostProcessor` (core-autoconfigure); `RemoteCallException`, `EventPublishException`, `EventSerializationException` change superclass to Spring's `ErrorResponseException` (`code()` is gone; the code is the `ProblemDetail` property) | D138. `CapabilityDescriptor` moved to `platform-core-autoconfigure` (a break for the old package). Converters `MoneyConverter`, `CorrelationIdConverter` were `.internal` |
 | 3 | — | |
 | 4 | — | |
 | 6 | — | |

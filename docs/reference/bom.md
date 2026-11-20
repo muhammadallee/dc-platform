@@ -24,10 +24,8 @@ Import one BOM to align every platform artifact to a single release-train versio
 |----------|---------|
 | `ae.gov.dubaicustoms.platform:platform-dependencies` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-build-tools` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-core-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-core-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-core` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-errors-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-errors-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-errors` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-logging-api` | `${revision}` |
@@ -46,7 +44,6 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-rabbit` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-messaging-outbox` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-messaging-test` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-data-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-data-jpa-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-data-jpa` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-data-jpa-oracle` | `${revision}` |

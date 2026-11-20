@@ -2,7 +2,6 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -87,12 +86,6 @@ class CoreContextAutoConfigurationTest {
                     assertThat(context).hasBean("unrelatedRegistration");
                     assertThat(registeredCorrelationFilters(context)).hasSize(1);
                 });
-    }
-
-    @Test
-    void inactiveWhenCoreApiMissing() {
-        runner.withClassLoader(new FilteredClassLoader(CorrelationId.class))
-                .run(context -> assertThat(context).doesNotHaveBean(CoreContextAutoConfiguration.class));
     }
 
     @Test
@@ -199,5 +192,20 @@ class CoreContextAutoConfigurationTest {
                 }
             });
         }
+    }
+
+    // Codex round 1, finding 10: a Spring-only replacement. A service registers its own servlet Filter under the
+    // platform registration's bean name, with no platform type, and the platform registers nothing.
+    @Test
+    void backsOffToABeanNamedLikeThePlatformRegistrationWithoutAPlatformType() {
+        jakarta.servlet.Filter mine = (request, response, chain) -> chain.doFilter(request, response);
+        runner.withBean("platformCorrelationFilterRegistration", FilterRegistrationBean.class,
+                        () -> new FilterRegistrationBean<>(mine))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(registeredCorrelationFilters(context)).isEmpty();
+                    assertThat(context.getBean("platformCorrelationFilterRegistration", FilterRegistrationBean.class)
+                            .getFilter()).isSameAs(mine);
+                });
     }
 }

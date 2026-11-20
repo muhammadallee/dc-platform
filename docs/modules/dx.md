@@ -40,7 +40,7 @@ ArchUnit rules a service runs over its own production classes via the generated
 | Rule | Banned | Use instead |
 |---|---|---|
 | `noDirectMessagingInfrastructure` | `RabbitTemplate` / RabbitMQ listener containers | `EventPublisher` / `@EventHandler` |
-| `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw `PlatformException` subtypes |
+| `noHandRolledExceptionHandler` | `@RestControllerAdvice extends ResponseEntityExceptionHandler` | throw Spring's `ErrorResponseException` with a `code` property; add fields with an `ErrorResponse.Interceptor` |
 | `noSystemGetenv` | `System.getenv(...)` | Spring config placeholders (`${...}`, populated by Spring Cloud Vault) |
 
 Rules match banned types by fully-qualified name, so a service that does not pull in Rabbit

@@ -2,7 +2,7 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

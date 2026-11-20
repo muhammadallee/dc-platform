@@ -37,12 +37,6 @@
       <groupId>org.apiguardian</groupId>
       <artifactId>apiguardian-api</artifactId>
     </dependency>
-    <!-- api -> core-api only (CLAUDE.md rule 5). -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
-      <version>${revision}</version>
-    </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

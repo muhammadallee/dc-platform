@@ -11,6 +11,12 @@
 # sent on one request so "no bearer token in the log" keeps its meaning. See
 # docs/spring-native/phase-01-scope-cut/scope.md.
 #
+# Spring-native Phase 2 port (docs/spring-native/phase-02-foundation/scope.md): the probe uses Spring types only (the
+# trace from Micrometer's Tracer, ErrorResponseException with a code property, an ErrorResponse.Interceptor, a
+# RestClient instrumented with the ObservationRegistry), so the parked REST-client starter is no longer added. A grep fails the run if the probe or the
+# generated service's main code imports a platform type (AC23). New: AC19 (the interceptor sees the originating
+# exception), AC20 (a service's own code and detail), AC21 (@ResponseStatus). Floor 77.
+#
 #   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-01-core-errors.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/harness.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,11 +39,14 @@ header_absent() { # name: the last response's headers must not contain it
 
 hh_init phase-01 core-errors
 
-hh_step "generate a consumer, add the parked REST-client starter (the outbound fixture) and the probe"
+hh_step "generate a consumer and add the probe"
 hh_generate hardening-core -
-python -I "$(hh_native "$HERE/phase-06/edit_pom.py")" "$(hh_native "$HH_APP_DIR/pom.xml")" "$HH_REV" \
-    || hh_abort "could not add the REST-client starter"
 hh_add_sources "$HERE/phase-01/probe" ae/gov/dubaicustoms/hardening/probe
+
+hh_step "AC23 the service's main code imports no platform type (Spring types only)"
+PLATFORM_IMPORTS=$(grep -rlE '^import (static )?ae\.gov\.dubaicustoms\.platform\.' "$HH_APP_DIR/src/main/java" || true)
+if [ -z "$PLATFORM_IMPORTS" ]; then hh_pass "AC23 no platform import in src/main/java"
+else hh_fail "AC23 platform imports in: $PLATFORM_IMPORTS"; fi
 hh_build_app
 
 # A JWT-shaped value: nothing validates it now, and it must never reach the log.
@@ -50,7 +59,7 @@ hh_wait_ready 180
 HH_STARTUP_HEALTHY=$HH_READY_SECONDS
 
 T=$(hex 16)
-hh_step "AC1 valid traceparent is continued; RequestContext, MDC and @Async carry it"
+hh_step "AC1 valid traceparent is continued; the Tracer, the MDC and @Async carry it"
 M0=$(markers)
 hh_http ac1-valid GET /probe/context -H "traceparent: $(tp "$T")" -D "$HH_EVIDENCE/http/ac1-valid.headers"
 hh_expect_status 200
@@ -100,7 +109,7 @@ hh_expect_status 200
 hh_expect_json "trace unaffected by the stray header" "b['context'] == '$T'"
 header_absent x-correlation-id
 
-hh_step "AC5 the platform REST client propagates traceparent only"
+hh_step "AC5 an instrumented RestClient propagates traceparent only"
 hh_http ac5-outbound GET /probe/outbound -H "traceparent: $(tp "$T")" -H "X-Correlation-Id: $STRAY"
 hh_expect_status 200
 hh_expect_json "downstream traceparent has the same trace" "b['downstream']['traceparent'].startswith('00-$T-')"
@@ -129,7 +138,7 @@ hh_expect_status 500
 hh_expect_json "generic 500" "b['code'] == 'DC-CORE-0500' and b['detail'] == 'An unexpected error occurred.' and b['traceId'] == '$T'"
 hh_expect_json "no internals in the body" "'secret-host' not in json.dumps(b) and 'stacktrace' not in b"
 
-hh_step "AC12 5xx PlatformException → generic body, message only in the log"
+hh_step "AC12 a service's 5xx ErrorResponseException → its code, generic body, detail only in the log"
 hh_http ac12-platform GET /probe/platform-failure -H "traceparent: $(tp "$T")"
 hh_expect_status 500
 hh_expect_json "own code, generic detail, trace" \
@@ -172,6 +181,34 @@ hh_http framework-404 GET /probe/does-not-exist -H "traceparent: $(tp "$T")"
 hh_expect_status 404
 hh_expect_json "404 contract" "b['code'] == 'DC-CORE-0499' and b['traceId'] == '$T'"
 
+hh_step "AC20 a service's own code and 4xx detail reach the body unchanged"
+hh_http ac20-service GET /probe/service-error -H "traceparent: $(tp "$T")"
+hh_expect_status 409
+hh_expect_json "service code, detail and type" \
+    "b['code'] == 'PROBE-0409' and b['detail'] == 'applicant 7 is already registered' and b['type'] == 'urn:dc:problem:PROBE-0409'"
+hh_expect_json "platform extensions on a service error" "b['traceId'] == '$T' and b['retryable'] is False and 'timestamp' in b"
+
+hh_step "AC21 an exception annotated @ResponseStatus(CONFLICT) is a 409, not a 500"
+hh_http ac21-annotated GET /probe/annotated -H "traceparent: $(tp "$T")"
+hh_expect_status 409
+hh_expect_json "409 contract with the reason" \
+    "b['code'] == 'DC-CORE-0499' and b['detail'] == 'order already shipped' and b['traceId'] == '$T'"
+
+hh_step "AC19 the service's ErrorResponse.Interceptor sees the originating exception on every path"
+hh_http ac19-boom GET /probe/boom -H "traceparent: $(tp "$T")"
+hh_expect_json "unexpected exception" "b.get('seenBy') == 'probe:IllegalStateException'"
+hh_http ac19-service GET /probe/service-error -H "traceparent: $(tp "$T")"
+hh_expect_json "service ErrorResponseException" "b.get('seenBy') == 'probe:ErrorResponseException'"
+hh_http ac19-annotated GET /probe/annotated -H "traceparent: $(tp "$T")"
+hh_expect_json "@ResponseStatus exception" "b.get('seenBy') == 'probe:AlreadyShipped'"
+hh_http ac19-validation POST /probe/applicants -H "traceparent: $(tp "$T")" -H "Content-Type: application/json" \
+    --data '{"name":""}'
+hh_expect_json "validation failure" "b.get('seenBy') == 'probe:MethodArgumentNotValidException'"
+hh_http ac19-404 GET /probe/does-not-exist -H "traceparent: $(tp "$T")"
+hh_expect_json "framework 404" "b.get('seenBy') == 'probe:NoResourceFoundException'"
+hh_http ac19-dispatch GET /probe/duplicate -H "traceparent: $(tp "$T")"
+hh_expect_json "servlet error dispatch (sendError: no exception)" "b.get('seenBy') == 'probe:none'"
+
 hh_step "AC8 200 parallel requests x 3 rounds: zero context bleed"
 if "${CHECKS[@]}" concurrent "$HH_BASE" 200 3 > "$HH_EVIDENCE/ac8-concurrency.json"; then
   hh_pass "AC8 $(cat "$HH_EVIDENCE/ac8-concurrency.json")"
@@ -208,7 +245,7 @@ else
 fi
 if grep -q "rejected inbound traceparent" "$HH_EVIDENCE/app.log"; then hh_pass "sanitized rejection marker logged"
 else hh_fail "no sanitized rejection marker in the log"; fi
-TIMEOUT_EVENTS=$(grep -F "framework exception [DC-CORE-0500] status 503" "$HH_EVIDENCE/app.log" \
+TIMEOUT_EVENTS=$(grep -F "error response [DC-CORE-0500] status 503" "$HH_EVIDENCE/app.log" \
     | grep -F "\"traceId\":\"$T\"" | grep -cF '"stack_trace":"' || true)
 if [ "$TIMEOUT_EVENTS" -eq 1 ]; then
   hh_pass "async timeout logged exactly once, with its stack trace, on the request's trace"

@@ -868,3 +868,30 @@ One line of context per decision; details live in the commit bodies referenced.
   that as "not published": no BOM entry needed, and a BOM entry for one fails. (3) `platform-service-parent` drops its
   Resilience4j and springdoc bans while those starters are parked, rather than pointing services at a starter that is not
   released. (4) Without web security the generated `/actuator/platform` is exposed outside `prod` only, as before.
+- **D138 — Phase 2 foundation choices (Spring-native Phase 2 Gate A, 2026-11-19).** (1) A service customizes error
+  bodies with Spring's `ErrorResponse.Interceptor` (added through `WebMvcConfigurer`). The platform advice returns an
+  `ErrorResponseException` whose cause is the original exception on every path, and the platform error controller applies
+  the same interceptors on the error dispatch, so each interceptor sees the originating exception; `ProblemDetailCustomizer`
+  is deleted. (2) A service's error code is the `code` property of its `ProblemDetail`; a `String` the thrower set is kept,
+  otherwise `DC-CORE-0499`/`0500`. (3) `CapabilityDescriptor` moves into `platform-core-autoconfigure`, and the enforcer
+  lets an autoconfigure module depend on `platform-core-autoconfigure` in place of `platform-core-api`. (4) Trace identity
+  comes from Micrometer's `Tracer`, falling back to the request's observation on an ERROR dispatch. (5) The platform
+  exceptions of the parked REST client and of messaging become `ErrorResponseException` subclasses with their codes and
+  statuses. (6) The core + errors consumer floor is 77 (92 less Phase 1's 15 JWT drops). Evidence:
+  `docs/spring-native/phase-02-foundation/scope.md`.
+- **D139 — Phase 2 Gate B choices (Spring-native Phase 2, 2026-11-19).** (1) Per-build japicmp is off
+  (`platform.japicmp.skip=true`) for the realignment: its breaks are deliberate and listed in
+  `docs/spring-native/expected-removals.md`, japicmp runs at each iteration's release check against the
+  `pre-spring-native` baseline, and the per-build run only met stale local release candidates (CI has none). (2) The
+  ArchUnit api-package rule lets the messaging and REST-client api packages use Spring's error model
+  (`org.springframework.web`, `org.springframework.http`) until Phases 6 and 9 remove them. (3) Context propagation to
+  executors is a `ContextPropagatingTaskDecorator` bean over a snapshot factory that clears missing values, replacing
+  the `spring.task.execution.propagate-context=true` default: Boot's own decorator lets a context-free task see another
+  caller's observation through `Tracer` (Phase 2 risk N1, test `aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`).
+  It backs off to any `TaskDecorator`, Boot's included, because Boot's executor builder applies only a unique one.
+- **D140 — The error-code gate fails closed by pinning (Spring-native Phase 2 Gate D, 2026-11-20).** The source gate
+  `ErrorCodeSourceUniquenessTest` lets javac attribute every platform source and accepts a code only where it resolves
+  to source literals, through audited forwarding paths. For `DataAccessFailure` it no longer supports general shapes:
+  only the audited enum, with its one `(int status, String code, String detail)` constructor, may carry that name, and
+  any other shape, constructor, unresolved construction or write of a `code` is reported. Fifteen Codex verification
+  passes; the last one accepted the gate (`docs/spring-native/phase-02-foundation/review-round-2.md`).

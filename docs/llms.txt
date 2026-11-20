@@ -45,6 +45,11 @@ Generated from the docs navigation. Each link is a clean Markdown page.
 
 - [Examples](examples.md)
 
+## Labs
+
+- [Labs](labs/index.md)
+- [First service](labs/first-service/index.md)
+
 ## Book (explanation + tutorial)
 
 - [The DC Platform Book](book/index.md)

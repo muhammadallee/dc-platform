@@ -2,8 +2,6 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
@@ -11,12 +9,12 @@ import ch.qos.logback.core.AsyncAppenderBase;
 import ch.qos.logback.core.ConsoleAppender;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -54,8 +52,7 @@ class JsonLogOutputTest {
     void logsJsonWithEcsIshFieldsAndCorrelation(CapturedOutput output) throws Exception {
         try (ConfigurableApplicationContext context = boot()) {
             Logger log = LoggerFactory.getLogger("json.probe");
-            try (AutoCloseable scope = RequestContext.open(
-                    new CorrelationId("0123456789abcdef0123456789abcdef"), Map.of())) {
+            try (MDC.MDCCloseable scope = MDC.putCloseable("traceId", "0123456789abcdef0123456789abcdef")) {
                 log.info("probe message");
             }
         }

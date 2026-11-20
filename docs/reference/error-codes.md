@@ -13,4 +13,3 @@ Every platform error carries a stable `DC-<CAP>-<NNNN>` code. Codes are unique p
 | `DC-DATA-0409` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
 | `DC-DATA-0410` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
 | `DC-DATA-0503` | data | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes` |
-| `DC-TEST-0001` | test | `ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactoryTest` |

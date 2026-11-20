@@ -3,6 +3,7 @@
 | Key | Type | Default |
 |-----|------|---------|
 | `dc.platform.core.banner-enabled` | Boolean | `true` |
+| `dc.platform.core.capabilities` | Map<String,Map<String,String>> | `` |
 | `dc.platform.core.correlation.generate-if-missing` | Boolean | `` |
 | `dc.platform.core.correlation.header-name` | String | `` |
 | `dc.platform.core.enabled` | Boolean | `true` |

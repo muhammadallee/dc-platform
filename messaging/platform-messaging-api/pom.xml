@@ -34,11 +34,10 @@
       <groupId>org.apiguardian</groupId>
       <artifactId>apiguardian-api</artifactId>
     </dependency>
-    <!-- api -> core-api only (CLAUDE.md rule 5): PlatformException/ErrorCode live there. -->
+    <!-- Its exceptions are Spring ErrorResponseExceptions (D138): the code and status reach the error body. -->
     <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
-      <version>${revision}</version>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-web</artifactId>
     </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>

@@ -2,8 +2,6 @@ package ae.gov.dubaicustoms.example.minimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.core.PlatformException;
 import com.jayway.jsonpath.JsonPath;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,13 +20,16 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * One request, real tracing, the minimal starters only (phase-01 AC1/AC2/AC12 at slice level): the trace
  * ID in a 5xx problem body is the trace ID of that request's own ERROR log event, which carries the full
- * stack trace — for an unknown exception and for a 5xx {@link PlatformException}, on a continued and on
+ * stack trace — for an unknown exception and for a service 5xx {@code ErrorResponseException}, on a continued and on
  * a freshly started trace. The body itself never carries the exception message.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -52,7 +53,7 @@ class ErrorLogCorrelationTest {
     @RestController
     static class Failing {
 
-        static final ErrorCode PRICING_UNAVAILABLE = new ErrorCode("DC-XMPL-0500");
+        static final String PRICING_UNAVAILABLE = "DC-XMPL-0500";
 
         @GetMapping("/test/unknown")
         String unknown() {
@@ -61,7 +62,11 @@ class ErrorLogCorrelationTest {
 
         @GetMapping("/test/platform")
         String platform() {
-            throw new PlatformException(PRICING_UNAVAILABLE, "pricing-7.internal refused") { };
+            // A service's own 5xx: its detail names an internal host, so it must not reach the body.
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "pricing-7.internal refused");
+            problem.setProperty("code", PRICING_UNAVAILABLE);
+            throw new ErrorResponseException(HttpStatus.INTERNAL_SERVER_ERROR, problem, null);
         }
     }
 

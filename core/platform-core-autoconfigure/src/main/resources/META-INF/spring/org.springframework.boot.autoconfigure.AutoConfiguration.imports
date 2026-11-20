@@ -1,2 +1,3 @@
 ae.gov.dubaicustoms.platform.core.autoconfigure.CoreContextAutoConfiguration
+ae.gov.dubaicustoms.platform.core.autoconfigure.CoreContextPropagationAutoConfiguration
 ae.gov.dubaicustoms.platform.core.autoconfigure.PlatformBannerAutoConfiguration

@@ -37,7 +37,7 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
+      <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
     <!-- Resilience4j retry: RetryRegistry for the RetryableOperation helper. The circuit-breaker and

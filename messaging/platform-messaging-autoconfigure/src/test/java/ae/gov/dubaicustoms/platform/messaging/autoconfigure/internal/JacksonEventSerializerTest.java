@@ -26,7 +26,7 @@ class JacksonEventSerializerTest {
     void deserializeThrowsEventSerializationExceptionOnInvalidJson() {
         assertThatThrownBy(() -> serializer.deserialize("not json".getBytes(), OrderPlaced.class))
                 .isInstanceOf(EventSerializationException.class)
-                .extracting(e -> ((EventSerializationException) e).code().value())
+                .extracting(e -> ((EventSerializationException) e).getBody().getProperties().get("code"))
                 .isEqualTo("DC-MSG-0002");
     }
 }

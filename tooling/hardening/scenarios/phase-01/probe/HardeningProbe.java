@@ -1,14 +1,16 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.core.PlatformException;
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
-import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -17,31 +19,39 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
-import jakarta.servlet.Filter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Consumer-side probe for the hardening phase-01 harness (never part of a real service). Uses only the
- * platform's public API and documented extension points: {@link PlatformRestClientFactory} for the
- * outbound call, {@link RequestContext}
- * to read the correlation id.
+ * Consumer-side probe for the core + errors consumer run (never part of a real service). Spring types only
+ * (Spring-native Phase 2, contract 12): it reads the trace from Micrometer's {@link Tracer}, throws Spring's
+ * {@link ErrorResponseException} with its own {@code code}, adds to every error body through a Spring
+ * {@link ErrorResponse.Interceptor}, and calls out through a {@link RestClient} instrumented with the application's
+ * {@link ObservationRegistry} (Boot's {@code RestClient.Builder} bean needs {@code spring-boot-starter-restclient}, which
+ * arrives with the REST client capability in iteration 2).
  */
 public final class HardeningProbe {
+
+    // Set once by the controller; read by snapshot(), which also runs on @Async and async-MVC threads.
+    private static volatile Tracer tracer;
 
     private HardeningProbe() {
     }
@@ -49,7 +59,6 @@ public final class HardeningProbe {
     @Configuration(proxyBeanMethods = false)
     @EnableAsync
     static class ProbeConfiguration {
-
 
         // A consumer filter rejecting a request with sendError: the response is rendered by the
         // servlet error page (an ERROR dispatch), not by MVC.
@@ -63,6 +72,20 @@ public final class HardeningProbe {
                 chain.doFilter(request, response);
             };
             return new FilterRegistrationBean<>(filter);
+        }
+
+        // Every error body names the exception the interceptor was given: proves it sees the original.
+        @Bean
+        WebMvcConfigurer probeErrorInterceptor() {
+            return new WebMvcConfigurer() {
+                @Override
+                public void addErrorResponseInterceptors(List<ErrorResponse.Interceptor> interceptors) {
+                    interceptors.add((detail, response) -> {
+                        Throwable cause = response instanceof ErrorResponseException e ? e.getCause() : null;
+                        detail.setProperty("seenBy", "probe:" + (cause == null ? "none" : cause.getClass().getSimpleName()));
+                    });
+                }
+            };
         }
     }
 
@@ -78,14 +101,24 @@ public final class HardeningProbe {
     public record Applicant(@NotBlank String name, @Email String email) {
     }
 
-    /** A consumer infrastructure failure: 5xx, so its message must never reach the response body. */
-    static final class PricingUnavailable extends PlatformException {
-
-        static final ErrorCode CODE = new ErrorCode("DC-PROBE-0500");
+    /** A consumer infrastructure failure: 5xx, so its detail must never reach the response body. */
+    static final class PricingUnavailable extends ErrorResponseException {
 
         PricingUnavailable() {
-            super(CODE, "pricing cluster node pricing-7.internal refused the connection");
+            super(HttpStatus.INTERNAL_SERVER_ERROR, body(), null);
         }
+
+        private static ProblemDetail body() {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "pricing cluster node pricing-7.internal refused the connection");
+            problem.setProperty("code", "DC-PROBE-0500");
+            return problem;
+        }
+    }
+
+    /** A business outcome declared with Spring's annotation: must be its status, not a 500. */
+    @ResponseStatus(code = HttpStatus.CONFLICT, reason = "order already shipped")
+    static final class AlreadyShipped extends RuntimeException {
     }
 
     @RestController
@@ -95,24 +128,24 @@ public final class HardeningProbe {
         private static final Logger log = LoggerFactory.getLogger(ProbeController.class);
 
         private final AsyncSnapshot async;
-        private final PlatformRestClientFactory factory;
+        private final ObservationRegistry observations;
         private final WebServerApplicationContext context;
         private volatile RestClient self;
 
         // The port is resolved on first use: touching the web server during context refresh starts its
         // connector early, and the regular start then fails with "port already in use".
-        public ProbeController(AsyncSnapshot async, PlatformRestClientFactory factory,
-                WebServerApplicationContext context) {
+        public ProbeController(AsyncSnapshot async, ObservationRegistry observations,
+                WebServerApplicationContext context, Tracer tracer) {
             this.async = async;
-            this.factory = factory;
+            this.observations = observations;
             this.context = context;
+            HardeningProbe.tracer = tracer;
         }
 
         private RestClient self() {
             if (self == null) {
-                self = factory.builder("probe-self")
-                        .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort())
-                        .build();
+                self = RestClient.builder().observationRegistry(observations)
+                        .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort()).build();
             }
             return self;
         }
@@ -149,6 +182,19 @@ public final class HardeningProbe {
             throw new PricingUnavailable();
         }
 
+        @GetMapping("/service-error")
+        public String serviceError() {
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                    "applicant 7 is already registered");
+            problem.setProperty("code", "PROBE-0409");
+            throw new ErrorResponseException(HttpStatus.CONFLICT, problem, null);
+        }
+
+        @GetMapping("/annotated")
+        public String annotated() {
+            throw new AlreadyShipped();
+        }
+
         @GetMapping("/async-ok")
         public java.util.concurrent.Callable<Map<String, String>> asyncOk() {
             return HardeningProbe::snapshot;
@@ -179,9 +225,14 @@ public final class HardeningProbe {
         }
     }
 
+    // "context": the trace as a service sees it, from the tracer's current span.
     static Map<String, String> snapshot() {
         Map<String, String> values = new HashMap<>();
-        RequestContext.correlationId().map(CorrelationId::value).ifPresent(id -> values.put("context", id));
+        Tracer current = tracer;
+        Span span = current == null ? null : current.currentSpan();
+        if (span != null && !span.context().traceId().isEmpty()) {
+            values.put("context", span.context().traceId());
+        }
         Optional.ofNullable(MDC.get("traceId")).ifPresent(id -> values.put("mdcTraceId", id));
         Optional.ofNullable(MDC.get("spanId")).ifPresent(id -> values.put("mdcSpanId", id));
         Optional.ofNullable(MDC.get("correlationId")).ifPresent(id -> values.put("mdcCorrelationId", id));

@@ -1,12 +1,13 @@
 package ae.gov.dubaicustoms.platform.restclient;
 
-import ae.gov.dubaicustoms.platform.core.ErrorCode;
-import ae.gov.dubaicustoms.platform.core.PlatformException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.apiguardian.api.API;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.ErrorResponseException;
 
 /**
  * Thrown when a platform-conventional REST call fails, in any way: a non-2xx response, a timeout, a lost
@@ -33,7 +34,7 @@ import org.apiguardian.api.API;
  * @since 0.2.0
  */
 @API(status = API.Status.STABLE, since = "0.1.0")
-public final class RemoteCallException extends PlatformException {
+public final class RemoteCallException extends ErrorResponseException {
 
     /**
      * What went wrong.
@@ -56,7 +57,7 @@ public final class RemoteCallException extends PlatformException {
         BULKHEAD_FULL
     }
 
-    private static final ErrorCode CODE = new ErrorCode("DC-RCLIENT-0500");
+    private static final String CODE = "DC-RCLIENT-0500";
     private static final int MAX_BODY_SNIPPET_LENGTH = 1024;
     private static final Set<Integer> TRANSIENT_STATUSES = Set.of(429, 502, 503, 504);
     private static final String SECRET_NAME = "(?:password|passwd|pwd|secret|token|api[-_]?key|authorization|credential|cookie)";
@@ -71,6 +72,7 @@ public final class RemoteCallException extends PlatformException {
     private static final Pattern SECRET_VALUE = Pattern.compile("(?i)(" + SECRET_NAME + "[a-z0-9_.-]{0,64}+\"?+\\s{0,8}+[:=]\\s{0,8}+)"
             + "(\"[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+\"?+|[^\\s,&;}<]++)");
 
+    private final String message;
     private final Kind kind;
     private final int status;
     private final String bodySnippet;
@@ -109,8 +111,9 @@ public final class RemoteCallException extends PlatformException {
 
     private RemoteCallException(String clientName, Kind kind, int status, String body, boolean repeatable,
             String remoteCorrelationId, Throwable cause) {
-        super(CODE, message(Objects.requireNonNull(clientName, "clientName must not be null"),
-                Objects.requireNonNull(kind, "kind must not be null"), status), cause);
+        super(HttpStatusCode.valueOf(problemStatus(Objects.requireNonNull(kind, "kind must not be null"), status,
+                repeatable)), problem(problemStatus(kind, status, repeatable)), cause);
+        this.message = message(Objects.requireNonNull(clientName, "clientName must not be null"), kind, status);
         this.kind = kind;
         this.status = status;
         this.bodySnippet = snippet(Objects.requireNonNull(body, "body must not be null"));
@@ -193,8 +196,21 @@ public final class RemoteCallException extends PlatformException {
      * @return the HTTP status
      * @since 1.0.0
      */
-    @Override
     public int problemStatus() {
+        return problemStatus(kind, status, repeatable);
+    }
+
+    /**
+     * Returns the detail message: the client name and what went wrong, never the remote body.
+     *
+     * @return the message; never {@code null}
+     */
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    private static int problemStatus(Kind kind, int status, boolean repeatable) {
         if (!repeatable) {
             return 500;
         }
@@ -203,6 +219,13 @@ public final class RemoteCallException extends PlatformException {
             case DEADLINE -> 504;
             case TIMEOUT, CONNECTION, CIRCUIT_OPEN, BULKHEAD_FULL -> 503;
         };
+    }
+
+    // The error body: the status above and the stable code; the platform's error handler replaces the detail.
+    private static ProblemDetail problem(int status) {
+        ProblemDetail problem = ProblemDetail.forStatus(status);
+        problem.setProperty("code", CODE);
+        return problem;
     }
 
     /**

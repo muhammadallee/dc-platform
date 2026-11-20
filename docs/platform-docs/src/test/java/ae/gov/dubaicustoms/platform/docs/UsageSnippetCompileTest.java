@@ -62,7 +62,11 @@ class UsageSnippetCompileTest {
             "org.springframework.core.annotation",
             "org.springframework.data.redis.core",
             "org.springframework.web.client",
+            "org.springframework.web",
+            "org.springframework.web.server",
+            "org.springframework.web.servlet.config.annotation",
             "org.springframework.http",
+            "io.micrometer.tracing",
             "jakarta.validation",
             "jakarta.validation.constraints",
             "jakarta.persistence",
@@ -75,6 +79,8 @@ class UsageSnippetCompileTest {
             "io.github.resilience4j.circuitbreaker.annotation",
             "io.github.resilience4j.timelimiter.annotation",
             "org.springframework.scheduling.annotation",
+            "org.springframework.scheduling.concurrent",
+            "org.springframework.core.task",
             "java.time",
             "java.util",
             "java.util.concurrent",
@@ -113,6 +119,9 @@ class UsageSnippetCompileTest {
         assertThat(snippets)
                 .as("expected the seeded snippet:<id> usage examples to be present and discoverable")
                 .isNotEmpty();
+        // Each gated tree is really discovered (a missing root would silently compile nothing from it).
+        assertThat(snippets).extracting(Snippet::id)
+                .contains("core-read-trace", "book-01-read-trace", "sample-core-errors-not-found");
 
         List<String> classpathEntries = classpathEntries();
         String preamble = importPreamble(classpathEntries);
@@ -150,8 +159,8 @@ class UsageSnippetCompileTest {
 
     // --- snippet discovery --------------------------------------------------------------------
 
-    /** The doc trees whose tagged snippets are gated: the capability pages and the whole book. */
-    private static final List<String> SNIPPET_ROOTS = List.of("modules", "book");
+    /** The doc trees whose tagged snippets are gated: the capability pages, the whole book and the samples. */
+    private static final List<String> SNIPPET_ROOTS = List.of("modules", "book", "samples");
 
     private static List<Snippet> collectTaggedJavaSnippets() throws IOException {
         List<Snippet> out = new ArrayList<>();

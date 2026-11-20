@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;

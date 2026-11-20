@@ -51,12 +51,9 @@
     <module>build/platform-service-parent</module>
     <module>build/platform-build-tools</module>
     <module>build/platform-build-maven-plugin</module>
-    <!-- Phase 3 appends: core/platform-core-api, core/platform-core-autoconfigure, core/platform-starter-core -->
-    <module>core/platform-core-api</module>
     <module>core/platform-core-autoconfigure</module>
     <module>core/platform-starter-core</module>
     <!-- Foundation: errors and logging. -->
-    <module>errors/platform-errors-api</module>
     <module>errors/platform-errors-autoconfigure</module>
     <module>errors/platform-starter-errors</module>
     <module>logging/platform-logging-api</module>
@@ -83,7 +80,6 @@
     <module>messaging/platform-starter-messaging-rabbit</module>
     <module>messaging/platform-starter-messaging-outbox</module>
     <module>messaging/platform-messaging-test</module>
-    <module>data/platform-data-api</module>
     <module>data/platform-data-jpa-autoconfigure</module>
     <module>data/platform-starter-data-jpa</module>
     <module>data/platform-starter-data-jpa-oracle</module>

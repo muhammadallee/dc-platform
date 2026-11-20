@@ -5,6 +5,32 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Spring-native Phase 2: foundation, core + errors (`develop`; breaking)
+
+Service code uses Spring types for errors and trace identity (ADR-011, D138). Removed, with the replacement:
+- **Modules:** `platform-core-api`, `platform-errors-api`, `platform-data-api`.
+- `CorrelationId`, `RequestContext` → Micrometer `Tracer` (`tracer.currentSpan().context().traceId()`), or the
+  `traceId` MDC key in a log line. The platform's MDC scope is now internal (`MdcContext`).
+- `ErrorCode`, `PlatformException`, `BusinessException`, `NotFoundException`, `ConflictException`, `HttpStatusHint` →
+  Spring's `ErrorResponseException` (or `ResponseStatusException`, or `@ResponseStatus`), with the service's code set
+  as the `ProblemDetail` property `code`. The platform keeps a `String` code and adds `traceId`, `timestamp`,
+  `retryable`; a 5xx detail is still replaced by the generic text.
+- `ProblemDetailCustomizer` → Spring's `ErrorResponse.Interceptor`, added through
+  `WebMvcConfigurer.addErrorResponseInterceptors`. The platform advice returns an `ErrorResponseException` whose cause
+  is the original exception, and the error page applies the same interceptors, so each interceptor sees the finished
+  body and the originating exception on every path.
+- `CapabilityDescriptor` moved to `ae.gov.dubaicustoms.platform.core.autoconfigure`; `PlatformApi`, `PlatformInternal`
+  deleted. The enforcer lets an autoconfigure module depend on `platform-core-autoconfigure`.
+- `EntityId`, `Money`, `PersistenceConventions` and the `Money`/`CorrelationId` JPA converters deleted (ND7).
+- `PlatformCoreEnvironmentPostProcessor` (it set `spring.task.execution.propagate-context=true`) → a
+  `ContextPropagatingTaskDecorator` bean whose snapshot factory clears missing values, so a context-free task never
+  sees another caller's trace through `Tracer` either. It backs off to any `TaskDecorator`.
+- `RemoteCallException` (parked REST client), `EventPublishException`, `EventSerializationException` are now
+  `ErrorResponseException` subclasses with the same codes and statuses.
+
+Added: `@ResponseStatus` exceptions keep their status (they were a 500). Per-build japicmp is off for the
+realignment (D139); breaks are listed in `docs/spring-native/expected-removals.md`.
+
 ### Spring-native Phase 1: scope cut (`develop`)
 
 The platform is cut to the plan v2 scope ([`docs/spring-native/plan.md`](docs/spring-native/plan.md)). Restore point: tag

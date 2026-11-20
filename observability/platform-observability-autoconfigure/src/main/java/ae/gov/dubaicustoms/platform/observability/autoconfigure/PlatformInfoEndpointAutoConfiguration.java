@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.observability.autoconfigure.internal.PlatformEndpoint;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnAvailableEndpoint;
@@ -38,8 +38,9 @@ public class PlatformInfoEndpointAutoConfiguration {
     @ConditionalOnAvailableEndpoint(endpoint = PlatformEndpoint.class)
     @ConditionalOnProperty(prefix = "dc.platform.observability.platform-endpoint", name = "enabled",
                            havingValue = "true", matchIfMissing = true)
-    PlatformEndpoint platformEndpoint(ObjectProvider<CapabilityDescriptor> capabilities) {
-        return new PlatformEndpoint(capabilities);
+    PlatformEndpoint platformEndpoint(ObjectProvider<CapabilityDescriptor> capabilities,
+            org.springframework.core.env.Environment environment) {
+        return new PlatformEndpoint(capabilities, environment);
     }
 
     @Bean

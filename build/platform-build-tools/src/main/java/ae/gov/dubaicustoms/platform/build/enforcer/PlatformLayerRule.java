@@ -40,7 +40,7 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
                 return STARTER;
             }
             // A "*-test-api" module (e.g. platform-test-api) is Test Support, not API: it composes
-            // slices and fixtures across capabilities, so the API matrix (core-api only) can't apply.
+            // slices and fixtures across capabilities, so the API matrix (no platform dependency) can't apply.
             // Checked before "-api" so the suffix doesn't win.
             if (a.endsWith("-test-api")) {
                 return TEST_SUPPORT;
@@ -62,7 +62,8 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
     }
 
     private static final String PLATFORM_GROUP_ID = "ae.gov.dubaicustoms.platform";
-    private static final String CORE_API = "platform-core-api";
+    /** The foundation: the one module every autoconfigure module may depend on (D138; Boot's spring-boot-autoconfigure). */
+    private static final String CORE = "platform-core-autoconfigure";
 
     // Fan-out ceilings (platform deps only) from phase-02 spec.
     private static final int MAX_API = 1;
@@ -119,11 +120,10 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
             boolean sameCap = depCap.equals(cap);
 
             String violation = switch (category) {
-                case API -> CORE_API.equals(depId) ? null
-                        : "api -> " + depId + " is forbidden: 'api -> core-api only'. Move shared types into "
-                                + "platform-core-api or drop the dependency.";
-                case SPI -> CORE_API.equals(depId) || (sameCap && depCat == Category.API) ? null
-                        : "spi -> " + depId + " is forbidden: 'spi -> same-capability api (+ core-api)'. Depend on "
+                case API -> "api -> " + depId + " is forbidden: 'api -> no platform module'. An api module holds "
+                        + "only its own types; drop the dependency.";
+                case SPI -> sameCap && depCat == Category.API ? null
+                        : "spi -> " + depId + " is forbidden: 'spi -> same-capability api'. Depend on "
                                 + "platform-" + cap + "-api instead, or move the contract there.";
                 case IMPLEMENTATION -> implViolation(depId, depCat, sameCap, cap);
                 case AUTOCONFIGURE -> autoconfigureViolation(depId, depCat, sameCap, cap);
@@ -141,15 +141,14 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
     }
 
     private static String implViolation(String depId, Category depCat, boolean sameCap, String cap) {
-        if (depCat == Category.IMPLEMENTATION && !CORE_API.equals(depId)) {
+        if (depCat == Category.IMPLEMENTATION) {
             return "impl -> impl (" + depId + ") is forbidden: implementations must not know each other. Extract the "
                     + "shared code into platform-" + cap + "-spi/-api or compose at the autoconfigure level.";
         }
-        if (CORE_API.equals(depId) || (sameCap && (depCat == Category.API || depCat == Category.SPI))) {
+        if (sameCap && (depCat == Category.API || depCat == Category.SPI)) {
             return null;
         }
-        return "impl -> " + depId + " is forbidden: 'impl -> same-capability spi/api (+ core-api + its third-party "
-                + "lib)'. Reach other capabilities through their api from the autoconfigure layer instead.";
+        return "impl -> " + depId + " is forbidden: 'impl -> same-capability spi/api (+ its third-party lib)'. Reach other capabilities through their api from the autoconfigure layer instead.";
     }
 
     private static String autoconfigureViolation(String depId, Category depCat, boolean sameCap, String cap) {
@@ -157,9 +156,9 @@ public final class PlatformLayerRule extends AbstractEnforcerRule {
             return "autoconfigure -> starter (" + depId + ") is forbidden: starters aggregate autoconfigure modules, "
                     + "never the reverse. Depend on the impl or api module the starter would bring.";
         }
-        if (CORE_API.equals(depId) || depCat == Category.API
+        if (CORE.equals(depId) || depCat == Category.API
                 || (sameCap && (depCat == Category.SPI || depCat == Category.IMPLEMENTATION))) {
-            return null; // other capabilities only via their api (guard usage with @ConditionalOnClass)
+            return null; // core, or other capabilities only via their api (guard usage with @ConditionalOnClass)
         }
         return "autoconfigure -> " + depId + " is forbidden: other capabilities may be reached only through their "
                 + "-api module (guarded by @ConditionalOnClass). Depend on platform-" + capabilityOf(depId)

@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.messaging.EventPublisher;
 import ae.gov.dubaicustoms.platform.messaging.OutboxPublisher;
 import ae.gov.dubaicustoms.platform.messaging.outbox.JdbcOutboxPublisher;

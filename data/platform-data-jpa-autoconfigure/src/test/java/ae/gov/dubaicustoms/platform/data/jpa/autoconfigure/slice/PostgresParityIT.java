@@ -2,8 +2,6 @@ package ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.slice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.data.Money;
 import ae.gov.dubaicustoms.platform.data.jpa.autoconfigure.PlatformDataJpaAutoConfiguration;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Tag;
@@ -48,10 +46,10 @@ class PostgresParityIT {
 
     @Test
     void auditingConvertersAndNamingWorkOnPostgres() {
-        CorrelationId correlationId = CorrelationId.random();
+        String correlationId = java.util.UUID.randomUUID().toString().replace("-", "");
         AuditedWidget widget = new AuditedWidget();
         widget.referenceCode = "PG-1";
-        widget.price = Money.of("99.95", "AED");
+        widget.price = "99.95 AED";
         widget.correlationId = correlationId;
 
         em.persist(widget);
@@ -61,7 +59,7 @@ class PostgresParityIT {
         AuditedWidget loaded = em.find(AuditedWidget.class, widget.id);
         assertThat(loaded.createdBy).isEqualTo("system");
         assertThat(loaded.createdAt).isNotNull();
-        assertThat(loaded.price).isEqualTo(Money.of("99.95", "AED"));
+        assertThat(loaded.price).isEqualTo("99.95 AED");
         assertThat(loaded.correlationId).isEqualTo(correlationId);
 
         Object stored = em.createNativeQuery(

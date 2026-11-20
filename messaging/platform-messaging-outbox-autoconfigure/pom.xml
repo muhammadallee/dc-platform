@@ -39,7 +39,7 @@
     </dependency>
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
+      <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
     <dependency>
@@ -102,6 +102,12 @@
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-build-tools</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- The restore test hands work to another thread through Micrometer context propagation. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>context-propagation</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

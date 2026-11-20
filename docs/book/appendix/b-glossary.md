@@ -1,7 +1,7 @@
 # Appendix B — Glossary
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > Platform, Spring, and distributed-systems terms as this book uses them.

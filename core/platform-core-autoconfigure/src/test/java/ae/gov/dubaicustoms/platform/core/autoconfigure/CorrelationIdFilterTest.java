@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.internal.MdcContext;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -67,7 +67,7 @@ class CorrelationIdFilterTest {
         }
         Map<String, String> seen = new HashMap<>();
         new CorrelationIdFilter(tracer).doFilter(request, new MockHttpServletResponse(),
-                (req, res) -> seen.putAll(RequestContext.asMap()));
+                (req, res) -> seen.putAll(MdcContext.asMap()));
         return seen;
     }
 

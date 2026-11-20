@@ -17,6 +17,11 @@
         "level": "error",
         "reason": "The tracing bridge always starts a new trace when traceparent is missing or invalid."
       }
+    },
+    {
+      "name": "dc.platform.core.capabilities",
+      "type": "java.util.Map<java.lang.String,java.util.Map<java.lang.String,java.lang.String>>",
+      "description": "Per-capability overrides of what the platform reports (banner, /actuator/platform, capability gauge): dc.platform.core.capabilities.<name>.status and .detail replace that capability's status or detail, or add a capability when none has the name."
     }
   ]
 }

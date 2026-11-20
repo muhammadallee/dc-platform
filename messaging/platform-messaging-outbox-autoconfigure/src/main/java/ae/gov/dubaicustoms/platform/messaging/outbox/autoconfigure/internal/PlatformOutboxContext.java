@@ -1,11 +1,8 @@
 package ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.messaging.outbox.OutboxContext;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 /**
  * Reads the caller's trace and principal for the outbox row, and restores the stored trace on the drainer's thread so
@@ -14,8 +11,8 @@ import org.slf4j.LoggerFactory;
  */
 public final class PlatformOutboxContext implements OutboxContext {
 
-    private static final Logger log = LoggerFactory.getLogger(PlatformOutboxContext.class);
     private static final String TRACEPARENT = "traceparent";
+    private static final String TRACE_ID = "traceId";
 
     private final String producer;
     private final TraceSource trace;
@@ -71,12 +68,15 @@ public final class PlatformOutboxContext implements OutboxContext {
         if (traceId == null) {
             return () -> { };
         }
-        AutoCloseable scope = RequestContext.open(new CorrelationId(traceId), Map.of());
+        // The drainer's own thread: publish the stored trace ID under Boot tracing's MDC key and restore the
+        // previous value exactly afterwards.
+        String previous = MDC.get(TRACE_ID);
+        MDC.put(TRACE_ID, traceId);
         return () -> {
-            try {
-                scope.close();
-            } catch (Exception e) {
-                log.debug("closing the restored outbox context failed: {}", e.getClass().getName());
+            if (previous == null) {
+                MDC.remove(TRACE_ID);
+            } else {
+                MDC.put(TRACE_ID, previous);
             }
         };
     }

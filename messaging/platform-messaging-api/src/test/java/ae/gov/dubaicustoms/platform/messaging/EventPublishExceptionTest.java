@@ -13,7 +13,8 @@ class EventPublishExceptionTest {
 
         var exception = new EventPublishException("publish failed", cause);
 
-        assertThat(exception.code().value()).isEqualTo("DC-MSG-0001");
+        assertThat(exception.getBody().getProperties()).containsEntry("code", "DC-MSG-0001");
+        assertThat(exception.getStatusCode().value()).isEqualTo(500);
         assertThat(exception.getMessage()).isEqualTo("publish failed");
         assertThat(exception.getCause()).isSameAs(cause);
     }

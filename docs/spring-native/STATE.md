@@ -6,21 +6,22 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-01-scope-cut`, PR #8 |
-| Current phase | 1 — Scope cut |
-| Current gate | Gate H: Codex round 1 settled (verification 4 accepted finding 4, no new defects); five findings fixed, one rejected with Codex's agreement. `closure.md` PASS |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase 2 merged from `native/phase-02-foundation` (PR #9) |
+| Current phase | 3 — Logging + observability (Phase 2 closed 2026-11-20) |
+| Current gate | Phase 3 Gate A (scope) |
 | Last commit | see `git log -1 native/phase-00-baseline` |
-| Open blockers | None |
+| Open blockers | none |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Merge PR #8 on green CI, tag `native/phase-01-closed`, post the end-of-phase report, start Phase 2 (plan §10, foundation: core + errors) |
+| Next action | Phase 3 Gate A: baseline and `phase-03-logging-observability/scope.md` |
 
 ## Phase log
 
 | Phase | Start commit | Verdict | Tag | Closed |
 |---|---|---|---|---|
 | 0 | `6666618` (`develop`) | PASS | `native/phase-00-closed` | 2026-11-19 |
-| 1 | `085d752` (`develop`) | in progress | — | — |
+| 1 | `085d752` (`develop`) | PASS | `native/phase-01-closed` | 2026-11-19 |
+| 2 | `516f54c` (`develop`) | PASS | `native/phase-02-closed` | 2026-11-20 |
 
 ## Environment notes for resumption
 

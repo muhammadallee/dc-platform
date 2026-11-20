@@ -22,16 +22,17 @@
   </description>
 
   <dependencies>
-    <!-- autoconfigure -> same-capability api (+ core-api for RequestContext/CapabilityDescriptor). -->
+    <!-- autoconfigure -> platform-core-autoconfigure for CapabilityDescriptor and RequestTrace (D138). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-errors-api</artifactId>
+      <artifactId>platform-core-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
+    <!-- The error body's traceId comes from the tracer; optional, as in core. -->
     <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-core-api</artifactId>
-      <version>${revision}</version>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -78,6 +79,22 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- A real tracer for the end-to-end tests: the body's traceId, also on the error dispatch. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-tracing-bridge-otel</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- Real Validator for ConstraintViolationException fixtures (no mocked violations). -->

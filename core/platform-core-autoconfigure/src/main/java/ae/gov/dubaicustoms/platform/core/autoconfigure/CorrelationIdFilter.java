@@ -1,11 +1,8 @@
 package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
-import io.micrometer.tracing.Span;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.internal.MdcContext;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
-import io.micrometer.tracing.handler.TracingObservationHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,12 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.filter.ServerHttpObservationFilter;
 
 /**
  * Servlet filter that establishes the correlation context for every request from the current
- * W3C trace: it opens the {@link RequestContext} with the active span's trace ID (and publishes
- * {@code traceId}/{@code spanId} into the MDC) for the duration of each dispatch, and always closes it.
+ * W3C trace: it publishes the active span's {@code traceId} and {@code spanId} into the MDC for the
+ * duration of each dispatch, and always restores the previous MDC.
  *
  * <p>The filter never parses, generates, or echoes correlation headers. Inbound {@code traceparent}
  * handling is the tracing bridge's job (Boot's {@code ServerHttpObservationFilter}, which runs
@@ -93,7 +89,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter implements Ordered
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        TraceContext trace = currentTraceContext(request);
+        TraceContext trace = RequestTrace.current(tracer, request);
         if (!isAsyncDispatch(request) && request.getDispatcherType() == jakarta.servlet.DispatcherType.REQUEST) {
             logIfRejected(request.getHeader(TRACEPARENT_HEADER), trace);
         }
@@ -102,46 +98,14 @@ public class CorrelationIdFilter extends OncePerRequestFilter implements Ordered
             return;
         }
         Map<String, String> extras = trace.spanId() == null ? Map.of() : Map.of("spanId", trace.spanId());
-        try (AutoCloseable scope = RequestContext.open(new CorrelationId(trace.traceId()), extras)) {
+        try (AutoCloseable scope = MdcContext.open(trace.traceId(), extras)) {
             filterChain.doFilter(request, response);
         } catch (ServletException | IOException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            // AutoCloseable.close() signature only; RequestContext scopes never throw.
+            // AutoCloseable.close() signature only; MdcContext scopes never throw.
             throw new ServletException(e);
         }
-    }
-
-    // A trace ID that is not a 128-bit W3C id (e.g. a 64-bit Brave id) is not a correlation id; the
-    // request then runs without a RequestContext rather than with a fabricated one.
-    private TraceContext currentTraceContext(HttpServletRequest request) {
-        Span span = tracer.currentSpan();
-        if (span == null || isEmpty(span.context())) {
-            span = observedSpan(request);
-        }
-        if (span == null || isEmpty(span.context())) {
-            return null;
-        }
-        TraceContext context = span.context();
-        if (context.traceId().length() != 32) {
-            log.debug("current span has no 128-bit trace id; request runs without a correlation context");
-            return null;
-        }
-        return context;
-    }
-
-    // ERROR dispatches run outside the observation filter's scope; its observation (and so the span)
-    // is still attached to the request.
-    private static Span observedSpan(HttpServletRequest request) {
-        return ServerHttpObservationFilter.findObservationContext(request)
-                .<TracingObservationHandler.TracingContext>map(context -> context.get(TracingObservationHandler.TracingContext.class))
-                .map(TracingObservationHandler.TracingContext::getSpan)
-                .orElse(null);
-    }
-
-    private static boolean isEmpty(TraceContext context) {
-        // A no-op tracer (tracing disabled) yields spans with an empty trace id.
-        return context == null || context.traceId() == null || context.traceId().isEmpty();
     }
 
     // A present traceparent was rejected when the propagator did not continue the trace it names. The

@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
 import ae.gov.dubaicustoms.platform.restclient.RemoteCallException;
 import ae.gov.dubaicustoms.platform.restclient.autoconfigure.RestClientProperties;
 import io.micrometer.observation.Observation;
@@ -52,7 +50,7 @@ class DefaultPlatformRestClientFactoryTest {
         RestClient client = new DefaultPlatformRestClientFactory(defaultProperties, List.of())
                 .builder("orders").baseUrl(server.url("/").toString()).build();
 
-        try (AutoCloseable scope = RequestContext.open(CorrelationId.random(), Map.of())) {
+        try (org.slf4j.MDC.MDCCloseable scope = org.slf4j.MDC.putCloseable("traceId", "0123456789abcdef0123456789abcdef")) {
             client.get().uri("/widgets").retrieve().toBodilessEntity();
         }
 

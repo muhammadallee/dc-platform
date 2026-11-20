@@ -1,7 +1,7 @@
 # Extending the Chassis
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > The customizer tier, the provider tier, TCK certification, and how to add a capability.
@@ -82,18 +82,21 @@ applies them in `@Order`. You **add** behaviour without owning the bean that doe
 
 | Customizer | Adjusts | Chapter |
 |---|---|---|
-| `ProblemDetailCustomizer` | Every outgoing error body | [2](../chapters/02-errors-validation.md) |
+| Spring's `ErrorResponse.Interceptor` (through `WebMvcConfigurer`) | Every outgoing error body | [2](../chapters/02-errors-validation.md) |
 | `LogSanitizer` | Values on their way to a log field | [3](../chapters/03-logging-observability.md) |
 | `OpenApiCustomizer` | The generated document | [4](../chapters/04-openapi.md) |
 | `SecurityCustomizer` | The filter chain, **before** `anyRequest()` | 5 |
 | `PlatformRestClientCustomizer` | A named client's builder | [6](../chapters/06-restclient-resilience.md) |
 | `MeterRegistryCustomizer` | Every meter (Spring's own type) | [3](../chapters/03-logging-observability.md) |
 
-```java
-@Bean
-@Order(10)
-ProblemDetailCustomizer serviceNameCustomizer() {
-    return (detail, source) -> detail.setProperty("service", "orders-service");
+```java snippet:book-extending-error-interceptor
+@Configuration
+class ServiceNameOnErrors implements WebMvcConfigurer {
+
+    @Override
+    public void addErrorResponseInterceptors(List<ErrorResponse.Interceptor> interceptors) {
+        interceptors.add((body, response) -> body.setProperty("service", "orders-service"));
+    }
 }
 ```
 
@@ -329,7 +332,7 @@ A custom Maven enforcer rule plus ArchUnit in every module make a violating chan
 
 | You want to… | Level | How |
 |---|---|---|
-| Add a `tenant` field to every error body | 2 | `ProblemDetailCustomizer` |
+| Add a `tenant` field to every error body | 2 | Spring's `ErrorResponse.Interceptor` |
 | Open `/webhooks/**` without auth | 2 | `SecurityCustomizer` — **not** `permit-paths`, which replaces the list |
 | Redact a custom PII field from logs | 2 | `LogSanitizer` |
 | Send an API key to one downstream | 2 | `PlatformRestClientCustomizer`, with a name check |

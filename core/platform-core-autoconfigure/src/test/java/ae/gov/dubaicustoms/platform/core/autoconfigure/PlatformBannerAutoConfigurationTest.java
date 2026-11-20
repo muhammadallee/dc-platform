@@ -2,14 +2,11 @@ package ae.gov.dubaicustoms.platform.core.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -51,7 +48,7 @@ class PlatformBannerAutoConfigurationTest {
     @Test
     void backsOffWhenUserRunnerPresentUnderAnyName() {
         runner.withBean("myBanner", PlatformBannerRunner.class,
-                        () -> new PlatformBannerRunner(emptyProvider()) {
+                        () -> new PlatformBannerRunner(emptyProvider(), null) {
                             @Override
                             protected String describe(java.util.List<CapabilityDescriptor> active) {
                                 return "mine";
@@ -105,12 +102,6 @@ class PlatformBannerAutoConfigurationTest {
     }
 
     @Test
-    void inactiveWhenCoreApiMissing() {
-        runner.withClassLoader(new FilteredClassLoader(CorrelationId.class))
-                .run(context -> assertThat(context).doesNotHaveBean(PlatformBannerAutoConfiguration.class));
-    }
-
-    @Test
     void bannerLogsOneSortedLine(CapturedOutput output) {
         runner.withBean("zetaCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> new CapabilityDescriptor("zeta", "ACTIVE", "inmemory"))
@@ -125,14 +116,26 @@ class PlatformBannerAutoConfigurationTest {
 
     @Test
     void consumerCoreDescriptorReplacesThePlatformOne() {
-        ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor mine =
-                new ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor("core", "ACTIVE", "custom");
+        CapabilityDescriptor mine =
+                new CapabilityDescriptor("core", "ACTIVE", "custom");
         new org.springframework.boot.test.context.runner.ApplicationContextRunner()
                 .withConfiguration(org.springframework.boot.autoconfigure.AutoConfigurations.of(
                         PlatformBannerAutoConfiguration.class))
-                .withBean("coreCapabilityDescriptor", ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class,
+                .withBean("coreCapabilityDescriptor", CapabilityDescriptor.class,
                         () -> mine)
                 .run(context -> assertThat(context)
-                        .getBean(ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor.class).isSameAs(mine));
+                        .getBean(CapabilityDescriptor.class).isSameAs(mine));
+    }
+
+    // Codex round 1, finding 10: a service changes a reported capability with properties, no platform type.
+    @Test
+    void propertiesReplaceOrAddAReportedCapability(CapturedOutput output) {
+        runner.withPropertyValues("dc.platform.core.capabilities.core.detail=tenant-aware",
+                        "dc.platform.core.capabilities.billing.status=ACTIVE",
+                        "dc.platform.core.capabilities.billing.detail=v2")
+                .run(context -> {
+                    context.getBean(PlatformBannerRunner.class).run(new DefaultApplicationArguments());
+                    assertThat(output.getOut()).contains("platform: billing[ACTIVE] (v2), core[ACTIVE] (tenant-aware)");
+                });
     }
 }

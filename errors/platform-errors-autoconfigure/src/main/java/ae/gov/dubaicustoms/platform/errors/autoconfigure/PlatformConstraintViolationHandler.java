@@ -2,6 +2,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -34,6 +35,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class PlatformConstraintViolationHandler {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(PlatformConstraintViolationHandler.class);
+
     private final ProblemDetailFactory factory;
 
     /**
@@ -51,11 +55,17 @@ public class PlatformConstraintViolationHandler {
      *
      * @param exception the violation set; never {@code null}
      * @param request the current request; never {@code null}
-     * @return the 400 problem response with an {@code errors[]} extension
+     * @param response the current response; never {@code null}
+     * @return the 400 problem response with an {@code errors[]} extension; its cause is {@code exception}
      */
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException exception,
-            HttpServletRequest request) {
+    public ErrorResponse handleConstraintViolation(ConstraintViolationException exception,
+            HttpServletRequest request, HttpServletResponse response) {
+        if (response.isCommitted()) {
+            // Nothing may be written any more, but the failure must not vanish: log it on the request's trace.
+            log.error("constraint violation after the response was committed; nothing more is written", exception);
+            return null;
+        }
         List<Map<String, Object>> errors = new ArrayList<>();
         for (ConstraintViolation<?> violation : exception.getConstraintViolations()) {
             String field = violation.getPropertyPath().toString();
@@ -66,8 +76,8 @@ public class PlatformConstraintViolationHandler {
             errors.add(entry);
         }
         ProblemDetail problem = factory.create(400, PlatformExceptionHandler.VALIDATION_FAILED,
-                "Validation failed.", request.getRequestURI(), exception);
+                "Validation failed.", request.getRequestURI(), exception, request);
         problem.setProperty("errors", errors);
-        return ResponseEntity.badRequest().body(problem);
+        return ProblemDetailFactory.wrap(problem, null, exception);
     }
 }

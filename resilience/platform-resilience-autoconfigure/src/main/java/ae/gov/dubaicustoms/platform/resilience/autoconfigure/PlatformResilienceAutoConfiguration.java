@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.resilience.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.resilience.RetryableOperation;
 import ae.gov.dubaicustoms.platform.resilience.autoconfigure.internal.DefaultRetryableOperation;
 import io.github.resilience4j.retry.RetryRegistry;

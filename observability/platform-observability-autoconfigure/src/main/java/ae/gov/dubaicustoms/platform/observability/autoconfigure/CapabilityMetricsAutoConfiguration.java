@@ -1,6 +1,6 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.observability.autoconfigure.internal.CapabilityGaugeRegistrar;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
@@ -37,7 +37,8 @@ public class CapabilityMetricsAutoConfiguration {
     @ConditionalOnProperty(prefix = "dc.platform.observability.capability-metrics", name = "enabled",
                            havingValue = "true", matchIfMissing = true)
     CapabilityGaugeRegistrar platformCapabilityGaugeRegistrar(
-            MeterRegistry registry, ObjectProvider<CapabilityDescriptor> descriptors) {
-        return new CapabilityGaugeRegistrar(registry, descriptors);
+            MeterRegistry registry, ObjectProvider<CapabilityDescriptor> descriptors,
+            org.springframework.core.env.Environment environment) {
+        return new CapabilityGaugeRegistrar(registry, descriptors, environment);
     }
 }

@@ -1,7 +1,7 @@
 # Extension model
 
 > **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others.
+> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
 > What 1.0.0 ships: [capability status](../spring-native/capability-status.md). The page is rewritten in its capability's phase.
 
 > From the architecture design §6. One pattern for all extension (ADR-008): **implement the SPI, ship
@@ -12,7 +12,7 @@
 ## Two tiers
 
 **Customizer tier — tweak the default.** Contribute `*Customizer` beans (`RestClientCustomizer`,
-`ProblemDetailCustomizer`, `RabbitTemplateCustomizer`, …). The platform collects them via
+`RabbitTemplateCustomizer`, Spring's `ErrorResponse.Interceptor`, …). The platform collects them via
 `ObjectProvider<List<…Customizer>>.orderedStream()` and applies them in `@Order`. You add behaviour
 without replacing beans.
 

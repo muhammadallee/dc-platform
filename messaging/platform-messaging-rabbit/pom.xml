@@ -23,6 +23,11 @@
   </description>
 
   <dependencies>
+    <!-- Logged directly; it used to arrive through platform-core-api, removed in Spring-native Phase 2. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
     <!-- impl -> same-capability spi/api (+ its 3rd-party lib, CLAUDE.md rule 5). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

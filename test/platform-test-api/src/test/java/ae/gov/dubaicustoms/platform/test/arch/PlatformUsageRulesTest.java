@@ -38,11 +38,11 @@ class PlatformUsageRulesTest {
     }
 
     @Test
-    void handRolledExceptionHandlerIsFlaggedWithAPlatformExceptionMessage() {
+    void handRolledExceptionHandlerIsFlaggedWithASpringErrorTypeMessage() {
         assertThatThrownBy(() -> PlatformUsageRules.noHandRolledExceptionHandler().check(BAD))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("HandRolledAdvice")
-                .hasMessageContaining("PlatformException");
+                .hasMessageContaining("ErrorResponseException");
     }
 
     @Test

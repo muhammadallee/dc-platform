@@ -16,8 +16,8 @@ import org.openrewrite.marker.SearchResult;
 public class FlagHandRolledExceptionHandler extends Recipe {
 
     private static final String TODO =
-            "TODO(DC Platform): platform maps exceptions to RFC 9457 already; prefer PlatformException "
-                    + "subtypes and remove this advice (docs/modules/errors.md).";
+            "TODO(DC Platform): platform maps exceptions to RFC 9457 already; throw Spring's "
+                    + "ErrorResponseException with a code property and remove this advice (docs/modules/errors.md).";
 
     @Override
     public String getDisplayName() {

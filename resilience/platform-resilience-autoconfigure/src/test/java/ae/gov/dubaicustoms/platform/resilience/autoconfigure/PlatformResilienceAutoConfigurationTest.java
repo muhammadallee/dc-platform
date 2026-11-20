@@ -2,7 +2,7 @@ package ae.gov.dubaicustoms.platform.resilience.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ae.gov.dubaicustoms.platform.core.report.CapabilityDescriptor;
+import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
 import ae.gov.dubaicustoms.platform.resilience.RetryableOperation;
 import io.github.resilience4j.retry.RetryRegistry;
 import org.junit.jupiter.api.Test;

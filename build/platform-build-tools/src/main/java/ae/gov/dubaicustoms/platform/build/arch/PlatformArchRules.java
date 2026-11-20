@@ -75,12 +75,16 @@ public final class PlatformArchRules {
      * (phase-04 ADR, errors-api README); restclient —
      * {@code org.springframework.web.client} because {@code RestClient.Builder} IS the model
      * {@code PlatformRestClientFactory} hands back (phase-06 ADR, decision D19). The validation and
-     * security entries went with those capabilities (Spring-native plan v2 scope cut). Additions
-     * require an ADR.
+     * security entries went with those capabilities (Spring-native plan v2 scope cut). Messaging and the
+     * REST client also take Spring's error model ({@code org.springframework.web}, {@code org.springframework.http}):
+     * their exceptions are {@code ErrorResponseException}s carrying code and status (D138), until Phases 6 and 9
+     * remove those api modules. The errors entry stays for its fixtures; the errors api module is gone (Phase 2).
+     * Additions require a decision.
      */
     private static final Map<String, Set<String>> API_STANDARD_MODEL_PACKAGES = Map.of(
             "errors", Set.of("org.springframework.http"),
-            "restclient", Set.of("org.springframework.web.client"));
+            "messaging", Set.of("org.springframework.http", "org.springframework.web"),
+            "restclient", Set.of("org.springframework.web", "org.springframework.http"));
 
     /** API root packages (ae.gov.dubaicustoms.platform.&lt;cap&gt; and .annotation) stay dependency-poor. */
     static ArchRule apiPackagesDependOnlyOnJdkSpringAnnotationsAndCore() {
@@ -187,9 +191,8 @@ public final class PlatformArchRules {
      * Every public API/SPI contract type carries an apiguardian {@code @API(status, since)} marker
      * (phase-16 A.1): a Layer-0 discovery signal read straight from the jar. Scoped to the published
      * contract surface — api root packages ({@code platform.<cap>[.…]}), any {@code ..spi..}
-     * package, the core api sub-packages, and the test-api packages — so provider-impl, autoconfigure
-     * and internal types (which are not consumer contracts) are exempt. {@code @PlatformApi} is kept
-     * alongside for enforcer targeting; the two are complementary (decision D79).
+     * package, and the test-api packages — so provider-impl, autoconfigure
+     * and internal types (which are not consumer contracts) are exempt.
      */
     static ArchRule publicApiSpiTypesCarryApiStatus() {
         return ArchRuleDefinition.classes()
@@ -264,8 +267,6 @@ public final class PlatformArchRules {
         }
         return pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.[^.]+")            // api root
                 || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\..*\\.spi(\\..*)?") // any spi
-                || pkg.equals(PLATFORM_ROOT + ".core.context")
-                || pkg.equals(PLATFORM_ROOT + ".core.report")
                 || pkg.matches("ae\\.gov\\.dubaicustoms\\.platform\\.test\\.[^.]+"); // test-api
     }
 

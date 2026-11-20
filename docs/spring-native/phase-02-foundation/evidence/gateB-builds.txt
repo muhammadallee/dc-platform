@@ -1,0 +1,95 @@
+# Gate B builds (Spring-native Phase 2). Raw logs in evidence-raw/ (git-ignored), SHA-256 below.
+# JDK 25 (Corretto 25.0.3), Maven offline, -T1. Test counts per module: Tests run / Failures / Errors / Skipped.
+
+## gateB-core-errors-1.log
+$ mvn -o -T1 -B -ntp -pl core/platform-core-autoconfigure,errors/platform-errors-autoconfigure verify -Djacoco.skip=true
+exit 0   sha256 6b47e5ae3b4510b5cf5b78735edf911c92bae5bca1ae95809584ce0cf1a9a60c
+  DC Platform :: Core :: Auto Configuration: 64/0/0/0
+  DC Platform :: Errors :: Auto Configuration: 88/0/0/0
+  BUILD SUCCESS
+
+## gateB-n1.log
+$ mvn ... -pl core/platform-core-autoconfigure test -Dtest='TraceCorrelationIntegrationTest*' (N1 probe with Boot's decorator: the expected failure that confirmed the risk)
+exit 1   sha256 86175f00b18b96b8dec86c09433f66de051174e58de20c532d8e58e8db1d3426
+  DC Platform :: Core :: Auto Configuration: 11/1/0/0
+  BUILD FAILURE
+
+## gateB-core-3.log
+$ mvn -o -T1 -B -ntp -pl core/platform-core-autoconfigure install -Djacoco.skip=true (after the N1 fix)
+exit 0   sha256 10e92a98cfac0827bad8bf47f26428ccccc1dd4f3501e0a79215cf02b9724401
+  DC Platform :: Core :: Auto Configuration: 67/0/0/0
+  BUILD SUCCESS
+
+## gateB-full-2.log
+$ mvn -o -T1 -B -ntp clean install -fae (stopped at platform-messaging-inmemory: missing slf4j-api, fixed)
+exit 1   sha256 4bea9c76d009a2fd3f32a91aac548fc2bf6c5b5d5179ade36e5e2db1b6e8c597
+  DC Platform :: Build Tools: 38/0/0/0
+  DC Platform :: Build Maven Plugin: 34/0/0/0
+  DC Platform :: Core :: Auto Configuration: 67/0/0/0
+  DC Platform :: Errors :: Auto Configuration: 88/0/0/0
+  DC Platform :: Logging :: API: 5/0/0/0
+  DC Platform :: Logging :: Auto Configuration: 150/0/0/0
+  DC Platform :: Observability :: Auto Configuration: 37/0/0/0
+  DC Platform :: OpenAPI :: Auto Configuration: 15/0/0/0
+  DC Platform :: REST Client :: API: 42/0/0/0
+  DC Platform :: REST Client :: Auto Configuration: 102/0/0/0
+  DC Platform :: Messaging :: API: 27/0/0/0
+  DC Platform :: Messaging :: SPI: 6/0/0/0
+  DC Platform :: Messaging :: RabbitMQ: 23/0/0/0
+  DC Platform :: Messaging :: RabbitMQ: 0/0/0/0
+  DC Platform :: Messaging :: Transactional Outbox: 30/0/0/0
+  DC Platform :: Messaging :: Transactional Outbox: 0/0/0/0
+  DC Platform :: Messaging :: Test Support: 13/0/0/0
+  DC Platform :: Data :: JPA Auto Configuration: 55/0/0/0
+  DC Platform :: Data :: JPA Auto Configuration: 0/0/0/0
+  DC Platform :: Resilience :: API: 5/0/0/0
+  DC Platform :: Resilience :: Auto Configuration: 22/0/0/0
+  example-minimal: 8/0/0/0
+  DC Platform :: MCP Server: 7/0/0/0
+  DC Platform :: Skill: 1/0/0/0
+  DC Platform :: Migrations: 4/0/0/0
+  BUILD FAILURE
+
+## gateB-full-3.log
+$ mvn -o -T1 -B -ntp install -fae -rf :platform-messaging-inmemory (stopped at platform-docs: six book snippets, fixed)
+exit 1   sha256 2c1a4fb2028b4d312272a4d9bf36256180f21058e82e842760f61cde085d95eb
+  DC Platform :: Messaging :: In-Memory: 10/0/0/0
+  DC Platform :: Messaging :: RabbitMQ: 23/0/0/0
+  DC Platform :: Messaging :: RabbitMQ: 0/0/0/0
+  DC Platform :: Messaging :: Auto Configuration: 57/0/0/0
+  DC Platform :: Messaging :: Auto Configuration: 0/0/0/0
+  DC Platform :: Messaging :: Transactional Outbox: 30/0/0/0
+  DC Platform :: Messaging :: Transactional Outbox: 0/0/0/0
+  DC Platform :: Messaging :: Transactional Outbox :: Auto Configuration: 25/0/0/0
+  DC Platform :: Messaging :: Test Support: 13/0/0/0
+  DC Platform :: Data :: JPA Auto Configuration: 55/0/0/0
+  DC Platform :: Data :: JPA Auto Configuration: 0/0/0/0
+  DC Platform :: Resilience :: API: 5/0/0/0
+  DC Platform :: Resilience :: Auto Configuration: 22/0/0/0
+  DC Platform :: Test :: Test API: 34/0/0/0
+  DC Platform :: TCK :: Messaging: 11/0/0/0
+  example-minimal: 8/0/0/0
+  example-golden-path: 5/0/0/0
+  example-event-driven-producer: 1/0/0/0
+  example-event-driven-consumer: 2/0/0/0
+  DC Platform :: Documentation: 10/1/0/0
+  DC Platform :: MCP Server: 7/0/0/0
+  DC Platform :: Skill: 1/0/0/0
+  DC Platform :: Migrations: 4/0/0/0
+  BUILD FAILURE
+
+## gateB-full-4.log
+$ mvn -o -T1 -B -ntp install -fae -rf :platform-test-api (after the docs fixes)
+exit 0   sha256 605075f7f09a375ad996755dbaaf3deb30cd66992948c59718baa0debfc3a99c
+  DC Platform :: Test :: Test API: 34/0/0/0
+  DC Platform :: TCK :: Messaging: 11/0/0/0
+  example-minimal: 8/0/0/0
+  example-golden-path: 5/0/0/0
+  example-event-driven-producer: 1/0/0/0
+  example-event-driven-consumer: 2/0/0/0
+  DC Platform :: Documentation: 33/0/0/0
+  DC Platform :: MCP Server: 7/0/0/0
+  DC Platform :: Skill: 1/0/0/0
+  DC Platform :: Migrations: 4/0/0/0
+  BUILD SUCCESS
+

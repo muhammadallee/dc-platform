@@ -69,15 +69,15 @@ class PlatformLayerRuleTest {
     class AllowedEdges {
 
         @Test
-        void apiMayDependOnCoreApiOnly() {
-            assertPasses(project("platform-messaging-api", "messaging/platform-messaging-api",
-                    platformDep("platform-core-api")));
+        void autoconfigureMayDependOnCore() {
+            assertPasses(project("platform-messaging-autoconfigure", "messaging/platform-messaging-autoconfigure",
+                    platformDep("platform-core-autoconfigure")));
         }
 
         @Test
-        void spiMayDependOnSameCapabilityApiAndCore() {
+        void spiMayDependOnSameCapabilityApi() {
             assertPasses(project("platform-messaging-spi", "messaging/platform-messaging-spi",
-                    platformDep("platform-messaging-api"), platformDep("platform-core-api")));
+                    platformDep("platform-messaging-api")));
         }
 
         @Test
@@ -139,10 +139,20 @@ class PlatformLayerRuleTest {
     class ForbiddenEdges {
 
         @Test
-        void apiMustNotDependOnAnythingButCoreApi() {
+        void apiMustNotDependOnAnyPlatformModule() {
             assertFailsWith(project("platform-messaging-api", "messaging/platform-messaging-api",
                             platformDep("platform-messaging-spi")),
-                    "api -> core-api only", "platform-messaging-spi");
+                    "api -> no platform module", "platform-messaging-spi");
+            assertFailsWith(project("platform-messaging-api", "messaging/platform-messaging-api",
+                            platformDep("platform-core-autoconfigure")),
+                    "api -> no platform module", "platform-core-autoconfigure");
+        }
+
+        @Test
+        void autoconfigureMustNotDependOnAnotherCapabilitysAutoconfigure() {
+            assertFailsWith(project("platform-messaging-autoconfigure", "messaging/platform-messaging-autoconfigure",
+                            platformDep("platform-logging-autoconfigure")),
+                    "autoconfigure -> platform-logging-autoconfigure is forbidden");
         }
 
         @Test
@@ -257,7 +267,7 @@ class PlatformLayerRuleTest {
 
     @Test
     void categoryIsInferredFromArtifactIdAndPath() {
-        assertThat(PlatformLayerRule.Category.ofArtifactId("platform-core-api"))
+        assertThat(PlatformLayerRule.Category.ofArtifactId("platform-messaging-api"))
                 .isEqualTo(PlatformLayerRule.Category.API);
         assertThat(PlatformLayerRule.Category.ofArtifactId("platform-messaging-spi"))
                 .isEqualTo(PlatformLayerRule.Category.SPI);
@@ -287,6 +297,6 @@ class PlatformLayerRuleTest {
     void capabilityIsExtractedFromArtifactId() {
         assertThat(PlatformLayerRule.capabilityOf("platform-messaging-api")).isEqualTo("messaging");
         assertThat(PlatformLayerRule.capabilityOf("platform-starter-messaging-kafka")).isEqualTo("messaging");
-        assertThat(PlatformLayerRule.capabilityOf("platform-core-api")).isEqualTo("core");
+        assertThat(PlatformLayerRule.capabilityOf("platform-core-autoconfigure")).isEqualTo("core");
     }
 }

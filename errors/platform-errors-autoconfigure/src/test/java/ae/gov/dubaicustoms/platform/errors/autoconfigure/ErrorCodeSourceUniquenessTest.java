@@ -144,7 +144,10 @@ class ErrorCodeSourceUniquenessTest {
             "ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.OutboxConnections"
                     + "|properties.setProperty(READ_TIMEOUT, Long.toString(readTimeout.toMillis()))",
             "ae.gov.dubaicustoms.platform.messaging.outbox.autoconfigure.internal.OutboxConnections"
-                    + "|properties.setProperty(CONNECT_TIMEOUT, \"10000\")");
+                    + "|properties.setProperty(CONNECT_TIMEOUT, \"10000\")",
+            // JVM system property: which structured log format Boot wrote, for the next start (D141).
+            "ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LoggingFormatOwnership"
+                    + "|System.setProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + name, written)");
 
     record Declaration(String code, String file) {
     }

@@ -547,6 +547,36 @@ class StructuredLogMaskingTest {
     }
 
     @Test
+    void credentialNamedEntriesAreChargedToTheBudgetToo() {
+        // Verification E: a million credential-named keys, and an endless map, stop at the budget.
+        Map<String, Object> keys = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < 1_000_000; i++) {
+            keys.put("k" + i + "Password", "v");
+        }
+        Map<String, Object> endless = new java.util.AbstractMap<>() {
+            @Override
+            public java.util.Set<Map.Entry<String, Object>> entrySet() {
+                return new java.util.AbstractSet<>() {
+                    @Override
+                    public java.util.Iterator<Map.Entry<String, Object>> iterator() {
+                        return java.util.stream.Stream.iterate(0, i -> i + 1)
+                                .map(i -> (Map.Entry<String, Object>) Map.entry("p" + i + "Password", (Object) "v"))
+                                .iterator();
+                    }
+
+                    @Override
+                    public int size() {
+                        return Integer.MAX_VALUE;
+                    }
+                };
+            }
+        };
+        String line = encode(event("stored").pair("keys", keys).pair("endless", endless));
+        assertThat((Map<?, ?>) parse(line).get("keys")).hasSizeLessThanOrEqualTo(10_001);
+        assertThat((Map<?, ?>) parse(line).get("endless")).hasSizeLessThanOrEqualTo(10_001);
+    }
+
+    @Test
     void theBudgetStopsTheWalk() {
         // E: a million elements write at most the budget, and an endless Iterable as a message argument ends.
         List<Integer> huge = java.util.stream.IntStream.range(0, 1_000_000).boxed().toList();

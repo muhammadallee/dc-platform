@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
@@ -81,7 +82,7 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     // The platform's management port, unless the service set one. Fails closed when the service moved its application
     // port onto the platform's management port: Boot would then serve actuator on the application port (ND13).
     static String managementPort(Environment environment) {
-        // Compared as numbers, as Boot compares them: 08081 and +8081 are 8081.
+        // Converted as Boot converts server.port (08081, 0x1f91, "8 081" are all 8081), then compared as numbers.
         Integer server = port(environment.getProperty("server.port"));
         if (server != null && server == 0) {
             return "0";
@@ -100,8 +101,8 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
             return null;
         }
         try {
-            return Integer.valueOf(value.strip());
-        } catch (NumberFormatException notAPort) {
+            return ApplicationConversionService.getSharedInstance().convert(value, Integer.class);
+        } catch (RuntimeException notAPort) {
             // Boot fails on it itself, when it binds server.port.
             return null;
         }

@@ -74,29 +74,38 @@ class PlatformLoggingEnvironmentPostProcessorTest {
     @Test
     void formatsAnEarlierPlatformStartLeftBehindAreClearedWhateverComesNext() {
         // Codex phase 3 round 1, findings 18 and J: Boot never clears the system property it copied the format into.
-        String[] names = {"CONSOLE_LOG_STRUCTURED_FORMAT", "FILE_LOG_STRUCTURED_FORMAT",
-            PlatformLoggingEnvironmentPostProcessor.OWNED_FORMAT_PROPERTIES};
-        String[] previous = {System.getProperty(names[0]), System.getProperty(names[1]), System.getProperty(names[2])};
+        String console = "CONSOLE_LOG_STRUCTURED_FORMAT";
+        String file = "FILE_LOG_STRUCTURED_FORMAT";
+        String[] names = {console, file, PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + console,
+            PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + file, "user.timezone.probe"};
+        String[] previous = new String[names.length];
+        for (int i = 0; i < names.length; i++) {
+            previous[i] = System.getProperty(names[i]);
+            System.clearProperty(names[i]);
+        }
         try {
-            for (String name : names) {
-                System.clearProperty(name);
-            }
-            // A JSON start: Boot will copy the platform's format into both properties.
+            // A JSON start; Boot then copies the platform's format into both properties.
             postProcessor.postProcessEnvironment(new MockEnvironment(), null);
-            System.setProperty(names[0], FORMATTER);
-            System.setProperty(names[1], FORMATTER);
-            // The next start picks ECS: both left-behind properties are cleared, so Boot copies ECS in.
+            System.setProperty(console, FORMATTER);
+            System.setProperty(file, FORMATTER);
+            // The next start picks ECS: both left-behind values are cleared, so Boot copies ECS in.
             postProcessor.postProcessEnvironment(new MockEnvironment().withProperty(CONSOLE_FORMAT, "ecs"), null);
-            assertThat(System.getProperty(names[0])).isNull();
-            assertThat(System.getProperty(names[1])).isNull();
-            // A property the service set itself, before any start, is never cleared.
-            System.setProperty(names[0], "gelf");
-            System.clearProperty(names[2]);
+            assertThat(System.getProperty(console)).isNull();
+            assertThat(System.getProperty(file)).isNull();
+            // A value the service set after a platform start is its own: never cleared.
+            System.setProperty(console, FORMATTER);
             postProcessor.postProcessEnvironment(new MockEnvironment(), null);
+            System.setProperty(console, "gelf");
             postProcessor.postProcessEnvironment(new MockEnvironment().withProperty("dc.platform.logging.format",
                     "console"), null);
-            assertThat(System.getProperty(names[0])).isEqualTo("gelf");
+            assertThat(System.getProperty(console)).isEqualTo("gelf");
+            // Only the two bridge properties are ever cleared.
+            System.setProperty(names[4], "kept");
+            System.setProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + names[4], "kept");
+            postProcessor.postProcessEnvironment(new MockEnvironment(), null);
+            assertThat(System.getProperty(names[4])).isEqualTo("kept");
         } finally {
+            System.clearProperty(PlatformLoggingEnvironmentPostProcessor.OWNED_PREFIX + names[4]);
             for (int i = 0; i < names.length; i++) {
                 restore(names[i], previous[i]);
             }

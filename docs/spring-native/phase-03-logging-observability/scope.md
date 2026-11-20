@@ -76,6 +76,14 @@ Recorded as D141 in [`../../decisions/decision-log.md`](../../decisions/decision
      `dc.platform.logging.enabled=false` (Boot's own logging, unchanged) or `dc.platform.logging.redaction.enabled=false`.
    - **Limit:** a service's own Logback file (`logging.config`, `logback-spring.xml`) bypasses Boot's structured logging,
      as it bypassed the v3 file. That stays a documented limit, with a startup WARN.
+   - **What the guarantee covers (revised after Codex round 1, finding 10):** every value the service logs (message,
+     arguments, MDC, key-value pairs, exceptions) and every flat member a service's own customizer adds is masked. A
+     nested object a service's customizer adds is masked whole, because it reaches the platform as deferred JSON, unless
+     it is named like one of the objects Boot's ECS format writes (`log`, `process`, `service`, `ecs`, `error`); there,
+     and for any value the customizer's own nested value processors produce, the output is the service's responsibility.
+     A customizer is service code running inside the JSON writer. The module page says so.
+   - **Raw JSON (`WritableJson`):** masked whole in every format, except a value a service logs under one of those five
+     ECS object names while it uses Boot's ECS format (the platform's format sanitizes it before Boot writes it).
 3. **`Kv` and `LogSanitizer` are removed.**
    - **`Kv`:** SLF4J's `addKeyValue` covers it.
    - **`LogSanitizer`:** its use, masking a service's own data, is covered by `dc.platform.logging.redaction.patterns`. A
@@ -169,6 +177,8 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 | Containers holding themselves, branching cycles and very large values stay bounded; a shared value is shown at each place | `SanitizedMessageView`, Codex r1 14 | `SanitizedMessageView` | `PlatformValueMasker` walk (identity ancestors, node budget) | `aContainerHoldingItselfEndsTheDescentMasked`, `branchingCyclesAndLargeValuesStayBounded`, `aSharedButAcyclicValueIsShownAtEachPlace` | CARRIED |
 | A service masks its own data, numbers included | HI-0034, AC6 | `LogSanitizerRegistry`, `SanitizedMessageView` | `dc.platform.logging.redaction.patterns`; a service's own customizer | `redactionCanBeSwitchedOffAndExtended`, `extraPatternsReachNumbers`, `aServicesOwnCustomizerAddsToThePlatformMasking` | CARRIED |
 | Boot's ECS and GELF formats, if a service picks one, stay valid and masked | Codex r1 12, 13 | — | `PlatformLogMasking` | `bootsOtherFormatsStillWorkAndAreMasked` | NEW RISK |
+| A service customizer's nested object is masked whole; under an ECS object name its own processors' output is the service's | Codex r1 10 | — | `PlatformValueMasker.writerInternal` | `aValueANestedProcessorProducesIsMaskedToo` | CARRIED (limit) |
+| Each value's walk is bounded: every entry charged, the next element fetched only within budget | Codex r1 14 | `SanitizedMessageView` | `PlatformValueMasker` walk | `theBudgetStopsTheWalk`, `credentialNamedEntriesAreChargedToTheBudgetToo` | CARRIED |
 | An invalid extra pattern fails startup only when masking is on | Codex r1 17 | encoder start | `PlatformLogMasking.masker` | `anInvalidPatternFailsOnlyWhenMaskingIsOn` | CARRIED |
 | Console logging after a JSON start in the same JVM is console | Codex r1 18 | — | post-processor clears the platform's format system properties | `consoleLoggingAfterAJsonStartInTheSameJvmIsConsole`, `aFormatThePlatformSetInAnEarlierStartIsClearedForConsoleLogging` | NEW RISK |
 | Masking applies alongside a service's own customizer | decision 2 | — | `META-INF/spring.factories` | new `aServicesOwnCustomizerAddsToThePlatformMasking` | NEW RISK |

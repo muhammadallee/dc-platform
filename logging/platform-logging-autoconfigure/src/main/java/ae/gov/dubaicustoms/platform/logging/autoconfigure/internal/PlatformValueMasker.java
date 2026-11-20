@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -215,9 +216,8 @@ public final class PlatformValueMasker {
                 && TRACE_OR_SPAN_ID.matcher(text).matches();
     }
 
-    // The nested objects Boot's own formats write as deferred JSON (ECS: log, process, service, ecs, error).
-    private static final Set<String> FORMAT_OBJECTS = Set.of("log", "process", "service", "ecs", "error", "event",
-            "host", "trace", "span", "transaction");
+    // The nested objects Boot's ECS format writes as deferred JSON; Boot's Logstash and GELF formats write none.
+    private static final Set<String> FORMAT_OBJECTS = Set.of("log", "process", "service", "ecs", "error");
 
     // The event and Boot's writers, which Boot builds a line from. A WritableJson is Boot's own only under one of its
     // formats' nested objects; any other is JSON a service logged, and is masked whole by the walk.
@@ -307,10 +307,8 @@ public final class PlatformValueMasker {
         private int budget = MAX_NODES;
 
         Object copy(String name, Object value, int depth) {
-            if (isCredentialKey(name)) {
-                return MASK;
-            }
-            if (--budget < 0 || depth >= MAX_DEPTH) {
+            // Every value visited is charged first, a masked one too.
+            if (--budget < 0 || depth >= MAX_DEPTH || isCredentialKey(name)) {
                 return MASK;
             }
             if (value == null) {
@@ -346,13 +344,16 @@ public final class PlatformValueMasker {
                 return MASK;
             }
             try {
+                // The budget is checked before the next element is fetched: an endless iterator stops too.
                 if (value instanceof Map<?, ?> map) {
                     Map<String, Object> copy = new LinkedHashMap<>();
-                    for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
+                    while (entries.hasNext()) {
                         if (budget <= 0) {
                             copy.put(MASK, MASK);
                             break;
                         }
+                        Map.Entry<?, ?> entry = entries.next();
                         String key = guarded(() -> String.valueOf(entry.getKey()));
                         copy.put(key, copy(key, entry.getValue(), depth + 1));
                     }
@@ -360,12 +361,13 @@ public final class PlatformValueMasker {
                 }
                 List<Object> copy = new ArrayList<>();
                 if (value instanceof Iterable<?> iterable) {
-                    for (Object element : iterable) {
+                    Iterator<?> elements = iterable.iterator();
+                    while (elements.hasNext()) {
                         if (budget <= 0) {
                             copy.add(MASK);
                             break;
                         }
-                        copy.add(copy(name, element, depth + 1));
+                        copy.add(copy(name, elements.next(), depth + 1));
                     }
                     return copy;
                 }
@@ -381,6 +383,10 @@ public final class PlatformValueMasker {
                 }
                 Map<String, Object> components = new LinkedHashMap<>();
                 for (RecordComponent component : ((Record) value).getClass().getRecordComponents()) {
+                    if (budget <= 0) {
+                        components.put(MASK, MASK);
+                        break;
+                    }
                     Object componentValue = read(component.getAccessor(), value);
                     components.put(component.getName(), componentValue == UNREADABLE ? UNRENDERABLE
                             : copy(component.getName(), componentValue, depth + 1));

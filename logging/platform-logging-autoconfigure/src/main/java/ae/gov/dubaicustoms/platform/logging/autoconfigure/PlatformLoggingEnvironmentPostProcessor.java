@@ -51,17 +51,26 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     static final List<String> FORMAT_SYSTEM_PROPERTIES = List.of("CONSOLE_LOG_STRUCTURED_FORMAT",
             "FILE_LOG_STRUCTURED_FORMAT");
 
-    // The format system properties Boot set from a start the platform configured (they were absent before it), so the
-    // next start in the same JVM may clear them; one a service set itself is never listed here.
-    static final String OWNED_FORMAT_PROPERTIES = "dc.platform.logging.internal.owned-format-properties";
+    // Where Boot reads each bridge property from.
+    private static final Map<String, String> FORMAT_SOURCES = Map.of("CONSOLE_LOG_STRUCTURED_FORMAT",
+            "logging.structured.format.console", "FILE_LOG_STRUCTURED_FORMAT", "logging.structured.format.file");
+
+    // For each bridge property that was unset when the platform configured a start, the value Boot copies into it from
+    // that start's environment: the next start clears it only if it still holds exactly that value.
+    static final String OWNED_PREFIX = "dc.platform.logging.internal.owned.";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        // A format an earlier start in this JVM left behind must not decide this start's logging.
-        String owned = System.getProperty(OWNED_FORMAT_PROPERTIES);
-        if (owned != null) {
-            Arrays.stream(owned.split(",")).filter(name -> !name.isBlank()).forEach(System::clearProperty);
-            System.clearProperty(OWNED_FORMAT_PROPERTIES);
+        // A format an earlier start in this JVM left behind must not decide this start's logging; a value set since
+        // (by the service) stays.
+        for (String name : FORMAT_SYSTEM_PROPERTIES) {
+            String owned = System.getProperty(OWNED_PREFIX + name);
+            if (owned != null) {
+                if (owned.equals(System.getProperty(name))) {
+                    System.clearProperty(name);
+                }
+                System.clearProperty(OWNED_PREFIX + name);
+            }
         }
         if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)
                 || !jsonFormatResolved(environment)) {
@@ -75,10 +84,11 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
                 environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
-        String unset = String.join(",", FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> System.getProperty(name) == null)
-                .toList());
-        if (!unset.isEmpty()) {
-            System.setProperty(OWNED_FORMAT_PROPERTIES, unset);
+        for (String name : FORMAT_SYSTEM_PROPERTIES) {
+            String value = environment.getProperty(FORMAT_SOURCES.get(name));
+            if (System.getProperty(name) == null && value != null) {
+                System.setProperty(OWNED_PREFIX + name, value);
+            }
         }
     }
 

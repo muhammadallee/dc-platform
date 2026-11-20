@@ -56,7 +56,7 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"08081", "+8081", " 8081 "})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"08081", "+8081", " 8081 ", "0x1f91", "#1f91", "8 081"})
     void portsAreComparedAsNumbers(String spelling) {
         // Codex phase 3 round 1 reassessment, A: Boot compares the ports as numbers.
         MockEnvironment environment = new MockEnvironment().withProperty("server.port", spelling);

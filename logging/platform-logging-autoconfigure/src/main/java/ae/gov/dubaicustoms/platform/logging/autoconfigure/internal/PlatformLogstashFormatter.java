@@ -31,9 +31,6 @@ import org.springframework.core.env.Environment;
  * and {@code .file}; Boot creates it with the parameters below and applies every members customizer (the platform's
  * masking, Boot's {@code logging.structured.json.*} properties, a service's own) as for its own formats.
  *
- * <p>Last, the finished line goes through {@code FinalLinePass}, so a value a service's own customizer or nested value
- * processor produced after the platform's processor is masked too.
- *
  * <p>Members: {@code @timestamp}, {@code message}, {@code logger}, {@code level}, the MDC and the event's key-value
  * pairs, {@code tags} (markers), {@code stack_trace}, {@code service}. Two things Boot's own format cannot do:
  * <ul>
@@ -51,8 +48,6 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
 
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
-    private final @Nullable PlatformValueMasker masker;
-
     /**
      * Created by Boot's structured-logging factory.
      *
@@ -67,19 +62,6 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
             StructuredLoggingJsonMembersCustomizer.Builder<?> customizers) {
         super(members -> members(environment, stackTracePrinter, contextPairs, throwableProxyConverter, members),
                 customizers.build());
-        this.masker = PlatformLogMasking.masker(environment);
-    }
-
-    // The finished line, after every customizer and nested value processor, through one last masking pass.
-    @Override
-    public String format(ILoggingEvent event) {
-        String line = super.format(event);
-        return masker == null ? line : FinalLinePass.mask(masker, line);
-    }
-
-    @Override
-    public byte[] formatAsBytes(ILoggingEvent event, java.nio.charset.Charset charset) {
-        return format(event).getBytes(charset);
     }
 
     private static void members(Environment environment, @Nullable StackTracePrinter stackTracePrinter,

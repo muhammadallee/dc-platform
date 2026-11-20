@@ -46,6 +46,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Types;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
@@ -64,12 +65,17 @@ import org.junit.jupiter.api.Test;
  *       a whole code; each code value is declared once. {@code "DC".concat(…)} and {@code "DC-MSG-" + n} fail here.</li>
  *   <li><b>Entry points.</b> These must receive a value that resolves to whole codes: every {@code setProperty}, on any
  *       receiver, unless its key is a string literal other than {@code "code"} (or the call is audited in
- *       {@link #NOT_A_PROBLEM_DETAIL}); {@code create} and {@code decorate} (argument 1) unless javac resolves them to a
- *       type other than {@code ProblemDetailFactory}; {@code respond} (argument 1); every invocation of a constructor
- *       of a type named {@code DataAccessFailure} ({@code new}, enum constant, {@code this(…)}, {@code super(…)}),
- *       at its parameter named {@code code}, and every assignment to such a type's {@code code} field. A method or
- *       constructor reference to an entry point, and an anonymous subclass of {@code DataAccessFailure}, are
- *       reported.</li>
+ *       {@link #NOT_A_PROBLEM_DETAIL}); one with other than two arguments is reported; {@code create} and
+ *       {@code decorate} (argument 1) unless javac resolves them to a type other than {@code ProblemDetailFactory};
+ *       {@code respond} (argument 1); every assignment to a {@code DataAccessFailure}'s {@code code} field.</li>
+ *   <li><b>DataAccessFailure, pinned.</b> The only type that may be named {@code DataAccessFailure} is the audited enum,
+ *       whose one constructor is {@code (int status, String code, String detail)}, not varargs. Every invocation of it
+ *       ({@code new}, enum constant, {@code this(…)}, {@code super(…)}) with three arguments is checked at argument 1.
+ *       Fail closed: any other declaration of that name, an invocation of any other {@code DataAccessFailure}
+ *       constructor, a construction javac cannot resolve of a type named {@code DataAccessFailure} (for {@code super(…)},
+ *       the class its {@code extends} clause names), a write to an unresolvable {@code code}, a compound assignment to
+ *       the {@code code} field, a
+ *       method or constructor reference to an entry point, and an anonymous subclass are all reported.</li>
  *   <li><b>Values.</b> A value is a string literal, a conditional of values, or a name that javac resolves to a local
  *       variable declared in the scanned sources (its initialiser and every assignment to it; a for-each variable is
  *       unknown) or to a constant variable declared there (its initialiser). Only literals end a chain, and javac's
@@ -496,6 +502,8 @@ class ErrorCodeSourceUniquenessTest {
                         .contains("System.getProperty(\"unchecked.code\")"))
                 .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java").contains("BROKEN_CONSTANT"))
                 .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java").contains("code swapped "))
+                .anySatisfy(entry -> assertThat(entry).contains("DataAccessFailure.java")
+                        .contains("is not the audited DataAccessFailure"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("DataAccessFailure::new"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("GENERIC_FAILURE"))
                 .anySatisfy(entry -> assertThat(entry).contains("A.java").contains("ANNOTATED_FAILURE"))
@@ -509,6 +517,96 @@ class ErrorCodeSourceUniquenessTest {
                 .anySatisfy(entry -> assertThat(entry).contains("C.java").contains("DC-TST-12"))
                 .noneSatisfy(entry -> assertThat(entry).contains("SPLIT_OVER_LINES"))
                 .noneSatisfy(entry -> assertThat(entry).contains("chosen"));
+    }
+
+    @Test
+    void onlyTheAuditedDataAccessFailureShapeIsAccepted() {
+        String pkg = "package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;\n";
+        assertThat(unsupported(source("DataAccessFailure", pkg + """
+                enum DataAccessFailure {
+                    CONFLICT(409, "DC-TST-0001", "detail");
+                    private final String code;
+                    DataAccessFailure(int status, String code, String detail) {
+                        this.code = code;
+                    }
+                }
+                """))).as("the audited shape").isEmpty();
+        assertThat(unsupported(source("DataAccessFailure", pkg + """
+                class DataAccessFailure {
+                    String code = "DC-TST-0001";
+                    void mutate(String supplied) {
+                        code += supplied;
+                    }
+                }
+                """))).anySatisfy(entry -> assertThat(entry).contains("code += supplied compound-assigns"))
+                .anySatisfy(entry -> assertThat(entry).contains("is not the audited DataAccessFailure"));
+        assertThat(unsupported(source("DataAccessFailure", pkg + """
+                class DataAccessFailure {
+                    DataAccessFailure(String... code) {}
+                    void escape() {
+                        new DataAccessFailure("DC-TST-0001", "BROKEN");
+                        new DataAccessFailure();
+                    }
+                }
+                class Child extends DataAccessFailure {
+                }
+                """))).as("varargs, an empty call and an implicit super() are reported, not a crash")
+                .anySatisfy(entry -> assertThat(entry).contains("\"BROKEN\")").contains("other than the audited one"))
+                .anySatisfy(entry -> assertThat(entry).contains("new DataAccessFailure()").contains("other than"))
+                .anySatisfy(entry -> assertThat(entry).contains("super()").contains("other than the audited one"));
+        assertThat(unsupported(source("Child", """
+                class Child extends external.DataAccessFailure {
+                    Child() {
+                        super(500, "BROKEN");
+                    }
+                }
+                class Outer {
+                    class Inner extends external.DataAccessFailure {
+                        Inner(Outer outer) {
+                            outer.super(500, "QUALIFIED");
+                        }
+                    }
+                }
+                class Uses {
+                    external.DataAccessFailure failure;
+                    void escape() {
+                        failure.code = "BROKEN_FIELD";
+                        new external.DataAccessFailure("ONE_ARGUMENT");
+                        new external.DataAccessFailure(500, "DC-TST-0002", "THIRD_ARGUMENT");
+                    }
+                }
+                """))).as("unresolved: fail closed")
+                .anySatisfy(entry -> assertThat(entry).contains("\"BROKEN\")").contains("does not resolve"))
+                .anySatisfy(entry -> assertThat(entry).contains("QUALIFIED").contains("does not resolve"))
+                .anySatisfy(entry -> assertThat(entry).contains("BROKEN_FIELD").contains("cannot resolve"))
+                .anySatisfy(entry -> assertThat(entry).contains("ONE_ARGUMENT").contains("does not resolve"))
+                .anySatisfy(entry -> assertThat(entry).contains("THIRD_ARGUMENT").contains("does not resolve"));
+        assertThat(unsupported(source("DataAccessFailure", pkg + """
+                record DataAccessFailure(int status, String code, String detail) {
+                    DataAccessFailure {
+                        code = System.getProperty("unchecked.code");
+                    }
+                    static void escape() {
+                        new DataAccessFailure(500, "DC-TST-0001", "detail");
+                    }
+                }
+                """))).as("a record, with its compact constructor")
+                .anySatisfy(entry -> assertThat(entry).contains("is not the audited DataAccessFailure"))
+                .anySatisfy(entry -> assertThat(entry).contains("other than the audited one"));
+        assertThat(unsupported(source("Sink", """
+                class Sink {
+                    void setProperty(String key, Object value, Object... extra) {}
+                    void escape() {
+                        setProperty("code", "BROKEN", 0);
+                        setProperty("detail", "OTHER_KEY", 0);
+                    }
+                }
+                """))).anySatisfy(entry -> assertThat(entry).contains("with 3 arguments"))
+                .noneSatisfy(entry -> assertThat(entry).contains("OTHER_KEY"));
+    }
+
+    private static List<String> unsupported(JavaFileObject source) {
+        return scan(List.of(source)).unsupported();
     }
 
     @Test
@@ -572,26 +670,59 @@ class ErrorCodeSourceUniquenessTest {
                 public Void visitMethodInvocation(MethodInvocationTree node, Void unused) {
                     String name = methodName(node);
                     List<? extends ExpressionTree> args = node.getArguments();
-                    if (name.equals("setProperty") && args.size() == 2 && !isOtherLiteralKey(args.get(0))
-                            && !NOT_A_PROBLEM_DETAIL.contains(values.enclosingType(getCurrentPath()) + "|" + node)) {
-                        check(argument(1), file, values, unsupported);
+                    if (name.equals("setProperty")) {
+                        if (!args.isEmpty() && isOtherLiteralKey(args.get(0))
+                                || NOT_A_PROBLEM_DETAIL.contains(values.enclosingType(getCurrentPath()) + "|" + node)) {
+                            // another key, or an audited call on something other than a ProblemDetail
+                        } else if (args.size() == 2) {
+                            check(argument(1), file, values, unsupported);
+                        } else {
+                            unsupported.add(file + ": " + node + " is a setProperty with " + args.size()
+                                    + " arguments, not a key and a value");
+                        }
                     } else if ((name.equals("create") || name.equals("decorate")) && args.size() >= 2
                             && mayBeFactory(trees.getElement(getCurrentPath()))) {
                         check(argument(1), file, values, unsupported);
                     } else if (name.equals("respond") && args.size() >= 2) {
                         check(argument(1), file, values, unsupported);
                     } else if (name.equals("this") || name.equals("super")) {
-                        checkFailureConstructor(trees.getElement(getCurrentPath()), "");
+                        checkFailureConstructor(trees.getElement(getCurrentPath()), invokedTypeName(name));
                     }
                     return super.visitMethodInvocation(node, unused);
                 }
 
+                // Only the audited enum may be named DataAccessFailure: its one constructor fixes where the code is.
+                @Override
+                public Void visitClass(ClassTree node, Void unused) {
+                    if (trees.getElement(getCurrentPath()) instanceof TypeElement type && isNamedFailure(type)) {
+                        List<ExecutableElement> constructors = ElementFilter.constructorsIn(type.getEnclosedElements());
+                        if (!type.getQualifiedName().contentEquals(DATA_ACCESS_FAILURE)
+                                || constructors.size() != 1 || !isAuditedFailureConstructor(constructors.get(0))) {
+                            unsupported.add(file + ": " + type.getQualifiedName() + " is not the audited DataAccessFailure,"
+                                    + " an enum whose one constructor is (int status, String code, String detail)");
+                        }
+                    }
+                    return super.visitClass(node, unused);
+                }
+
                 @Override
                 public Void visitAssignment(AssignmentTree node, Void unused) {
-                    if (isFailureCodeField(trees.getElement(new TreePath(getCurrentPath(), node.getVariable())))) {
+                    Element target = trees.getElement(new TreePath(getCurrentPath(), node.getVariable()));
+                    if (isFailureCodeField(target)) {
                         check(new TreePath(getCurrentPath(), node.getExpression()), file, values, unsupported);
+                    } else if (isUnresolvedCode(target, node.getVariable())) {
+                        unsupported.add(file + ": " + node + " assigns a code field javac cannot resolve");
                     }
                     return super.visitAssignment(node, unused);
+                }
+
+                @Override
+                public Void visitCompoundAssignment(CompoundAssignmentTree node, Void unused) {
+                    Element target = trees.getElement(new TreePath(getCurrentPath(), node.getVariable()));
+                    if (isFailureCodeField(target) || isUnresolvedCode(target, node.getVariable())) {
+                        unsupported.add(file + ": " + node + " compound-assigns a DataAccessFailure's code");
+                    }
+                    return super.visitCompoundAssignment(node, unused);
                 }
 
                 @Override
@@ -602,22 +733,48 @@ class ErrorCodeSourceUniquenessTest {
                     return super.visitVariable(node, unused);
                 }
 
-                // A constructor of a type named DataAccessFailure: its argument at the parameter named code. Unresolved
-                // (outside the classpath), a construction named DataAccessFailure is checked at argument 1.
-                private void checkFailureConstructor(Element constructor, String unresolvedName) {
+                // The type a this(...) or super(...) constructs, as written: the enclosing class, or the class named in
+                // its extends clause (super(...) always targets the direct superclass).
+                private String invokedTypeName(String keyword) {
+                    for (TreePath current = getCurrentPath(); current != null; current = current.getParentPath()) {
+                        if (current.getLeaf() instanceof ClassTree type) {
+                            return keyword.equals("this") ? type.getSimpleName().toString()
+                                    : type.getExtendsClause() == null ? "" : lastName(type.getExtendsClause());
+                        }
+                    }
+                    return "";
+                }
+
+                // A constructor of a type named DataAccessFailure: only the audited one, with its three arguments, and
+                // its argument 1 is checked. Any other is reported, and so is a construction javac cannot resolve of a
+                // type named DataAccessFailure.
+                private void checkFailureConstructor(Element constructor, String typeName) {
                     if (constructor instanceof ExecutableElement executable
                             && executable.getKind() == ElementKind.CONSTRUCTOR
-                            && isNamedFailure(executable.getEnclosingElement())) {
-                        List<? extends VariableElement> parameters = executable.getParameters();
-                        for (int index = 0; index < parameters.size(); index++) {
-                            if (parameters.get(index).getSimpleName().contentEquals("code")) {
-                                check(argument(index), file, values, unsupported);
-                            }
+                            && executable.asType().getKind() != TypeKind.ERROR) {
+                        if (!isNamedFailure(executable.getEnclosingElement())) {
+                            return;
                         }
-                    } else if (!(constructor instanceof ExecutableElement) && unresolvedName.equals("DataAccessFailure")
-                            && argumentCount() >= 2) {
-                        check(argument(1), file, values, unsupported);
+                        if (isAuditedFailureConstructor(executable) && argumentCount() == 3) {
+                            check(argument(1), file, values, unsupported);
+                        } else {
+                            unsupported.add(file + ": " + getCurrentPath().getLeaf()
+                                    + " calls a DataAccessFailure constructor other than the audited one");
+                        }
+                    } else if (typeName.equals("DataAccessFailure")) {
+                        unsupported.add(file + ": " + getCurrentPath().getLeaf()
+                                + " does not resolve, so it could construct a DataAccessFailure");
                     }
+                }
+
+                private boolean isAuditedFailureConstructor(ExecutableElement constructor) {
+                    return constructor.getEnclosingElement() instanceof TypeElement owner
+                            && owner.getKind() == ElementKind.ENUM
+                            && owner.getQualifiedName().contentEquals(DATA_ACCESS_FAILURE)
+                            && !constructor.isVarArgs()
+                            && values.signature(constructor).equals(DATA_ACCESS_FAILURE + "#<init>(int," + STRING + ","
+                                    + STRING + ")")
+                            && constructor.getParameters().get(1).getSimpleName().contentEquals("code");
                 }
 
                 private int argumentCount() {
@@ -673,6 +830,11 @@ class ErrorCodeSourceUniquenessTest {
 
     private static boolean isNamedFailure(Element type) {
         return type instanceof TypeElement named && named.getSimpleName().contentEquals("DataAccessFailure");
+    }
+
+    // A write to something named code that javac cannot resolve could be a DataAccessFailure's code field.
+    private static boolean isUnresolvedCode(Element target, ExpressionTree variable) {
+        return !(target instanceof VariableElement) && lastName(variable).equals("code");
     }
 
     private static boolean isFailureCodeField(Element field) {

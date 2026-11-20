@@ -1,46 +1,49 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
-import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
-import com.fasterxml.jackson.core.JsonStreamContext;
+import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.logstash.logback.mask.ValueMasker;
+import org.springframework.boot.json.JsonWriter.MemberPath;
+import org.springframework.boot.json.WritableJson;
 
 /**
- * Masks credentials and the default PII set (Emirates ID, card numbers, e-mail addresses, phone
- * numbers) in every value the platform JSON encoder writes (message, MDC values, structured arguments,
- * exception text), then applies the application's {@link LogSanitizer} beans to MDC and
- * structured-argument fields (D102).
+ * Masks credentials and the default PII set (Emirates ID, card numbers, e-mail addresses, phone numbers) in every value
+ * Boot's structured logging writes: the message, MDC values, key-value pairs at any depth, and the stack trace (D102,
+ * D141). {@link PlatformLogMasking} calls it as Boot's JSON value processor.
  *
- * <p>Order per value: whole-value mask when the field, or any field enclosing it, is a credential key
- * (any value type; {@link CredentialFieldMasker} also replaces such fields before their value is
- * written); {@code LogSanitizer} beans, keyed by the nearest enclosing field name (not the platform's
- * own top-level fields); pattern masks. Pattern masks run last, so a sanitizer can neither skip them nor
- * reintroduce a credential the patterns would catch. Only top-level {@code traceId}/{@code spanId}
- * fields holding W3C hex IDs are exempt from pattern masks; every other field, whatever its name, is
- * masked. Every pattern is anchored to token starts and bounded, and no pattern recurses per character,
- * so masking stays linear in the input length and stack-safe. Masked text becomes {@value #MASK}.
+ * <p>Order per value: whole-value mask when the member, or any member enclosing it, has a credential name (any value
+ * type); then pattern masks on text. Only top-level {@code traceId}/{@code spanId} members holding W3C hex IDs are
+ * exempt from pattern masks; every other member, whatever its name, is masked. Every pattern is anchored to token
+ * starts and bounded, and no pattern recurses per character, so masking stays linear in the input length and
+ * stack-safe. Masked text becomes {@value #MASK}.
+ *
+ * <p>Values Boot would write with {@code toString()} (records, other objects) are turned into something it can walk
+ * or into masked text here: a record becomes a map of its components, so credential names inside it still count; any
+ * other object becomes its masked {@code toString()}, called once, and a {@code toString()} that throws costs only
+ * that value. Below {@value #MAX_DEPTH} levels of nesting (a container holding itself, say) a value is masked whole,
+ * the traversal depth of the v3 encoder.
  *
  * <p>Stateless apart from the immutable extra patterns; thread-safe.
  */
-public final class PlatformValueMasker implements ValueMasker {
+public final class PlatformValueMasker {
 
     /** Replacement for masked text; fixed length so the original length is not disclosed. */
     public static final String MASK = "****";
 
-    // Top-level fields the encoder writes itself; LogSanitizers apply to everything else (MDC, args).
-    private static final Set<String> PLATFORM_FIELDS = Set.of("@timestamp", "level", "logger", "message",
-            "stack_trace", "service", "traceId", "spanId", "tags");
+    /** Nesting depth below which a value is masked whole, ending the descent into a self-referencing container. */
+    static final int MAX_DEPTH = 64;
 
     // The platform writes W3C hex IDs to the top-level traceId/spanId fields (a hex ID may contain a
     // Luhn-valid digit run). Anything else, or the same names nested in a structured value, is masked.
@@ -91,6 +94,8 @@ public final class PlatformValueMasker implements ValueMasker {
             "(?<!\\w)(?<base>[2-6]\\d{3}(?<s>[ -])\\d{4}\\k<s>\\d{4}\\k<s>\\d{4})(?<ext>\\k<s>\\d{1,3})?(?!\\w)"
             + "|(?<!\\w)(?<amex>3[47]\\d{2}(?<a>[ -])\\d{6}\\k<a>\\d{5})(?!\\w)");
     private static final Pattern DIGITS = Pattern.compile("[2-6]\\d{12,18}");
+    // A card number logged as a double and formatted into text by Java: 4.111111111111111E15 (HI-0050).
+    private static final Pattern PAN_SCIENTIFIC = Pattern.compile("(?<![\\w.])[2-6]\\.\\d{1,18}E1[2-8](?![\\w.])");
     // E-mail: local part starts a token and is bounded (linear scanning); dotted domain keeps Java's
     // Object@1a2b3c identity strings out.
     private static final Pattern EMAIL = Pattern.compile("(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]{1,64}"
@@ -114,38 +119,49 @@ public final class PlatformValueMasker implements ValueMasker {
         this.extraPatterns = List.copyOf(extraPatterns);
     }
 
-    @Override
-    public Object mask(JsonStreamContext context, Object value) {
+    /**
+     * The value Boot writes for one member: the value itself when nothing is masked, otherwise its masked form.
+     *
+     * @param path the member's path; may be {@code null}
+     * @param value the value; may be {@code null}
+     * @return the value to write
+     */
+    public Object mask(MemberPath path, Object value) {
         if (value == null) {
             return null;
         }
-        if (underCredentialKey(context)) {
+        if (depth(path) > MAX_DEPTH || underCredentialKey(path)) {
             return MASK;
         }
-        String key = nearestName(context);
-        boolean sanitizable = key != null && !(topLevel(context) && PLATFORM_FIELDS.contains(key));
-        if (value instanceof Number number) {
-            if (sanitizable && !LogSanitizerRegistry.current().isEmpty()) {
-                String original = number.toString();
-                String sanitized = sanitize(key, original);
-                if (!sanitized.equals(original)) {
-                    return maskPatterns(sanitized);
-                }
+        if (value instanceof CharSequence text) {
+            String original = text.toString();
+            if (topLevel(path) && ("traceId".equals(path.name()) || "spanId".equals(path.name()))
+                    && TRACE_OR_SPAN_ID.matcher(original).matches()) {
+                return value;
             }
-            // kv("card", 4111111111111111L): a card number written as a JSON number.
-            return cardNumber(number) ? MASK : null;
+            String masked = maskPatterns(original);
+            return masked.equals(original) ? value : masked;
         }
-        if (!(value instanceof CharSequence text)) {
-            return null;
+        if (value instanceof Number number) {
+            // addKeyValue("card", 4111111111111111L): a card number written as a JSON number.
+            return cardNumber(number) ? MASK : value;
         }
-        String original = text.toString();
-        if (topLevel(context) && ("traceId".equals(key) || "spanId".equals(key))
-                && TRACE_OR_SPAN_ID.matcher(original).matches()) {
-            return null;
+        if (value instanceof Boolean || value instanceof Map || value instanceof Iterable || value instanceof Object[]
+                || value instanceof WritableJson) {
+            // Boot walks containers and calls this masker for every element, with its path.
+            return value;
         }
-        String result = sanitizable ? sanitize(key, original) : original;
-        result = maskPatterns(result);
-        return result.equals(original) ? null : result;
+        if (value.getClass().isArray()) {
+            // A primitive array (double[], byte[]): its elements, each checked like any number.
+            return elements(value);
+        }
+        if (value instanceof Record record) {
+            Map<String, Object> components = components(record);
+            if (components != null) {
+                return components;
+            }
+        }
+        return maskPatterns(text(value));
     }
 
     /** Applies the pattern masks (credentials, PII, extra patterns) to free text. */
@@ -160,6 +176,9 @@ public final class PlatformValueMasker implements ValueMasker {
         result = EMIRATES_ID.matcher(result).replaceAll(MASK);
         result = replace(result, PAN_GROUPED, PlatformValueMasker::groupedCard);
         result = replace(result, PAN_CONTIGUOUS, m -> luhn(m.group()) ? MASK : m.group());
+        if (result.indexOf('E') >= 0) {
+            result = replace(result, PAN_SCIENTIFIC, m -> cardNumber(Double.valueOf(m.group())) ? MASK : m.group());
+        }
         if (result.indexOf('@') >= 0) {
             result = EMAIL.matcher(result).replaceAll(MASK);
         }
@@ -172,35 +191,11 @@ public final class PlatformValueMasker implements ValueMasker {
     }
 
     /**
-     * Applies the registered {@link LogSanitizer} beans to one keyed value, in order; a throwing
-     * sanitizer is skipped.
+     * Whether a member name denotes a credential, compared case-insensitively and ignoring {@code -} and {@code _}
+     * ({@code api-key}, {@code API_KEY}, {@code apiKey}).
      *
-     * @param key the field name; never {@code null}
-     * @param value the value; may be {@code null}
-     * @return the sanitized value
-     */
-    static String sanitize(String key, String value) {
-        String result = value;
-        for (LogSanitizer sanitizer : LogSanitizerRegistry.current()) {
-            try {
-                String sanitized = sanitizer.sanitize(key, result);
-                if (sanitized != null) {
-                    result = sanitized;
-                }
-            } catch (RuntimeException ignored) {
-                // A throwing sanitizer must not suppress the line (LogSanitizer contract); the pattern
-                // masks still run on the value.
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Whether a field name denotes a credential, compared case-insensitively and ignoring {@code -} and
-     * {@code _} ({@code api-key}, {@code API_KEY}, {@code apiKey}).
-     *
-     * @param name the field name; may be {@code null}
-     * @return {@code true} when the field's whole value must be masked
+     * @param name the member name; may be {@code null}
+     * @return {@code true} when the member's whole value must be masked
      */
     static boolean isCredentialKey(String name) {
         if (name == null) {
@@ -210,27 +205,65 @@ public final class PlatformValueMasker implements ValueMasker {
         return CREDENTIAL_KEYS.contains(normalized) || CREDENTIAL_SUFFIXES.stream().anyMatch(normalized::endsWith);
     }
 
-    private static boolean underCredentialKey(JsonStreamContext context) {
-        for (JsonStreamContext c = context; c != null; c = c.getParent()) {
-            if (isCredentialKey(c.getCurrentName())) {
+    private static boolean underCredentialKey(MemberPath path) {
+        for (MemberPath p = path; p != null; p = p.parent()) {
+            if (isCredentialKey(p.name())) {
                 return true;
             }
         }
         return false;
     }
 
-    // The key a value is filed under: its own field name, or for an array element the enclosing field's.
-    private static String nearestName(JsonStreamContext context) {
-        for (JsonStreamContext c = context; c != null; c = c.getParent()) {
-            if (c.getCurrentName() != null) {
-                return c.getCurrentName();
-            }
-        }
-        return null;
+    // A member of the root object: its parent is the root path, which has no parent.
+    static boolean topLevel(MemberPath path) {
+        return path != null && path.parent() != null && path.parent().parent() == null;
     }
 
-    private static boolean topLevel(JsonStreamContext context) {
-        return context.inObject() && context.getParent() != null && context.getParent().inRoot();
+    private static int depth(MemberPath path) {
+        int depth = 0;
+        for (MemberPath p = path; p != null; p = p.parent()) {
+            depth++;
+        }
+        return depth;
+    }
+
+    private static List<Object> elements(Object array) {
+        int length = java.lang.reflect.Array.getLength(array);
+        List<Object> elements = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            elements.add(java.lang.reflect.Array.get(array, i));
+        }
+        return elements;
+    }
+
+    // A record as a map of its components, so their names count; null when a component cannot be read.
+    private static Map<String, Object> components(Record record) {
+        RecordComponent[] components = record.getClass().getRecordComponents();
+        Map<String, Object> values = new LinkedHashMap<>();
+        try {
+            for (RecordComponent component : components) {
+                java.lang.reflect.Method accessor = component.getAccessor();
+                accessor.setAccessible(true);
+                values.put(component.getName(), accessor.invoke(record));
+            }
+            return values;
+        } catch (ReflectiveOperationException | RuntimeException unreadable) {
+            return null;
+        }
+    }
+
+    // toString(), called once; one that throws costs only this value, never the line.
+    private static String text(Object value) {
+        try {
+            return String.valueOf(value);
+        } catch (VirtualMachineError fatal) {
+            if (fatal instanceof StackOverflowError) {
+                return "[toString() failed: " + fatal.getClass().getName() + "]";
+            }
+            throw fatal;
+        } catch (Throwable failure) {
+            return "[toString() failed: " + failure.getClass().getName() + "]";
+        }
     }
 
     /** Whether a number is a Luhn-valid card number (integral, 13–19 digits, issuer digit 2–6). */

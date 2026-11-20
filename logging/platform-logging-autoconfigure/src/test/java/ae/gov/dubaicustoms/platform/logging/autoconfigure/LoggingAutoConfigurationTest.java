@@ -3,9 +3,7 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
-import ae.gov.dubaicustoms.platform.logging.Kv;
-import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
-import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LogSanitizerRegistry;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.UserLogbackConfigurationWarning;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -14,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -48,8 +45,8 @@ class LoggingAutoConfigurationTest {
     }
 
     @Test
-    void inactiveWhenLoggingApiMissing() {
-        runner.withClassLoader(new FilteredClassLoader(Kv.class))
+    void inactiveWhenLogbackMissing() {
+        runner.withClassLoader(new FilteredClassLoader("ch.qos.logback.classic"))
                 .run(context -> assertThat(context).doesNotHaveBean(LoggingAutoConfiguration.class));
     }
 
@@ -84,17 +81,18 @@ class LoggingAutoConfigurationTest {
     }
 
     @Test
-    void sanitizerRegistryActiveByDefaultAndOffWithRedaction() {
-        runner.run(context -> assertThat(context).hasSingleBean(LogSanitizerRegistry.class));
+    void userLogbackWarningActiveByDefaultAndOffWithRedaction() {
+        runner.run(context -> assertThat(context).hasSingleBean(UserLogbackConfigurationWarning.class));
         runner.withPropertyValues("dc.platform.logging.redaction.enabled=false")
-                .run(context -> assertThat(context).doesNotHaveBean(LogSanitizerRegistry.class));
+                .run(context -> assertThat(context).doesNotHaveBean(UserLogbackConfigurationWarning.class));
     }
 
     @Test
-    void sanitizerRegistryBacksOffForAUserRegistryUnderAnyName() {
-        LogSanitizerRegistry mine = new LogSanitizerRegistry(new DefaultListableBeanFactory().getBeanProvider(LogSanitizer.class));
-        runner.withBean("myRegistry", LogSanitizerRegistry.class, () -> mine)
-                .run(context -> assertThat(context.getBean(LogSanitizerRegistry.class)).isSameAs(mine));
+    void userLogbackWarningBacksOffForAUserBeanUnderAnyName() {
+        UserLogbackConfigurationWarning mine = new UserLogbackConfigurationWarning(
+                new org.springframework.mock.env.MockEnvironment(), false);
+        runner.withBean("myWarning", UserLogbackConfigurationWarning.class, () -> mine)
+                .run(context -> assertThat(context.getBean(UserLogbackConfigurationWarning.class)).isSameAs(mine));
     }
 
     @Test

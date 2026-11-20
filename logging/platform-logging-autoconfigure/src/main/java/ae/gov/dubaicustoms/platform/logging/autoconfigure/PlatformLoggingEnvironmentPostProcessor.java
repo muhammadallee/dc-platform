@@ -2,12 +2,9 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -15,14 +12,23 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
- * Points Boot's logging system at the platform JSON logback configuration by defaulting
- * {@code logging.config} — registered in {@code META-INF/spring.factories}, the ONE legacy
- * registration the platform allows: logging must be configured before the application context
- * (and therefore before auto-configuration) exists.
+ * Switches on Boot's structured JSON logging with the platform's field names (D141): registered in
+ * {@code META-INF/spring.factories}, because logging is configured before the application context (and therefore
+ * before auto-configuration) exists. The masking itself is {@code PlatformLogMasking}, a Boot JSON members customizer
+ * registered there too.
  *
- * <p>Defaults land in a LOWEST-precedence property source named
- * {@code platform-logging-defaults}, so user configuration always wins and the source name is
- * visible in {@code /actuator/env} for debuggability (property-conventions §7).
+ * <p>In JSON mode it defaults, for the console and for a log file:
+ * <ul>
+ *   <li>{@code logging.structured.format.console} and {@code .file} to {@code logstash};</li>
+ *   <li>{@code logger_name} renamed {@code logger}; {@code @version}, {@code thread_name} and {@code level_value}
+ *       left out; a {@code service} member ({@code dc.platform.logging.service-name}, else
+ *       {@code spring.application.name}, else {@code application});</li>
+ *   <li>{@code logging.structured.json.context.include} from {@code dc.platform.logging.include-mdc};</li>
+ *   <li>no ASCII banner, which would put non-JSON lines on stdout (D108).</li>
+ * </ul>
+ *
+ * <p>Defaults land in a LOWEST-precedence property source named {@code platform-logging-defaults}, so user
+ * configuration always wins and the source name is visible in {@code /actuator/env} (property-conventions §7).
  *
  * <p>Stateless and thread-safe.
  *
@@ -33,14 +39,8 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     /** Property-source name; keep stable — operators grep for it in /actuator/env. */
     static final String PROPERTY_SOURCE_NAME = "platform-logging-defaults";
 
-    static final String CONFIG_LOCATION =
-            "classpath:ae/gov/dubaicustoms/platform/logging/logback-platform.xml";
-
-    /** Flattened {@code dc.platform.logging.mdc.include}, read by logback-platform.xml. */
-    static final String MDC_INCLUDE_RESOLVED = "dc.platform.logging.internal.mdc-include";
-
-    /** Flattened {@code dc.platform.logging.redaction.patterns}, read by logback-platform.xml. */
-    static final String REDACTION_PATTERNS_RESOLVED = "dc.platform.logging.internal.redaction-patterns";
+    /** Boot's structured format the platform uses. */
+    static final String FORMAT = "logstash";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -52,22 +52,25 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
             return;
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
-        defaults.put("logging.config", CONFIG_LOCATION);
-        // The ASCII banner goes to stdout outside logging: in JSON mode it would put non-JSON lines in
-        // the stream a log shipper parses line by line (D108).
+        defaults.put("logging.structured.format.console", FORMAT);
+        // A service that sets logging.file.name gets the same masked JSON, not Boot's plain pattern file.
+        defaults.put("logging.structured.format.file", FORMAT);
+        defaults.put("logging.structured.json.rename.logger_name", "logger");
+        defaults.put("logging.structured.json.exclude", "@version,thread_name,level_value");
+        defaults.put("logging.structured.json.add.service", serviceName(environment));
+        defaults.put("logging.structured.json.context.include",
+                environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
-        // Resolved here (not in logback XML) because springProperty supports a single source:
-        // explicit dc.platform.logging.service-name > spring.application.name > "application".
-        defaults.put("dc.platform.logging.service-name",
-                environment.getProperty("spring.application.name", "application"));
-        // List properties flattened for springProperty, which reads one scalar key: the strict MDC
-        // keys comma-separated, the extra redaction patterns one per line (regexes may hold commas).
-        Binder binder = Binder.get(environment);
-        defaults.put(MDC_INCLUDE_RESOLVED, String.join(",",
-                binder.bind("dc.platform.logging.mdc.include", Bindable.listOf(String.class)).orElse(List.of())));
-        defaults.put(REDACTION_PATTERNS_RESOLVED, String.join("\n",
-                binder.bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())));
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
+    }
+
+    // dc.platform.logging.service-name > spring.application.name > "application".
+    private static String serviceName(Environment environment) {
+        String explicit = environment.getProperty("dc.platform.logging.service-name");
+        if (explicit != null && !explicit.isBlank()) {
+            return explicit;
+        }
+        return environment.getProperty("spring.application.name", "application");
     }
 
     /**

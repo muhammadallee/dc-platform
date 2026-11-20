@@ -1,10 +1,7 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
 import ae.gov.dubaicustoms.platform.core.autoconfigure.CapabilityDescriptor;
-import ae.gov.dubaicustoms.platform.logging.Kv;
-import ae.gov.dubaicustoms.platform.logging.LogSanitizer;
-import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LogSanitizerRegistry;
-import org.springframework.beans.factory.ObjectProvider;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.UserLogbackConfigurationWarning;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,20 +11,19 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 
 /*
- * Activates when: platform-logging-api on the classpath AND dc.platform.logging.enabled != false
+ * Activates when: Logback on the classpath AND dc.platform.logging.enabled != false
  * Backs off when: user defines a bean named loggingCapabilityDescriptor (one-of-many type, D97);
- *                 user defines a LogSanitizerRegistry bean (by type, D98)
+ *                 user defines a UserLogbackConfigurationWarning bean (by type)
  * Beans: loggingCapabilityDescriptor — one line in the startup capability banner reporting the
- *        effective format (the heavy lifting happened pre-context in
- *        PlatformLoggingEnvironmentPostProcessor);
- *        logSanitizerRegistry — hands the application's LogSanitizer beans to the platform JSON
- *        encoder once every singleton exists (Logback starts before the context, so the encoder
- *        cannot look them up itself); only when dc.platform.logging.redaction.enabled != false
- * Order: none — the EPP already ran before the context existed; the registry publishes after all
- *        singletons exist, so every LogSanitizer bean is seen regardless of configuration order.
+ *        effective format (the heavy lifting happened pre-context: PlatformLoggingEnvironmentPostProcessor
+ *        and the PlatformLogMasking customizer, both from spring.factories);
+ *        userLogbackConfigurationWarning — WARNs once at startup when the service's own Logback file replaces
+ *        Boot's structured logging in JSON mode, so the platform's masking does not apply to it (D141);
+ *        only when dc.platform.logging.redaction.enabled != false
+ * Order: none — logging was configured before the context existed.
  */
 @AutoConfiguration
-@ConditionalOnClass(Kv.class)
+@ConditionalOnClass(name = "ch.qos.logback.classic.LoggerContext")
 @ConditionalOnProperty(prefix = "dc.platform.logging", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LoggingProperties.class)
 public class LoggingAutoConfiguration {
@@ -45,7 +41,8 @@ public class LoggingAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "dc.platform.logging.redaction", name = "enabled",
                            havingValue = "true", matchIfMissing = true)
-    LogSanitizerRegistry logSanitizerRegistry(ObjectProvider<LogSanitizer> sanitizers) {
-        return new LogSanitizerRegistry(sanitizers);
+    UserLogbackConfigurationWarning userLogbackConfigurationWarning(Environment environment) {
+        return new UserLogbackConfigurationWarning(environment,
+                PlatformLoggingEnvironmentPostProcessor.jsonFormatResolved(environment));
     }
 }

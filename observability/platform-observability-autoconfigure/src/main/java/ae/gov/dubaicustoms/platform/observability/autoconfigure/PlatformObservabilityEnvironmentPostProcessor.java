@@ -9,8 +9,8 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
- * Contributes the platform's management-plane defaults — minimal actuator exposure, pod-local
- * liveness/readiness groups plus a {@code dependencies} group, and the local OTLP-off posture — as a
+ * Contributes the platform's management-plane defaults — minimal actuator exposure on its own port (8081, ND13),
+ * pod-local liveness/readiness groups plus a {@code dependencies} group, and the local OTLP-off posture — as a
  * LOWEST-precedence property source named {@code platform-observability-defaults}, so user
  * configuration always wins and the source name is visible in {@code /actuator/env} for
  * debuggability (property-conventions §7).
@@ -33,8 +33,14 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     /** Default actuator web exposure. */
     static final String EXPOSURE = "health,info,prometheus";
 
-    /** Members of the {@code dependencies} health group: shared infrastructure, never readiness. */
-    static final String DEPENDENCIES = "db,rabbit,redis,restclient";
+    /**
+     * Members of the {@code dependencies} health group: shared infrastructure, never readiness. Only shipped
+     * capabilities (HI-0112): the REST client returns when iteration 2 unparks it.
+     */
+    static final String DEPENDENCIES = "db,rabbit";
+
+    /** Default management port (ND13): actuator is never served on the application port. */
+    static final String MANAGEMENT_PORT = "8081";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -45,6 +51,10 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
         // Minimal exposure (D105): probes, build info and the scrape endpoint. Everything else,
         // including metrics and the platform capability report, is an explicit opt-in.
         defaults.put("management.endpoints.web.exposure.include", EXPOSURE);
+        // ND13: iteration 1 has no web security, so probes and the scrape live on their own port, reachable only
+        // inside the cluster; the application port serves only the API. A random server port (tests) gets a random
+        // management port too, so parallel tests never collide.
+        defaults.put("management.server.port", "0".equals(environment.getProperty("server.port")) ? "0" : MANAGEMENT_PORT);
         if (environment.getProperty("dc.platform.observability.health.groups.enabled", Boolean.class, true)) {
             // probes.enabled makes the livenessState/readinessState contributors exist on every
             // platform (Boot only auto-enables them on Kubernetes).

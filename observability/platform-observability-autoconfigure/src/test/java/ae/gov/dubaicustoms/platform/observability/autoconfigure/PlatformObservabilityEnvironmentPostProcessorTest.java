@@ -26,13 +26,31 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
         assertThat(environment.getProperty("management.endpoint.health.group.readiness.include"))
                 .isEqualTo("readinessState");
         assertThat(environment.getProperty("management.endpoint.health.group.dependencies.include"))
-                .isEqualTo("db,rabbit,redis,restclient");
+                .isEqualTo("db,rabbit");
+        // ND13: actuator on its own port.
+        assertThat(environment.getProperty("management.server.port")).isEqualTo("8081");
         assertThat(environment.getProperty("management.endpoint.health.validate-group-membership"))
                 .isEqualTo("false");
         // HD5: no custom correlation header is mirrored into baggage; traceparent is the only carrier.
         assertThat(environment.getProperty("management.tracing.baggage.remote-fields")).isNull();
         assertThat(environment.getProperty("management.otlp.metrics.export.enabled")).isEqualTo("false");
         assertThat(environment.getProperty("management.tracing.export.otlp.enabled")).isEqualTo("false");
+    }
+
+    @Test
+    void aRandomServerPortGivesARandomManagementPort() {
+        MockEnvironment environment = new MockEnvironment().withProperty("server.port", "0");
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("management.server.port")).isEqualTo("0");
+    }
+
+    @Test
+    void aServicesOwnManagementPortWins() {
+        MockEnvironment environment = new MockEnvironment().withProperty("management.server.port", "9090");
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("management.server.port")).isEqualTo("9090");
     }
 
     @Test

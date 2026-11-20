@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.errors.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sun.source.tree.AnnotatedTypeTree;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
@@ -20,6 +21,7 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePath;
@@ -73,8 +75,8 @@ import org.junit.jupiter.api.Test;
  *       ({@code new}, enum constant, {@code this(…)}, {@code super(…)}) with three arguments is checked at argument 1.
  *       Fail closed: any other declaration of that name, an invocation of any other {@code DataAccessFailure}
  *       constructor, a construction javac cannot resolve of a type named {@code DataAccessFailure} (for {@code super(…)},
- *       the class its {@code extends} clause names), a write to an unresolvable {@code code}, a compound assignment to
- *       the {@code code} field, a
+ *       the class its {@code extends} clause names), a write to an unresolvable {@code code} (an annotation's
+ *       {@code code = …} argument is not a write), a compound assignment, increment or decrement of a {@code code}, a
  *       method or constructor reference to an entry point, and an anonymous subclass are all reported.</li>
  *   <li><b>Values.</b> A value is a string literal, a conditional of values, or a name that javac resolves to a local
  *       variable declared in the scanned sources (its initialiser and every assignment to it; a for-each variable is
@@ -523,6 +525,10 @@ class ErrorCodeSourceUniquenessTest {
     void onlyTheAuditedDataAccessFailureShapeIsAccepted() {
         String pkg = "package ae.gov.dubaicustoms.platform.errors.autoconfigure.internal;\n";
         assertThat(unsupported(source("DataAccessFailure", pkg + """
+                @interface Marker {
+                    String code();
+                }
+                @Marker(code = "description")
                 enum DataAccessFailure {
                     CONFLICT(409, "DC-TST-0001", "detail");
                     private final String code;
@@ -530,7 +536,16 @@ class ErrorCodeSourceUniquenessTest {
                         this.code = code;
                     }
                 }
-                """))).as("the audited shape").isEmpty();
+                """))).as("the audited shape, annotated with a code = argument").isEmpty();
+        assertThat(unsupported(source("Counter", """
+                class Counter {
+                    void escape() {
+                        external.Counter.code++;
+                        --external.Counter.code;
+                    }
+                }
+                """))).anySatisfy(entry -> assertThat(entry).contains("code++").contains("increments or decrements"))
+                .anySatisfy(entry -> assertThat(entry).contains("--external").contains("increments or decrements"));
         assertThat(unsupported(source("DataAccessFailure", pkg + """
                 class DataAccessFailure {
                     String code = "DC-TST-0001";
@@ -710,7 +725,9 @@ class ErrorCodeSourceUniquenessTest {
                     Element target = trees.getElement(new TreePath(getCurrentPath(), node.getVariable()));
                     if (isFailureCodeField(target)) {
                         check(new TreePath(getCurrentPath(), node.getExpression()), file, values, unsupported);
-                    } else if (isUnresolvedCode(target, node.getVariable())) {
+                    } else if (isUnresolvedCode(target, node.getVariable())
+                            && !(getCurrentPath().getParentPath().getLeaf() instanceof AnnotationTree)) {
+                        // An annotation's code = ... argument is an element value, not a field write.
                         unsupported.add(file + ": " + node + " assigns a code field javac cannot resolve");
                     }
                     return super.visitAssignment(node, unused);
@@ -723,6 +740,19 @@ class ErrorCodeSourceUniquenessTest {
                         unsupported.add(file + ": " + node + " compound-assigns a DataAccessFailure's code");
                     }
                     return super.visitCompoundAssignment(node, unused);
+                }
+
+                @Override
+                public Void visitUnary(UnaryTree node, Void unused) {
+                    if (node.getKind() == Tree.Kind.PREFIX_INCREMENT || node.getKind() == Tree.Kind.POSTFIX_INCREMENT
+                            || node.getKind() == Tree.Kind.PREFIX_DECREMENT
+                            || node.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
+                        Element target = trees.getElement(new TreePath(getCurrentPath(), node.getExpression()));
+                        if (isFailureCodeField(target) || isUnresolvedCode(target, node.getExpression())) {
+                            unsupported.add(file + ": " + node + " increments or decrements a code");
+                        }
+                    }
+                    return super.visitUnary(node, unused);
                 }
 
                 @Override

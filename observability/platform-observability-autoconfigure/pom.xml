@@ -61,6 +61,19 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
+    <!-- The zero-config acceptance test boots logging and observability together, as a service does; it reads the
+         JSON log lines back with Jackson. -->
+    <dependency>
+      <groupId>ae.gov.dubaicustoms.platform</groupId>
+      <artifactId>platform-logging-autoconfigure</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Runs PlatformArchRules over this module (ArchConstitutionTest). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>

@@ -889,3 +889,9 @@ One line of context per decision; details live in the commit bodies referenced.
   the `spring.task.execution.propagate-context=true` default: Boot's own decorator lets a context-free task see another
   caller's observation through `Tracer` (Phase 2 risk N1, test `aContextFreeTaskOnACallersThreadSeesNoTraceInTheMdcOrTheTracer`).
   It backs off to any `TaskDecorator`, Boot's included, because Boot's executor builder applies only a unique one.
+- **D140 — The error-code gate fails closed by pinning (Spring-native Phase 2 Gate D, 2026-11-20).** The source gate
+  `ErrorCodeSourceUniquenessTest` lets javac attribute every platform source and accepts a code only where it resolves
+  to source literals, through audited forwarding paths. For `DataAccessFailure` it no longer supports general shapes:
+  only the audited enum, with its one `(int status, String code, String detail)` constructor, may carry that name, and
+  any other shape, constructor, unresolved construction or write of a `code` is reported. Fifteen Codex verification
+  passes; the last one accepted the gate (`docs/spring-native/phase-02-foundation/review-round-2.md`).

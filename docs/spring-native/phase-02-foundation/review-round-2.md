@@ -61,5 +61,6 @@ verification pass follows: [`codex/r2-verify.prompt.md`](codex/r2-verify.prompt.
   everything else, and any unresolved construction of that name, is reported, as is `setProperty` with other than two
   arguments. Codex found no escape within the pinned-constructor contract; it listed `++`/`--` on an unresolved `code`
   and one false positive, an annotation's `code = …` argument.
-- Verification 15: both fixed (`2737a57`).
+- [`r2-verify15.out.md`](codex/r2-verify15.out.md): both fixed (`2737a57`). **ACCEPTED**: no remaining escape within
+  the contract, and no new defect. Round-1 finding 8 and round-2 P2-1 and P3-1 are closed.
 

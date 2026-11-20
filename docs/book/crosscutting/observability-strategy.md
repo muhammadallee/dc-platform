@@ -89,7 +89,7 @@ escape sequences into your log store through it.
 | `correlationId` | MDC, via the core filter |
 | `stack_trace` | On `log.error(msg, throwable)` |
 | *anything in MDC* | Lifted automatically |
-| *`Kv` arguments* | Lifted by the encoder |
+| *key-value pairs* | `addKeyValue` at the call site; masked by name and structure |
 
 Deliberately dropped: `thread`, `version`, `levelValue`.
 
@@ -364,7 +364,7 @@ for every service. Suggested rows:
 
 - [ ] Meters built in constructors, not per call
 - [ ] Every tag passes the tag test
-- [ ] `Kv.of(...)` instead of string concatenation
+- [ ] `addKeyValue(...)` instead of string concatenation
 - [ ] The correlation id is never logged explicitly — it is already a field
 - [ ] A success metric exists for every scheduled job
 

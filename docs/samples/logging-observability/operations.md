@@ -1,9 +1,5 @@
 # Operations
 
-> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
-> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
-
 ## Posture
 
 | Situation | Behaviour | Verified |
@@ -13,7 +9,7 @@
 | OTLP export off (default) | No collector needed; Prometheus pull only | SLICE |
 | Database down | `readiness` and `liveness` UP (pod stays in rotation), `dependencies` DOWN, DB requests → 500 problem body without SQL/JDBC text, other requests 200 | CONSUMER |
 | Prometheus scrape | Pull, so no outage path; needs a bearer token under the security starter (interim) | CONSUMER |
-| Logging misconfigured | Fails soft: a throwing `LogSanitizer` is skipped and the platform masks still run; an argument whose rendering throws reads `[unrenderable]` | UNIT |
+| Logging misconfigured | Fails soft: a value whose rendering throws reads `[unrenderable]` and the line is still written | UNIT |
 
 ## Health groups
 
@@ -21,7 +17,7 @@
 |---|---|---|
 | `/actuator/health/liveness` | `livenessState` | liveness probe |
 | `/actuator/health/readiness` | `readinessState` | readiness probe (pod-local: a shared outage does not empty the fleet) |
-| `/actuator/health/dependencies` | `db`, `rabbit`, `redis` when present | dashboards and alerts, never a probe |
+| `/actuator/health/dependencies` | `db`, `rabbit` when present | dashboards and alerts, never a probe |
 | `/actuator/health` | everything | humans only; do not probe it |
 
 Details are hidden on unauthenticated access (Boot default `show-details: never`).
@@ -56,7 +52,7 @@ processors:
 | Switch | Tier | Effect of `false` |
 |---|---|---|
 | `dc.platform.logging.enabled` | `DEFAULT_ON` | Boot's default logging: no JSON encoder, **no masking** |
-| `dc.platform.logging.redaction.enabled` | `DEFAULT_ON` | JSON without masking and without `LogSanitizer` beans: a break-glass for debugging only, never in production |
+| `dc.platform.logging.redaction.enabled` | `DEFAULT_ON` | JSON without masking: a break-glass for debugging only, never in production |
 | `dc.platform.observability.enabled` | `DEFAULT_ON` | No common tags, no health-group, exposure or OTLP-off defaults (Boot's own apply), no `/actuator/platform`, no capability gauge |
 | `dc.platform.observability.otlp.enabled` | opt-in (`false`) | No OTLP export |
 
@@ -73,8 +69,8 @@ no buffered lines are lost. Set the orchestrator's termination grace above
 
 | Bean | Replace by |
 |---|---|
-| JSON encoder | your own `logging.config` using `PlatformJsonEncoder` (any `LogstashEncoder` option works) |
-| `LogSanitizerRegistry` | a bean of that type; add rules with `LogSanitizer` beans instead |
+| JSON format | Boot's `logging.structured.format.console` (`ecs`, `gelf`, `logstash`); the platform's masking applies to all of them |
+| Extra fields on every line | your own `StructuredLoggingJsonMembersCustomizer` in `logging.structured.json.customizer` |
 | common tags | a `MeterRegistryCustomizer` bean named `platformCommonTagsCustomizer` (other names add to them) |
 | `CapabilityGaugeRegistrar` | a bean of that type, or `dc.platform.observability.capability-metrics.enabled=false` |
 | `PlatformEndpoint` | a bean of that type, or `dc.platform.observability.platform-endpoint.enabled=false` |

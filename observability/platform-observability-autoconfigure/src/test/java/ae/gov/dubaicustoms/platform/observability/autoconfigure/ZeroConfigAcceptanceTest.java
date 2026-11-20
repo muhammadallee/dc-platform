@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -87,6 +88,13 @@ class ZeroConfigAcceptanceTest {
                 .containsEntry("service", "application").containsKeys("@timestamp", "level", "logger", "spanId");
         assertThat(output.getOut().lines().filter(l -> !l.isBlank()))
                 .as("every stdout line is JSON: no banner").allSatisfy(l -> assertThat(l).startsWith("{"));
+    }
+
+    @Test
+    void anApplicationPortOnTheManagementPortRefusesToStart() {
+        // Codex phase 3 round 1, finding 1: never actuator on the application port by accident.
+        assertThatThrownBy(() -> new SpringApplicationBuilder(App.class).run("--server.port=8081").close())
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("server.port is 8081");
     }
 
     private static HttpResponse<String> get(String port, String path, String traceparent) throws Exception {

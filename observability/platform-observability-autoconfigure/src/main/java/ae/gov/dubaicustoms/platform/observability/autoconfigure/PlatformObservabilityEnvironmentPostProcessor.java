@@ -6,6 +6,7 @@ import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
@@ -54,7 +55,7 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
         // ND13: iteration 1 has no web security, so probes and the scrape live on their own port, reachable only
         // inside the cluster; the application port serves only the API. A random server port (tests) gets a random
         // management port too, so parallel tests never collide.
-        defaults.put("management.server.port", "0".equals(environment.getProperty("server.port")) ? "0" : MANAGEMENT_PORT);
+        defaults.put("management.server.port", managementPort(environment));
         if (environment.getProperty("dc.platform.observability.health.groups.enabled", Boolean.class, true)) {
             // probes.enabled makes the livenessState/readinessState contributors exist on every
             // platform (Boot only auto-enables them on Kubernetes).
@@ -75,6 +76,21 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
             defaults.put("management.tracing.export.otlp.enabled", "false");
         }
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
+    }
+
+    // The platform's management port, unless the service set one. Fails closed when the service moved its application
+    // port onto the platform's management port: Boot would then serve actuator on the application port (ND13).
+    static String managementPort(Environment environment) {
+        String server = environment.getProperty("server.port");
+        if ("0".equals(server)) {
+            return "0";
+        }
+        if (environment.getProperty("management.server.port") == null && MANAGEMENT_PORT.equals(server)) {
+            throw new IllegalStateException("server.port is " + server + ", the port the platform gives actuator "
+                    + "(ND13), so actuator would answer on the application port. Set management.server.port to another "
+                    + "port, or to " + server + " to serve actuator on the application port on purpose.");
+        }
+        return MANAGEMENT_PORT;
     }
 
     @Override

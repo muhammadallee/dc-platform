@@ -1,6 +1,7 @@
 package ae.gov.dubaicustoms.platform.observability.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -43,6 +44,24 @@ class PlatformObservabilityEnvironmentPostProcessorTest {
         postProcessor.postProcessEnvironment(environment, null);
 
         assertThat(environment.getProperty("management.server.port")).isEqualTo("0");
+    }
+
+    @Test
+    void anApplicationPortOnThePlatformsManagementPortFailsStartup() {
+        // Codex phase 3 round 1, finding 1: server.port=8081 alone would put actuator on the application port.
+        MockEnvironment environment = new MockEnvironment().withProperty("server.port", "8081");
+
+        assertThatIllegalStateException().isThrownBy(() -> postProcessor.postProcessEnvironment(environment, null))
+                .withMessageContaining("server.port is 8081").withMessageContaining("management.server.port");
+    }
+
+    @Test
+    void anExplicitSamePortIsTheServicesChoice() {
+        MockEnvironment environment = new MockEnvironment().withProperty("server.port", "8081")
+                .withProperty("management.server.port", "8081");
+        postProcessor.postProcessEnvironment(environment, null);
+
+        assertThat(environment.getProperty("management.server.port")).isEqualTo("8081");
     }
 
     @Test

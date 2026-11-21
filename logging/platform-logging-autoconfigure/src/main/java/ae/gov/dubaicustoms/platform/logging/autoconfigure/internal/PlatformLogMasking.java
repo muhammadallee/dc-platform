@@ -29,6 +29,7 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
 
     private final PlatformValueMasker masker;
     private final Map<String, String> renames;
+    private final String contextPrefix;
 
     /**
      * Reads the logging switches.
@@ -39,13 +40,15 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
         this.masker = masker(environment);
         this.renames = masker == null ? Map.of() : Binder.get(environment)
                 .bind("logging.structured.json.rename", Bindable.mapOf(String.class, String.class)).orElse(Map.of());
+        this.contextPrefix = environment.getProperty("logging.structured.json.context.prefix", "");
     }
 
     @Override
     public void customize(Members<Object> members) {
         if (masker != null) {
             members.applyingValueProcessor((MemberPath path, Object value) ->
-                    renamedToACredential(path) ? PlatformValueMasker.MASK : masker.mask(path, value));
+                    renamedToACredential(path) || prefixedCredential(path) ? PlatformValueMasker.MASK
+                            : masker.mask(path, value));
         }
     }
 
@@ -79,6 +82,16 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
             }
         }
         return false;
+    }
+
+    // Boot writes context entries under logging.structured.json.context.prefix (ctx_pwd for pwd): the name without the
+    // prefix counts too.
+    private boolean prefixedCredential(MemberPath path) {
+        if (contextPrefix.isEmpty() || !PlatformValueMasker.topLevel(path) || path.name() == null
+                || !path.name().startsWith(contextPrefix) || path.name().length() <= contextPrefix.length() + 1) {
+            return false;
+        }
+        return PlatformValueMasker.isCredentialKey(path.name().substring(contextPrefix.length() + 1));
     }
 
     private static List<Pattern> compile(List<String> patterns) {

@@ -234,19 +234,23 @@ hh_http ac10-db-back GET /probe/db; hh_expect_status 200
 
 hh_step "AC12 collector down (proxy disabled) and slow (10 s latency): requests unaffected, memory and warnings bounded"
 check ac12-baseline latency "$HH_BASE" 200
+# The bound for the outage runs: within three times the baseline p99, at most 250 ms above it, and never under 1 s
+# (a shared laptop's jitter).
+BASE_P99=$(python -I -c "import json,sys; print(json.load(open(sys.argv[1]))['p99_ms'])" "$(hh_native "$HH_EVIDENCE/check-ac12-baseline.json")")
+P99_BOUND=$(python -I -c "import sys; b=float(sys.argv[1]); print(max(1000.0, min(3 * b, b + 250)))" "$BASE_P99")
 LINES0=$(log_lines); MEM0=$(mem_mib)
 [ "$(toxi POST /proxies/otel '{"enabled":false}')" = 200 ] || hh_fail "could not disable the collector proxy"
-check ac12-collector-down latency "$HH_BASE" 300
+check ac12-collector-down latency "$HH_BASE" 300 "$P99_BOUND"
 sleep 20
-check ac12-collector-down-2 latency "$HH_BASE" 300
+check ac12-collector-down-2 latency "$HH_BASE" 300 "$P99_BOUND"
 MEM1=$(mem_mib); WARNS_DOWN=$(since_warns "$LINES0")
 [ "$(toxi POST /proxies/otel '{"enabled":true}')" = 200 ] || hh_fail "could not re-enable the collector proxy"
 LINES1=$(log_lines)
 [ "$(toxi POST /proxies/otel/toxics '{"name":"slow","type":"latency","stream":"upstream","attributes":{"latency":10000}}')" = 200 ] \
     || hh_fail "could not add the latency toxic"
-check ac12-collector-slow latency "$HH_BASE" 300
+check ac12-collector-slow latency "$HH_BASE" 300 "$P99_BOUND"
 sleep 20
-check ac12-collector-slow-2 latency "$HH_BASE" 300
+check ac12-collector-slow-2 latency "$HH_BASE" 300 "$P99_BOUND"
 MEM2=$(mem_mib); WARNS_SLOW=$(since_warns "$LINES1")
 toxi DELETE /proxies/otel/toxics/slow >/dev/null
 echo "memory_mib baseline=$MEM0 after_down=$MEM1 after_slow=$MEM2 warns_down=$WARNS_DOWN warns_slow=$WARNS_SLOW" \

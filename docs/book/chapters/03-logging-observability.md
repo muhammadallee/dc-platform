@@ -450,10 +450,12 @@ management:
     metrics:
       export:
         url: http://otel-collector:4318/v1/metrics
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://otel-collector:4318/v1/traces
   tracing:
-    export:
-      otlp:
-        endpoint: http://otel-collector:4318/v1/traces
     sampling:
       probability: 0.1
 ```
@@ -555,7 +557,7 @@ curl -s localhost:8081/actuator/prometheus | grep '^http_server_requests'
 | Correlation coverage | Log query: `NOT _exists_: traceId` | Coverage drops — a context leak ([Chapter 1](01-core.md) §6.1) |
 | `platform.capability.active` | Metric, tagged `capability` | A capability disappears from a service unexpectedly |
 | `platform.version` tag distribution | Any meter | Services stuck on an old train |
-| Readiness flapping | Probe history | Readiness oscillating means a dependency health indicator is unstable |
+| Readiness flapping | Probe history | Readiness reports only the application's own state: oscillation means the app itself is starting, stopping or refusing traffic. A flapping shared dependency shows in the `dependencies` group |
 | Log volume per service | Ingest metrics | A sudden spike is usually a loop, a `DEBUG` left on, or a retry storm |
 
 !!! tip "`platform.version` as a fleet dashboard"
@@ -634,62 +636,52 @@ long-retained, widely readable, and rarely reviewed.
 |---|---|
 | PII or secrets in log fields | Platform masking plus `dc.platform.logging.redaction.patterns` for your own identifiers. Log secrets, if at all, as key-value pairs under credential names. Review what you put in the MDC |
 | Secrets in exception messages | The [errors](02-errors-validation.md) capability logs full exceptions at ERROR. Anything in the message is in the log |
-| Log injection | [`@SafeText`](02-errors-validation.md) on single-line fields; `CorrelationId`'s format check |
-| Actuator exposure | Default exposure is `health,info,prometheus` (`platform`, `metrics` are opt-ins). The security chain permits only `health` and `info` |
+| Log injection | Every value is one escaped JSON string, so CR/LF and quotes in user input cannot forge a line or a field; console format is for humans only |
+| Actuator exposure | Default exposure is `health,info,prometheus` (`platform`, `metrics` are opt-ins), on the management port 8081 only. 1.0.0 has no web security: keep 8081 inside the cluster, never routed through the gateway |
 | `/actuator/env` leaking configuration | It shows property values. Boot masks known-sensitive keys, but a key named `myCustomThing` is not known-sensitive |
 | Metric tags with user identifiers | A cardinality problem *and* a privacy problem — metrics are retained far longer than logs |
 
-!!! warning "`/actuator/env` and `/actuator/configprops` are not public endpoints"
-    They are exposed over HTTP by the platform's default and **authenticated** by the security chain.
-    If you are running without security, they are open. Check that before you
-    deploy.
+!!! warning "`/actuator/env` and `/actuator/configprops` are not exposed by default"
+    The platform exposes only `health`, `info` and `prometheus`. If you add `env` or `configprops` to the
+    exposure list, they answer anyone who can reach the management port: 1.0.0 has no web security.
 
 ---
 
 ## 6. Deep Dive
 
-### 6.1 Why the encoder drops three fields rather than renaming them
+### 6.1 Why the platform's format leaves three fields out
 
-`thread`, `version`, and `levelValue` are mapped to `[ignore]` in the Logstash encoder's field names.
+Boot's own Logstash format writes `@version`, `thread_name` and `level_value`. The platform's formatter writes the same
+layout without them:
 
-- `thread` is meaningless once you have a trace ID, and misleading with virtual threads, where
-  the name is generated per task.
-- `version` is the *encoder's* schema version, not yours. It is a constant that costs bytes on every
-  line, forever.
-- `levelValue` is the numeric form of `level`. Two representations of the same thing; the string is
-  the one anyone queries.
+- `thread_name` is meaningless once you have a trace ID, and misleading with virtual threads, where the name is
+  generated per task.
+- `@version` is the *format's* schema version, not yours. It is a constant that costs bytes on every line, forever.
+- `level_value` is the numeric form of `level`. Two representations of the same thing; the string is the one anyone
+  queries.
 
-Dropping at the encoder rather than filtering at ingest matters at fleet scale: three fields × billions
-of lines × every service is real storage, and an ingest-side filter has to be configured once per
-pipeline and stays configured until someone changes it.
+Leaving them out at the source rather than filtering at ingest matters at fleet scale: three fields × billions of
+lines × every service is real storage, and an ingest-side filter has to be configured once per pipeline and stays
+configured until someone changes it.
 
 ### 6.2 Why logging is fail-soft and has no error codes
 
 Every other capability defines error codes. Logging deliberately does not, and the reason is a
 principle worth stating: **observability is not worth an outage.**
 
-A malformed appender configuration, an unreachable log destination, or a value that throws while it is
-rendered must degrade logging, not stop the service. This is why a logged value whose `toString()` or getter throws
-becomes `[unrenderable]`: it costs that value, never the line or the request.
+An unreachable log destination, or a value that throws while it is rendered, must degrade logging, not stop the
+service. This is why a logged value whose `toString()` or getter throws becomes `[unrenderable]`: it costs that value,
+never the line or the request. Invalid configuration is different: an extra redaction pattern that is not a valid
+regular expression fails startup, because a service that silently stopped masking would be worse.
 
 The trade-off is honest: a broken logging setup is *quiet*. Nothing pages you. Which is exactly why
 §5.2 lists log volume as a monitored signal — a sudden drop to zero is the symptom.
 
-### 6.3 Why `service` is resolved in the post-processor, not in the XML
+### 6.3 How `service` is resolved
 
-The Logback configuration declares:
-
-```xml
-<springProperty name="service" source="dc.platform.logging.service-name" defaultValue="application"/>
-```
-
-`springProperty` supports exactly **one** source. But the platform's resolution order has three levels:
-explicit `dc.platform.logging.service-name`, then `spring.application.name`, then `application`.
-
-So the post-processor resolves the chain itself and *writes the answer into*
-`dc.platform.logging.service-name` before Logback reads it. The XML then has a single source to read.
-A small piece of indirection that exists purely because of a Logback limitation — worth knowing when
-you wonder why that property appears in `/actuator/env` with a value you did not set.
+The platform's formatter writes `service` itself, resolved once when logging starts: explicit
+`dc.platform.logging.service-name`, then `spring.application.name`, then `application`. Nothing is written into the
+environment for it, so `/actuator/env` shows only what you set.
 
 ### 6.4 The cardinality failure mode, concretely
 
@@ -796,8 +788,8 @@ argument for always using key-value pairs.
 - No `traceId`? A trace has to be open — call through HTTP, not from a test main method.
 - `jq` on the JSON output makes step 2 much easier: `mvn spring-boot:run | jq .`
 
-**How to verify.** A test with a `ListAppender<ILoggingEvent>` asserting the event has an argument
-whose key is `customerId`.
+**How to verify.** A test with a `ListAppender<ILoggingEvent>` asserting the event's key-value pairs
+(`event.getKeyValuePairs()`) hold `customerId`, or an `OutputCaptureExtension` test asserting the JSON field.
 
 ### Lab 2 — Intermediate: instrument a business outcome and probe it
 
@@ -815,14 +807,16 @@ whose key is `customerId`.
 5. Stop the database. Watch both probes. Which changed?
 6. Write down what would happen if `db` were in the *liveness* group instead, across ten replicas.
 
-**Expected outcome.** Two series, five tags each. Readiness goes down on step 5; liveness stays up.
+**Expected outcome.** Two series, five tags each. On step 5 readiness and liveness both stay up, and
+`/actuator/health/dependencies` goes down.
 Step 6 should produce the sentence "every replica restarts in a loop and the outage gets worse".
 
 **Hints.**
 
 - `platform.version` reads `Implementation-Version` from the core-api jar manifest, so it is `unknown`
   on an exploded classpath. That is expected in tests.
-- Readiness names `db` optionally — it appears only because a `DataSource` is present.
+- The `dependencies` group names `db` optionally — it appears only because a `DataSource` is present. Readiness
+  is `readinessState` only.
 
 **How to verify.** A `@PlatformTest` asserting the counter exists with both `outcome` values and
 carries the three common tags.

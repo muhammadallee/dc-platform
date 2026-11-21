@@ -23,7 +23,7 @@ HH_MAVEN_REPO=${repo:?build the repository first} bash tooling/hardening/scenari
 
 What it does:
 - generates `hardening-obs` with `-Dfeatures=data` (exact command in each run's
-  `generate.cmd`) in `~/dc-hardening-runs/phase-02/<run>/app/`, and adds the parked REST-client starter;
+  `generate.cmd`) in `~/dc-hardening-runs/phase-02/<run>/app/`, and adds Boot's REST-client starter (`spring-boot-starter-restclient`) for the probe's outbound calls;
 - adds the probe (`tooling/hardening/scenarios/phase-02/probe/ObservabilityProbe.java`), the PostgreSQL
   driver and `flyway-database-postgresql` (HI-0041);
 - builds an `eclipse-temurin:25-jre` image;
@@ -41,7 +41,7 @@ lands in `~/dc-hardening-runs/phase-02/logging-observability-<timestamp>/evidenc
 ## 3. Targeted platform tests
 
 ```bash
-mvn -B -T1 -pl logging/platform-logging-api,logging/platform-logging-autoconfigure -am verify
+mvn -B -T1 -pl logging/platform-logging-autoconfigure,observability/platform-observability-autoconfigure -am verify
 mvn -B -T1 -pl observability/platform-observability-autoconfigure -am verify
 ```
 

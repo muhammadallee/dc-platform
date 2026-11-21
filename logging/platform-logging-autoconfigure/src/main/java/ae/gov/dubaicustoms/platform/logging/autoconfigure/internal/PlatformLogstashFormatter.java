@@ -74,12 +74,8 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
         members.add("message", event -> message(event, masker));
         members.add("logger", ILoggingEvent::getLoggerName);
         members.add("level", event -> event.getLevel().toString());
-        members.add().usingPairs(contextPairs.flat("_", pairs -> {
-            pairs.addMapEntries(event -> mdc(event, strict));
-            // Each key-value pair sanitized by its structure here, before Boot writes it (a WritableJson included).
-            pairs.add(event -> keyValuePairs(event, strict), pair -> pair.key,
-                    pair -> masker == null ? pair.value : masker.sanitizePair(pair.key, pair.value));
-        }));
+        members.add().usingPairs(contextPairs.flat("_", pairs -> pairs.add((ILoggingEvent event,
+                java.util.function.BiConsumer<String, Object> write) -> context(event, strict, masker).forEach(write))));
         members.add("tags", ILoggingEvent::getMarkerList).whenNotNull().as(PlatformLogstashFormatter::tags)
                 .whenNotEmpty();
         members.add("stack_trace", event -> event).whenNotNull(ILoggingEvent::getThrowableProxy)
@@ -99,6 +95,27 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
             display[i] = PlatformValueMasker.text(masker.sanitize(null, arguments[i]));
         }
         return MessageFormatter.basicArrayFormat(event.getMessage(), display);
+    }
+
+    // The layout's own members: a context entry under one of these names would make Boot reject the whole line.
+    private static final Set<String> LAYOUT_MEMBERS = Set.of("@timestamp", "message", "logger", "level", "tags",
+            "stack_trace", "service");
+
+    // The MDC and the key-value pairs as one set of context entries, each sanitized under its own name before Boot
+    // prefixes or writes it: a key-value pair wins over an MDC entry of the same name, and an entry named like one of
+    // the layout's members is left out, so a name collision never loses the line (Codex phase 3 round 2).
+    static Map<String, Object> context(ILoggingEvent event, Set<String> strict, @Nullable PlatformValueMasker masker) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        Map<String, String> mdc = mdc(event, strict);
+        if (mdc != null) {
+            mdc.forEach((key, value) -> context.put(key, value));
+        }
+        keyValuePairs(event, strict).forEach(pair -> context.put(pair.key, pair.value));
+        LAYOUT_MEMBERS.forEach(context::remove);
+        if (masker != null) {
+            context.replaceAll(masker::sanitizePair);
+        }
+        return context;
     }
 
     private static Map<String, String> mdc(ILoggingEvent event, Set<String> strict) {

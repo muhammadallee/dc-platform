@@ -12,7 +12,7 @@ Each entry is labelled **observed** (it happened during hardening phase 2) or **
 | `platform.capability.active` missing from `/actuator/prometheus` | Ordering bug when Boot created the registry (fixed, HI-0043) | Upgrade | **observed** (Codex R2) |
 | Every pod went unready during a database outage | Readiness used to include `db` (fixed, D104) | Upgrade; point probes at `/actuator/health/readiness`, not `/actuator/health` | **observed** (baseline code, HI-0031) |
 | `/actuator/metrics` or `/actuator/platform` returns 404 | Not exposed by the chassis default any more (D105) | `management.endpoints.web.exposure.include: health,info,prometheus,platform,metrics` | **observed** |
-| `/actuator/prometheus` returns 401 | Not in the security starter's permit paths (interim until Phase 7) | Scrape with a bearer token | **observed** |
+| `/actuator/prometheus` returns 404 | Actuator runs on the management port, 8081, not the application port | Scrape port 8081 | **observed** |
 | An order ID or other number reads `****` | It is a Luhn-valid 13–19 digit number starting 2–6 (card residual) or a 10-digit ID starting `050`–`058` (UAE mobile) | Known residual with no opt-out: log a different identifier, or accept the mask | anticipated |
 | A secret is visible in local logs | `local` profile uses console format, which is not masked (D107) | Expected for local only; never ship console format | anticipated |
 | Your own Logback file logs secrets | Your `logging.config` or `logback-spring.xml` replaces Boot's structured logging, and the masking with it; a WARN at startup says so | Delete the file, or use Boot's structured appender in it | anticipated |

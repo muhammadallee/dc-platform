@@ -7,8 +7,8 @@
 | OTLP collector unreachable | Requests unaffected (status and latency); export failures logged as bounded WARNs; startup does not wait for it | CONSUMER (Toxiproxy disabled; 300 × 2 requests all 200, p99 ≤ 8.9 ms; 8 WARNs) |
 | OTLP collector slow (10 s latency) | Same: export runs off the request path | CONSUMER (p99 ≤ 11.6 ms; 3–5 WARNs; memory +5 to +34 MiB) |
 | OTLP export off (default) | No collector needed; Prometheus pull only | SLICE |
-| Database down | `readiness` and `liveness` UP (pod stays in rotation), `dependencies` DOWN, DB requests → 500 problem body without SQL/JDBC text, other requests 200 | CONSUMER |
-| Prometheus scrape | Pull, so no outage path; needs a bearer token under the security starter (interim) | CONSUMER |
+| Database down | `readiness` and `liveness` UP (pod stays in rotation), `dependencies` DOWN, DB requests → 503 problem body `DC-DATA-0503`, `retryable: true`, without SQL/JDBC text, other requests 200 | CONSUMER |
+| Prometheus scrape | Pull, so no outage path; on the management port 8081 only, which answers anyone inside the cluster (no web security in 1.0.0) | CONSUMER |
 | Logging misconfigured | Fails soft: a value whose rendering throws reads `[unrenderable]` and the line is still written | UNIT |
 
 ## Health groups

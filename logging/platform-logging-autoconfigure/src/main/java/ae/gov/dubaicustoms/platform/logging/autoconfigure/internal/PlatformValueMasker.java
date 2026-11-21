@@ -236,7 +236,11 @@ public final class PlatformValueMasker {
     // service logs) is sanitized like any value.
     private boolean writerInternal(MemberPath path, Object value) {
         String type = value.getClass().getName();
-        if (type.startsWith("org.springframework.boot.logging.") || implementsAny(value.getClass(),
+        if (value instanceof SafeMap || value instanceof SafeList) {
+            // A copy this masker made: its members come through here one by one, already masked.
+            return true;
+        }
+        if (implementsAny(value.getClass(),
                 Set.of("ch.qos.logback.classic.spi.ILoggingEvent", "org.apache.logging.log4j.core.LogEvent"))) {
             return true;
         }
@@ -288,9 +292,24 @@ public final class PlatformValueMasker {
         result = PHONE_INTERNATIONAL.matcher(result).replaceAll(MASK);
         result = PHONE_UAE_MOBILE.matcher(result).replaceAll(MASK);
         for (Pattern pattern : extraPatterns) {
-            result = pattern.matcher(result).replaceAll(MASK);
+            result = outsideMasks(result, pattern);
         }
         return result;
+    }
+
+    // An extra pattern applies between the masks already in the text, never to a mask itself, so masking text that is
+    // already masked changes nothing (Codex phase 3 round 2: a pattern such as \S would otherwise grow every mask).
+    private static String outsideMasks(String text, Pattern pattern) {
+        if (!text.contains(MASK)) {
+            return pattern.matcher(text).replaceAll(MASK);
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        int from = 0;
+        for (int at = text.indexOf(MASK); at >= 0; at = text.indexOf(MASK, from)) {
+            out.append(pattern.matcher(text.substring(from, at)).replaceAll(MASK)).append(MASK);
+            from = at + MASK.length();
+        }
+        return out.append(pattern.matcher(text.substring(from)).replaceAll(MASK)).toString();
     }
 
     /**
@@ -376,7 +395,7 @@ public final class PlatformValueMasker {
             try {
                 // The budget is checked before the next element is fetched: an endless iterator stops too.
                 if (value instanceof Map<?, ?> map) {
-                    Map<String, Object> copy = new LinkedHashMap<>();
+                    Map<String, Object> copy = new SafeMap();
                     Iterator<? extends Map.Entry<?, ?>> entries = map.entrySet().iterator();
                     while (true) {
                         if (budget <= 0) {
@@ -392,7 +411,7 @@ public final class PlatformValueMasker {
                     }
                     return copy;
                 }
-                List<Object> copy = new ArrayList<>();
+                List<Object> copy = new SafeList();
                 if (value instanceof Iterable<?> iterable) {
                     Iterator<?> elements = iterable.iterator();
                     while (true) {
@@ -417,7 +436,7 @@ public final class PlatformValueMasker {
                     }
                     return copy;
                 }
-                Map<String, Object> components = new LinkedHashMap<>();
+                Map<String, Object> components = new SafeMap();
                 for (RecordComponent component : ((Record) value).getClass().getRecordComponents()) {
                     if (budget <= 0) {
                         components.put(MASK, MASK);
@@ -450,7 +469,7 @@ public final class PlatformValueMasker {
                 return MASK;
             }
             try {
-                Map<String, Object> copy = new LinkedHashMap<>();
+                Map<String, Object> copy = new SafeMap();
                 for (Method getter : getters) {
                     if (budget <= 0) {
                         copy.put(MASK, MASK);
@@ -472,7 +491,7 @@ public final class PlatformValueMasker {
         private Object number(Number number) {
             Class<?> type = number.getClass();
             if ((type == Double.class || type == Float.class) && !Double.isFinite(number.doubleValue())) {
-                return String.valueOf(number.doubleValue());
+                return maskPatterns(String.valueOf(number.doubleValue()));
             }
             Number value = number;
             if (type != Long.class && type != Integer.class && type != Short.class && type != Byte.class
@@ -485,17 +504,45 @@ public final class PlatformValueMasker {
                     return maskPatterns(text);
                 }
             }
-            return cardNumber(value) ? MASK : scalar(value, value.toString());
+            if (cardNumber(value)) {
+                return MASK;
+            }
+            // An integral number may be an identifier (an Emirates ID): every pattern. A fraction cannot: only the
+            // service's own patterns.
+            return integral(value) ? scalar(value, value.toString()) : extraOnly(value, value.toString());
         }
 
-        // A number or boolean stays one unless an extra pattern matches its text.
-        private Object scalar(Object value, String text) {
-            if (extraPatterns.isEmpty()) {
-                return value;
+        private Object extraOnly(Object value, String text) {
+            String masked = text;
+            for (Pattern pattern : extraPatterns) {
+                masked = outsideMasks(masked, pattern);
             }
+            return masked.equals(text) ? value : masked;
+        }
+
+        // A number or boolean stays one unless a pattern matches its text (an Emirates ID logged as a number, say).
+        private Object scalar(Object value, String text) {
             String masked = maskPatterns(text);
             return masked.equals(text) ? value : masked;
         }
+    }
+
+    // The masker's own copies: Boot walks them and calls the masker for each member, which then leaves them alone.
+    private static final class SafeMap extends LinkedHashMap<String, Object> {
+    }
+
+    private static final class SafeList extends ArrayList<Object> {
+    }
+
+    private static boolean integral(Number number) {
+        if (number instanceof BigDecimal decimal) {
+            return decimal.signum() == 0 || decimal.stripTrailingZeros().scale() <= 0;
+        }
+        if (number instanceof Double || number instanceof Float) {
+            double value = number.doubleValue();
+            return value == Math.rint(value);
+        }
+        return true;
     }
 
     // Sentinel for a getter or accessor that threw.

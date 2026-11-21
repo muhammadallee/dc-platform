@@ -728,6 +728,67 @@ class StructuredLogMaskingTest {
         assertThat(line).doesNotContain("4111111111111111");
     }
 
+    // --- Codex phase 3 round 2 ----------------------------------------------------------------------------
+
+    @Test
+    void maskingIsIdempotentSoNestedValuesDoNotGrow() {
+        // Finding 1: an extra pattern that also matches the mask, over a nested value walked more than once.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "\\S+"));
+        String line = encode(event("x").pair("nested", Map.of("a", Map.of("b", Map.of("c", "text")))));
+        assertThat(parse(line).get("nested")).isEqualTo(Map.of("a", Map.of("b", Map.of("c", "****"))));
+        assertThat(line.length()).isLessThan(400);
+    }
+
+    @Test
+    void anOrdinaryBootLoggingObjectIsData() {
+        // Finding 2: Boot's LogFile is data, not a writer.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("logging.structured.format.console", "logstash");
+        start(environment);
+        Object logFile = org.springframework.boot.logging.LogFile.get(new MockEnvironment()
+                .withProperty("logging.file.name", "alice@example.com"));
+        assertThat(encode(event("stored").pair("file", logFile))).doesNotContain("alice@example.com");
+    }
+
+    @Test
+    void aContextPrefixKeepsCredentialNames() {
+        // Finding 3: logging.structured.json.context.prefix, in the platform's format and in Boot's.
+        for (String format : List.of("platform", "logstash")) {
+            encoder.stop();
+            MockEnvironment environment = new MockEnvironment().withProperty("logging.structured.json.context.prefix",
+                    "ctx");
+            if (!"platform".equals(format)) {
+                environment.setProperty("logging.structured.format.console", format);
+            }
+            start(environment);
+            String line = encode(event("stored").mdc("pwd", "correct horse battery staple"));
+            assertThat(line).as(format).doesNotContain("horse");
+        }
+    }
+
+    @Test
+    void theDefaultPatternsReachNumbers() {
+        // Finding 4: an Emirates ID logged as a number; NaN under an extra pattern, in Boot's format.
+        String line = encode(event("stored").pair("nationalId", 784199012345671L));
+        assertThat(parse(line)).containsEntry("nationalId", "****");
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]",
+                "^NaN$");
+        environment.setProperty("logging.structured.format.console", "logstash");
+        start(environment);
+        assertThat(encode(event("stored").pair("value", Double.NaN))).doesNotContain("NaN");
+    }
+
+    @Test
+    void contextNameCollisionsNeverLoseTheLine() {
+        // Finding 6: the same name in the MDC and as a key-value pair, and an MDC entry named like a layout member.
+        String line = encode(event("collide").mdc("tenant", "mdc").mdc("service", "spoofed").pair("tenant", "pair"));
+        assertThat(parse(line)).containsEntry("tenant", "pair").containsEntry("service", "application")
+                .containsEntry("message", "collide");
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private String message(String text) {

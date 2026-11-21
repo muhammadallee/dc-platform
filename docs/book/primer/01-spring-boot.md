@@ -100,7 +100,7 @@ customizers.orderedStream().forEach(c -> c.customize(problem));
 ```
 
 This is the mechanism behind the platform's entire **customizer tier**. When you contribute a
-`ProblemDetailCustomizer`, `SecurityCustomizer`, `PlatformRestClientCustomizer`, or Boot's `StructuredLoggingJsonMembersCustomizer`
+`ProblemDetailCustomizer`, `SecurityCustomizer`, `PlatformRestClientCustomizer`
 bean, the platform picks it up through an `ObjectProvider` and applies it in `@Order` — you *add*
 behaviour to a platform default without *replacing* the bean that owns it.
 
@@ -322,7 +322,7 @@ them through an `EnvironmentPostProcessor` as **named, lowest-precedence propert
 
 | Source name | Contributes |
 |---|---|
-| `platform-logging-defaults` | `logging.structured.format.console` and `.file` → the platform's structured log format |
+| `platform-logging-defaults` | `logging.structured.format.console` and `.file` → the platform's structured log format (logging starts before any bean exists, so a logging customizer is named in `logging.structured.json.customizer`, not declared as a bean) |
 | `platform-observability-defaults` | Endpoint exposure, probes, health groups, baggage fields |
 | `platform-data-jpa-defaults` | `open-in-view=false`, batch size 50, UTC JDBC time zone |
 

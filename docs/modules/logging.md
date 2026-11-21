@@ -68,7 +68,8 @@ Do not add the trace ID yourself: it is already a field on the line.
 
 | Works with only the starter | You must set |
 |---|---|
-| JSON on stdout and in a log file, masked; trace fields; no banner; console under `local` | nothing |
+| JSON on stdout and in a log file, masked; no banner; console under `local` | nothing |
+| `traceId` and `spanId` fields | a tracer: the core or observability starter (every generated service has both) |
 
 ## Change it with Spring
 
@@ -104,8 +105,10 @@ Do not add the trace ID yourself: it is already a field on the line.
   value or name processors produce is yours to keep safe.
 - **Text masking is by pattern.** A credential in free text is masked up to the next space after `password=`, so log a
   secret, if at all, as a key-value pair under a credential name: it is masked whole.
-- **A message argument whose `toString()` throws** is reported on stderr by SLF4J itself, with the exception text,
-  before any encoder runs (Logback's appender formats the message first). The JSON line shows `[unrenderable]`.
+- **Logback's appender formats the message itself, before any encoder runs** (`prepareForDeferredProcessing`). So an
+  argument's own `toString()` always runs once, unbounded: one that throws is reported on stderr by SLF4J, with the
+  exception text, and a huge or endless collection costs that time there. The JSON line shows `[unrenderable]` or the
+  bounded, masked rendering. Log large structures as bounded key-value pairs, never as message arguments.
 - **Console output is not masked,** and a CR/LF in a message can split a console line. Never ship console format to
   log aggregation.
 

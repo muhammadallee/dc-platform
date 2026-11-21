@@ -24,8 +24,9 @@ export PLATFORM_HOME=/path/to/dc-platform
 | Lab | Capability | Infrastructure |
 |---|---|---|
 | [First service](first-service/index.md) | core + errors | none |
+| [Logs, metrics and a trace](logging-observability/index.md) | logging + observability | none |
 
-Later labs (logging and observability, data, outbox, messaging) arrive with their capabilities.
+Later labs (data, outbox, messaging) arrive with their capabilities.
 
 ## Running a lab automatically
 

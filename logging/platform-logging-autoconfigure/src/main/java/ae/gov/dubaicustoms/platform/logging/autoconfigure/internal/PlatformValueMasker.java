@@ -3,6 +3,7 @@ package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -40,7 +41,8 @@ import org.springframework.boot.json.WritableJson;
  * <p>Every value is turned into a JSON-safe copy by one walk ({@link #sanitize}), used both for JSON members and for
  * the arguments of a message (Codex phase 3 round 1): maps keep their keys and lists their order, so a credential name
  * at any depth masks its whole value; a record becomes a map of its components and any other application object a map
- * of its bean properties, so their credential names count too; JDK value types ({@code UUID}, {@code Path},
+ * of its bean properties, so their credential names count too (a resource or proxy, whose getters may do I/O, is its own
+ * text instead); JDK value types ({@code UUID}, {@code Path},
  * {@code java.time}, enums…), character data ({@code CharSequence}, {@code char[]}, {@code Character}) and Boot's
  * {@code WritableJson} become masked text; numbers stay numbers unless they are card numbers or match an extra
  * pattern, and a non-finite one becomes text. Each {@code toString()} or getter is called once, under a guard: one that
@@ -385,6 +387,11 @@ public final class PlatformValueMasker {
                 // Opaque JSON a service logged: its names may be escaped and its text need not be one value.
                 return MASK;
             }
+            if (resource(value)) {
+                // Reading a resource or a proxy can do I/O: a JDBC connection's getters query the database, a stream or
+                // a lazy proxy loads. It is its own text, masked, as SLF4J would show it; nothing else of it is called.
+                return text(render(value));
+            }
             if (value instanceof Boolean flag) {
                 return scalar(flag, flag.toString());
             }
@@ -617,6 +624,24 @@ public final class PlatformValueMasker {
             return value == Math.rint(value);
         }
         return true;
+    }
+
+    // A resource (AutoCloseable: connections, statements, sessions, streams) or a proxy (JDK dynamic, Hibernate lazy):
+    // never walked, because its getters or iterator may do I/O (Claude, phase 3 Gate H: Hikari's "Added connection"
+    // line ran a connection's metadata queries).
+    static boolean resource(Object value) {
+        Class<?> type = value.getClass();
+        if (value instanceof AutoCloseable || Proxy.isProxyClass(type)) {
+            return true;
+        }
+        for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
+            for (Class<?> contract : c.getInterfaces()) {
+                if ("org.hibernate.proxy.HibernateProxy".equals(contract.getName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Sentinel for a getter or accessor that threw.

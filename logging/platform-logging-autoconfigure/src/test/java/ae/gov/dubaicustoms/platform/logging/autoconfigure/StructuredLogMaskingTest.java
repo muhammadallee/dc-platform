@@ -895,6 +895,60 @@ class StructuredLogMaskingTest {
         assertThat(encode(event("stored").pair("nationalId", 784199012345671d))).doesNotContain("7.84199012345671E14");
     }
 
+    // --- Phase 3 Gate H: resources and proxies are never walked ------------------------------------------
+
+    /** A resource whose getters would do I/O; counts every call. */
+    public static final class Pooled implements AutoCloseable {
+
+        static final java.util.concurrent.atomic.AtomicInteger READS = new java.util.concurrent.atomic.AtomicInteger();
+
+        public String getMetaData() {
+            READS.incrementAndGet();
+            return "queried";
+        }
+
+        public List<String> getCatalogs() {
+            READS.incrementAndGet();
+            return List.of("queried");
+        }
+
+        @Override
+        public void close() {
+        }
+
+        @Override
+        public String toString() {
+            return "conn0: url=jdbc:h2:mem:x user=sa password=hunter2";
+        }
+    }
+
+    /** A getter-bearing contract for a JDK dynamic proxy. */
+    public interface Lazy {
+
+        String getName();
+    }
+
+    @Test
+    void aResourceOrAProxyIsItsOwnMaskedTextAndNoGetterRuns() {
+        Pooled.READS.set(0);
+        java.util.concurrent.atomic.AtomicInteger proxied = new java.util.concurrent.atomic.AtomicInteger();
+        Lazy lazy = (Lazy) java.lang.reflect.Proxy.newProxyInstance(Lazy.class.getClassLoader(), new Class<?>[] {Lazy.class},
+                (proxy, method, args) -> {
+                    if ("toString".equals(method.getName())) {
+                        return "Lazy(token=hunter2)";
+                    }
+                    proxied.incrementAndGet();
+                    return "loaded";
+                });
+        String line = encode(event("Added connection {} {}", new Pooled(), lazy).pair("pooled", new Pooled())
+                .pair("lazy", lazy).pair("nested", Map.of("conn", new Pooled())));
+        assertThat(Pooled.READS).hasValue(0);
+        assertThat(proxied).hasValue(0);
+        assertThat(line).doesNotContain("queried").doesNotContain("loaded").doesNotContain("hunter2")
+                .contains("conn0: url=jdbc:h2:mem:x");
+        assertThat(parse(line).get("pooled")).isInstanceOf(String.class);
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private String message(String text) {

@@ -39,7 +39,7 @@ Every platform property lives under the `dc.platform.<capability>` prefix, has a
 |-----|------|---------|-------------|-------------|
 | `dc.platform.logging.enabled` | Boolean | `true` | master kill switch for the whole capability |  |
 | `dc.platform.logging.format` | ae.gov.dubaicustoms.platform.logging.autoconfigure.LoggingProperties$Format | `json` | log output format; json in every deployed environment, console for humans (auto-selected when the local profile is active) |  |
-| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (traceId, spanId, …) into JSON log fields |  |
+| `dc.platform.logging.include-mdc` | Boolean | `true` | copy MDC entries (traceId, spanId, …) and key-value pairs into JSON log fields |  |
 | `dc.platform.logging.mdc.include` | List<String> |  | MDC keys written besides traceId and spanId; empty (the default) writes every MDC key, a non-empty list switches to strict mode and drops unlisted keys |  |
 | `dc.platform.logging.redaction.enabled` | Boolean | `true` | mask values (on by default) |  |
 | `dc.platform.logging.redaction.patterns` | List<String> |  | additional regular expressions whose matches are masked |  |

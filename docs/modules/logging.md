@@ -1,76 +1,62 @@
 # Logging
 
-Structured JSON logs on stdout with service identity and correlation, credentials and common PII
-masked, configured before the application context exists — and readable console output when a human
-is watching.
+Every generated service has it. Logging gives you one JSON object per line on stdout, with the request's trace on
+every line and credentials and personal data masked. Your code logs with SLF4J. There is no platform type to learn.
 
-## What you get
+## What the platform configures
 
-- **JSON by default** — one logstash-encoded line per event with ECS-ish fields:
-  `@timestamp`, `level`, `logger`, `message`, `service`, `traceId`, `spanId` (and every other MDC
-  entry), `stack_trace`.
-- **Console for humans** — activate the `local` profile and output falls back to Boot's
-  human-readable console format (explicit `dc.platform.logging.format` always wins).
-- **Correlation built in** — the core filter publishes the W3C `traceId` (and `spanId`) to the MDC; the encoder
-  lifts MDC entries into JSON fields, so log lines correlate with problem responses for free. These two
-  are the only MDC keys platform code writes.
-- **Redaction** — in every string the JSON encoder writes (message, MDC values, structured arguments,
-  exception message, stack trace) the platform replaces with `****`:
-  - JWTs (three dot-separated base64url segments whose first decodes to a JSON object, whitespace
-    around it allowed); whatever follows `Bearer` (so prose such as "Bearer token missing" reads
-    "Bearer **** missing"); `Basic` credentials that decode to `user:password`;
-  - the value after a credential key (`password`, `passwd`, `pwd`, `secret`, `client_secret`, `token`,
-    `access_token`, `refresh_token`, `id_token`, `api-key`/`apikey`, `authorization`, and compound keys
-    ending in one of them or in `cookie`: `session_token`, `db-password`, `smtpSecret`, `sessionCookie`)
-    in `key=value`,
-    `key: value`, `"key":"value"` and `key='value'` text — quoted values whole (escapes included, an
-    unterminated quote to the end), quotes kept;
-  - everything after `Cookie:` / `Set-Cookie:` up to the end of the line (all pairs, quoted ones too);
-  - the whole value — of any type (string, number, boolean, `byte[]`, object, array) — of an MDC entry or
-    structured-argument field, at any depth, whose **name** is one of those keys or `cookie` /
-    `set-cookie`, or ends in one of them ignoring case, `-` and `_` (`sessionToken`, `x-auth-token`,
-    `db_password`); in the formatted `message` such an argument reads `password=****` (`****` for a
-    value-only `v(...)`);
-  - Emirates ID numbers (`784-YYYY-NNNNNNN-C`, dashes optional) and Luhn-valid card numbers starting
-    2–6: 13–19 contiguous digits, or the printed layouts `4111 1111 1111 1111` (optionally `+1..3`
-    digits) and `3782 822463 10005`, with one consistent space or dash separator — in text and when
-    logged as a number;
-  - e-mail addresses;
-  - phone numbers: international with a `+` or `00` prefix (`+971 50 123 4567`, `00971501234567`,
-    `+44 20 7946 0958`) and UAE mobiles in local form (`050 123 4567`, `0501234567`).
+- **Spring Boot's structured logging, switched on.** The platform sets `logging.structured.format.console` and
+  `logging.structured.format.file` to its own formatter: Boot's Logstash layout, written by Boot's own JSON writer.
+  A log file (`logging.file.name`) gets the same masked JSON.
+- **The fields:** `@timestamp`, `message`, `logger`, `level`, then the MDC (`traceId`, `spanId` from core, and your own
+  keys) and the key-value pairs of the event, `tags` (markers), `stack_trace` and `service`. `service` is
+  `dc.platform.logging.service-name`, else `spring.application.name`, else `application`.
+- **Masking**, in every value of every line:
+  - **Credentials:** JWTs, `Bearer` and `Basic` credentials, `password=…`-style text, cookie headers.
+  - **Credential-named values,** masked whole whatever their type: `password`, `token`, `secret`, `apiKey`,
+    `authorization`, `cookie` and compound names such as `sessionToken` or `db_password`, at any depth.
+  - **Personal data:** Emirates ID, Luhn-valid card numbers (written as text, numbers or doubles), e-mail addresses,
+    phone numbers.
+  - **Your own patterns:** `dc.platform.logging.redaction.patterns`, applied to text, numbers and booleans.
+  - Masked text reads `****`.
+- **Structure is kept, so names count.** A map, list, record or bean you log, as a key-value pair or a message argument,
+  is written by its structure: a credential name inside it masks its whole value. JDK value types, character data and
+  `Path` are masked text. A resource (`AutoCloseable`: a JDBC connection, a stream) or a proxy (JDK dynamic, Hibernate
+  lazy) is never walked, because its getters may query or load: it is its own `toString()`, masked. A getter that
+  returns a resource (`getInputStream()`) is never called; its property is shown masked. A raw JSON value
+  (`WritableJson`) is masked whole. A value whose `toString()` or getter
+  throws becomes `[unrenderable]` and costs only its place; a container holding itself, anything deeper than 64 levels
+  and anything past 10,000 values in one argument is masked.
+- **No banner in JSON mode.** It would put non-JSON lines on stdout.
+- **Readable console lines locally:** with the `local` profile or `dc.platform.logging.format=console` you get Boot's
+  own console logging.
+- **One banner line at startup** reports the effective format: `logging[ACTIVE] (json)` or `(console)`.
 
-  Timestamps, epoch millis, trace/span IDs (also hex IDs with digit runs inside), UUIDs, IP addresses,
-  version strings, `Object@1a2b3c` identity strings and ordinary numeric IDs are left alone. The
-  top-level `traceId`/`spanId` fields are never masked while they hold W3C hex IDs; no other field name
-  exempts a value (the encoder's own `level`/`logger` included). Masking is linear in the input length
-  and stack-safe on long values. Residual risks: a numeric ID that happens to
-  be a Luhn-valid 13–19 digit number starting 2–6, or a 10-digit ID starting `050`–`058`, is masked;
-  UAE landlines written without a prefix (`04 123 4567`) are **not** masked — add a pattern if you log
-  them; a card number your code logs as a top-level field named `traceId`/`spanId` that is also a
-  16-character hex string is not masked.
-- **No forged lines** — JSON string escaping keeps CR/LF, quotes and embedded JSON inside one field, so
-  user input cannot add a line or a field. In JSON mode Boot's startup banner is off
-  (`spring.main.banner-mode=off`, overridable), so every stdout line is one JSON object.
-- **`Kv.of(key, value)`** — structured argument helper that stays readable in console format.
-- **`LogSanitizer` beans** — your own scrubbing, applied in `@Order` before the platform masks run, to
-  MDC values and to keyed arguments — `Kv.of`, Logstash `kv(...)`/`v(...)`/`value(...)` and
-  `entries(...)` — in both the structured field and the argument's text in `message`, but not to the
-  platform's own top-level fields. Supported values: strings, numbers, maps, collections and object
-  arrays, nested in any combination; each value is sanitized under its own key (map entries under
-  theirs, array elements under the enclosing field's). Other objects (beans) are sanitized field by
-  field in the JSON output only; in `message` they keep their `toString()`, over which the platform
-  masks still run (`fields(bean)` likewise). A `Kv` or marker nested inside a value is treated like a
-  top-level one (a nested `Kv` is written `{"<key>": value}` in JSON, so its credential name masks it);
-  chained markers (`append(...).and(...)`) render each one, `, `-joined. `raw(...)` JSON is parsed and
-  masked like any other structured value, in the JSON field and in `message` (escapes decoded, member
-  order and duplicate names kept, numbers exact; `message` shows it decoded, `{name=value}`, like
-  other structured values); raw text that is not exactly one JSON value (invalid, trailing text) is
-  written as a JSON string, escapes decoded, under the pattern masks (D109). Card numbers logged as a
-  `double` (`4111111111111111.0`, also inside a `double[]`) are masked too; `LogSanitizer` beans run
-  before that check. In `message`, a value nested more than 64 levels deep, or a container that
-  contains itself, reads `****`. An argument whose rendering throws reads
-  `[unrenderable]` in `message`, and the exception text is not reported anywhere (stderr, Logback
-  status).
+## Log structured fields
+
+Add fields with SLF4J's fluent API. Each pair becomes a JSON field:
+
+```java snippet:logging-key-values
+@Service
+class ShipmentDispatcher {
+
+    private static final Logger log = LoggerFactory.getLogger(ShipmentDispatcher.class);
+
+    void dispatch(String shipmentId, String carrier) {
+        log.atInfo()
+                .addKeyValue("shipmentId", shipmentId)
+                .addKeyValue("carrier", carrier)
+                .log("shipment dispatched");
+    }
+}
+```
+
+```json
+{"@timestamp":"2026-11-20T10:15:30.123+04:00","message":"shipment dispatched","logger":"…ShipmentDispatcher",
+ "level":"INFO","traceId":"4bf92f…","spanId":"00f067…","shipmentId":"SHP-1","carrier":"DHL","service":"orders"}
+```
+
+Do not add the trace ID yourself: it is already a field on the line.
 
 ## Starter coordinates
 
@@ -81,77 +67,69 @@ is watching.
 </dependency>
 ```
 
-## Zero-config behavior
+## Zero-config behaviour
 
-An `EnvironmentPostProcessor` (the platform's one `spring.factories` registration — logging must
-configure before the context) defaults `logging.config` to the shipped `logback-platform.xml`
-through a lowest-precedence property source named `platform-logging-defaults` (visible in
-`/actuator/env`). `service` defaults to `spring.application.name`, then `application`.
+| Works with only the starter | You must set |
+|---|---|
+| JSON on stdout and in a log file, masked; no banner; console under `local` | nothing |
+| `traceId` and `spanId` fields | a tracer: the core or observability starter (every generated service has both) |
 
-```json
-{"@timestamp":"2026-01-01T00:00:00.000Z","message":"login for alice with password=****",
- "logger":"ae.gov.dc.orders.OrderService","level":"INFO","service":"orders",
- "traceId":"0123456789abcdef0123456789abcdef","spanId":"b7ad6b7169203331"}
-```
+## Change it with Spring
+
+| To… | Set |
+|---|---|
+| Mask your own identifiers | `dc.platform.logging.redaction.patterns[0]=CASE-\d{6}` |
+| Keep only some MDC keys and key-value pairs | `dc.platform.logging.mdc.include=tenant,channel` (strict mode: `traceId`, `spanId` and these) |
+| Leave the MDC and key-value pairs out | `dc.platform.logging.include-mdc=false` (the trace fields go too: rarely wise) |
+| Add fields of your own to every line | your own `StructuredLoggingJsonMembersCustomizer`, named in `logging.structured.json.customizer`; the platform's masking still applies |
+| Rename or drop fields | Boot's `logging.structured.json.rename.*` and `.exclude` |
+| Use Boot's ECS or GELF format | `logging.structured.format.console=ecs` (masking applies; masking message arguments by structure and strict mode need the platform's format) |
 
 ## Properties
 
 | Key | Default | Meaning |
 |---|---|---|
 | `dc.platform.logging.enabled` | `true` | Kill switch for the whole capability. |
-| `dc.platform.logging.format` | `json` | `json` or `console`; unset + `local` profile ⇒ console. |
-| `dc.platform.logging.include-mdc` | `true` | Copy MDC entries into JSON fields. |
-| `dc.platform.logging.service-name` | `${spring.application.name}` | Service stamped on every line. |
-| `dc.platform.logging.mdc.include` | empty | Strict mode: when set, only `traceId`, `spanId` and these MDC keys are written. |
-| `dc.platform.logging.redaction.enabled` | `true` | Mask credentials and PII in JSON output. |
-| `dc.platform.logging.redaction.patterns` | empty | Extra regular expressions whose matches are masked. |
+| `dc.platform.logging.format` | `json` | `json` or `console`; unset with the `local` profile means console. |
+| `dc.platform.logging.include-mdc` | `true` | Write the MDC and key-value pairs. |
+| `dc.platform.logging.service-name` | `${spring.application.name}` | The `service` field. |
+| `dc.platform.logging.mdc.include` | empty | Strict mode: only `traceId`, `spanId` and these keys of the MDC and key-value pairs. |
+| `dc.platform.logging.redaction.enabled` | `true` | Mask credentials and personal data. |
+| `dc.platform.logging.redaction.patterns` | empty | Extra regular expressions whose matches are masked. One that is invalid, or matches empty text or the mask `****` itself, fails startup. |
 
-(Hand-written until the generated reference lands in phase 14.)
+## Back-off limits
 
-## Customize
-
-- `dc.platform.logging.service-name=customs-orders` overrides the stamped service identity.
-- `dc.platform.logging.mdc.include=tenant,channel` keeps only those MDC keys (plus `traceId`/`spanId`)
-  — use it when other libraries put noisy or sensitive entries in the MDC.
-- `dc.platform.logging.redaction.patterns[0]=CASE-\d{6}` masks your own identifiers too.
-- A `LogSanitizer` bean scrubs by key:
-
-  ```java
-  @Bean
-  LogSanitizer customerNameSanitizer() {
-      return (key, value) -> "customerName".equals(key) ? "C***" : value;
-  }
-  ```
-- `dc.platform.logging.include-mdc=false` drops MDC fields (correlation included — rarely wise).
-
-## Replace / Disable
-
-- Set `logging.config` to your own file — any user-set value outranks the platform default. Your file
-  then decides about masking: reuse
-  `ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformJsonEncoder` or accept that
-  nothing is masked.
-- `dc.platform.logging.format=console` keeps Boot's default logging everywhere (no masking).
-- `dc.platform.logging.redaction.enabled=false` writes values unmasked (also removes the
-  `LogSanitizerRegistry` bean that hands your `LogSanitizer` beans to the encoder).
-- `dc.platform.logging.enabled=false` switches the capability off wholesale.
+- **Your own Logback file** (`logging.config`, `logback-spring.xml`) replaces Boot's structured logging, and with it
+  the platform's format and masking, unless your file uses Boot's structured appender
+  (`org/springframework/boot/logging/logback/structured-console-appender.xml`). A WARN at startup says so.
+- **Boot's ECS or GELF format:** their own nested objects pass the masking only when the console format and, where
+  a log file is written, the file format are the same; a mixed setup masks them (fails closed).
+- **Your own customizer** runs inside Boot's JSON writer. Values the service logs, and flat members your customizer
+  adds, are masked. A nested object your customizer adds is masked whole, unless it is named like one of ECS's
+  objects (`log`, `process`, `service`, `ecs`, `error`) while you use Boot's ECS format. Whatever your customizer's own
+  value or name processors produce is yours to keep safe.
+- **Text masking is by pattern.** A credential in free text is masked up to the next space after `password=`, so log a
+  secret, if at all, as a key-value pair under a credential name: it is masked whole.
+- **Logback's appender formats the message itself, before any encoder runs** (`prepareForDeferredProcessing`). So an
+  argument's own `toString()` always runs once, unbounded: one that throws is reported on stderr by SLF4J, with the
+  exception text, and a huge or endless collection costs that time there. The JSON line shows `[unrenderable]` or the
+  bounded, masked rendering. Log large structures as bounded key-value pairs, never as message arguments.
+- **Console output is not masked,** and a CR/LF in a message can split a console line. Never ship console format to
+  log aggregation.
 
 ## Error codes
 
-None — logging fails soft by design; a broken logging setup must never take the service down. A
-`LogSanitizer` that throws is skipped for that value; the platform masks still apply.
+None. Logging fails soft by design: a broken value never takes the service down or loses the line.
 
 ## Testing
 
-`OutputCaptureExtension` + a real `SpringApplicationBuilder(...).run()` exercises the whole
-chain (EPP → logback → encoder); assert JSON keys on `output.getOut()`. Logback state is
-JVM-global — `((LoggerContext) LoggerFactory.getILoggerFactory()).reset()` after such tests.
-`LogSanitizer` beans are handed to the encoder once the context has started; with several contexts in
-one JVM the most recently started one wins.
+`OutputCaptureExtension` and a real `SpringApplicationBuilder(...).run()` exercise the whole chain; assert JSON fields
+on `output.getOut()`. Logging is JVM-global: reset Logback after such tests
+(`((LoggerContext) LoggerFactory.getILoggerFactory()).reset()`), and restore system properties, because Boot copies
+the structured format into `CONSOLE_LOG_STRUCTURED_FORMAT`.
 
 ## Local dev notes
 
-Run with `--spring.profiles.active=local` for readable console lines. Console output is for humans and
-is **not** masked, and a CR/LF in a message can split a console line — never ship console format to log
-aggregation. If production output is not JSON: check the banner line `logging[ACTIVE] (json|console)` —
-it reports the effective format decision, and `/actuator/env` shows whether `platform-logging-defaults`
-was outranked.
+Run with `--spring.profiles.active=local` for readable console lines. If production output is not JSON, check the
+banner line `logging[ACTIVE] (json|console)` and `/actuator/env`: a value above the `platform-logging-defaults` source
+outranks the platform's.

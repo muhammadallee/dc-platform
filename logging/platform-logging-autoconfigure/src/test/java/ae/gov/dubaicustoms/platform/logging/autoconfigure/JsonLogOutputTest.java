@@ -15,16 +15,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.UserLogbackConfigurationWarning;
 import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.logging.logback.StructuredLogEncoder;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * End to end through a REAL SpringApplication boot: the spring.factories-registered EPP points
- * logging.config at logback-platform.xml, Boot configures logback, and stdout carries JSON.
+ * End to end through a REAL SpringApplication boot: the spring.factories-registered EPP switches on Boot's
+ * structured logging with the platform's field names, Boot configures Logback, and stdout carries JSON (D141).
  */
 @ExtendWith(OutputCaptureExtension.class)
 class JsonLogOutputTest {
@@ -33,8 +36,12 @@ class JsonLogOutputTest {
     static class Empty {
     }
 
+    // Boot copies logging settings into JVM system properties when logging starts; each boot here starts afresh.
+    private final java.util.Properties systemProperties = (java.util.Properties) System.getProperties().clone();
+
     @AfterEach
     void resetLoggingSystem() {
+        System.setProperties((java.util.Properties) systemProperties.clone());
         // Logback state is JVM-global; put back a default config so other tests' output
         // expectations are unaffected by this class.
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
@@ -73,8 +80,9 @@ class JsonLogOutputTest {
                 .contains("\"service\":\"orders\"")
                 .contains("\"traceId\":\"0123456789abcdef0123456789abcdef\"")
                 .doesNotContain("\"correlationId\"");
-        // Renamed/dropped by fieldNames config; their presence would mean the resource drifted.
-        assertThat(jsonLine).doesNotContain("\"logger_name\"").doesNotContain("\"level_value\"");
+        // Renamed or left out by the platform defaults; their presence would mean the defaults drifted.
+        assertThat(jsonLine).doesNotContain("\"logger_name\"").doesNotContain("\"level_value\"")
+                .doesNotContain("\"@version\"").doesNotContain("\"thread_name\"");
     }
 
     @Test
@@ -90,7 +98,7 @@ class JsonLogOutputTest {
     }
 
     @Test
-    void theOnlyRootAppenderIsASynchronousConsoleAppenderWithThePlatformEncoder() {
+    void theOnlyRootAppenderIsASynchronousConsoleAppenderWithBootsStructuredEncoder() {
         // AC14: nothing is buffered in an async appender, so shutdown cannot drop the last lines.
         try (ConfigurableApplicationContext context = boot()) {
             Logger root = ((LoggerContext) LoggerFactory.getILoggerFactory()).getLogger(Logger.ROOT_LOGGER_NAME);
@@ -98,9 +106,24 @@ class JsonLogOutputTest {
             ((ch.qos.logback.classic.Logger) root).iteratorForAppenders().forEachRemaining(appenders::add);
             assertThat(appenders).singleElement()
                     .isInstanceOfSatisfying(ConsoleAppender.class, console ->
-                            assertThat(console.getEncoder()).isInstanceOf(PlatformJsonEncoder.class))
+                            assertThat(console.getEncoder()).isInstanceOf(StructuredLogEncoder.class))
                     .isNotInstanceOf(AsyncAppenderBase.class);
         }
+    }
+
+    @Test
+    void aUserLogbackFileLogsAWarning(CapturedOutput output) {
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(WithLogging.class)
+                .web(WebApplicationType.NONE).run("--logging.config=classpath:user-logback.xml")) {
+            assertThat(context.getBean(UserLogbackConfigurationWarning.class)).isNotNull();
+        }
+        assertThat(output.getOut()).contains("The Logback configuration classpath:user-logback.xml replaces Boot's "
+                + "structured logging");
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ImportAutoConfiguration(LoggingAutoConfiguration.class)
+    static class WithLogging {
     }
 
     @Test

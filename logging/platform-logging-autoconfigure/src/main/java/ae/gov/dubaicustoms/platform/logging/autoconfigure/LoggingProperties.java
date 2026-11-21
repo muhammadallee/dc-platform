@@ -16,10 +16,10 @@ import org.springframework.validation.annotation.Validated;
  * @param enabled master kill switch for the whole capability
  * @param format log output format; {@code json} in every deployed environment, {@code console}
  *        for humans (auto-selected when the {@code local} profile is active)
- * @param includeMdc copy MDC entries (traceId, spanId, …) into JSON log fields
+ * @param includeMdc copy MDC entries (traceId, spanId, …) and key-value pairs into JSON log fields
  * @param serviceName service name stamped on every JSON log line; defaults to
  *        {@code spring.application.name}
- * @param mdc which MDC entries reach JSON log fields
+ * @param mdc which MDC entries and key-value pairs reach JSON log fields (strict mode)
  * @param redaction masking of credentials and PII in JSON log output
  * @since 0.1.0
  */
@@ -30,7 +30,7 @@ public record LoggingProperties(
         @DefaultValue("true") boolean enabled,
         /** Output format: json (deployed) or console (humans; auto-picked on the local profile). */
         @DefaultValue("json") Format format,
-        /** Copy MDC entries (traceId, spanId, ...) into JSON log fields. */
+        /** Copy MDC entries (traceId, spanId, ...) and key-value pairs into JSON log fields. */
         @DefaultValue("true") boolean includeMdc,
         /** Service name stamped on every JSON line; defaults to spring.application.name. */
         @DefaultValue("") String serviceName,
@@ -73,7 +73,7 @@ public record LoggingProperties(
      * @since 0.1.0
      */
     public enum Format {
-        /** Structured JSON lines (logstash encoder, ECS-ish field names). */
+        /** Structured JSON lines: Boot's structured logging in the Logstash format, with the platform's field names and masking. */
         JSON,
         /** Boot's default human-readable console output. */
         CONSOLE

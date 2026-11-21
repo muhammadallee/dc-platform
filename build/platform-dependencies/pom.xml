@@ -73,12 +73,6 @@
         <version>4.8.184</version>
       </dependency>
 
-      <!-- Phase 4: JSON log encoder behind platform-logging (Boot does not manage it). -->
-      <dependency>
-        <groupId>net.logstash.logback</groupId>
-        <artifactId>logstash-logback-encoder</artifactId>
-        <version>8.1</version>
-      </dependency>
 
       <!-- Phase 5: springdoc 3.x is the Boot-4-compatible line (springdoc's own compatibility
            matrix: 3.x.x <-> spring-boot 4.x.x); Boot does not manage it. -->

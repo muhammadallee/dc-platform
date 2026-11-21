@@ -33,13 +33,18 @@ import org.springframework.test.context.ActiveProfiles;
  * }
  * }</pre>
  *
+ * <p>Actuator endpoints are served on the mock servlet here ({@code management.server.port} empty), although the
+ * platform runs them on their own port in a real deployment (ND13).
+ *
  * @since 0.2.0
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+// The platform puts actuator on its own port (ND13), which a mock servlet environment never serves; the slice keeps it
+// on the mock servlet so MockMvc reaches the actuator endpoints as before.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = "management.server.port=")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @API(status = API.Status.STABLE, since = "0.1.0")

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A service's own Logback file, plain pattern: replaces Boot's structured logging (JsonLogOutputTest). -->
+<configuration>
+  <appender name="PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%level %logger %msg%n</pattern>
+    </encoder>
+  </appender>
+  <root level="INFO">
+    <appender-ref ref="PLAIN"/>
+  </root>
+</configuration>

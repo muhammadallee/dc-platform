@@ -19,7 +19,7 @@
   }, {
     "name" : "logging",
     "doc" : "modules/logging.md",
-    "oneLiner" : "Structured JSON logs on stdout with service identity and correlation, credentials and common PII",
+    "oneLiner" : "Every generated service has it. Logging gives you one JSON object per line on stdout, with the request's trace on",
     "starters" : [ "ae.gov.dubaicustoms.platform:platform-starter-logging" ]
   }, {
     "name" : "messaging",
@@ -158,7 +158,7 @@
     "name" : "dc.platform.logging.include-mdc",
     "type" : "Boolean",
     "default" : "true",
-    "description" : "copy MDC entries (traceId, spanId, …) into JSON log fields",
+    "description" : "copy MDC entries (traceId, spanId, …) and key-value pairs into JSON log fields",
     "deprecation" : "",
     "capability" : "logging"
   }, {
@@ -619,16 +619,6 @@
     "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
   } ],
   "apiTypes" : [ {
-    "type" : "ae.gov.dubaicustoms.platform.logging.Kv",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.logging.LogSanitizer",
-    "kind" : "interface",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
     "type" : "ae.gov.dubaicustoms.platform.messaging.EventEnvelope",
     "kind" : "record",
     "status" : "STABLE",
@@ -769,12 +759,12 @@
     "code" : "@Service\r\nclass OrderService {\r\n\r\n    static final String ORDER_PAID = \"ORD-0409\";\r\n\r\n    void cancel(long orderId) {\r\n        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,\r\n                \"order %d is already paid\".formatted(orderId));\r\n        problem.setProperty(\"code\", ORDER_PAID);\r\n        throw new ErrorResponseException(HttpStatus.CONFLICT, problem, null);\r\n    }\r\n}"
   }, {
     "capability" : "logging",
-    "id" : "logging",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-logging</artifactId>\r\n</dependency>"
+    "id" : "logging-key-values",
+    "code" : "@Service\nclass ShipmentDispatcher {\n\n    private static final Logger log = LoggerFactory.getLogger(ShipmentDispatcher.class);\n\n    void dispatch(String shipmentId, String carrier) {\n        log.atInfo()\n                .addKeyValue(\"shipmentId\", shipmentId)\n                .addKeyValue(\"carrier\", carrier)\n                .log(\"shipment dispatched\");\n    }\n}"
   }, {
     "capability" : "observability",
     "id" : "observability",
-    "code" : "<dependency>\r\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\r\n  <artifactId>platform-starter-observability</artifactId>\r\n</dependency>"
+    "code" : "<dependency>\n  <groupId>ae.gov.dubaicustoms.platform</groupId>\n  <artifactId>platform-starter-observability</artifactId>\n</dependency>"
   }, {
     "capability" : "messaging",
     "id" : "messaging-usage",

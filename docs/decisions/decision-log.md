@@ -895,3 +895,19 @@ One line of context per decision; details live in the commit bodies referenced.
   only the audited enum, with its one `(int status, String code, String detail)` constructor, may carry that name, and
   any other shape, constructor, unresolved construction or write of a `code` is reported. Fifteen Codex verification
   passes; the last one accepted the gate (`docs/spring-native/phase-02-foundation/review-round-2.md`).
+- **D141 — Phase 3 logging and observability choices (Spring-native Phase 3 Gate A, 2026-11-20).** (1) The platform's
+  JSON logging becomes Boot's structured logging (`logging.structured.format.console` and `.file` = `logstash`, renames
+  and a `service` field as lowest-precedence defaults), with masking as an internal
+  `StructuredLoggingJsonMembersCustomizer` that reuses `PlatformValueMasker`; `logback-platform.xml`,
+  `PlatformJsonEncoder` and `logstash-logback-encoder` go. Evidence: spike S5b
+  (`docs/spring-native/phase-03-logging-observability/evidence/gateA-structured-logging-spike.txt`). (2) The customizer
+  is registered in `META-INF/spring.factories`, which Boot loads alongside any customizer a service names, so masking
+  cannot be listed away and no service config names a platform class; it reads the kill switches. A service's own
+  Logback file stays a documented limit with a WARN. Amended after Codex round 1 (2026-11-20): the formats default to
+  the platform's own `PlatformLogstashFormatter` (Boot's Logstash layout with the platform's field names, written by
+  Boot's JSON writer with every members customizer), which masks message arguments and key-value pairs by structure
+  and applies strict mode to context keys only; `PlatformValueMasker` owns its walk; startup fails when the
+  application port takes the platform's management port. (3) `Kv` and `LogSanitizer` are removed with `platform-logging-api`; SLF4J
+  `addKeyValue` and `dc.platform.logging.redaction.patterns` replace them. (4) The strict MDC allow-list stays and also
+  filters key-value pairs. (5) ND13: `management.server.port` defaults to 8081, or 0 when `server.port` is 0. (6) The
+  `dependencies` health group is `db,rabbit` (HI-0112). (7) Consumer floor 65.

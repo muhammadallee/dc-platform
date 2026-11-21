@@ -49,7 +49,7 @@ collects it through `ObjectProvider.orderedStream()` and applies it in `@Order`:
 | `ProblemDetailCustomizer` | Every outgoing error body |
 | `SecurityCustomizer` | The security filter chain, **before** `anyRequest()` |
 | `PlatformRestClientCustomizer` | A named client's builder |
-| `LogSanitizer` | Values on their way to a log field |
+| `dc.platform.logging.redaction.patterns` | Values on their way to a log field |
 | `MeterRegistryCustomizer` | Every meter (Spring's own type) |
 | `OpenApiCustomizer` | The generated document (springdoc's own type) |
 

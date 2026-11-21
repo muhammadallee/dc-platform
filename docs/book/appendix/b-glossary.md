@@ -172,9 +172,7 @@ locally against the IdP's published keys — no per-request call to the IdP.
 *contributing*; what remains is the underlying library's default, not nothing.
 → [Appendix A](a-configuration.md) §2
 
-**`Kv`** — A `(key, value)` record for structured log arguments. Renders as `key=value` on a console and
-becomes a JSON field in production, from the same call site.
-→ [3](../chapters/03-logging-observability.md)
+**Key-value pair** — A field on a log event, added with SLF4J's `log.atInfo().addKeyValue(key, value)`. It becomes a JSON field; the platform masks it by name and structure. (`Kv` was removed in 1.0.0.)
 
 **Liveness / readiness** — Two probes with different consequences. Liveness failing means *restart me*;
 readiness failing means *stop routing to me*. A dependency blip belongs in readiness — restarting will

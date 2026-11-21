@@ -4,13 +4,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
- * Contributes the platform's management-plane defaults — minimal actuator exposure, pod-local
- * liveness/readiness groups plus a {@code dependencies} group, and the local OTLP-off posture — as a
+ * Contributes the platform's management-plane defaults — minimal actuator exposure on its own port (8081, ND13),
+ * pod-local liveness/readiness groups plus a {@code dependencies} group, and the local OTLP-off posture — as a
  * LOWEST-precedence property source named {@code platform-observability-defaults}, so user
  * configuration always wins and the source name is visible in {@code /actuator/env} for
  * debuggability (property-conventions §7).
@@ -33,8 +35,14 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
     /** Default actuator web exposure. */
     static final String EXPOSURE = "health,info,prometheus";
 
-    /** Members of the {@code dependencies} health group: shared infrastructure, never readiness. */
-    static final String DEPENDENCIES = "db,rabbit,redis,restclient";
+    /**
+     * Members of the {@code dependencies} health group: shared infrastructure, never readiness. Only shipped
+     * capabilities (HI-0112): the REST client returns when iteration 2 unparks it.
+     */
+    static final String DEPENDENCIES = "db,rabbit";
+
+    /** Default management port (ND13): actuator is never served on the application port. */
+    static final String MANAGEMENT_PORT = "8081";
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
@@ -45,6 +53,10 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
         // Minimal exposure (D105): probes, build info and the scrape endpoint. Everything else,
         // including metrics and the platform capability report, is an explicit opt-in.
         defaults.put("management.endpoints.web.exposure.include", EXPOSURE);
+        // ND13: iteration 1 has no web security, so probes and the scrape live on their own port, reachable only
+        // inside the cluster; the application port serves only the API. A random server port (tests) gets a random
+        // management port too, so parallel tests never collide.
+        defaults.put("management.server.port", managementPort(environment));
         if (environment.getProperty("dc.platform.observability.health.groups.enabled", Boolean.class, true)) {
             // probes.enabled makes the livenessState/readinessState contributors exist on every
             // platform (Boot only auto-enables them on Kubernetes).
@@ -65,6 +77,36 @@ public class PlatformObservabilityEnvironmentPostProcessor implements Environmen
             defaults.put("management.tracing.export.otlp.enabled", "false");
         }
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
+    }
+
+    // The platform's management port, unless the service set one. Fails closed when the service moved its application
+    // port onto the platform's management port: Boot would then serve actuator on the application port (ND13).
+    static String managementPort(Environment environment) {
+        // Converted as Boot converts server.port (08081, 0x1f91, "8 081" are all 8081), then compared as numbers.
+        Integer server = port(environment);
+        if (server != null && server == 0) {
+            return "0";
+        }
+        if (environment.getProperty("management.server.port") == null && server != null
+                && server == Integer.parseInt(MANAGEMENT_PORT)) {
+            throw new IllegalStateException("server.port is " + server + ", the port the platform gives actuator "
+                    + "(ND13), so actuator would answer on the application port. Set management.server.port to another "
+                    + "port, or to " + server + " to serve actuator on the application port on purpose.");
+        }
+        return MANAGEMENT_PORT;
+    }
+
+    // Bound as Boot binds server.port, from its original value (a YAML number such as 8081.0 included).
+    private static Integer port(Environment environment) {
+        if (!(environment instanceof ConfigurableEnvironment configurable)) {
+            return null;
+        }
+        try {
+            return Binder.get(configurable).bind("server.port", Integer.class).orElse(null);
+        } catch (RuntimeException notAPort) {
+            // Boot fails on it itself, when it binds server.port.
+            return null;
+        }
     }
 
     @Override

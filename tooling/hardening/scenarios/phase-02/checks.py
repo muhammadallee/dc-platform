@@ -239,7 +239,7 @@ def collector(out_dir, service, trace_id):
     return ok
 
 
-def latency(base, n):
+def latency(base, n, max_p99_ms=None):
     timings, statuses = [], {}
     for _ in range(n):
         status, _, seconds = get(base, '/probe/context', {'traceparent': f'00-{secrets.token_hex(16)}-{secrets.token_hex(8)}-01'})
@@ -248,9 +248,10 @@ def latency(base, n):
     timings.sort()
     result = {'check': 'latency', 'n': n, 'statuses': statuses,
               'p50_ms': round(timings[len(timings) // 2], 1), 'p99_ms': round(timings[int(len(timings) * 0.99) - 1], 1),
-              'max_ms': round(timings[-1], 1)}
+              'max_ms': round(timings[-1], 1), 'max_p99_ms': max_p99_ms}
     print(json.dumps(result))
-    return statuses == {200: n}
+    # Requests unaffected: every one succeeds and, when a bound is given (the baseline's), p99 stays within it.
+    return statuses == {200: n} and (max_p99_ms is None or result['p99_ms'] <= max_p99_ms)
 
 
 if __name__ == '__main__':
@@ -266,7 +267,7 @@ if __name__ == '__main__':
         'scrape': lambda: scrape(args[0], args[1]),
         'uri-series': lambda: uri_series(args[0], int(args[1])),
         'collector': lambda: collector(args[0], args[1], args[2]),
-        'latency': lambda: latency(args[0], int(args[1])),
+        'latency': lambda: latency(args[0], int(args[1]), float(args[2]) if len(args) > 2 else None),
     }
     if command not in checks:
         raise SystemExit('unknown check ' + command)

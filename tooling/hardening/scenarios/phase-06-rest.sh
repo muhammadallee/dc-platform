@@ -48,7 +48,7 @@ expect_seconds() { # description started max
   local took=$(( $(date +%s) - $2 ))
   if [ "$took" -le "$3" ]; then hh_pass "$1: ${took}s, at most $3 s"; else hh_fail "$1: ${took}s, more than $3 s"; fi
 }
-scrape() { curl -s --max-time 10 "${AUTH[@]}" "$HH_BASE/actuator/prometheus"; }
+scrape() { curl -s --max-time 10 "${AUTH[@]}" "$HH_MGMT_BASE/actuator/prometheus"; }
 metric() { scrape | { grep -E "^$1\{" || true; } | { grep -F "$2" || true; } | { grep -F "${3:-}" || true; } | head -1 | awk '{print $NF}' | cut -d. -f1; }
 expect_metric() { # description name filter filter expected
   local got; got=$(metric "$2" "$3" "$4")

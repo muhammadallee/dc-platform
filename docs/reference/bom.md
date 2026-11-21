@@ -28,7 +28,6 @@ Import one BOM to align every platform artifact to a single release-train versio
 | `ae.gov.dubaicustoms.platform:platform-starter-core` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-errors-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-errors` | `${revision}` |
-| `ae.gov.dubaicustoms.platform:platform-logging-api` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-logging-autoconfigure` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-starter-logging` | `${revision}` |
 | `ae.gov.dubaicustoms.platform:platform-observability-autoconfigure` | `${revision}` |

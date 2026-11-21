@@ -15,6 +15,9 @@ cd "$REPO_ROOT"
 EXPECTATIONS="tooling/smoke/expectations.tsv"
 PORT="${SMOKE_PORT:-18080}"
 BASE="http://localhost:${PORT}"
+# Actuator runs on its own port (ND13).
+MGMT_PORT="${SMOKE_MANAGEMENT_PORT:-18081}"
+MGMT="http://localhost:${MGMT_PORT}"
 READY_TIMEOUT=60
 
 echo "== Smoke matrix for example-golden-path (port ${PORT}) =="
@@ -37,10 +40,10 @@ trap cleanup EXIT
 boot() {
   local jvm_args="$1"
   # shellcheck disable=SC2086
-  java $jvm_args -jar "$JAR" --server.port="$PORT" >/tmp/smoke-app.log 2>&1 &
+  java $jvm_args -jar "$JAR" --server.port="$PORT" --management.server.port="$MGMT_PORT" >/tmp/smoke-app.log 2>&1 &
   APP_PID=$!
   local waited=0
-  until curl -sf "${BASE}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
+  until curl -sf "${MGMT}/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; do
     sleep 1; waited=$((waited + 1))
     if ! kill -0 "$APP_PID" 2>/dev/null; then
       echo "   app exited during startup; last log lines:"; tail -20 /tmp/smoke-app.log; return 1
@@ -63,7 +66,7 @@ run_row() {
     echo "   FAIL[${id}]: did not reach health UP"; FAILURES=$((FAILURES + 1)); stop; return
   fi
 
-  local platform; platform="$(curl -sf "${BASE}/actuator/platform" || echo '[]')"
+  local platform; platform="$(curl -sf "${MGMT}/actuator/platform" || echo '[]')"
 
   local cap ok=1
   if [ -n "$present" ]; then

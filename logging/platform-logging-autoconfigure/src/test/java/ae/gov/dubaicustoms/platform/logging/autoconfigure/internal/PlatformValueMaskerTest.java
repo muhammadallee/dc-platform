@@ -131,50 +131,50 @@ class PlatformValueMaskerTest {
     void traceAndSpanIdFieldsKeepTheirHexIdsButNotOtherContent() {
         assertThat(masker.mask(field("traceId"), "abcd4111111111111111abcdefabcdef"))
                 .isEqualTo("abcd4111111111111111abcdefabcdef");
-        assertThat(masker.mask(field("spanId"), "4111111111111111")).isEqualTo("4111111111111111");
-        assertThat(masker.mask(field("traceId"), "password=hunter2")).isEqualTo("password=****");
+        assertThat(text(masker.mask(field("spanId"), "4111111111111111"))).isEqualTo("4111111111111111");
+        assertThat(text(masker.mask(field("traceId"), "password=hunter2"))).isEqualTo("password=****");
         // Round 2 R2-F6: no name exempts a consumer value — not the encoder's own field names, and not
         // traceId/spanId below the top level.
-        assertThat(masker.mask(field("level"), "password=hunter2")).isEqualTo("password=****");
-        assertThat(masker.mask(field("logger"), "card 4111111111111111")).isEqualTo("card ****");
-        assertThat(masker.mask(nested("payload", "spanId"), "4111111111111111")).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("level"), "password=hunter2"))).isEqualTo("password=****");
+        assertThat(text(masker.mask(field("logger"), "card 4111111111111111"))).isEqualTo("card ****");
+        assertThat(text(masker.mask(nested("payload", "spanId"), "4111111111111111"))).isEqualTo(MASK);
     }
 
     @Test
     void masksWholeValueOfCredentialNamedFields() {
-        assertThat(masker.mask(field("Authorization"), "anything at all")).isEqualTo(MASK);
-        assertThat(masker.mask(field("x-api-key"), "abc")).isEqualTo(MASK);
-        assertThat(masker.mask(field("refresh_token"), "abc")).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("Authorization"), "anything at all"))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("x-api-key"), "abc"))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("refresh_token"), "abc"))).isEqualTo(MASK);
     }
 
     // Round 1 F3: credential names win whatever the value type, also for nested values.
     @Test
     void credentialNamesWinForEveryValueTypeAndNesting() {
-        assertThat(masker.mask(field("password"), 123456)).isEqualTo(MASK);
-        assertThat(masker.mask(field("token"), true)).isEqualTo(MASK);
-        assertThat(masker.mask(nested("password", "inner"), "plain")).isEqualTo(MASK);
-        assertThat(masker.mask(nested("details", "inner"), "plain")).isEqualTo("plain");
+        assertThat(text(masker.mask(field("password"), 123456))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("token"), true))).isEqualTo(MASK);
+        assertThat(text(masker.mask(nested("password", "inner"), "plain"))).isEqualTo(MASK);
+        assertThat(text(masker.mask(nested("details", "inner"), "plain"))).isEqualTo("plain");
     }
 
     @Test
     void masksCardNumbersWrittenAsNumbers() {
-        assertThat(masker.mask(field("card"), 4111111111111111L)).isEqualTo(MASK);
-        assertThat(masker.mask(field("card"), new BigInteger("4111111111111111"))).isEqualTo(MASK);
-        assertThat(masker.mask(field("card"), new BigDecimal("4111111111111111.00"))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("card"), 4111111111111111L))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("card"), new BigInteger("4111111111111111")))).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("card"), new BigDecimal("4111111111111111.00")))).isEqualTo(MASK);
         assertThat(masker.mask(field("card"), new BigDecimal("4111111111111111.5")))
                 .isEqualTo(new BigDecimal("4111111111111111.5"));
         // HI-0050: a card number logged as a double.
-        assertThat(masker.mask(field("card"), 4111111111111111.0)).isEqualTo(MASK);
+        assertThat(text(masker.mask(field("card"), 4111111111111111.0))).isEqualTo(MASK);
     }
 
     @Test
     void returnsTheValueItselfWhenNothingIsMasked() {
-        assertThat(masker.mask(field("message"), "plain")).isEqualTo("plain");
-        assertThat(masker.mask(field("count"), 42)).isEqualTo(42);
-        assertThat(masker.mask(field("at"), 1793001600123L)).isEqualTo(1793001600123L);
-        assertThat(masker.mask(field("id"), 4111111111111112L)).isEqualTo(4111111111111112L); // not Luhn-valid
-        assertThat(masker.mask(null, "plain")).isEqualTo("plain");
-        assertThat(masker.mask(field("x"), null)).isNull();
+        assertThat(text(masker.mask(field("message"), "plain"))).isEqualTo("plain");
+        assertThat(text(masker.mask(field("count"), 42))).isEqualTo(42);
+        assertThat(text(masker.mask(field("at"), 1793001600123L))).isEqualTo(1793001600123L);
+        assertThat(text(masker.mask(field("id"), 4111111111111112L))).isEqualTo(4111111111111112L); // not Luhn-valid
+        assertThat(text(masker.mask(null, "plain"))).isEqualTo("plain");
+        assertThat(text(masker.mask(field("x"), null))).isNull();
     }
 
     // Round 1 F6: long inputs are scanned in linear time.
@@ -216,6 +216,11 @@ class PlatformValueMaskerTest {
         assertThat(custom.maskPatterns("see CASE-123456")).isEqualTo("see ****");
         assertThat(PlatformValueMasker.compile(null)).isEmpty();
         assertThat(PlatformValueMasker.compile(" a+ \n")).extracting(Pattern::pattern).containsExactly("a+");
+    }
+
+    // mask() marks text it has masked; compare by text (numbers and null pass through).
+    private static Object text(Object masked) {
+        return masked instanceof CharSequence text ? text.toString() : masked;
     }
 
     // A top-level member: its parent is the root path.

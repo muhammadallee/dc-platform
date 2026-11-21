@@ -789,6 +789,65 @@ class StructuredLogMaskingTest {
                 .containsEntry("message", "collide");
     }
 
+    // --- Codex phase 3 round 2 reassessment --------------------------------------------------------------
+
+    @Test
+    void extraPatternsKeepWholeTextSemanticsAndAreAppliedOnce() {
+        // New 1, 2: literal mask text cannot split a match; an empty-matching pattern is applied once, not per pass.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]",
+                "CASE-\\S+");
+        for (int i = 1; i <= 20; i++) {
+            environment.setProperty("dc.platform.logging.redaction.patterns[" + i + "]", "^");
+        }
+        start(environment);
+        String line = encode(event("x").pair("ref", "CASE-****123456").pair("nested", Map.of("a", List.of("b"))));
+        assertThat(line).doesNotContain("123456");
+        assertThat(line.length()).isLessThan(2_000);
+    }
+
+    @Test
+    void gelfKeepsItsNumericTimestamp() {
+        // New 3.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("logging.structured.format.console", "gelf");
+        start(environment);
+        Map<String, Object> line = parse(encode(event("gelf probe")));
+        assertThat(line.get("timestamp")).isInstanceOf(Number.class);
+    }
+
+    @Test
+    void contextPrefixesFollowBootsJoinRule() {
+        // 3: a prefix ending in "_", and GELF's leading underscore; 6, new 4: collisions on the written name only.
+        for (String format : List.of("platform", "logstash", "gelf")) {
+            encoder.stop();
+            MockEnvironment environment = new MockEnvironment().withProperty("logging.structured.json.context.prefix",
+                    "ctx_");
+            if (!"platform".equals(format)) {
+                environment.setProperty("logging.structured.format.console", format);
+            }
+            start(environment);
+            assertThat(encode(event("stored").mdc("pwd", "correct horse battery staple"))).as(format)
+                    .doesNotContain("horse");
+        }
+        encoder.stop();
+        start(new MockEnvironment().withProperty("logging.structured.json.context.prefix", "ctx"));
+        assertThat(parse(encode(event("kept").mdc("service", "mine").pair("message", "also mine"))))
+                .containsEntry("ctx_service", "mine").containsEntry("ctx_message", "also mine")
+                .containsEntry("service", "application").containsEntry("message", "kept");
+        encoder.stop();
+        start(new MockEnvironment().withProperty("logging.structured.json.context.prefix", "stack"));
+        String line = encode(event("failed").mdc("trace", "t").withThrowable());
+        assertThat(parse(line)).containsKey("stack_trace").doesNotContainEntry("stack_trace", "t");
+    }
+
+    @Test
+    void anIntegralDoubleIsCheckedAsItsDigits() {
+        // 4: 784199012345671d prints as 7.84199012345671E14.
+        assertThat(encode(event("stored").pair("nationalId", 784199012345671d))).doesNotContain("7.84199012345671E14");
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private String message(String text) {
@@ -847,9 +906,16 @@ class StructuredLogMaskingTest {
             return this;
         }
 
+        private Throwable throwable;
+
+        Event withThrowable() {
+            throwable = new IllegalStateException("boom");
+            return this;
+        }
+
         LoggingEvent build(LoggerContext context) {
             Logger logger = context.getLogger(LOGGER);
-            LoggingEvent event = new LoggingEvent(Logger.class.getName(), logger, Level.INFO, message, null,
+            LoggingEvent event = new LoggingEvent(Logger.class.getName(), logger, Level.INFO, message, throwable,
                     arguments.length == 0 ? null : arguments);
             pairs.forEach(event::addKeyValuePair);
             event.setMDCPropertyMap(mdc);

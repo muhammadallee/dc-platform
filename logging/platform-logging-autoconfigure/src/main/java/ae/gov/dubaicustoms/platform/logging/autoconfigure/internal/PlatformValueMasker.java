@@ -129,7 +129,7 @@ public final class PlatformValueMasker {
             Pattern.compile("(?<![\\w-])05[02-8][ -]?\\d{3}[ -]?\\d{4}(?![\\w-])");
 
     private final List<Pattern> extraPatterns;
-    private final boolean ecsObjects;
+    private final Set<String> formatObjects;
 
     /**
      * Creates the masker for the platform's own format.
@@ -137,18 +137,19 @@ public final class PlatformValueMasker {
      * @param extraPatterns additional regular expressions whose matches are masked; never {@code null}
      */
     public PlatformValueMasker(List<Pattern> extraPatterns) {
-        this(extraPatterns, false);
+        this(extraPatterns, Set.of());
     }
 
     /**
      * Creates the masker.
      *
      * @param extraPatterns additional regular expressions whose matches are masked; never {@code null}
-     * @param ecsObjects whether an ECS format is configured, whose own nested objects Boot writes as deferred JSON
+     * @param formatObjects top-level names under which a configured Boot format (ECS, GELF) writes its own deferred
+     *        JSON; never {@code null}
      */
-    public PlatformValueMasker(List<Pattern> extraPatterns, boolean ecsObjects) {
+    public PlatformValueMasker(List<Pattern> extraPatterns, Set<String> formatObjects) {
         this.extraPatterns = List.copyOf(extraPatterns);
-        this.ecsObjects = ecsObjects;
+        this.formatObjects = Set.copyOf(formatObjects);
     }
 
     /**
@@ -170,7 +171,8 @@ public final class PlatformValueMasker {
         if (value instanceof CharSequence text) {
             // A snapshot: Boot writes this string, never the original object a second time.
             String snapshot = guarded(text::toString);
-            return correlationId(topLevel(path) ? path.name() : null, snapshot) ? snapshot : maskPatterns(snapshot);
+            return correlationId(topLevel(path) ? path.name() : null, snapshot) ? snapshot
+                    : new SafeText(maskPatterns(snapshot));
         }
         return sanitize(path == null ? null : path.name(), value);
     }
@@ -184,8 +186,12 @@ public final class PlatformValueMasker {
      * @return the copy, or the value itself when it is already safe
      */
     public Object sanitize(String name, Object value) {
+        return sanitize(name, value, true);
+    }
+
+    private Object sanitize(String name, Object value, boolean patterns) {
         try {
-            return new Walk().copy(name, value, 0);
+            return new Walk(patterns).copy(name, value, 0);
         } catch (VirtualMachineError fatal) {
             if (fatal instanceof StackOverflowError) {
                 return UNRENDERABLE;
@@ -228,16 +234,19 @@ public final class PlatformValueMasker {
                 && TRACE_OR_SPAN_ID.matcher(text).matches();
     }
 
-    // The nested objects Boot's ECS format writes as deferred JSON; Boot's Logstash and GELF formats write none.
-    private static final Set<String> FORMAT_OBJECTS = Set.of("log", "process", "service", "ecs", "error");
+    /** The objects Boot's ECS format writes as deferred JSON. */
+    public static final Set<String> ECS_OBJECTS = Set.of("log", "process", "service", "ecs", "error");
+
+    /** The member Boot's GELF format writes as deferred JSON (its numeric timestamp). */
+    public static final Set<String> GELF_OBJECTS = Set.of("timestamp");
 
     // The logging event and Boot's writers, which Boot builds a line from; and, only where an ECS format is configured,
     // deferred JSON under one of ECS's object names. Anything else (a Logback logger a customizer adds, raw JSON a
     // service logs) is sanitized like any value.
     private boolean writerInternal(MemberPath path, Object value) {
         String type = value.getClass().getName();
-        if (value instanceof SafeMap || value instanceof SafeList) {
-            // A copy this masker made: its members come through here one by one, already masked.
+        if (value instanceof SafeMap || value instanceof SafeList || value instanceof SafeText) {
+            // Something this masker made: already masked (a copy's members come through here one by one).
             return true;
         }
         if (implementsAny(value.getClass(),
@@ -247,14 +256,14 @@ public final class PlatformValueMasker {
         if (!(value instanceof WritableJson)) {
             return false;
         }
-        if (!ecsObjects) {
+        if (formatObjects.isEmpty()) {
             return false;
         }
         MemberPath root = path;
         while (root != null && root.parent() != null && root.parent().parent() != null) {
             root = root.parent();
         }
-        return root != null && FORMAT_OBJECTS.contains(root.name());
+        return root != null && formatObjects.contains(root.name());
     }
 
     private static boolean implementsAny(Class<?> type, Set<String> names) {
@@ -292,24 +301,9 @@ public final class PlatformValueMasker {
         result = PHONE_INTERNATIONAL.matcher(result).replaceAll(MASK);
         result = PHONE_UAE_MOBILE.matcher(result).replaceAll(MASK);
         for (Pattern pattern : extraPatterns) {
-            result = outsideMasks(result, pattern);
+            result = pattern.matcher(result).replaceAll(MASK);
         }
         return result;
-    }
-
-    // An extra pattern applies between the masks already in the text, never to a mask itself, so masking text that is
-    // already masked changes nothing (Codex phase 3 round 2: a pattern such as \S would otherwise grow every mask).
-    private static String outsideMasks(String text, Pattern pattern) {
-        if (!text.contains(MASK)) {
-            return pattern.matcher(text).replaceAll(MASK);
-        }
-        StringBuilder out = new StringBuilder(text.length());
-        int from = 0;
-        for (int at = text.indexOf(MASK); at >= 0; at = text.indexOf(MASK, from)) {
-            out.append(pattern.matcher(text.substring(from, at)).replaceAll(MASK)).append(MASK);
-            from = at + MASK.length();
-        }
-        return out.append(pattern.matcher(text.substring(from)).replaceAll(MASK)).toString();
     }
 
     /**
@@ -353,7 +347,17 @@ public final class PlatformValueMasker {
     private final class Walk {
 
         private final Set<Object> ancestors = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final boolean patterns;
         private int budget = MAX_NODES;
+
+        Walk(boolean patterns) {
+            this.patterns = patterns;
+        }
+
+        // Text, masked once and marked so nothing masks it again; raw when the caller masks the whole later.
+        private Object text(String text) {
+            return patterns ? new SafeText(maskPatterns(text)) : text;
+        }
 
         Object copy(String name, Object value, int depth) {
             // Every value visited is charged first, a masked one too.
@@ -364,14 +368,14 @@ public final class PlatformValueMasker {
                 return null;
             }
             if (value instanceof CharSequence text) {
-                return maskPatterns(guarded(text::toString));
+                return text(guarded(text::toString));
             }
             if (value instanceof char[] chars) {
-                return maskPatterns(new String(chars));
+                return text(new String(chars));
             }
             if (value instanceof Character || value instanceof Path || value instanceof Enum<?>
                     || value instanceof Class<?> || value instanceof Throwable) {
-                return maskPatterns(render(value));
+                return text(render(value));
             }
             if (value instanceof WritableJson) {
                 // Opaque JSON a service logged: its names may be escaped and its text need not be one value.
@@ -459,11 +463,11 @@ public final class PlatformValueMasker {
             if (type.startsWith("java.") || type.startsWith("javax.") || type.startsWith("jdk.")
                     || type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.")
                     || type.startsWith("org.slf4j.")) {
-                return maskPatterns(render(value));
+                return text(render(value));
             }
             List<Method> getters = getters(value.getClass());
             if (getters.isEmpty()) {
-                return maskPatterns(render(value));
+                return text(render(value));
             }
             if (!ancestors.add(value)) {
                 return MASK;
@@ -491,7 +495,7 @@ public final class PlatformValueMasker {
         private Object number(Number number) {
             Class<?> type = number.getClass();
             if ((type == Double.class || type == Float.class) && !Double.isFinite(number.doubleValue())) {
-                return maskPatterns(String.valueOf(number.doubleValue()));
+                return text(String.valueOf(number.doubleValue()));
             }
             Number value = number;
             if (type != Long.class && type != Integer.class && type != Short.class && type != Byte.class
@@ -501,7 +505,7 @@ public final class PlatformValueMasker {
                 try {
                     value = new BigDecimal(text.strip());
                 } catch (NumberFormatException notDecimal) {
-                    return maskPatterns(text);
+                    return text(text);
                 }
             }
             if (cardNumber(value)) {
@@ -509,21 +513,70 @@ public final class PlatformValueMasker {
             }
             // An integral number may be an identifier (an Emirates ID): every pattern. A fraction cannot: only the
             // service's own patterns.
-            return integral(value) ? scalar(value, value.toString()) : extraOnly(value, value.toString());
+            return integral(value) ? scalar(value, plain(value)) : extraOnly(value, value.toString());
         }
 
         private Object extraOnly(Object value, String text) {
+            if (!patterns) {
+                return value;
+            }
             String masked = text;
             for (Pattern pattern : extraPatterns) {
-                masked = outsideMasks(masked, pattern);
+                masked = pattern.matcher(masked).replaceAll(MASK);
             }
-            return masked.equals(text) ? value : masked;
+            return masked.equals(text) ? value : new SafeText(masked);
         }
 
         // A number or boolean stays one unless a pattern matches its text (an Emirates ID logged as a number, say).
         private Object scalar(Object value, String text) {
+            if (!patterns) {
+                return value;
+            }
             String masked = maskPatterns(text);
-            return masked.equals(text) ? value : masked;
+            return masked.equals(text) ? value : new SafeText(masked);
+        }
+    }
+
+    /**
+     * Text this masker has masked: Boot writes it with {@code toString()}, and the masker leaves it alone when it meets
+     * it again, so every value is masked exactly once (Codex phase 3 round 2: masking again could grow or split it).
+     */
+    static final class SafeText implements CharSequence {
+
+        private final String text;
+
+        SafeText(String text) {
+            this.text = text;
+        }
+
+        @Override
+        public int length() {
+            return text.length();
+        }
+
+        @Override
+        public char charAt(int index) {
+            return text.charAt(index);
+        }
+
+        @Override
+        public CharSequence subSequence(int start, int end) {
+            return text.subSequence(start, end);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof SafeText safe && safe.text.equals(text);
+        }
+
+        @Override
+        public int hashCode() {
+            return text.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return text;
         }
     }
 
@@ -532,6 +585,14 @@ public final class PlatformValueMasker {
     }
 
     private static final class SafeList extends ArrayList<Object> {
+    }
+
+    // An integral number as its plain digits (7.84199012345671E14 → 784199012345671), up to 19 of them.
+    private static String plain(Number number) {
+        if ((number instanceof Double || number instanceof Float) && Math.abs(number.doubleValue()) < 1e19) {
+            return BigDecimal.valueOf(number.doubleValue()).toBigInteger().toString();
+        }
+        return number.toString();
     }
 
     private static boolean integral(Number number) {

@@ -64,10 +64,19 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
                 || !environment.getProperty("dc.platform.logging.redaction.enabled", Boolean.class, true)) {
             return null;
         }
-        boolean ecs = "ecs".equalsIgnoreCase(environment.getProperty("logging.structured.format.console"))
-                || "ecs".equalsIgnoreCase(environment.getProperty("logging.structured.format.file"));
+        java.util.Set<String> formatObjects = new java.util.HashSet<>();
+        for (String key : List.of("logging.structured.format.console", "logging.structured.format.file")) {
+            String format = environment.getProperty(key, "");
+            if ("ecs".equalsIgnoreCase(format)) {
+                formatObjects.addAll(PlatformValueMasker.ECS_OBJECTS);
+            }
+            if ("gelf".equalsIgnoreCase(format)) {
+                formatObjects.addAll(PlatformValueMasker.GELF_OBJECTS);
+            }
+        }
         return new PlatformValueMasker(compile(Binder.get(environment)
-                .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())), ecs);
+                .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())),
+                formatObjects);
     }
 
     // Boot keeps the original name in the path and writes the renamed one: the renamed name counts too.
@@ -84,14 +93,26 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
         return false;
     }
 
-    // Boot writes context entries under logging.structured.json.context.prefix (ctx_pwd for pwd): the name without the
-    // prefix counts too.
+    // Boot writes a context entry under logging.structured.json.context.prefix, joined with a separator unless the
+    // prefix ends with one or the name starts with one (ctx + pwd = ctx_pwd; ctx_ + pwd = ctx_pwd); GELF adds a leading
+    // underscore. The name without them counts too.
     private boolean prefixedCredential(MemberPath path) {
-        if (contextPrefix.isEmpty() || !PlatformValueMasker.topLevel(path) || path.name() == null
-                || !path.name().startsWith(contextPrefix) || path.name().length() <= contextPrefix.length() + 1) {
+        if (contextPrefix.isEmpty() || !PlatformValueMasker.topLevel(path) || path.name() == null) {
             return false;
         }
-        return PlatformValueMasker.isCredentialKey(path.name().substring(contextPrefix.length() + 1));
+        String name = path.name();
+        for (String candidate : List.of(name, name.startsWith("_") ? name.substring(1) : name)) {
+            if (candidate.startsWith(contextPrefix)) {
+                String rest = candidate.substring(contextPrefix.length());
+                if (rest.startsWith("_") || rest.startsWith(".")) {
+                    rest = rest.substring(1);
+                }
+                if (PlatformValueMasker.isCredentialKey(rest)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static List<Pattern> compile(List<String> patterns) {

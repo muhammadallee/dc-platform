@@ -74,8 +74,10 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
         members.add("message", event -> message(event, masker));
         members.add("logger", ILoggingEvent::getLoggerName);
         members.add("level", event -> event.getLevel().toString());
+        String prefix = environment.getProperty("logging.structured.json.context.prefix", "");
         members.add().usingPairs(contextPairs.flat("_", pairs -> pairs.add((ILoggingEvent event,
-                java.util.function.BiConsumer<String, Object> write) -> context(event, strict, masker).forEach(write))));
+                java.util.function.BiConsumer<String, Object> write) -> context(event, strict, masker, prefix)
+                        .forEach(write))));
         members.add("tags", ILoggingEvent::getMarkerList).whenNotNull().as(PlatformLogstashFormatter::tags)
                 .whenNotEmpty();
         members.add("stack_trace", event -> event).whenNotNull(ILoggingEvent::getThrowableProxy)
@@ -94,7 +96,9 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
         for (int i = 0; i < arguments.length; i++) {
             display[i] = PlatformValueMasker.text(masker.sanitize(null, arguments[i]));
         }
-        return MessageFormatter.basicArrayFormat(event.getMessage(), display);
+        // Each argument masked by its structure and patterns, then the whole message once more (a pattern may span the
+        // template and an argument, as in "password={}"): two bounded passes, marked so the processor adds no third.
+        return masker.mask(null, MessageFormatter.basicArrayFormat(event.getMessage(), display)).toString();
     }
 
     // The layout's own members: a context entry under one of these names would make Boot reject the whole line.
@@ -102,20 +106,31 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
             "stack_trace", "service");
 
     // The MDC and the key-value pairs as one set of context entries, each sanitized under its own name before Boot
-    // prefixes or writes it: a key-value pair wins over an MDC entry of the same name, and an entry named like one of
-    // the layout's members is left out, so a name collision never loses the line (Codex phase 3 round 2).
-    static Map<String, Object> context(ILoggingEvent event, Set<String> strict, @Nullable PlatformValueMasker masker) {
+    // prefixes or writes it: a key-value pair wins over an MDC entry of the same name, and an entry whose written name
+    // would be one of the layout's members is left out, so a name collision never loses the line (Codex phase 3
+    // round 2).
+    static Map<String, Object> context(ILoggingEvent event, Set<String> strict, @Nullable PlatformValueMasker masker,
+            String prefix) {
         Map<String, Object> context = new LinkedHashMap<>();
         Map<String, String> mdc = mdc(event, strict);
         if (mdc != null) {
             mdc.forEach((key, value) -> context.put(key, value));
         }
         keyValuePairs(event, strict).forEach(pair -> context.put(pair.key, pair.value));
-        LAYOUT_MEMBERS.forEach(context::remove);
+        // A collision is decided on the name Boot writes, with the context prefix joined as Boot joins it.
+        context.keySet().removeIf(key -> LAYOUT_MEMBERS.contains(joined(prefix, key)));
         if (masker != null) {
             context.replaceAll(masker::sanitizePair);
         }
         return context;
+    }
+
+    // Boot's flat join: prefix, then "_" unless the prefix ends with it or the name starts with it, then the name.
+    static String joined(String prefix, String name) {
+        if (prefix.isEmpty()) {
+            return name;
+        }
+        return prefix + (prefix.endsWith("_") || name.startsWith("_") ? "" : "_") + name;
     }
 
     private static Map<String, String> mdc(ILoggingEvent event, Set<String> strict) {

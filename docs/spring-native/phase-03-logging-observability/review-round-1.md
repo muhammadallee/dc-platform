@@ -50,7 +50,14 @@ Gate C of the capability recipe (plan §8). Prompts and answers, word for word, 
 | Reassessment of Claude's answers ([`r1-answer`](codex/r1-answer.out.md)) | `29d8173` | 11 resolved; it accepts the reply on the pre-existing SLF4J stderr report (finding 3); 11 issues A–K |
 | Verification ([`r1-verify`](codex/r1-verify.out.md)) | `0df444a` | 6 resolved, 5 partly; 9 new, 8 of them in the final-pass parser |
 | Verification 2 ([`r1-verify2`](codex/r1-verify2.out.md)) | `474ceaa` | accepts revised decision 2; A, C, E partly; 4 new |
-| Verification 3 ([`r1-verify3`](codex/r1-verify3.prompt.md)) | `d5a27ab` | pending: Codex usage limit until 2026-11-21 00:02 |
+| Verification 3 ([`r1-verify3`](codex/r1-verify3.out.md), medium effort) | `d5a27ab` | A, C, E and new 1–3 resolved, new 4 partly; it accepts the mixed-format ECS limit; 3 new (a package-wide Boot JSON exemption, two ownership edge cases) |
+
+After verification 3 (cost rules, 2026-11-20: batch fixes, narrow the contract rather than add machinery):
+- The Boot JSON package exemption is removed (test `anOrdinaryBootJsonObjectIsData`).
+- The format-ownership listener and marker are removed. At every start the post-processor clears a format system
+  property only while it holds the platform's own formatter, which is stateless and survives a failed start (test
+  `thePlatformsFormatLeftByAnEarlierStartIsClearedAndNothingElse`; scope §6 states the limit).
+- These go to round 2, which reviews the whole phase, instead of a fourth verification pass.
 
 ## Disagreements and limits
 

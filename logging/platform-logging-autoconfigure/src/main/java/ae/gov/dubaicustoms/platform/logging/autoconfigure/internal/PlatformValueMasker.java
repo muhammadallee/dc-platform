@@ -241,7 +241,7 @@ public final class PlatformValueMasker {
             return true;
         }
         if (!(value instanceof WritableJson)) {
-            return type.startsWith("org.springframework.boot.json.");
+            return false;
         }
         if (!ecsObjects) {
             return false;

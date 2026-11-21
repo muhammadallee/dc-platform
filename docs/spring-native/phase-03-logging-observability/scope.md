@@ -183,7 +183,7 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 | A service customizer's nested object is masked whole; under an ECS object name its own processors' output is the service's | Codex r1 10 | — | `PlatformValueMasker.writerInternal` | `aValueANestedProcessorProducesIsMaskedToo` | CARRIED (limit) |
 | Each value's walk is bounded: every entry charged, the next element fetched only within budget | Codex r1 14 | `SanitizedMessageView` | `PlatformValueMasker` walk | `theBudgetStopsTheWalk`, `credentialNamedEntriesAreChargedToTheBudgetToo` | CARRIED |
 | An invalid extra pattern fails startup only when masking is on | Codex r1 17 | encoder start | `PlatformLogMasking.masker` | `anInvalidPatternFailsOnlyWhenMaskingIsOn` | CARRIED |
-| Console logging after a JSON start in the same JVM is console | Codex r1 18 | — | post-processor clears the platform's format system properties | `consoleLoggingAfterAJsonStartInTheSameJvmIsConsole`, `aFormatThePlatformSetInAnEarlierStartIsClearedForConsoleLogging` | NEW RISK |
+| A later start in the same JVM chooses its own format | Codex r1 18, verification 3 | — | post-processor clears a Boot format system property only while it holds the platform's own formatter; a service's value is never touched | `thePlatformsFormatLeftByAnEarlierStartIsClearedAndNothingElse`, `consoleLoggingAfterAJsonStartInTheSameJvmIsConsole` | NEW RISK |
 | Masking applies alongside a service's own customizer | decision 2 | — | `META-INF/spring.factories` | new `aServicesOwnCustomizerAddsToThePlatformMasking` | NEW RISK |
 | A log file (`logging.file.name`) is masked JSON, not plain text | contract 8 | `logback-platform.xml` (no file appender) | post-processor `logging.structured.format.file` | new `aLogFileIsMaskedJson` | NEW RISK |
 | A service's own Logback file bypasses masking (as in v3) | decision 2 | `logback-platform.xml` comment | module page + startup WARN | new `aUserLogbackFileLogsAWarning` | NEW RISK |
@@ -212,7 +212,7 @@ Every `FIXED` or `ACCEPTED` logging or observability issue, and the §7 contract
 **Mitigations for the `NEW RISK` rows:**
 - **Other formats:** the customizer masks every value in ECS and GELF; masking a message argument by its structure and
   strict mode need the platform's format. The module page says so.
-- **Same-JVM restarts:** the post-processor clears only a format system property that holds the platform's formatter.
+- **Same-JVM restarts:** stateless: at every start the post-processor clears a format system property only while it holds the platform's own formatter, and Boot sets it again if the start uses it. One application per JVM is the deployment model; a service that sets the property to the platform's internal formatter name itself is not supported.
 - **Port collision:** startup fails with a message naming both properties.
 - **A service's own customizer:** the platform's comes from `spring.factories`, so it cannot be listed away.
 - **Log file:** the file format defaults to the same masked JSON.

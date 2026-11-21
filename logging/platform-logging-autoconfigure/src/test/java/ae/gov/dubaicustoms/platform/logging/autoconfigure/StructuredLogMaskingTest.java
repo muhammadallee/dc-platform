@@ -716,6 +716,18 @@ class StructuredLogMaskingTest {
         assertThat(line).doesNotContain("alice@example.com");
     }
 
+    @Test
+    void anOrdinaryBootJsonObjectIsData() {
+        // Verification 3, finding 1: only Boot's writers pass untouched, not every object from its JSON package.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("logging.structured.format.console", "logstash");
+        start(environment);
+        String line = encode(event("stored").pair("path",
+                org.springframework.boot.json.JsonWriter.MemberPath.of("4111111111111111")));
+        assertThat(line).doesNotContain("4111111111111111");
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private String message(String text) {

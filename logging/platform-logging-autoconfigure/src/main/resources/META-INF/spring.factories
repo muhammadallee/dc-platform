@@ -5,5 +5,3 @@ org.springframework.boot.env.EnvironmentPostProcessor=\
 ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformLoggingEnvironmentPostProcessor
 org.springframework.boot.logging.structured.StructuredLoggingJsonMembersCustomizer=\
 ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogMasking
-org.springframework.context.ApplicationListener=\
-ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.LoggingFormatOwnership

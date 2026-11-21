@@ -825,6 +825,9 @@ class StructuredLogMaskingTest {
         encoder.stop();
         start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "^123\\.0$"));
         assertThat(parse(encode(event("stored").pair("value", 123.0d)))).containsEntry("value", "****");
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "E14$"));
+        assertThat(parse(encode(event("stored").pair("nationalId", 784199012345671d)))).containsEntry("nationalId", "****");
     }
 
     @Test
@@ -846,6 +849,8 @@ class StructuredLogMaskingTest {
         encoder.stop();
         start(new MockEnvironment().withProperty("logging.structured.json.context.prefix", "ctx"));
         assertThat(parse(encode(event("stored").mdc("foo", "one").pair("_foo", "two")))).containsEntry("ctx_foo", "two");
+        assertThat(parse(encode(event("stored").pair("foo", "one").pair("_foo", "two").pair("foo", "three"))))
+                .containsEntry("ctx_foo", "three");
     }
 
     @Test

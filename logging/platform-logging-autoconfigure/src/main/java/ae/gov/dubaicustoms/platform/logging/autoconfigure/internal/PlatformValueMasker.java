@@ -520,8 +520,10 @@ public final class PlatformValueMasker {
             if (!integral(value)) {
                 return extraOnly(value, value.toString());
             }
-            Object written = scalar(value, value.toString());
-            return written != value ? written : scalar(value, plain(value));
+            // The plain digits first: a whole identifier there (an Emirates ID) masks the whole value, before any
+            // partial match on the written text (7.84199012345671E14).
+            Object digits = scalar(value, plain(value));
+            return digits != value ? new SafeText(MASK) : scalar(value, value.toString());
         }
 
         private Object extraOnly(Object value, String text) {

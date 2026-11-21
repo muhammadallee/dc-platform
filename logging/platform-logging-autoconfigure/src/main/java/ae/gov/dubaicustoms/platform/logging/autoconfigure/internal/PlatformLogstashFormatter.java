@@ -113,10 +113,17 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
             String prefix) {
         Map<String, Object> context = new LinkedHashMap<>();
         Map<String, String> mdc = mdc(event, strict);
+        // Each entry re-inserted, so the order is that of the latest occurrence.
         if (mdc != null) {
-            mdc.forEach((key, value) -> context.put(key, value));
+            mdc.forEach((key, value) -> {
+                context.remove(key);
+                context.put(key, value);
+            });
         }
-        keyValuePairs(event, strict).forEach(pair -> context.put(pair.key, pair.value));
+        keyValuePairs(event, strict).forEach(pair -> {
+            context.remove(pair.key);
+            context.put(pair.key, pair.value);
+        });
         // A collision is decided on the name Boot writes, with the context prefix joined as Boot joins it: a layout
         // name is left out, and of two keys written under the same name (foo and _foo under ctx) the later is kept.
         context.keySet().removeIf(key -> LAYOUT_MEMBERS.contains(joined(prefix, key)));

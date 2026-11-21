@@ -492,6 +492,12 @@ public final class PlatformValueMasker {
                     }
                     String property = property(getter);
                     budget--;
+                    if (AutoCloseable.class.isAssignableFrom(getter.getReturnType())) {
+                        // A getter returning a resource opens one (Spring's UrlResource.getInputStream connects): the
+                        // property is shown masked and never called.
+                        copy.put(property, MASK);
+                        continue;
+                    }
                     Object read = read(getter, value);
                     copy.put(property, read == UNREADABLE ? UNRENDERABLE : copy(property, read, depth + 1));
                 }
@@ -643,9 +649,7 @@ public final class PlatformValueMasker {
         List<Method> getters = new ArrayList<>();
         for (Method method : type.getMethods()) {
             if (method.getParameterCount() != 0 || Modifier.isStatic(method.getModifiers())
-                    || method.getDeclaringClass() == Object.class || method.getReturnType() == void.class
-                    || AutoCloseable.class.isAssignableFrom(method.getReturnType())) {
-                // A getter returning a resource opens one (Spring's UrlResource.getInputStream connects): never called.
+                    || method.getDeclaringClass() == Object.class || method.getReturnType() == void.class) {
                 continue;
             }
             String name = method.getName();

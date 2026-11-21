@@ -951,8 +951,26 @@ class StructuredLogMaskingTest {
     void aGetterReturningAResourceIsNeverCalled() {
         Opener.OPENED.set(0);
         assertThat(parse(encode(event("stored").pair("resource", new Opener())))).containsEntry("resource",
-                Map.of("description", "URL [http://example.invalid/x]"));
+                Map.of("description", "URL [http://example.invalid/x]", "inputStream", "****"));
         assertThat(Opener.OPENED).hasValue(0);
+        // Codex Gate H verification 2: a bean whose only getter returns a resource stays a bean, not its toString().
+        assertThat(parse(encode(event("stored").pair("holder", new SecretHolder())))).containsEntry("holder",
+                Map.of("secret", "****"));
+        assertThat(Opener.OPENED).hasValue(0);
+    }
+
+    /** Only a resource-valued getter, and an unlabelled credential in toString(). */
+    public static final class SecretHolder {
+
+        public java.io.InputStream getSecret() {
+            Opener.OPENED.incrementAndGet();
+            return java.io.InputStream.nullInputStream();
+        }
+
+        @Override
+        public String toString() {
+            return "hunter2";
+        }
     }
 
     @Test

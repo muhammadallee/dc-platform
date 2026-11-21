@@ -1,21 +1,17 @@
 package ae.gov.dubaicustoms.hardening.probe;
 
-import ae.gov.dubaicustoms.platform.core.context.CorrelationId;
-import ae.gov.dubaicustoms.platform.core.context.RequestContext;
-import ae.gov.dubaicustoms.platform.logging.Kv;
-import ae.gov.dubaicustoms.platform.restclient.PlatformRestClientFactory;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -30,9 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 /**
- * Consumer-side probe for the hardening phase-02 harness (never part of a real service). It logs the way
- * a service does (SLF4J messages, {@link Kv} arguments, its own MDC keys, exceptions) so the scenario
- * can read the JSON lines back. Public API and documented extension points only.
+ * Consumer-side probe for the logging and observability run (never part of a real service). It logs the way a
+ * service does (SLF4J messages, SLF4J key-value pairs, its own MDC keys, exceptions) so the scenario can read the JSON
+ * lines back, and calls out through Boot's {@code RestClient.Builder}. Spring, SLF4J and Micrometer types only
+ * (Spring-native Phase 3, contract 12): the scenario fails if this file imports a platform type.
  */
 public final class ObservabilityProbe {
 
@@ -64,25 +61,25 @@ public final class ObservabilityProbe {
         private static final Logger log = LoggerFactory.getLogger(ProbeController.class);
 
         private final AsyncLogger async;
-        private final PlatformRestClientFactory factory;
+        private final RestClient.Builder builder;
         private final WebServerApplicationContext context;
         private final JdbcTemplate jdbc;
+        private final Tracer tracer;
         private volatile RestClient self;
 
-        public ProbeController(AsyncLogger async, PlatformRestClientFactory factory,
-                WebServerApplicationContext context, JdbcTemplate jdbc) {
+        public ProbeController(AsyncLogger async, RestClient.Builder builder, WebServerApplicationContext context,
+                JdbcTemplate jdbc, Tracer tracer) {
             this.async = async;
-            this.factory = factory;
+            this.builder = builder;
             this.context = context;
             this.jdbc = jdbc;
+            this.tracer = tracer;
         }
 
         // Resolved on first use: touching the web server during refresh starts its connector early.
         private RestClient self() {
             if (self == null) {
-                self = factory.builder("probe-self")
-                        .baseUrl("http://127.0.0.1:" + context.getWebServer().getPort())
-                        .build();
+                self = builder.clone().baseUrl("http://127.0.0.1:" + context.getWebServer().getPort()).build();
             }
             return self;
         }
@@ -100,7 +97,7 @@ public final class ObservabilityProbe {
             throw new IllegalStateException(msg);
         }
 
-        /** AC5: credentials and PII in the message, in structured arguments and in the MDC. */
+        /** AC5: credentials and PII in the message, in key-value pairs and in the MDC. */
         @GetMapping("/secrets")
         public Map<String, Object> secrets(@RequestHeader("Authorization") String authorization,
                 @RequestParam Map<String, String> values) {
@@ -110,14 +107,18 @@ public final class ObservabilityProbe {
                 log.info("secrets in text: header {} jwt {} basic {} password={} eid {} pan {} email {} phone {}",
                         authorization, values.get("jwt"), "Basic " + values.get("basic"), values.get("password"),
                         values.get("eid"), values.get("pan"), values.get("email"), values.get("phone"));
-                log.info("secrets as arguments {} {} {} {}", Kv.of("authorization", authorization),
-                        Kv.of("password", values.get("password")), Kv.of("cardNumber", Long.parseLong(values.get("pan"))),
-                        Kv.of("contact", values.get("email")));
-                log.info("secrets in other shapes {} {} {} {}",
-                        StructuredArguments.entries(Map.of("token", values.get("mdcToken"), "region", "dxb")),
-                        StructuredArguments.v("password", values.get("password") + " with spaces"),
-                        StructuredArguments.kv("secret", values.get("password").getBytes(StandardCharsets.UTF_8)),
-                        StructuredArguments.kv("token", true));
+                log.atInfo()
+                        .addKeyValue("authorization", authorization)
+                        .addKeyValue("password", values.get("password"))
+                        .addKeyValue("cardNumber", Long.parseLong(values.get("pan")))
+                        .addKeyValue("contact", values.get("email"))
+                        .log("secrets as key-value pairs");
+                log.atInfo()
+                        .addKeyValue("session", Map.of("token", values.get("mdcToken"), "region", "dxb"))
+                        .addKeyValue("password", values.get("password") + " with spaces")
+                        .addKeyValue("secret", values.get("password").getBytes(StandardCharsets.UTF_8))
+                        .addKeyValue("token", true)
+                        .log("secrets in other shapes");
                 log.warn("secret in an exception", new IllegalArgumentException(
                         "login failed for password=" + values.get("password") + " with " + authorization));
                 log.info("negatives epoch {} order {} trace {} uuid {} ts {} status {} duration {}ms",
@@ -146,10 +147,10 @@ public final class ObservabilityProbe {
             return snapshot();
         }
 
-        /** AC4: the message names the trace the request context holds; the log line must agree. */
+        /** AC4: the message names the trace the tracer holds; the log line must agree. */
         @GetMapping("/correlated")
         public Map<String, Object> correlated() throws Exception {
-            String expected = RequestContext.correlationId().map(CorrelationId::value).orElse("none");
+            String expected = traceId().orElse("none");
             log.info("correlated {}", expected);
             Map<String, Object> body = snapshot();
             body.put("asyncThread", async.logCorrelated(expected).get());
@@ -200,14 +201,18 @@ public final class ObservabilityProbe {
         public Map<String, Object> context() {
             return snapshot();
         }
-    }
 
-    static Map<String, Object> snapshot() {
-        Map<String, Object> values = new HashMap<>();
-        RequestContext.correlationId().map(CorrelationId::value).ifPresent(id -> values.put("context", id));
-        Optional.ofNullable(MDC.get("traceId")).ifPresent(id -> values.put("mdcTraceId", id));
-        Optional.ofNullable(MDC.get("spanId")).ifPresent(id -> values.put("mdcSpanId", id));
-        values.put("thread", Thread.currentThread().getName());
-        return values;
+        private Optional<String> traceId() {
+            return Optional.ofNullable(tracer.currentSpan()).map(Span::context).map(c -> c.traceId());
+        }
+
+        private Map<String, Object> snapshot() {
+            Map<String, Object> values = new HashMap<>();
+            traceId().ifPresent(id -> values.put("context", id));
+            Optional.ofNullable(MDC.get("traceId")).ifPresent(id -> values.put("mdcTraceId", id));
+            Optional.ofNullable(MDC.get("spanId")).ifPresent(id -> values.put("mdcSpanId", id));
+            values.put("thread", Thread.currentThread().getName());
+            return values;
+        }
     }
 }

@@ -48,7 +48,7 @@ Filled in by each phase from [`phase-00-baseline/removal-map.md`](phase-00-basel
 | Phase | Removed | Notes |
 |---|---|---|
 | 2 | Whole modules `platform-core-api` (`CorrelationId`, `RequestContext`, `ErrorCode`, `PlatformException`, `CapabilityDescriptor`, `PlatformApi`, `PlatformInternal`), `platform-errors-api` (`BusinessException`, `NotFoundException`, `ConflictException`, `HttpStatusHint`, `ProblemDetailCustomizer`), `platform-data-api` (`EntityId`, `Money`, `PersistenceConventions`). In kept modules: `PlatformCoreEnvironmentPostProcessor` (core-autoconfigure); `RemoteCallException`, `EventPublishException`, `EventSerializationException` change superclass to Spring's `ErrorResponseException` (`code()` is gone; the code is the `ProblemDetail` property) | D138. `CapabilityDescriptor` moved to `platform-core-autoconfigure` (a break for the old package). Converters `MoneyConverter`, `CorrelationIdConverter` were `.internal` |
-| 3 | — | |
+| 3 | Whole module `platform-logging-api` (`Kv`, `LogSanitizer`). In kept modules: `PlatformJsonEncoder`, `logback-platform.xml` and the `logstash-logback-encoder` dependency of `platform-starter-logging` (logging-autoconfigure); the internals `CredentialFieldMasker`, `KvJsonSerializer`, `RawJson`, `RawJsonMaskingGenerator`, `SanitizedMessageView`, `LogSanitizerRegistry`. Behaviour: actuator moves to port 8081 | D141. `PlatformValueMasker` (`.internal`) changes from a Logstash `ValueMasker` to Boot's value processor |
 | 4 | — | |
 | 6 | — | |
 | 8 | — | |

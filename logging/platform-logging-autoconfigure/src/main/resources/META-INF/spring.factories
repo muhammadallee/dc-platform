@@ -1,4 +1,7 @@
-# The ONE legacy spring.factories registration the platform allows: logging must be configured
-# BEFORE the application context exists, so AutoConfiguration.imports is too late.
+# Logging must be configured BEFORE the application context exists, so AutoConfiguration.imports is too late for
+# these two: the post-processor sets Boot's structured-logging defaults, and Boot loads the masking customizer from
+# here alongside any customizer a service names in logging.structured.json.customizer (D141).
 org.springframework.boot.env.EnvironmentPostProcessor=\
 ae.gov.dubaicustoms.platform.logging.autoconfigure.PlatformLoggingEnvironmentPostProcessor
+org.springframework.boot.logging.structured.StructuredLoggingJsonMembersCustomizer=\
+ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogMasking

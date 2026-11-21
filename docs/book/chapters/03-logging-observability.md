@@ -1,27 +1,14 @@
 # Chapter 3 — Logging and Observability
 
-> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
-> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
-
-> **Updated by capability hardening, phase 1 (2026-10).** The correlation id is now the **W3C trace
-> ID**: `X-Correlation-Id` is no longer read, echoed or propagated; logs carry `traceId`/`spanId`;
-> ProblemDetail carries `traceId` and `retryable`; 5xx bodies never carry exception messages;
-> validation errors omit `rejectedValue` by default. Where this chapter still describes the
-> `X-Correlation-Id` model, the module pages (`docs/modules/core.md`, `errors.md`, `logging.md`,
-> `restclient.md`) and decisions D89–D92 are authoritative. Full chapter rewrite: issue HI-0004.
->
-> **Updated by capability hardening, phase 2 (2026-10).** Readiness is **pod-local**
-> (`readinessState` only); `db`, `rabbit` and `redis` moved to a separate `dependencies` health group.
-> The chassis exposes only `health`, `info` and `prometheus` over http — `metrics` and `platform` are
-> opt-ins (`management.endpoints.web.exposure.include`; generated services opt in `platform`). JSON logs
-> mask credentials and common PII, and `LogSanitizer` beans (`String sanitize(String key, String value)`)
-> are applied to MDC values and structured arguments. Where this chapter differs, `docs/modules/logging.md`,
-> `docs/modules/observability.md` and decisions D101–D107 are authoritative.
+> **Spring-native 1.0.0 (Phase 3, D141).** JSON logs are Spring Boot's structured logging, switched on and masked
+> by the platform; services log with SLF4J only (`addKeyValue` for fields). `Kv` and `LogSanitizer` are gone. Actuator
+> runs on its own port, 8081. The correlation ID is the W3C trace ID (`traceId`, `spanId`). Where this chapter and the
+> module pages differ, [modules/logging.md](../../modules/logging.md) and
+> [modules/observability.md](../../modules/observability.md) are authoritative.
 
 > **Capabilities covered:** `logging`, `observability`
 >
-> Structured logs, metrics, and traces, stitched together by one correlation identifier.
+> Structured logs, metrics, and traces, stitched together by one trace IDentifier.
 >
 > **Starters:** `platform-starter-logging`, `platform-starter-observability` ·
 > **Reference:** [modules/logging.md](../../modules/logging.md) ·
@@ -33,7 +20,7 @@
 
 Logging and observability are one chapter because they answer one question from two directions.
 Logging tells you **what happened in this specific request**. Observability tells you **what is
-happening across all of them**. Neither is sufficient; the join between them — the correlation id from
+happening across all of them**. Neither is sufficient; the join between them — the trace ID from
 [Chapter 1](01-core.md) — is what turns two datasets into an investigation.
 
 ### The problem it solves
@@ -43,7 +30,7 @@ At 03:00 the on-call engineer gets paged: error rate up. They need, in this orde
 1. **Is it real, and how bad?** — a metric. Rate, ratio, and latency distribution across every
    instance.
 2. **Which requests?** — a query over structured logs, filtered by error code, tenant, endpoint.
-3. **Why that one?** — a single request's full story, joined by correlation id across every service it
+3. **Why that one?** — a single request's full story, joined by trace ID across every service it
    touched.
 4. **Where did the time go?** — a trace.
 
@@ -71,11 +58,11 @@ logging through an `EnvironmentPostProcessor`, which runs before any bean exists
 
 Metrics have a property logs do not: **cardinality is a cost**. Every distinct combination of tag
 values is a separate time series, stored forever, on every instance. Tag a meter with a user id and a
-million users become a million time series. Tag it with a correlation id — unique per request — and the
+million users become a million time series. Tag it with a trace ID — unique per request — and the
 series count grows without bound until the metrics backend falls over, usually at the worst moment,
 usually with a memorable invoice attached.
 
-This is why the platform propagates correlation through **tracing baggage** and explicitly excludes it
+This is why the trace ID travels in the `traceparent` header and the log fields, and is explicitly excluded
 from metric tags. It is not an oversight; it is the single most important rule in this chapter.
 
 ### Impact of absence
@@ -104,52 +91,44 @@ from metric tags. It is not an oversight; it is the single most important rule i
 
 The most common design mistake is using one for another's job: computing a rate by counting log lines
 (expensive and slow), or putting per-request detail in a metric tag (unbounded cardinality). Use each
-for what it is cheap at, and join them with the correlation id.
+for what it is cheap at, and join them with the trace ID.
 
-### 2.2 Structured logging, and what the encoder does
+### 2.2 Structured logging, and what the platform adds to Boot's
 
-The platform ships a Logback configuration using the Logstash encoder. One JSON object per event, on
-stdout:
+Spring Boot writes structured JSON logs itself (`logging.structured.format.console`). The platform switches that on,
+names its own format (Boot's Logstash layout with the platform's field names), and registers its masking with Boot.
+One JSON object per event, on stdout:
 
 ```json
-{"@timestamp":"2026-08-04T10:15:30.123Z","level":"INFO",
- "logger":"ae.gov.dubaicustoms.orders.OrderService","message":"order accepted",
- "service":"orders-service","correlationId":"9f2c7a1e4b8d40f6a3c5e7d9b1f3a5c7",
- "orderId":"8812"}
+{"@timestamp":"2026-08-04T10:15:30.123+04:00","message":"order accepted",
+ "logger":"ae.gov.dubaicustoms.orders.OrderService","level":"INFO",
+ "traceId":"4bf92f3577b34da6a3ce929d0e0e4736","spanId":"00f067aa0ba902b7","orderId":"8812",
+ "service":"orders-service"}
 ```
 
-Field names are ECS-ish, and three fields are deliberately dropped rather than renamed — `thread`,
-`version`, and `levelValue` — because they are noise on a dashboard and dropping them at the encoder is
-cheaper than filtering at ingest for every service, forever.
+`service` is resolved once at startup: explicit `dc.platform.logging.service-name`, falling back to
+`spring.application.name`, falling back to `application`.
 
-`service` is a custom field, resolved once at startup: explicit `dc.platform.logging.service-name`,
-falling back to `spring.application.name`, falling back to `application`.
+`traceId` and `orderId` arrive by two different routes, which is worth understanding:
 
-`correlationId` and `orderId` arrive by two different routes, which is worth understanding:
+- **`traceId` and `spanId` come from the MDC**, published by the core filter. Every MDC entry becomes a JSON field
+  automatically, which is why no logging call site ever mentions them.
+- **`orderId` comes from a key-value pair** on the event, `log.atInfo().addKeyValue("orderId", order.id())`, added at
+  the call site.
 
-- **`correlationId` comes from the MDC**, published by the core filter. Every MDC entry becomes a JSON
-  field automatically, which is why no logging call site ever mentions it.
-- **`orderId` comes from a structured argument**, `Kv.of("orderId", order.id())`, passed at the call
-  site.
-
-### 2.3 Why `Kv` is deliberately thin
+### 2.3 Key-value pairs are SLF4J's own
 
 ```java
-log.info("order accepted {}", Kv.of("orderId", order.id()));
+log.atInfo().addKeyValue("orderId", order.id()).log("order accepted");
 ```
 
-`Kv` is a two-component record with a `toString()` of `key=value`. It carries no Logstash types and no
-encoder coupling. That is the whole design:
-
-- In **console format** it renders as readable `orderId=8812` — a developer reads the line normally.
-- In **JSON format** the encoder lifts it into a field.
-- The platform's *api* module therefore has no logging-backend dependency, which is what lets domain
-  code use `Kv` without pulling Logback into a module that should not know about it.
+SLF4J 2's fluent API carries key-value pairs on the event. Boot writes each as a JSON field; the platform masks it by
+its name and structure first (a credential name masks the whole value, at any depth). Domain code needs only SLF4J.
 
 !!! success "Best practice — log the identifiers, not the sentence"
     ```java
     log.info("order {} failed for customer {}", orderId, customerId);          // not queryable
-    log.info("order failed {} {}", Kv.of("orderId", orderId), Kv.of("customerId", customerId));
+    log.atInfo().addKeyValue("orderId", orderId).addKeyValue("customerId", customerId).log("order failed");
     ```
     The second is one indexed event you can filter, aggregate, and alert on. The first is a string.
 
@@ -161,10 +140,10 @@ Boot's startup, simplified:
   SpringApplication.run()
      |
      v
-  EnvironmentPostProcessors run          <-- platform-logging-defaults set logging.config HERE
+  EnvironmentPostProcessors run          <-- platform-logging-defaults set logging.structured.format.* HERE
      |                                       platform-observability-defaults set management.* HERE
      v
-  Logging system initialised             <-- reads logging.config
+  Logging system initialised             <-- reads logging.structured.format.*
      |
      v
   Bean definitions loaded
@@ -180,8 +159,8 @@ Both capabilities contribute **named, lowest-precedence property sources**:
 
 | Source | Contributes |
 |---|---|
-| `platform-logging-defaults` | `logging.config` → the shipped `logback-platform.xml`, plus the resolved service name |
-| `platform-observability-defaults` | Actuator exposure, health probes and groups, baggage fields, the OTLP-off posture |
+| `platform-logging-defaults` | `logging.structured.format.console` and `.file` → the platform's formatter, the context switch, the banner off |
+| `platform-observability-defaults` | The management port (8081), actuator exposure, health probes and groups, the OTLP-off posture |
 
 Lowest precedence means **your configuration always wins**. Named means `/actuator/env` tells you
 exactly which source supplied a value. Both properties matter: an opinionated default you cannot
@@ -215,7 +194,7 @@ The platform stamps three tags on **every** meter in the registry:
     match both.
 
 !!! warning "The cardinality rule, stated once"
-    **Never tag a meter with anything that varies per request or per user.** Not a correlation id, not
+    **Never tag a meter with anything that varies per request or per user.** Not a trace ID, not
     a user id, not an order id, not a full URL with path parameters interpolated, not an exception
     message. If the set of possible values is not small and known in advance, it is not a tag — it is a
     log field.
@@ -239,65 +218,39 @@ The platform's defaults (D104):
 ```
   liveness      <- livenessState
   readiness     <- readinessState                          (pod-local)
-  dependencies  <- db, rabbit, redis      (each only "when present"; for dashboards and alerts, not probes)
+  dependencies  <- db, rabbit             (each only "when present"; for dashboards and alerts, not probes)
 ```
 
 Two details make this work in practice. `management.endpoint.health.probes.enabled=true` makes the
 liveness and readiness contributors exist on **any** platform — Boot only auto-enables them when it
 detects Kubernetes. And `validate-group-membership=false` is what lets the `dependencies` group name
-`db`, `rabbit`, and `redis` optionally: with validation on, a service that has no database would fail to
+`db` and `rabbit` optionally: with validation on, a service that has no database would fail to
 start because its group references a health indicator that does not exist.
 
-### 2.7 Baggage — how correlation crosses a service boundary without becoming a tag
+### 2.7 How the trace crosses a service boundary without becoming a tag
 
-**Baggage** is W3C Trace Context's mechanism for propagating key-value pairs alongside a trace, across
-process boundaries. Micrometer Tracing implements it, and the platform configures exactly one baggage
-field:
-
-```
-management.tracing.baggage.remote-fields = X-Correlation-Id
-```
-
-That single line is the resolution of the tension in §2.5. Correlation must cross service boundaries —
-otherwise the trace stops at each hop — but it must not become a metric tag. Baggage is the channel
-that propagates it without touching the metrics dimension.
+The trace ID crosses a service boundary in the W3C `traceparent` header, which Boot's observed HTTP clients send and
+Boot's server observation reads. No custom correlation header and no baggage field is configured (D104, HD5).
 
 ```
    Service A                              Service B
    ---------                              ---------
-   correlationId in MDC   ---- HTTP ---->  correlationId in MDC
-        |                  (header +            |
-        |                   baggage)            |
+   traceId in MDC   ---- traceparent ---->  traceId in MDC
+        |                                       |
         v                                       v
    log field  [yes]                        log field  [yes]
    metric tag [NO]                         metric tag [NO]
-   trace baggage [yes]  ------------------> trace baggage [yes]
 ```
 
 ---
 
 ## 3. Feature Reference
 
-### 3.1 Logging — public API
+### 3.1 Logging — no public API
 
-Package `ae.gov.dubaicustoms.platform.logging`. Both types `@API(status = STABLE, since = "0.1.0")`.
-
-| Type | Kind | Purpose |
-|---|---|---|
-| `Kv` | record `(String key, Object value)` | A structured log argument. `key` never null; `value` may be null and renders as literal `null` |
-| `LogSanitizer` | functional interface | Scrub a value before it is written to a log field |
-
-`LogSanitizer` contract, from the interface itself: implementations must be **thread-safe**,
-**fast** (they run on the logging hot path), and **total** — return the value unchanged when the key is
-not theirs, never return null for a non-null input, and **never throw**. A throwing sanitizer destroys
-the very log line that might explain an incident.
-
-```java
-@FunctionalInterface
-public interface LogSanitizer {
-    Object sanitize(String key, Object value);
-}
-```
+The logging capability has no types for service code. You log with SLF4J; fields are SLF4J key-value pairs; your
+own masking is the `dc.platform.logging.redaction.patterns` property, or a Boot `StructuredLoggingJsonMembersCustomizer`
+of your own (the platform's masking still applies to what it adds).
 
 ### 3.2 Observability — what it contributes
 
@@ -310,24 +263,23 @@ defaults**.
 | `/actuator/platform` | JSON `CapabilityDescriptor` report — what is live, with which provider |
 | Health groups | `liveness` and `readiness`, on any platform, with optional members |
 | `platform.capability.active{capability}` | A 0/1 gauge per capability descriptor, feeding the adoption dashboard |
-| Management defaults | Endpoint exposure, probes, baggage fields, OTLP posture — all at lowest precedence |
+| Management defaults | The management port 8081, endpoint exposure, probes, OTLP posture — all at lowest precedence |
 | Registries | Prometheus available locally; OTLP export **off** by default |
 
 ### 3.3 Log fields
 
 | Field | Source | Notes |
 |---|---|---|
-| `@timestamp` | Logback | ISO-8601 |
-| `level` | Logback | |
-| `logger` | Logback | Fully-qualified logger name |
-| `message` | The log statement | |
-| `service` | `logging.service-name` → `spring.application.name` → `application` | A custom field, resolved once at startup |
-| `correlationId` | MDC, via the core filter | Present only when a context is open |
-| `stack_trace` | Logback | On `log.error(msg, throwable)` |
-| *anything in MDC* | MDC | Lifted automatically when `include-mdc` is `true` |
-| *`Kv` arguments* | Call site | Lifted by the encoder |
-
-Deliberately dropped: `thread`, `version`, `levelValue`.
+| `@timestamp` | the event | ISO-8601 with offset |
+| `message` | the log statement | rendered from its pattern, each argument masked by its structure |
+| `logger` | the event | fully qualified logger name |
+| `level` | the event | |
+| `traceId`, `spanId` | MDC, via the core filter | present while a trace is open |
+| *anything else in the MDC* | MDC | written when `include-mdc` is `true`; strict mode keeps only listed keys |
+| *key-value pairs* | the call site (`addKeyValue`) | masked by name and structure |
+| `tags` | markers | when the event has any |
+| `stack_trace` | the event | on `log.error(msg, throwable)` |
+| `service` | `logging.service-name` → `spring.application.name` → `application` | resolved once at startup |
 
 ### 3.4 Configuration properties
 
@@ -341,6 +293,9 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 | `dc.platform.logging.format` | `json` \| `console` | `json` | Output format. **`console` is auto-selected when the `local` profile is active and no explicit format is set** | Explicitly, to force one format regardless of profile |
 | `dc.platform.logging.include-mdc` | Boolean | `true` | Copy MDC entries into JSON fields | Essentially never — this is what makes correlation free |
 | `dc.platform.logging.service-name` | String | `spring.application.name` | The `service` field value | When the log-store convention differs from the Spring application name |
+| `dc.platform.logging.mdc.include` | List | empty | Strict mode: only `traceId`, `spanId` and these MDC keys and key-value pairs | When other libraries put noisy or sensitive entries in the MDC |
+| `dc.platform.logging.redaction.enabled` | Boolean | `true` | Mask credentials and personal data | Essentially never |
+| `dc.platform.logging.redaction.patterns` | List | empty | Extra regular expressions to mask | To mask your own identifiers |
 
 **Observability**
 
@@ -362,9 +317,10 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 
 | Class | Activates when | Contributes | Backs off when |
 |---|---|---|---|
-| `PlatformLoggingEnvironmentPostProcessor` | `logging.enabled != false` **and** JSON format resolved | `logging.config`, resolved service name | Console format resolved — Boot's own defaults apply, nothing is contributed |
-| `LoggingAutoConfiguration` | Logging API on classpath, `logging.enabled != false` | Sanitizer wiring, capability descriptor | Standard `@ConditionalOnMissingBean` |
-| `PlatformObservabilityEnvironmentPostProcessor` | `observability.enabled != false` | The `management.*` defaults in §2.4 | Any key you set yourself wins on precedence |
+| `PlatformLoggingEnvironmentPostProcessor` | `logging.enabled != false` **and** JSON format resolved | `logging.structured.format.*` → the platform's formatter | Console format resolved — Boot's own defaults apply, nothing is contributed |
+| `PlatformLogMasking` (Boot members customizer, `spring.factories`) | logging and redaction enabled | Masking in every structured format | `redaction.enabled=false` |
+| `LoggingAutoConfiguration` | Logback present, `logging.enabled != false` | Capability descriptor; a WARN when your own Logback file replaces structured logging | Standard `@ConditionalOnMissingBean` |
+| `PlatformObservabilityEnvironmentPostProcessor` | `observability.enabled != false` | The `management.*` defaults in §2.4, the management port 8081 | Any key you set yourself wins on precedence; `server.port=8081` alone fails startup |
 | `CommonTagsAutoConfiguration` | Micrometer on classpath, both enable flags true | `platformCommonTagsCustomizer` | You define a bean named `platformCommonTagsCustomizer` |
 | `PlatformInfoEndpointAutoConfiguration` | Actuator present, `platform-endpoint.enabled != false` | `platformEndpoint` (`@Endpoint(id="platform")`) | Standard back-off |
 | `CapabilityMetricsAutoConfiguration` | Micrometer present, `capability-metrics.enabled != false` | The `platform.capability.active` gauge registrar | Standard back-off |
@@ -373,11 +329,12 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 
 | Extension | How | Effect |
 |---|---|---|
-| Scrub sensitive log values | Declare a `LogSanitizer` bean | Applied in `@Order` to MDC and argument values |
+| Mask your own identifiers | `dc.platform.logging.redaction.patterns` | Applied to every value of every line |
+| Add fields to every line | Your own `StructuredLoggingJsonMembersCustomizer` in `logging.structured.json.customizer` | Added next to the platform's masking |
 | Add or change meter tags | Declare a `MeterRegistryCustomizer` bean | Applied by Boot to every registry |
 | Replace the platform's common tags | Declare a bean named `platformCommonTagsCustomizer` | The platform's backs off |
 | Report your own capability | Declare a `CapabilityDescriptor` bean ([Chapter 1](01-core.md)) | Appears in `/actuator/platform` and the gauge |
-| Replace the logging configuration | Set `logging.config` yourself | Your file wins on precedence |
+| Replace the logging configuration | Set `logging.config` yourself | Your file wins on precedence, and masking applies only if it uses Boot's structured appender |
 
 ---
 
@@ -396,8 +353,9 @@ Full generated list: [reference/properties.md](../../reference/properties.md).
 </dependency>
 ```
 
-Delete any `logback-spring.xml` that exists only to produce JSON. Start the app; logs should be one
-JSON object per line, and `/actuator/health/readiness` should exist.
+Delete any `logback-spring.xml` that exists only to produce JSON: the platform switches on Spring Boot's structured
+logging, and your own Logback file would replace it, masking included. Start the app; logs should be one JSON object
+per line, and `/actuator/health/readiness` should answer on the management port, 8081.
 
 ### 4.2 Log something worth querying
 
@@ -408,10 +366,11 @@ class ShipmentService {
     private static final Logger log = LoggerFactory.getLogger(ShipmentService.class);
 
     void dispatch(String shipmentId, String carrier, int parcels) {
-        log.info("shipment dispatched {} {} {}",
-                Kv.of("shipmentId", shipmentId),
-                Kv.of("carrier", carrier),
-                Kv.of("parcels", parcels));
+        log.atInfo()
+                .addKeyValue("shipmentId", shipmentId)
+                .addKeyValue("carrier", carrier)
+                .addKeyValue("parcels", parcels)
+                .log("shipment dispatched");
     }
 }
 ```
@@ -419,19 +378,19 @@ class ShipmentService {
 JSON:
 
 ```json
-{"@timestamp":"2026-08-04T10:15:30.123Z","level":"INFO","logger":"...ShipmentService",
- "message":"shipment dispatched shipmentId=SHP-1 carrier=DHL parcels=3",
- "service":"shipping-service","correlationId":"9f2c...",
- "shipmentId":"SHP-1","carrier":"DHL","parcels":3}
+{"@timestamp":"2026-08-04T10:15:30.123Z","message":"shipment dispatched","logger":"...ShipmentService",
+ "level":"INFO","traceId":"9f2c...","spanId":"4a1e...",
+ "shipmentId":"SHP-1","carrier":"DHL","parcels":3,"service":"shipping-service"}
 ```
 
 Console, on a laptop:
 
 ```
-10:15:30.123 INFO  ...ShipmentService : shipment dispatched shipmentId=SHP-1 carrier=DHL parcels=3
+10:15:30.123 INFO  ...ShipmentService : shipment dispatched
 ```
 
-Same call site, both readable. That is the point of `Kv`.
+The key-value pairs are SLF4J's own (`addKeyValue`), so the call site needs no platform type. In JSON they become
+fields a log store can query; the console line keeps the message short.
 
 !!! success "Best practice — one event, many fields"
     Prefer one log line carrying five fields over five lines carrying one each. Log stores charge by
@@ -457,22 +416,23 @@ The format decision is: explicit `dc.platform.logging.format` wins; otherwise `c
 
 ### 4.4 Scrub sensitive values from logs
 
-```java snippet:book-03-log-sanitizer
-@Configuration
-class LogSanitizers {
+The platform already masks credentials (JWTs, `Bearer` and `Basic` credentials, values of keys such as `password`,
+`token` or `apiKey`) and the default personal-data set (Emirates ID, card numbers, e-mail addresses, phone numbers) in
+every JSON line. For data of your own, list regular expressions; each match becomes `****`:
 
-    @Bean
-    @Order(10)
-    LogSanitizer emiratesIdSanitizer() {
-        return (key, value) -> "emiratesId".equals(key) ? "784-****" : value;
-    }
-}
+```yaml
+dc:
+  platform:
+    logging:
+      redaction:
+        patterns:
+          - "CASE-\\d{6}"
 ```
 
-!!! warning "A sanitizer runs on every log line — make it fast and total"
-    Return the value unchanged for keys that are not yours, never return null for a non-null input, and
-    never throw. A regex over every value on the logging hot path is a measurable cost; an exact key
-    match is not.
+!!! warning "A pattern runs on every value of every log line — keep it anchored and bounded"
+    `CASE-\d{6}` is cheap; `.*secret.*` scans each value from every position. To mask a whole value by its name,
+    log it as a key-value pair under a credential name (`password`, `token`, …): the platform masks those whole,
+    whatever the value.
 
 ### 4.5 Turn on OTLP export
 
@@ -490,10 +450,12 @@ management:
     metrics:
       export:
         url: http://otel-collector:4318/v1/metrics
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://otel-collector:4318/v1/traces
   tracing:
-    export:
-      otlp:
-        endpoint: http://otel-collector:4318/v1/traces
     sampling:
       probability: 0.1
 ```
@@ -536,7 +498,7 @@ values, which is what makes it a legitimate tag.
 !!! warning "The counters are built once, in the constructor — not per call"
     Building a meter per invocation re-resolves it in the registry on the hot path. Resolve at
     construction, increment at call time. And note what is *not* a tag here: no declaration id, no
-    trader id, no correlation id.
+    trader id, no trace ID.
 
 ### 4.7 Add a meter tag fleet-wide
 
@@ -553,9 +515,9 @@ Additive — the platform's three tags are unaffected. Only use a bean *named*
 ### 4.8 Check what is running
 
 ```bash
-curl -s localhost:8080/actuator/platform | jq
-curl -s localhost:8080/actuator/health/readiness | jq
-curl -s localhost:8080/actuator/prometheus | grep '^http_server_requests'
+curl -s localhost:8081/actuator/platform | jq
+curl -s localhost:8081/actuator/health/readiness | jq
+curl -s localhost:8081/actuator/prometheus | grep '^http_server_requests'
 ```
 
 ---
@@ -592,10 +554,10 @@ curl -s localhost:8080/actuator/prometheus | grep '^http_server_requests'
 
 | Signal | Where | Alert when |
 |---|---|---|
-| Correlation coverage | Log query: `NOT _exists_: correlationId` | Coverage drops — a context leak ([Chapter 1](01-core.md) §6.1) |
+| Correlation coverage | Log query: `NOT _exists_: traceId` | Coverage drops — a context leak ([Chapter 1](01-core.md) §6.1) |
 | `platform.capability.active` | Metric, tagged `capability` | A capability disappears from a service unexpectedly |
 | `platform.version` tag distribution | Any meter | Services stuck on an old train |
-| Readiness flapping | Probe history | Readiness oscillating means a dependency health indicator is unstable |
+| Readiness flapping | Probe history | Readiness reports only the application's own state: oscillation means the app itself is starting, stopping or refusing traffic. A flapping shared dependency shows in the `dependencies` group |
 | Log volume per service | Ingest metrics | A sudden spike is usually a loop, a `DEBUG` left on, or a retry storm |
 
 !!! tip "`platform.version` as a fleet dashboard"
@@ -609,13 +571,13 @@ curl -s localhost:8080/actuator/prometheus | grep '^http_server_requests'
 
 | Cause | Check |
 |---|---|
-| `local` profile active | `curl -s localhost:8080/actuator/env \| jq .activeProfiles` |
-| Format explicitly set | `curl -s localhost:8080/actuator/env/dc.platform.logging.format` |
+| `local` profile active | `curl -s localhost:8081/actuator/env \| jq .activeProfiles` |
+| Format explicitly set | `curl -s localhost:8081/actuator/env/dc.platform.logging.format` |
 | Your own `logback-spring.xml` | Boot prefers it. Delete it, or set `logging.config` deliberately |
 | Starter missing | `mvn dependency:tree \| grep platform-starter-logging` |
-| `logging.config` overridden | `curl -s localhost:8080/actuator/env/logging.config` — the winning source is named |
+| `logging.config` overridden | `curl -s localhost:8081/actuator/env/logging.config` — the winning source is named |
 
-**No `correlationId` in log lines.** Almost always core, not logging — see
+**No `traceId` in log lines.** Almost always core, not logging — see
 [Chapter 1](01-core.md) §5.3. Check `include-mdc` is `true` first, then go there.
 
 **No traces anywhere.** `otlp.enabled` is `false`. §5.1.
@@ -625,16 +587,15 @@ is replacing the platform's. Check `/actuator/beans`.
 
 **Readiness is always down.** Readiness is `readinessState` only, so the application itself reported
 `REFUSING_TRAFFIC` (during startup or shutdown, or set by your code); a database outage does not take
-it down. `curl -s localhost:8080/actuator/health/dependencies | jq` names a failing `db`, `rabbit` or
-`redis`.
+it down. `curl -s localhost:8081/actuator/health/dependencies | jq` names a failing `db` or `rabbit`.
 
 **The metrics backend is struggling.** Almost certainly cardinality. Find the offender:
 
 ```bash
 # metrics is not exposed by default: add it locally with
 #   management.endpoints.web.exposure.include=health,info,prometheus,platform,metrics
-curl -s localhost:8080/actuator/metrics | jq -r '.names[]' | while read m; do
-  echo "$(curl -s "localhost:8080/actuator/metrics/$m" | jq '[.availableTags[].values|length] | add // 0') $m"
+curl -s localhost:8081/actuator/metrics | jq -r '.names[]' | while read m; do
+  echo "$(curl -s "localhost:8081/actuator/metrics/$m" | jq '[.availableTags[].values|length] | add // 0') $m"
 done | sort -rn | head
 ```
 
@@ -648,9 +609,10 @@ The top of that list is where an unbounded tag was introduced. §6.4.
   thousands of lines per second it is.
 - **`DEBUG` on a hot logger is the most common self-inflicted performance problem in this chapter.**
   It multiplies volume, ingest cost, and encoding cost simultaneously.
-- Guard genuinely expensive arguments: `if (log.isDebugEnabled())`. Not needed for `Kv.of` on a plain
-  field; needed for anything that serialises an object graph.
-- Sanitizers run on every field of every line. Keep them to exact key matches.
+- Guard genuinely expensive arguments: `if (log.isDebugEnabled())`. Not needed for a plain key-value pair;
+  needed for anything that builds an object graph. The platform walks a logged object by its structure (bounded at
+  10,000 values), so a huge collection costs time.
+- Extra redaction patterns run on every value of every line. Keep them anchored and bounded.
 
 **Metrics.**
 
@@ -664,7 +626,6 @@ The top of that list is where an unbounded tag was introduced. §6.4.
 **Tracing.**
 
 - Sampling is the only real control. 100% is affordable in a low-traffic service and nowhere else.
-- Baggage adds bytes to every outbound request header. One field is free; ten are not.
 
 ### 5.5 Security considerations
 
@@ -673,64 +634,54 @@ long-retained, widely readable, and rarely reviewed.
 
 | Risk | Mitigation |
 |---|---|
-| PII or secrets in log fields | `LogSanitizer` beans, centrally. Review what you put in MDC extras |
+| PII or secrets in log fields | Platform masking plus `dc.platform.logging.redaction.patterns` for your own identifiers. Log secrets, if at all, as key-value pairs under credential names. Review what you put in the MDC |
 | Secrets in exception messages | The [errors](02-errors-validation.md) capability logs full exceptions at ERROR. Anything in the message is in the log |
-| Log injection | [`@SafeText`](02-errors-validation.md) on single-line fields; `CorrelationId`'s format check |
-| Actuator exposure | Default exposure is `health,info,prometheus` (`platform`, `metrics` are opt-ins). The security chain permits only `health` and `info` |
+| Log injection | Every value is one escaped JSON string, so CR/LF and quotes in user input cannot forge a line or a field; console format is for humans only |
+| Actuator exposure | Default exposure is `health,info,prometheus` (`platform`, `metrics` are opt-ins), on the management port 8081 only. 1.0.0 has no web security: keep 8081 inside the cluster, never routed through the gateway |
 | `/actuator/env` leaking configuration | It shows property values. Boot masks known-sensitive keys, but a key named `myCustomThing` is not known-sensitive |
 | Metric tags with user identifiers | A cardinality problem *and* a privacy problem — metrics are retained far longer than logs |
 
-!!! warning "`/actuator/env` and `/actuator/configprops` are not public endpoints"
-    They are exposed over HTTP by the platform's default and **authenticated** by the security chain.
-    If you are running without security, they are open. Check that before you
-    deploy.
+!!! warning "`/actuator/env` and `/actuator/configprops` are not exposed by default"
+    The platform exposes only `health`, `info` and `prometheus`. If you add `env` or `configprops` to the
+    exposure list, they answer anyone who can reach the management port: 1.0.0 has no web security.
 
 ---
 
 ## 6. Deep Dive
 
-### 6.1 Why the encoder drops three fields rather than renaming them
+### 6.1 Why the platform's format leaves three fields out
 
-`thread`, `version`, and `levelValue` are mapped to `[ignore]` in the Logstash encoder's field names.
+Boot's own Logstash format writes `@version`, `thread_name` and `level_value`. The platform's formatter writes the same
+layout without them:
 
-- `thread` is meaningless once you have a correlation id, and misleading with virtual threads, where
-  the name is generated per task.
-- `version` is the *encoder's* schema version, not yours. It is a constant that costs bytes on every
-  line, forever.
-- `levelValue` is the numeric form of `level`. Two representations of the same thing; the string is
-  the one anyone queries.
+- `thread_name` is meaningless once you have a trace ID, and misleading with virtual threads, where the name is
+  generated per task.
+- `@version` is the *format's* schema version, not yours. It is a constant that costs bytes on every line, forever.
+- `level_value` is the numeric form of `level`. Two representations of the same thing; the string is the one anyone
+  queries.
 
-Dropping at the encoder rather than filtering at ingest matters at fleet scale: three fields × billions
-of lines × every service is real storage, and an ingest-side filter has to be configured once per
-pipeline and stays configured until someone changes it.
+Leaving them out at the source rather than filtering at ingest matters at fleet scale: three fields × billions of
+lines × every service is real storage, and an ingest-side filter has to be configured once per pipeline and stays
+configured until someone changes it.
 
 ### 6.2 Why logging is fail-soft and has no error codes
 
 Every other capability defines error codes. Logging deliberately does not, and the reason is a
 principle worth stating: **observability is not worth an outage.**
 
-A malformed appender configuration, an unreachable log destination, or a throwing sanitizer must
-degrade logging, not stop the service. This is why `LogSanitizer`'s contract says "never throw" — and
-why, if one does, the platform's posture is to lose that line rather than the request.
+An unreachable log destination, or a value that throws while it is rendered, must degrade logging, not stop the
+service. This is why a logged value whose `toString()` or getter throws becomes `[unrenderable]`: it costs that value,
+never the line or the request. Invalid configuration is different: an extra redaction pattern that is not a valid
+regular expression fails startup, because a service that silently stopped masking would be worse.
 
 The trade-off is honest: a broken logging setup is *quiet*. Nothing pages you. Which is exactly why
 §5.2 lists log volume as a monitored signal — a sudden drop to zero is the symptom.
 
-### 6.3 Why `service` is resolved in the post-processor, not in the XML
+### 6.3 How `service` is resolved
 
-The Logback configuration declares:
-
-```xml
-<springProperty name="service" source="dc.platform.logging.service-name" defaultValue="application"/>
-```
-
-`springProperty` supports exactly **one** source. But the platform's resolution order has three levels:
-explicit `dc.platform.logging.service-name`, then `spring.application.name`, then `application`.
-
-So the post-processor resolves the chain itself and *writes the answer into*
-`dc.platform.logging.service-name` before Logback reads it. The XML then has a single source to read.
-A small piece of indirection that exists purely because of a Logback limitation — worth knowing when
-you wonder why that property appears in `/actuator/env` with a value you did not set.
+The platform's formatter writes `service` itself, resolved once when logging starts: explicit
+`dc.platform.logging.service-name`, then `spring.application.name`, then `application`. Nothing is written into the
+environment for it, so `/actuator/env` shows only what you set.
 
 ### 6.4 The cardinality failure mode, concretely
 
@@ -799,12 +750,12 @@ Set the format explicitly in CI.
 | Leaving `otlp.enabled` false in production | It is the default, and nothing fails | Put it in the deployment template |
 | Tagging a meter with a request-scoped value | It seems like useful detail | §6.4. Use a log field |
 | Building a meter per invocation | It reads more naturally | Build in the constructor |
-| String-concatenated log messages | Habit | `Kv.of(...)` costs nothing and makes the field queryable |
-| Logging the correlation id explicitly | It looks helpful | It is already a field |
+| String-concatenated log messages | Habit | `addKeyValue(...)` costs nothing and makes the field queryable |
+| Logging the trace ID explicitly | It looks helpful | It is already a field |
 | A `logback-spring.xml` left from before adoption | Boot prefers it silently | Delete it |
 | `DEBUG` left enabled on a hot logger | Someone was debugging | Volume, cost, and latency, all at once |
-| A slow or throwing `LogSanitizer` | Untested — it is on the log path | Exact key matches; guard everything |
-| Failing liveness for a dependency blip | Both probes look the same | Dependencies belong in *readiness* |
+| An unbounded extra redaction pattern | Untested — it is on the log path | Anchor and bound every pattern |
+| Failing liveness for a dependency blip | Both probes look the same | Shared dependencies belong in the `dependencies` group |
 | `spring.application.name` unset | Nothing complains | Every meter is tagged `service=application` |
 
 ---
@@ -821,24 +772,24 @@ real traffic to observe.
 **Steps.**
 
 1. Boot with the `local` profile. Note console format.
-2. Boot without it. Note JSON, and find the `service` and `correlationId` fields.
+2. Boot without it. Note JSON, and find the `service` and `traceId` fields.
 3. Add `log.info("order accepted for " + customerId)` and call the endpoint. Try to write a log query
    returning every line for one customer.
-4. Change it to `log.info("order accepted {}", Kv.of("customerId", customerId))`. Write the query
-   again.
+4. Change it to `log.atInfo().addKeyValue("customerId", customerId).log("order accepted")`. Write the
+   query again.
 5. View both in console format and compare readability.
 
 **Expected outcome.** Step 3's query needs a substring match that breaks the moment anyone rewords the
 message. Step 4's is a field equality match. Step 5 shows the console output is no worse — which is the
-argument for always using `Kv`.
+argument for always using key-value pairs.
 
 **Hints.**
 
-- No `correlationId`? A context has to be open — call through HTTP, not from a test main method.
+- No `traceId`? A trace has to be open — call through HTTP, not from a test main method.
 - `jq` on the JSON output makes step 2 much easier: `mvn spring-boot:run | jq .`
 
-**How to verify.** A test with a `ListAppender<ILoggingEvent>` asserting the event has an argument
-whose key is `customerId`.
+**How to verify.** A test with a `ListAppender<ILoggingEvent>` asserting the event's key-value pairs
+(`event.getKeyValuePairs()`) hold `customerId`, or an `OutputCaptureExtension` test asserting the JSON field.
 
 ### Lab 2 — Intermediate: instrument a business outcome and probe it
 
@@ -856,14 +807,16 @@ whose key is `customerId`.
 5. Stop the database. Watch both probes. Which changed?
 6. Write down what would happen if `db` were in the *liveness* group instead, across ten replicas.
 
-**Expected outcome.** Two series, five tags each. Readiness goes down on step 5; liveness stays up.
+**Expected outcome.** Two series, five tags each. On step 5 readiness and liveness both stay up, and
+`/actuator/health/dependencies` goes down.
 Step 6 should produce the sentence "every replica restarts in a loop and the outage gets worse".
 
 **Hints.**
 
 - `platform.version` reads `Implementation-Version` from the core-api jar manifest, so it is `unknown`
   on an exploded classpath. That is expected in tests.
-- Readiness names `db` optionally — it appears only because a `DataSource` is present.
+- The `dependencies` group names `db` optionally — it appears only because a `DataSource` is present. Readiness
+  is `readinessState` only.
 
 **How to verify.** A `@PlatformTest` asserting the counter exists with both `outcome` values and
 carries the three common tags.
@@ -874,10 +827,10 @@ carries the three common tags.
 
 **Steps.**
 
-1. Add a `Timer` tagged with a per-request identifier — the correlation id is the purest form of the
+1. Add a `Timer` tagged with a per-request identifier — the trace ID is the purest form of the
    mistake.
 2. Drive 1,000 requests.
-3. `curl -s localhost:8080/actuator/metrics/<name> | jq '.availableTags'` (expose `metrics` first). Count the values.
+3. `curl -s localhost:8081/actuator/metrics/<name> | jq '.availableTags'` (expose `metrics` first). Count the values.
 4. Measure `/actuator/prometheus` response size and time before and after. Extrapolate to 10 million
    requests.
 5. Run the cardinality-ranking command from §5.3. Confirm your meter is at the top.
@@ -920,8 +873,7 @@ any tag — a genuinely useful guard to keep in a real codebase.
 **Log**
 
 ```java
-log.info("shipment dispatched {}", Kv.of("shipmentId", id));   // queryable
-LogSanitizer s = (key, value) -> "emiratesId".equals(key) ? "784-****" : value;
+log.atInfo().addKeyValue("shipmentId", id).log("shipment dispatched");   // queryable
 ```
 
 **Meter**
@@ -946,18 +898,18 @@ Counter.builder("declarations.processed").tag("outcome", "accepted").register(re
 **Endpoints**
 
 ```bash
-curl -s localhost:8080/actuator/platform | jq            # what is live
-curl -s localhost:8080/actuator/health/readiness | jq    # can I serve?
-curl -s localhost:8080/actuator/health/liveness | jq     # should I be restarted?
-curl -s localhost:8080/actuator/prometheus               # meters
-curl -s localhost:8080/actuator/env/logging.config       # who set the log config?
+curl -s localhost:8081/actuator/platform | jq            # what is live
+curl -s localhost:8081/actuator/health/readiness | jq    # can I serve?
+curl -s localhost:8081/actuator/health/liveness | jq     # should I be restarted?
+curl -s localhost:8081/actuator/prometheus               # meters
+curl -s localhost:8081/actuator/env/logging.config       # who set the log config?
 ```
 
 **Signal routing**
 
 | Want to know | Use |
 |---|---|
-| What happened in one request | Logs, filtered by `correlationId` |
+| What happened in one request | Logs, filtered by `traceId` |
 | Rate, error ratio, latency distribution | Metrics |
 | Where the time went across services | Traces |
 | What is deployed here | `/actuator/platform` |
@@ -969,8 +921,8 @@ curl -s localhost:8080/actuator/env/logging.config       # who set the log confi
 - `otlp.enabled: true` in every deployed environment. It is `false` by default for laptops.
 - Set `spring.application.name`. It is the `service` field *and* the `service` meter tag.
 - Build meters in the constructor, not per call.
-- Dependencies belong in **readiness**, never liveness.
-- A sanitizer must be fast, total, and must never throw.
+- Shared dependencies belong in the `dependencies` group, never in readiness or liveness.
+- An extra redaction pattern must be anchored and bounded: it runs on every value of every line.
 - Delete `logback-spring.xml` — Boot prefers it and it silently disables the platform's format.
 - The `local` profile check is "is `local` among the active profiles", not "is it the only one".
 

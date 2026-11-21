@@ -1,10 +1,12 @@
 /**
- * Auto-configuration for the logging capability: the {@code EnvironmentPostProcessor} that points
- * Boot's logging system at the platform JSON logback configuration (with a console fallback for
- * the {@code local} profile) and the capability banner registration.
+ * Auto-configuration for the logging capability. Two registrations in {@code META-INF/spring.factories} run before
+ * the application context: {@code PlatformLoggingEnvironmentPostProcessor} switches on Boot's structured JSON logging
+ * with the platform's field names (console fallback for the {@code local} profile), and the internal
+ * {@code PlatformLogMasking} customizer masks credentials and personal data in every JSON line. The auto-configuration
+ * adds the capability banner line and a WARN when the service's own Logback file replaces Boot's structured logging.
  *
- * <p>Kill switch: {@code dc.platform.logging.enabled}. Back-off: set {@code logging.config}
- * yourself — user configuration always outranks the platform defaults property source.
+ * <p>Kill switch: {@code dc.platform.logging.enabled}. Back-off: any {@code logging.structured.*} value the service
+ * sets outranks the platform defaults property source; a service adds its own customizer next to the platform's.
  *
  * @since 0.1.0
  */

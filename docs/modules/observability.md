@@ -6,14 +6,17 @@ storage, and an opt-in endpoint that tells you which platform capabilities a run
 
 ## What you get
 
+- **Actuator on its own port, 8081.** 1.0.0 has no web security, so probes, `info` and the Prometheus scrape live
+  on the management port, reachable only inside the cluster; the application port serves only the API and answers
+  404 for `/actuator/*`. Point the kubelet's probes and the scrape at 8081, and never route 8081 through the gateway.
 - **Common meter tags** — every meter carries `service` (= `spring.application.name`),
   `env` (= first active profile) and `platform.version` (from the platform jar manifest), so
   dashboards slice uniformly across the fleet.
 - **Pod-local probes** — `/actuator/health/liveness` (`livenessState`) and
   `/actuator/health/readiness` (`readinessState`) exist everywhere, not only on Kubernetes. Neither
   checks an external system, so a database outage does not mark every replica unready at once.
-- **A `dependencies` group** — `/actuator/health/dependencies` reports `db`, `rabbit` and `redis`
-  **when present**, for dashboards and alerts.
+- **A `dependencies` group** — `/actuator/health/dependencies` reports `db` and `rabbit` **when present**,
+  for dashboards and alerts. The REST client joins it when iteration 2 ships it.
 - **Minimal exposure** — over http only `health`, `info` and `prometheus` are exposed. `metrics`,
   `platform` and everything else are an explicit opt-in.
 - **`/actuator/platform` (opt-in)** — the `CapabilityDescriptor` report as JSON: which platform
@@ -44,11 +47,12 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 
 | Contributed key | Value |
 |---|---|
+| `management.server.port` | `8081` (`0` when `server.port` is `0`, so tests with a random port get a random management port) |
 | `management.endpoints.web.exposure.include` | `health,info,prometheus` |
 | `management.endpoint.health.probes.enabled` | `true` |
 | `management.endpoint.health.group.liveness.include` | `livenessState` |
 | `management.endpoint.health.group.readiness.include` | `readinessState` |
-| `management.endpoint.health.group.dependencies.include` | `db,rabbit,redis` |
+| `management.endpoint.health.group.dependencies.include` | `db,rabbit` |
 | `management.endpoint.health.validate-group-membership` | `false` (the dependencies list names optional members) |
 | `management.tracing.baggage.remote-fields` | not set (was `X-Correlation-Id`; removed in the hardening phase 1) |
 | `management.otlp.metrics.export.enabled` | `false` (only while `otlp.enabled=false`) |
@@ -57,9 +61,11 @@ property source named `platform-observability-defaults` (visible in `/actuator/e
 Any user-set value outranks every one of these. The top-level `/actuator/health` still aggregates every
 contributor (the database included) — point probes at `readiness` and `liveness`, never at the top level.
 
-> **Access:** 1.0.0 has no web security, so the exposed actuator endpoints answer anyone who can reach
-> the application port. Phase 3 moves management to its own port, 8081 (ND13); until then, keep the
-> application port off any public route.
+> **Access:** 1.0.0 has no web security, so the exposed actuator endpoints answer anyone who can reach the
+> management port. Keep 8081 inside the cluster. If you set `server.port=8081` without setting
+> `management.server.port`, startup fails: actuator would otherwise answer on the application port. To serve actuator
+> on the application port on purpose, set `management.server.port` to the same value. In a `@PlatformWebTest`
+> (MockMvc), actuator is served on the mock servlet as before.
 
 ## Properties
 

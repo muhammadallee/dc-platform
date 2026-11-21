@@ -158,7 +158,7 @@
     "name" : "dc.platform.logging.include-mdc",
     "type" : "Boolean",
     "default" : "true",
-    "description" : "copy MDC entries (traceId, spanId, …) into JSON log fields",
+    "description" : "copy MDC entries (traceId, spanId, …) and key-value pairs into JSON log fields",
     "deprecation" : "",
     "capability" : "logging"
   }, {
@@ -619,16 +619,6 @@
     "declaredBy" : "ae.gov.dubaicustoms.platform.errors.autoconfigure.internal.DataAccessFailure$Codes"
   } ],
   "apiTypes" : [ {
-    "type" : "ae.gov.dubaicustoms.platform.logging.Kv",
-    "kind" : "record",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
-    "type" : "ae.gov.dubaicustoms.platform.logging.LogSanitizer",
-    "kind" : "interface",
-    "status" : "STABLE",
-    "since" : "0.1.0"
-  }, {
     "type" : "ae.gov.dubaicustoms.platform.messaging.EventEnvelope",
     "kind" : "record",
     "status" : "STABLE",

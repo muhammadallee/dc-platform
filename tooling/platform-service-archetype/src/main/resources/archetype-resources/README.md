@@ -17,11 +17,12 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local   # same, with human-readab
 java -jar target/<artifactId>-<version>.jar            # the packaged service, after mvn verify
 ```
 
-Health and readiness are always available; the platform capability report is exposed outside `prod`:
+Actuator has its own port, 8081, so it is never reachable through the route that serves the API on 8080. Health
+and readiness are always available there; the platform capability report is exposed outside `prod`:
 
 ```bash
-curl http://localhost:8080/actuator/health/readiness
-curl http://localhost:8080/actuator/platform      # active capabilities + providers
+curl http://localhost:8081/actuator/health/readiness
+curl http://localhost:8081/actuator/platform      # active capabilities + providers
 ```
 
 Call the sample endpoint:

@@ -22,12 +22,7 @@
   </description>
 
   <dependencies>
-    <!-- autoconfigure -> same-capability api (+ core-api for the CapabilityDescriptor contract). -->
-    <dependency>
-      <groupId>ae.gov.dubaicustoms.platform</groupId>
-      <artifactId>platform-logging-api</artifactId>
-      <version>${revision}</version>
-    </dependency>
+    <!-- autoconfigure -> core-autoconfigure for the CapabilityDescriptor contract (ND15: no logging api module). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-core-autoconfigure</artifactId>
@@ -37,15 +32,7 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
     </dependency>
-    <!-- JSON encoder used by logback-platform.xml; optional so the choice of shipping it stays
-         with the starter (console-only consumers do not need it on the classpath). -->
-    <dependency>
-      <groupId>net.logstash.logback</groupId>
-      <artifactId>logstash-logback-encoder</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <!-- PlatformJsonEncoder extends the logstash encoder, whose Logback types the encoder declares
-         provided; Boot's logging starter supplies Logback at run time. -->
+    <!-- PlatformLogstashFormatter writes Logback events; Boot's logging starter supplies Logback at run time. -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
@@ -63,7 +50,13 @@
       <artifactId>platform-build-tools</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Boots a real (non-web) Spring application in tests so the EPP + logback-platform.xml
+    <!-- Reads the JSON lines back in tests; Boot's BasicJsonParser does not undo escapes. -->
+    <dependency>
+      <groupId>tools.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Boots a real (non-web) Spring application in tests so the EPP and Boot's structured logging
          run end to end and stdout can be asserted as JSON. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

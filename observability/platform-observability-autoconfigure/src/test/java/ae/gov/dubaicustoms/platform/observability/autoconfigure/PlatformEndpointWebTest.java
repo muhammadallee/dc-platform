@@ -47,6 +47,16 @@ class PlatformEndpointWebTest {
         }
 
         @Test
+        void managementRunsOnItsOwnPort() throws Exception {
+            // ND13: no actuator endpoint answers on the application port.
+            assertThat(environment.getProperty("local.management.port"))
+                    .isNotNull().isNotEqualTo(environment.getProperty("local.server.port"));
+            for (String path : new String[] {"/actuator/health", "/actuator/info", "/actuator/prometheus"}) {
+                assertThat(send(environment.getProperty("local.server.port"), path).statusCode()).as(path).isEqualTo(404);
+            }
+        }
+
+        @Test
         void aSharedDependencyOutageLeavesReadinessUp() throws Exception {
             assertThat(get(environment, "/actuator/health/readiness").body()).contains("\"status\":\"UP\"");
             assertThat(get(environment, "/actuator/health/liveness").body()).contains("\"status\":\"UP\"");
@@ -107,9 +117,15 @@ class PlatformEndpointWebTest {
         }
     }
 
+    // An actuator request: on the management port (ND13), or on the application port when the platform's defaults
+    // are switched off.
     private static HttpResponse<String> get(Environment environment, String path) throws Exception {
+        String management = environment.getProperty("local.management.port");
+        return send(management != null ? management : environment.getProperty("local.server.port"), path);
+    }
+
+    private static HttpResponse<String> send(String port, String path) throws Exception {
         // Plain JDK client: TestRestTemplate left spring-boot-test in Boot 4.
-        String port = environment.getProperty("local.server.port");
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET().build();
         try (HttpClient client = HttpClient.newHttpClient()) {
             return client.send(request, HttpResponse.BodyHandlers.ofString());

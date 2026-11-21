@@ -232,10 +232,11 @@ assert_jar() { # project package features artifactId -> echoes jar path
   grep -q '^Main-Class: org.springframework.boot.loader.launch.JarLauncher' <<<"$manifest" || fail "$artifact: jar not repackaged"
   grep -q "^Start-Class: $pkg.Application" <<<"$manifest" || fail "$artifact: wrong Start-Class"
   listing=$(unzip -l "$jar")
-  for entry in "BOOT-INF/classes/application.yml" "BOOT-INF/lib/platform-logging-autoconfigure-$REV.jar" \
-               "BOOT-INF/lib/logstash-logback-encoder-"; do
+  for entry in "BOOT-INF/classes/application.yml" "BOOT-INF/lib/platform-logging-autoconfigure-$REV.jar"; do
     grep -q "$entry" <<<"$listing" || fail "$artifact: jar lacks $entry"
   done
+  # JSON logs are Boot's structured logging (D141): the Logstash encoder is gone.
+  ! grep -q "BOOT-INF/lib/logstash-logback-encoder-" <<<"$listing" || fail "$artifact: jar still carries logstash-logback-encoder"
   if has "$features" data; then
     grep -q "BOOT-INF/classes/db/migration/V1__create_note.sql" <<<"$listing" || fail "$artifact: migration not packaged"
     grep -q "BOOT-INF/lib/spring-boot-flyway-" <<<"$listing" || fail "$artifact: Boot Flyway integration not packaged"
@@ -245,25 +246,27 @@ assert_jar() { # project package features artifactId -> echoes jar path
 
 APP_PID=""
 APP_PORT=""
+MGMT_PORT="" # actuator runs on its own port (ND13)
 RUN_ID=""
 start_app() { # log cmd... (cmd gets --server.port and run-id args appended)
   local log=$1; shift
   APP_PORT=$("${SUPPORT[@]}" freeport)
+  MGMT_PORT=$("${SUPPORT[@]}" freeport)
   RUN_ID="gate-$(date +%s)-$RANDOM"
-  "$@" --server.port="$APP_PORT" --management.info.env.enabled=true --info.gate.run-id="$RUN_ID" > "$log" 2>&1 &
+  "$@" --server.port="$APP_PORT" --management.server.port="$MGMT_PORT" --management.info.env.enabled=true --info.gate.run-id="$RUN_ID" > "$log" 2>&1 &
   APP_PID=$!
   PIDS+=("$APP_PID")
 }
 
 await_ready() { # log
   local waited=0
-  until curl -sf --max-time 5 "http://127.0.0.1:$APP_PORT/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; do
+  until curl -sf --max-time 5 "http://127.0.0.1:$MGMT_PORT/actuator/health/readiness" 2>/dev/null | grep -q '"status":"UP"'; do
     kill -0 "$APP_PID" 2>/dev/null || { tail -40 "$1"; return 1; }
     sleep 1; waited=$((waited + 1))
     [ "$waited" -lt "$READY_TIMEOUT" ] || { echo "   not ready after ${READY_TIMEOUT}s"; tail -40 "$1"; return 1; }
   done
   # Identity: the process answering is the one this gate spawned (its unique run id is in /actuator/info).
-  curl -sf --max-time 5 "http://127.0.0.1:$APP_PORT/actuator/info" | grep -q "$RUN_ID" \
+  curl -sf --max-time 5 "http://127.0.0.1:$MGMT_PORT/actuator/info" | grep -q "$RUN_ID" \
       || { echo "   port $APP_PORT is answered by a process this gate did not start"; return 1; }
 }
 
@@ -279,7 +282,7 @@ expect_startup_failure() { # label pattern log cmd...
   start_app "$log" "$@"
   while kill -0 "$APP_PID" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
-    if curl -sf --max-time 2 "http://127.0.0.1:$APP_PORT/actuator/health/liveness" >/dev/null 2>&1 || [ "$waited" -ge "$EXIT_TIMEOUT" ]; then
+    if curl -sf --max-time 2 "http://127.0.0.1:$MGMT_PORT/actuator/health/liveness" >/dev/null 2>&1 || [ "$waited" -ge "$EXIT_TIMEOUT" ]; then
       stop_app; fail "$label: started although mandatory configuration was missing"
     fi
   done
@@ -298,6 +301,9 @@ status_of() { # expected-status label curl-args...
 
 probe_http() { # label features log artifact [prod]
   local label=$1 features=$2 log=$3 artifact=$4 prod=${5:-} base="http://127.0.0.1:$APP_PORT" cid cap
+  local mgmt="http://127.0.0.1:$MGMT_PORT"
+  # ND13: no actuator endpoint answers on the application port.
+  status_of 404 "$label /actuator/health not on the application port" "$base/actuator/health"
   cid=$(printf '%032x' "$RANDOM$RANDOM$RANDOM" | tail -c 32)
   # The trace id is the only correlation id (HD5): sent as traceparent, it must appear as the log's traceId;
   # a stray X-Correlation-Id is ignored and never echoed. The Authorization value must never be logged.
@@ -308,13 +314,13 @@ probe_http() { # label features log artifact [prod]
   if grep -qi "^x-correlation-id:" "$WORKDIR/headers"; then fail "$label: a custom correlation header was echoed"; fi
   if [ -n "$prod" ]; then
     # Without web security the capability report is simply not exposed in prod.
-    status_of 404 "$label /actuator/platform not exposed in prod" "$base/actuator/platform"
+    status_of 404 "$label /actuator/platform not exposed in prod" "$mgmt/actuator/platform"
     sleep 1
     "${SUPPORT[@]}" logcheck "$(native_path "$log")" "$artifact" "$cid" "$SAMPLE_BEARER" \
         || fail "$label: structured log contract ($log)"
     return 0
   fi
-  status_of 200 "$label /actuator/platform" "$base/actuator/platform"
+  status_of 200 "$label /actuator/platform" "$mgmt/actuator/platform"
   local report; report=$(cat "$WORKDIR/body")
   for cap in messaging:messaging data:data-jpa; do
     if has "$features" "${cap%%:*}"; then
@@ -372,14 +378,14 @@ requested_service_probes() { # project jar artifactId
   local p=$1 jar=$2 artifact=$3 log db closed
   step "Requested service: documented launch (mvn spring-boot:run, no profile)"
   log="$EVIDENCE/data-spring-boot-run.log"
-  APP_PORT=$("${SUPPORT[@]}" freeport); RUN_ID="gate-run-$RANDOM$RANDOM"
+  APP_PORT=$("${SUPPORT[@]}" freeport); MGMT_PORT=$("${SUPPORT[@]}" freeport); RUN_ID="gate-run-$RANDOM$RANDOM"
   (cd "$p" && exec "${MVN[@]}" spring-boot:run \
-      "-Dspring-boot.run.arguments=--server.port=$APP_PORT --management.info.env.enabled=true --management.info.process.enabled=true --info.gate.run-id=$RUN_ID") > "$log" 2>&1 &
+      "-Dspring-boot.run.arguments=--server.port=$APP_PORT --management.server.port=$MGMT_PORT --management.info.env.enabled=true --management.info.process.enabled=true --info.gate.run-id=$RUN_ID") > "$log" 2>&1 &
   APP_PID=$!; PIDS+=("$APP_PID")
   await_ready "$log" || fail "spring-boot:run did not become ready"
   probe_http "spring-boot:run" "data" "$log" "$artifact"
   # spring-boot:run forks the application JVM: stop it by the pid it reports, then the Maven process.
-  local app_pid; app_pid=$(curl -sf "http://127.0.0.1:$APP_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
+  local app_pid; app_pid=$(curl -sf "http://127.0.0.1:$MGMT_PORT/actuator/info" | grep -o '"pid":[0-9]*' | grep -o '[0-9]*' || true)
   if [ -n "$app_pid" ]; then
     if command -v taskkill >/dev/null 2>&1; then taskkill //F //PID "$app_pid" >/dev/null 2>&1 || true; else kill "$app_pid" 2>/dev/null || true; fi
   fi

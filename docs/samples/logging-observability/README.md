@@ -1,9 +1,5 @@
 # Logging + observability — sample
 
-> **Not yet updated for Spring-native 1.0.0.** Parts of this page still describe capabilities cut in
-> Phase 1: JWT security, the validation and events starters, Kafka, cache, locking, storage and others. Phase 2 replaced the core and errors types (`RequestContext`, `PlatformException`, `ProblemDetailCustomizer`, …) with Spring's.
-> What 1.0.0 ships: [capability status](../../spring-native/capability-status.md). The page is rewritten in its capability's phase.
-
 ## What it solves
 
 Your service writes **one JSON object per stdout line**, and each line is tied to its request by
@@ -23,28 +19,27 @@ Next to the logs, you get:
 - **Do not** ship `console` format (the `local` profile) to log aggregation. It is for humans: not
   masked, and a CR/LF in a message can split a line.
 - **Do not** point Kubernetes/OpenShift probes at `/actuator/health`: it still includes the database.
-  Use `/actuator/health/readiness` and `/actuator/health/liveness`.
-- **Do not** replace `logging.config` with your own Logback file unless it uses
-  `PlatformJsonEncoder`. Without it, nothing is masked.
+  Use `/actuator/health/readiness` and `/actuator/health/liveness`, on the management port 8081.
+- **Do not** replace `logging.config` with your own Logback file unless it uses Boot's structured appender.
+  Without it, nothing is masked (a WARN at startup says so).
 
 ## Minimal real setup
 
 Generate a service (see [`commands.md`](commands.md)); nothing to add for logs, metrics and probes. Log
-with structured arguments:
+fields with SLF4J's key-value pairs:
 
 ```java
-import static net.logstash.logback.argument.StructuredArguments.kv;
-
-log.info("order {} accepted for {}", kv("orderId", order.id()), kv("customerEmail", order.email()));
+log.atInfo().addKeyValue("orderId", order.id()).addKeyValue("customerEmail", order.email())
+        .log("order accepted");
 ```
 
 gives (illustrative line; the consumer run asserts these properties, not this exact text):
 
 ```json
-{"@timestamp":"2026-10-28T15:11:20.104Z","message":"order orderId=42 accepted for customerEmail=****",
- "logger":"ae.gov.dc.orders.OrderService","level":"INFO","service":"orders",
+{"@timestamp":"2026-11-20T15:11:20.104+04:00","message":"order accepted",
+ "logger":"ae.gov.dc.orders.OrderService","level":"INFO",
  "traceId":"0af7651916cd43dd8448eb211c80319c","spanId":"b7ad6b7169203331",
- "orderId":42,"customerEmail":"****"}
+ "orderId":42,"customerEmail":"****","service":"orders"}
 ```
 
 To export traces and metrics to an OpenTelemetry Collector, as the consumer run did:
@@ -59,18 +54,18 @@ management:
 
 ## Walkthrough
 
-1. **Format.** Outside the `local` profile, the platform's `logback-platform.xml` writes JSON through
-   `PlatformJsonEncoder`; Boot's banner is off, so every stdout line parses.
+1. **Format.** Outside the `local` profile, Spring Boot's structured logging writes JSON in the platform's format;
+   Boot's banner is off, so every stdout line parses. A log file (`logging.file.name`) gets the same JSON.
 2. **Correlation.** The core filter puts `traceId` and `spanId` in the MDC (the only MDC keys the
    platform writes). Your own MDC keys pass through and are masked by name, so a key like
    `session-token` is masked. To keep only listed keys, set
    `dc.platform.logging.mdc.include=tenant,channel`.
-3. **Redaction.** It applies to every string the encoder writes, and by field name at any depth.
-   `LogSanitizer` beans run first, for your own rules. The exact rules and known limits are in
-   [`../../modules/logging.md`](../../modules/logging.md).
-4. **Metrics.** `/actuator/prometheus` (token required under the security starter until Phase 7).
+3. **Redaction.** It applies to every value written, by pattern and by field name at any depth; a logged map,
+   record or bean keeps its names. Add your own rules with `dc.platform.logging.redaction.patterns`. The exact rules
+   and known limits are in [`../../modules/logging.md`](../../modules/logging.md).
+4. **Metrics.** `/actuator/prometheus` on the management port 8081, never on the application port.
    Boot caps `uri` tag values at 100 per meter, so `"/orders/" + id` URIs cannot explode your series.
-5. **Health.** `readiness` and `liveness` are pod-local. Shared systems (`db`, `rabbit`, `redis`) report
+5. **Health.** `readiness` and `liveness` are pod-local. Shared systems (`db`, `rabbit`) report
    in the `dependencies` group, for dashboards and alerts.
 6. **Exposure.** Only `health`, `info`, `prometheus` by default; generated services add `platform`.
 

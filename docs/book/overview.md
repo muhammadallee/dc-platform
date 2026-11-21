@@ -188,8 +188,8 @@ Structured JSON logs by default, one line per event, with `@timestamp`, `level`,
 `service`, `correlationId`, and `stack_trace`. Configured through an `EnvironmentPostProcessor` so it
 takes effect *before the application context exists* — which is what makes early startup and
 failure-analysis lines structured too, the very lines that matter during an incident. The `local`
-profile falls back to Boot's readable console format. All MDC entries become JSON fields; `Kv.of(k, v)`
-gives you structured arguments that stay readable on a console; contributed `LogSanitizer` beans scrub
+profile falls back to Boot's readable console format. All MDC entries become JSON fields; SLF4J key-value pairs (`addKeyValue`)
+become fields too, masked by name and structure; `dc.platform.logging.redaction.patterns` scrub
 sensitive values centrally. Deliberately fail-soft: a broken logging setup must never take a service
 down.
 

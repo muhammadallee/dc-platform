@@ -17,22 +17,21 @@
 
   <name>DC Platform :: Logging :: Starter</name>
   <description>
-    Structured JSON logs for every DC platform service: logstash-encoded stdout with service and
-    correlation fields, console fallback on the local profile.
+    Structured JSON logs for every DC platform service: Spring Boot's structured logging with service and
+    correlation fields and the platform's masking, console fallback on the local profile.
   </description>
 
   <dependencies>
-    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5); logging-api transitively. -->
+    <!-- starter -> same-capability autoconfigure (CLAUDE.md rule 5). -->
     <dependency>
       <groupId>ae.gov.dubaicustoms.platform</groupId>
       <artifactId>platform-logging-autoconfigure</artifactId>
       <version>${revision}</version>
     </dependency>
-    <!-- The named runtime lib: logback-platform.xml needs the encoder on the classpath
-         (optional in the autoconfigure module so console-only consumers can skip it). -->
+    <!-- The named runtime: Boot's Logback logging, whose structured JSON the platform configures (D141). -->
     <dependency>
-      <groupId>net.logstash.logback</groupId>
-      <artifactId>logstash-logback-encoder</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-logging</artifactId>
     </dependency>
   </dependencies>
 </project>

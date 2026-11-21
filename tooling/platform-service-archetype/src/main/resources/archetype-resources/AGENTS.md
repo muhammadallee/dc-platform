@@ -44,8 +44,10 @@ auto-configuration. Your job is business logic; DO NOT re-implement what the pla
 
 ## Debugging platform behavior
 
-`--debug` flag → condition report ·  `GET /actuator/platform` → active capabilities/providers ·
+`--debug` flag → condition report ·  `GET :8081/actuator/platform` (actuator's own port) → active capabilities/providers ·
 `/actuator/env` → property sources named `platform-*-defaults` (anything above them overrides).
+Logging: SLF4J only; add structured fields with `log.atInfo().addKeyValue("orderId", id).log(…)`. The platform masks
+credentials and personal data in the JSON lines.
 Disable a capability: `dc.platform.<cap>.enabled=false`.
 
 ## Upgrading the platform

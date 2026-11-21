@@ -1,0 +1,32 @@
+# Gate A spike S5b: Boot 4.1.2 Logstash-format structured logging with a platform members customizer
+# docs/spring-native/phase-00-baseline/spikes: mvn -o -B -ntp test -> exit 0 (S2-S7 all pass; S5b 1/1)
+# The masking customizer is registered in src/test/resources/META-INF/spring.factories; the service's own (ServiceOwn,
+# adds "serviceCustomizer":"applied") is named in logging.structured.json.customizer. Both apply.
+# The spike masks by member name only for "password"; the MDC authorization value is a placeholder, not a credential.
+# Output lines of the two test events (stack trace cut after its first frame), then every (member path : value type) the value processor saw, then the value the customizer read from the Environment.
+{"@timestamp":"2026-11-20T12:57:41.9207284+04:00","message":"login with password=****","logger":"spikes.S5bStructuredMaskingTest","level":"INFO","authorization":"Basic SAMPLE-NOT-A-CREDENTIAL","tenant":"t-1","orderId":"42","nested":{"note":"ref ****","password":"****"},"list":["password=****","ok"],"card":"Card[holder=alice, pan=4.111111111111111E15, password=record-pw-3]","amount":"****","service":"spike-service","serviceCustomizer":"applied"}
+{"@timestamp":"2026-11-20T12:57:41.9257311+04:00","message":"failed","logger":"spikes.S5bStructuredMaskingTest","level":"ERROR","authorization":"Basic SAMPLE-NOT-A-CREDENTIAL","tenant":"t-1","stack_trace":"java.lang.IllegalStateException: db login password=****\r\n\tat spikes.S5bStructuredMaskingTest.whatTheValueProcessorSees(S5bStructuredMaskingTest.java:107) …(cut)","service":"spike-service","serviceCustomizer":"applied"}
+--- seen ---
+ : 
+@timestamp : String
+amount : Double
+authorization : String
+card : Card
+level : Level
+list : List12
+list[0] : String
+list[1] : String
+logger_name : String
+message : String
+nested : MapN
+nested.note : String
+nested.password : String
+orderId : String
+service : String
+serviceCustomizer : String
+stack_trace : String
+tags : LinkedHashSet
+tags[0] : String
+tenant : String
+--- extraPattern ---
+CASE-[0-9]{6}

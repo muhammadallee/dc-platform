@@ -1,13 +1,12 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure;
 
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogstashFormatter;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -15,14 +14,25 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 
 /**
- * Points Boot's logging system at the platform JSON logback configuration by defaulting
- * {@code logging.config} — registered in {@code META-INF/spring.factories}, the ONE legacy
- * registration the platform allows: logging must be configured before the application context
- * (and therefore before auto-configuration) exists.
+ * Switches on Boot's structured JSON logging with the platform's field names (D141): registered in
+ * {@code META-INF/spring.factories}, because logging is configured before the application context (and therefore
+ * before auto-configuration) exists. The masking itself is {@code PlatformLogMasking}, a Boot JSON members customizer
+ * registered there too.
  *
- * <p>Defaults land in a LOWEST-precedence property source named
- * {@code platform-logging-defaults}, so user configuration always wins and the source name is
- * visible in {@code /actuator/env} for debuggability (property-conventions §7).
+ * <p>In JSON mode it defaults, for the console and for a log file:
+ * <ul>
+ *   <li>{@code logging.structured.format.console} and {@code .file} to the platform's formatter,
+ *       {@code PlatformLogstashFormatter}: the Logstash layout with the platform's field names and a {@code service}
+ *       member;</li>
+ *   <li>{@code logging.structured.json.context.include} from {@code dc.platform.logging.include-mdc};</li>
+ *   <li>no ASCII banner, which would put non-JSON lines on stdout (D108).</li>
+ * </ul>
+ * In console mode, or switched off, it contributes nothing. Either way it first clears a Boot format system property
+ * that holds the platform's own formatter (left by an earlier start in the same JVM), so this start's own choice
+ * applies; any other value is left alone.
+ *
+ * <p>Defaults land in a LOWEST-precedence property source named {@code platform-logging-defaults}, so user
+ * configuration always wins and the source name is visible in {@code /actuator/env} (property-conventions §7).
  *
  * <p>Stateless and thread-safe.
  *
@@ -33,40 +43,32 @@ public class PlatformLoggingEnvironmentPostProcessor implements EnvironmentPostP
     /** Property-source name; keep stable — operators grep for it in /actuator/env. */
     static final String PROPERTY_SOURCE_NAME = "platform-logging-defaults";
 
-    static final String CONFIG_LOCATION =
-            "classpath:ae/gov/dubaicustoms/platform/logging/logback-platform.xml";
+    /** The platform's structured format: the Logstash layout with the platform's field names. */
+    static final String FORMAT = PlatformLogstashFormatter.class.getName();
 
-    /** Flattened {@code dc.platform.logging.mdc.include}, read by logback-platform.xml. */
-    static final String MDC_INCLUDE_RESOLVED = "dc.platform.logging.internal.mdc-include";
-
-    /** Flattened {@code dc.platform.logging.redaction.patterns}, read by logback-platform.xml. */
-    static final String REDACTION_PATTERNS_RESOLVED = "dc.platform.logging.internal.redaction-patterns";
+    // Boot copies logging.structured.format.* into these JVM system properties when logging starts, and only when they
+    // are not set yet; it never clears them.
+    static final List<String> FORMAT_SYSTEM_PROPERTIES = List.of("CONSOLE_LOG_STRUCTURED_FORMAT",
+            "FILE_LOG_STRUCTURED_FORMAT");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)) {
-            return;
-        }
-        if (!jsonFormatResolved(environment)) {
-            // Console format = Boot's own logging defaults; nothing to contribute.
+        // A start earlier in this JVM leaves the platform's format in Boot's bridge properties. Cleared here, so this
+        // start's own choice applies; Boot copies the platform's format in again if this start uses it too. A value
+        // other than the platform's own formatter (a service's choice) is never touched.
+        FORMAT_SYSTEM_PROPERTIES.stream().filter(name -> FORMAT.equals(System.getProperty(name)))
+                .forEach(System::clearProperty);
+        if (!environment.getProperty("dc.platform.logging.enabled", Boolean.class, true)
+                || !jsonFormatResolved(environment)) {
             return;
         }
         Map<String, Object> defaults = new LinkedHashMap<>();
-        defaults.put("logging.config", CONFIG_LOCATION);
-        // The ASCII banner goes to stdout outside logging: in JSON mode it would put non-JSON lines in
-        // the stream a log shipper parses line by line (D108).
+        defaults.put("logging.structured.format.console", FORMAT);
+        // A service that sets logging.file.name gets the same masked JSON, not Boot's plain pattern file.
+        defaults.put("logging.structured.format.file", FORMAT);
+        defaults.put("logging.structured.json.context.include",
+                environment.getProperty("dc.platform.logging.include-mdc", "true"));
         defaults.put("spring.main.banner-mode", "off");
-        // Resolved here (not in logback XML) because springProperty supports a single source:
-        // explicit dc.platform.logging.service-name > spring.application.name > "application".
-        defaults.put("dc.platform.logging.service-name",
-                environment.getProperty("spring.application.name", "application"));
-        // List properties flattened for springProperty, which reads one scalar key: the strict MDC
-        // keys comma-separated, the extra redaction patterns one per line (regexes may hold commas).
-        Binder binder = Binder.get(environment);
-        defaults.put(MDC_INCLUDE_RESOLVED, String.join(",",
-                binder.bind("dc.platform.logging.mdc.include", Bindable.listOf(String.class)).orElse(List.of())));
-        defaults.put(REDACTION_PATTERNS_RESOLVED, String.join("\n",
-                binder.bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())));
         environment.getPropertySources().addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, defaults));
     }
 

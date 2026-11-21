@@ -302,6 +302,10 @@ public final class PlatformValueMasker {
         result = PHONE_UAE_MOBILE.matcher(result).replaceAll(MASK);
         for (Pattern pattern : extraPatterns) {
             result = pattern.matcher(result).replaceAll(MASK);
+            if (result.length() > 4 * text.length() + 64) {
+                // More text than masking can produce from this input: fail closed.
+                return MASK;
+            }
         }
         return result;
     }
@@ -513,7 +517,11 @@ public final class PlatformValueMasker {
             }
             // An integral number may be an identifier (an Emirates ID): every pattern. A fraction cannot: only the
             // service's own patterns.
-            return integral(value) ? scalar(value, plain(value)) : extraOnly(value, value.toString());
+            if (!integral(value)) {
+                return extraOnly(value, value.toString());
+            }
+            Object written = scalar(value, value.toString());
+            return written != value ? written : scalar(value, plain(value));
         }
 
         private Object extraOnly(Object value, String text) {
@@ -523,6 +531,9 @@ public final class PlatformValueMasker {
             String masked = text;
             for (Pattern pattern : extraPatterns) {
                 masked = pattern.matcher(masked).replaceAll(MASK);
+                if (masked.length() > 4 * text.length() + 64) {
+                    return new SafeText(MASK);
+                }
             }
             return masked.equals(text) ? value : new SafeText(masked);
         }

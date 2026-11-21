@@ -92,13 +92,15 @@ Do not add the trace ID yourself: it is already a field on the line.
 | `dc.platform.logging.service-name` | `${spring.application.name}` | The `service` field. |
 | `dc.platform.logging.mdc.include` | empty | Strict mode: only `traceId`, `spanId` and these keys of the MDC and key-value pairs. |
 | `dc.platform.logging.redaction.enabled` | `true` | Mask credentials and personal data. |
-| `dc.platform.logging.redaction.patterns` | empty | Extra regular expressions whose matches are masked. An invalid one fails startup. |
+| `dc.platform.logging.redaction.patterns` | empty | Extra regular expressions whose matches are masked. One that is invalid, or matches empty text or the mask `****` itself, fails startup. |
 
 ## Back-off limits
 
 - **Your own Logback file** (`logging.config`, `logback-spring.xml`) replaces Boot's structured logging, and with it
   the platform's format and masking, unless your file uses Boot's structured appender
   (`org/springframework/boot/logging/logback/structured-console-appender.xml`). A WARN at startup says so.
+- **Boot's ECS or GELF format:** their own nested objects pass the masking only when the console format and, where
+  a log file is written, the file format are the same; a mixed setup masks them (fails closed).
 - **Your own customizer** runs inside Boot's JSON writer. Values the service logs, and flat members your customizer
   adds, are masked. A nested object your customizer adds is masked whole, unless it is named like one of ECS's
   objects (`log`, `process`, `service`, `ecs`, `error`) while you use Boot's ECS format. Whatever your customizer's own

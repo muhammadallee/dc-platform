@@ -732,9 +732,9 @@ class StructuredLogMaskingTest {
 
     @Test
     void maskingIsIdempotentSoNestedValuesDoNotGrow() {
-        // Finding 1: an extra pattern that also matches the mask, over a nested value walked more than once.
+        // Finding 1: a nested value walked more than once is masked once.
         encoder.stop();
-        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "\\S+"));
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "te.t"));
         String line = encode(event("x").pair("nested", Map.of("a", Map.of("b", Map.of("c", "text")))));
         assertThat(parse(line).get("nested")).isEqualTo(Map.of("a", Map.of("b", Map.of("c", "****"))));
         assertThat(line.length()).isLessThan(400);
@@ -793,17 +793,59 @@ class StructuredLogMaskingTest {
 
     @Test
     void extraPatternsKeepWholeTextSemanticsAndAreAppliedOnce() {
-        // New 1, 2: literal mask text cannot split a match; an empty-matching pattern is applied once, not per pass.
+        // New 1, 2: literal mask text cannot split a match; a pattern that matches empty text or the mask itself (which
+        // could grow masks without end) is rejected at startup.
         encoder.stop();
-        MockEnvironment environment = new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]",
-                "CASE-\\S+");
-        for (int i = 1; i <= 20; i++) {
-            environment.setProperty("dc.platform.logging.redaction.patterns[" + i + "]", "^");
-        }
-        start(environment);
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "CASE-\\S+"));
         String line = encode(event("x").pair("ref", "CASE-****123456").pair("nested", Map.of("a", List.of("b"))));
         assertThat(line).doesNotContain("123456");
-        assertThat(line.length()).isLessThan(2_000);
+        for (String growing : List.of("^", "\\S", "\\*+", "x*")) {
+            org.assertj.core.api.Assertions.assertThatIllegalStateException().as(growing).isThrownBy(() ->
+                    ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformLogMasking.masker(
+                            new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", growing)))
+                    .withMessageContaining("matches empty text or the mask");
+        }
+    }
+
+    @Test
+    void theMessageIsMaskedOnceMoreAtMostAndANullTemplateIsAllowed() {
+        // Verification 1, new 1 and 5.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "^x$"));
+        assertThat(parse(encode(event("{}", "x"))).get("message")).isEqualTo("****");
+        LoggingEvent nullTemplate = new LoggingEvent(Logger.class.getName(), context.getLogger(LOGGER), Level.INFO,
+                null, null, new Object[] {"x"});
+        nullTemplate.setMDCPropertyMap(Map.of());
+        assertThat(new String(encoder.encode(nullTemplate), StandardCharsets.UTF_8)).contains("\"level\":\"INFO\"");
+    }
+
+    @Test
+    void aNumberIsCheckedAsWrittenAndAsDigits() {
+        // Verification 1, new 4: a pattern on the written text of 123.0.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("dc.platform.logging.redaction.patterns[0]", "^123\\.0$"));
+        assertThat(parse(encode(event("stored").pair("value", 123.0d)))).containsEntry("value", "****");
+    }
+
+    @Test
+    void mixedFormatsExemptNoFormatObjects() {
+        // Verification 1, new 3: console logstash, file GELF: a raw writer named timestamp is masked.
+        encoder.stop();
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("logging.structured.format.console", "logstash");
+        environment.setProperty("logging.structured.format.file", "gelf");
+        start(environment);
+        String line = encode(event("stored").pair("timestamp",
+                org.springframework.boot.json.JsonWriter.standard().write(Map.of("password", "hunter2"))));
+        assertThat(line).doesNotContain("hunter2");
+    }
+
+    @Test
+    void twoContextKeysWrittenUnderOneNameKeepTheLater() {
+        // Verification 1, remaining part of round 2 finding 6: foo and _foo under prefix ctx are both ctx_foo.
+        encoder.stop();
+        start(new MockEnvironment().withProperty("logging.structured.json.context.prefix", "ctx"));
+        assertThat(parse(encode(event("stored").mdc("foo", "one").pair("_foo", "two")))).containsEntry("ctx_foo", "two");
     }
 
     @Test

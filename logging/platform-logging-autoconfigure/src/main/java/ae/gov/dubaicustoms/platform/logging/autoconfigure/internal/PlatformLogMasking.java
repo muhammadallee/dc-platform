@@ -64,16 +64,20 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
                 || !environment.getProperty("dc.platform.logging.redaction.enabled", Boolean.class, true)) {
             return null;
         }
-        java.util.Set<String> formatObjects = new java.util.HashSet<>();
-        for (String key : List.of("logging.structured.format.console", "logging.structured.format.file")) {
+        // A Boot format's own deferred objects pass untouched only when every configured structured format is that
+        // one: the customizer cannot tell which destination it serves, so a mixed setup exempts nothing (fails closed).
+        java.util.Set<String> formats = new java.util.HashSet<>();
+        boolean file = environment.containsProperty("logging.file.name") || environment.containsProperty("logging.file.path");
+        for (String key : file ? List.of("logging.structured.format.console", "logging.structured.format.file")
+                : List.of("logging.structured.format.console")) {
+            // The file format counts only where a log file is written.
             String format = environment.getProperty(key, "");
-            if ("ecs".equalsIgnoreCase(format)) {
-                formatObjects.addAll(PlatformValueMasker.ECS_OBJECTS);
-            }
-            if ("gelf".equalsIgnoreCase(format)) {
-                formatObjects.addAll(PlatformValueMasker.GELF_OBJECTS);
+            if (!format.isBlank()) {
+                formats.add(format.strip().toLowerCase(java.util.Locale.ROOT));
             }
         }
+        java.util.Set<String> formatObjects = formats.equals(java.util.Set.of("ecs")) ? PlatformValueMasker.ECS_OBJECTS
+                : formats.equals(java.util.Set.of("gelf")) ? PlatformValueMasker.GELF_OBJECTS : java.util.Set.of();
         return new PlatformValueMasker(compile(Binder.get(environment)
                 .bind("dc.platform.logging.redaction.patterns", Bindable.listOf(String.class)).orElse(List.of())),
                 formatObjects);
@@ -122,7 +126,13 @@ public final class PlatformLogMasking implements StructuredLoggingJsonMembersCus
                 continue;
             }
             try {
-                compiled.add(Pattern.compile(pattern.strip()));
+                Pattern regex = Pattern.compile(pattern.strip());
+                if (regex.matcher("").find() || regex.matcher(PlatformValueMasker.MASK).find()) {
+                    throw new IllegalStateException("dc.platform.logging.redaction.patterns entry '" + pattern.strip()
+                            + "' matches empty text or the mask " + PlatformValueMasker.MASK
+                            + " itself, so masking could grow without end; anchor it to the text it should mask");
+                }
+                compiled.add(regex);
             } catch (PatternSyntaxException invalid) {
                 throw new IllegalStateException("dc.platform.logging.redaction.patterns holds an invalid regular "
                         + "expression: " + invalid.getDescription() + " at index " + invalid.getIndex(), invalid);

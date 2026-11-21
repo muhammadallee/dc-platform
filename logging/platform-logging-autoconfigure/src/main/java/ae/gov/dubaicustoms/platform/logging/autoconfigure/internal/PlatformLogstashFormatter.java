@@ -87,7 +87,7 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
 
     // The message from its pattern, each argument masked by its structure first; the whole text is masked again as a
     // member. Without masking, Logback's own formatted message.
-    static String message(ILoggingEvent event, @Nullable PlatformValueMasker masker) {
+    static @Nullable Object message(ILoggingEvent event, @Nullable PlatformValueMasker masker) {
         Object[] arguments = event.getArgumentArray();
         if (masker == null || arguments == null || arguments.length == 0) {
             return event.getFormattedMessage();
@@ -98,7 +98,7 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
         }
         // Each argument masked by its structure and patterns, then the whole message once more (a pattern may span the
         // template and an argument, as in "password={}"): two bounded passes, marked so the processor adds no third.
-        return masker.mask(null, MessageFormatter.basicArrayFormat(event.getMessage(), display)).toString();
+        return masker.mask(null, MessageFormatter.basicArrayFormat(event.getMessage(), display));
     }
 
     // The layout's own members: a context entry under one of these names would make Boot reject the whole line.
@@ -117,8 +117,16 @@ public final class PlatformLogstashFormatter extends JsonWriterStructuredLogForm
             mdc.forEach((key, value) -> context.put(key, value));
         }
         keyValuePairs(event, strict).forEach(pair -> context.put(pair.key, pair.value));
-        // A collision is decided on the name Boot writes, with the context prefix joined as Boot joins it.
+        // A collision is decided on the name Boot writes, with the context prefix joined as Boot joins it: a layout
+        // name is left out, and of two keys written under the same name (foo and _foo under ctx) the later is kept.
         context.keySet().removeIf(key -> LAYOUT_MEMBERS.contains(joined(prefix, key)));
+        Map<String, String> written = new LinkedHashMap<>();
+        for (String key : List.copyOf(context.keySet())) {
+            String earlier = written.put(joined(prefix, key), key);
+            if (earlier != null) {
+                context.remove(earlier);
+            }
+        }
         if (masker != null) {
             context.replaceAll(masker::sanitizePair);
         }

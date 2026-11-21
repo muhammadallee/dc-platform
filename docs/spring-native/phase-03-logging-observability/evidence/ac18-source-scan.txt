@@ -1,0 +1,8 @@
+# AC18 source scan at 36ef8a7: Kv, LogSanitizer, PlatformJsonEncoder, logstash-logback-encoder in code, build files,
+# archetype resources, probes and scripts (*.java *.xml *.sh *.py *.yml *.yaml *.properties *.factories *.imports; target/ excluded)
+./logging/platform-logging-autoconfigure/src/test/java/ae/gov/dubaicustoms/platform/logging/autoconfigure/StructuredLogMaskingTest.java:36: * rounds 1 and 2, verification passes and the Gate F trial); those about Logstash markers, raw JSON, {@code Kv} and
+./logging/platform-logging-autoconfigure/src/test/java/ae/gov/dubaicustoms/platform/logging/autoconfigure/StructuredLogMaskingTest.java:37: * {@code LogSanitizer} are retired with those types (scope §7).
+./logging/platform-logging-autoconfigure/src/test/java/ae/gov/dubaicustoms/platform/logging/autoconfigure/StructuredLogMaskingTest.java:414:        // Finding 8: the replacement for a LogSanitizer bean on numbers, nested too.
+./tooling/scripts/golden-path.sh:239:  ! grep -q "BOOT-INF/lib/logstash-logback-encoder-" <<<"$listing" || fail "$artifact: jar still carries logstash-logback-encoder"
+# end of scan: 4 hits, none a use - three test comments naming retired types, and golden-path.sh asserting the
+# encoder is ABSENT from the jar. AC18 holds.

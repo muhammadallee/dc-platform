@@ -1,0 +1,24 @@
+# Gate F, Spring-native Phase 3: three consecutive consumer runs on the final code
+# Platform commit 7464f08 (code as of 6613528; later commits change docs only). Repository:
+# tooling/hardening/native-repo.sh native-03 (every platform artifact removed from the seed, this checkout installed on
+# top). Floor 65.
+#   HH_MAVEN_REPO=~/.m2-hardening/native-03 bash tooling/hardening/scenarios/phase-02-logging-observability.sh
+
+run 1  logging-observability-20261121-231320  HARNESS PASS - 69 passed, 0 failed
+run 2  logging-observability-20261121-231925  HARNESS PASS - 69 passed, 0 failed
+run 3  logging-observability-20261121-232442  HARNESS PASS - 69 passed, 0 failed
+
+Per run: <run>-assertions.tsv (every check), <run>-run-identity.txt (commit, image digests),
+<run>-probe-platform-imports.txt (empty: the probe imports no platform type).
+HI-0166 check: no "metaData=" in any run's app.log (the 36ef8a7 runs had 10 such lines each).
+
+Regression, Phase 2's consumer (floor 77), same repository and commit:
+  HH_MAVEN_REPO=~/.m2-hardening/native-03 bash tooling/hardening/scenarios/phase-01-core-errors.sh
+  core-errors-20261121-233229  HARNESS PASS - 89 passed, 0 failed  (phase-02-regression-core-errors-*)
+
+Labs (tooling/labs/run-lab.sh), same commit: logging-observability LAB PASS, first-service LAB PASS
+(lab-*-run.txt).
+
+Full reactor: mvn -o -T1 -B -ntp verify at 7464f08 -> exit 0 (evidence-raw/gateH-full-verify-2.log).
+
+Superseded: the runs at a4897d3 (before the round 2 fixes) and at 36ef8a7 (before the HI-0166 fix), all 69/69.

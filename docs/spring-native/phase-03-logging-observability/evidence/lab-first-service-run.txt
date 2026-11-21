@@ -1,6 +1,6 @@
-# Lab runner, first-service (Phase 2's lab), on the final code (36ef8a7)
+# Lab runner, first-service (Phase 2's lab), on the final code (7464f08)
 # bash tooling/labs/run-lab.sh first-service -> exit 0
-run-lab: first-service in /c/Users/Ali/dc-labs/lab-first-service-20261121-160949
+run-lab: first-service in /c/Users/Ali/dc-labs/lab-first-service-20261121-233920
 ### step 1 (lab-step, line 15)
 ### step 2 (lab-step, line 23)
 ### step 3 (lab-file, line 44)
@@ -15,4 +15,4 @@ run-lab: first-service in /c/Users/Ali/dc-labs/lab-first-service-20261121-160949
 ### step 12 (lab-check, line 164)
 ### step 13 (lab-step, line 174)
 ### step 14 (lab-check, line 185)
-LAB PASS — first-service — log: /c/Users/Ali/dc-labs/lab-first-service-20261121-160949/lab.log
+LAB PASS — first-service — log: /c/Users/Ali/dc-labs/lab-first-service-20261121-233920/lab.log

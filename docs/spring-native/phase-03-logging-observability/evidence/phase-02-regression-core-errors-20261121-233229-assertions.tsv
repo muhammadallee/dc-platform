@@ -1,5 +1,5 @@
 PASS	AC23 no platform import in src/main/java
-PASS	app ready in 11s
+PASS	app ready in 7s
 PASS	ac1-valid status 200
 PASS	ac1-valid: context == inbound trace
 PASS	ac1-valid: spanId in MDC
@@ -84,6 +84,6 @@ PASS	ac6-unsampled: unsampled trace kept
 PASS	ac6-unsampled-new: fresh unsampled trace
 PASS	ac6-unsampled-error status 500
 PASS	ac6-unsampled-error: traceId in an unsampled error body
-PASS	app exited on SIGTERM (code 143) in 2s
+PASS	app exited on SIGTERM (code 143) in 3s
 PASS	graceful shutdown completed (logged)
-PASS	cleanup: no containers left for dch-20261121161604-1116
+PASS	cleanup: no containers left for dch-20261121233229-2099

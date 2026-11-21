@@ -1,6 +1,6 @@
-# Lab runner, logging-observability, on the final code (36ef8a7)
+# Lab runner, logging-observability, on the final code (7464f08)
 # bash tooling/labs/run-lab.sh logging-observability -> exit 0
-run-lab: logging-observability in /c/Users/Ali/dc-labs/lab-logging-observability-20261121-160532
+run-lab: logging-observability in /c/Users/Ali/dc-labs/lab-logging-observability-20261121-233509
 ### step 1 (lab-step, line 16)
 ### step 2 (lab-step, line 24)
 ### step 3 (lab-file, line 44)
@@ -18,4 +18,4 @@ run-lab: logging-observability in /c/Users/Ali/dc-labs/lab-logging-observability
 ### step 15 (lab-check, line 205)
 ### step 16 (lab-step, line 212)
 ### step 17 (lab-check, line 223)
-LAB PASS — logging-observability — log: /c/Users/Ali/dc-labs/lab-logging-observability-20261121-160532/lab.log
+LAB PASS — logging-observability — log: /c/Users/Ali/dc-labs/lab-logging-observability-20261121-233509/lab.log

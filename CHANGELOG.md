@@ -29,6 +29,11 @@ Changed:
 - A WARN at startup when the service's own Logback file replaces Boot's structured logging, which bypasses the
   platform's masking.
 - `@PlatformWebTest` keeps actuator on the mock servlet, so MockMvc still reaches it.
+- `dc.platform.logging.redaction.patterns`: a pattern that matches empty text or the mask `****` itself fails startup.
+- Boot's ECS and GELF formats keep their own nested objects unmasked only when the console format, and the file format
+  where a log file is written, are that one format.
+- Logging a resource (a JDBC connection, a stream) or a proxy shows its `toString()`, masked, and never calls its
+  getters (HI-0166).
 
 ### Spring-native Phase 2: foundation, core + errors (`develop`; breaking)
 

@@ -49,6 +49,7 @@ Generated from the docs navigation. Each link is a clean Markdown page.
 
 - [Labs](labs/index.md)
 - [First service](labs/first-service/index.md)
+- [Logs, metrics and a trace](labs/logging-observability/index.md)
 
 ## Book (explanation + tutorial)
 

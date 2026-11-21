@@ -631,17 +631,8 @@ public final class PlatformValueMasker {
     // line ran a connection's metadata queries).
     static boolean resource(Object value) {
         Class<?> type = value.getClass();
-        if (value instanceof AutoCloseable || Proxy.isProxyClass(type)) {
-            return true;
-        }
-        for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
-            for (Class<?> contract : c.getInterfaces()) {
-                if ("org.hibernate.proxy.HibernateProxy".equals(contract.getName())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return value instanceof AutoCloseable || Proxy.isProxyClass(type)
+                || implementsAny(type, Set.of("org.hibernate.proxy.HibernateProxy"));
     }
 
     // Sentinel for a getter or accessor that threw.
@@ -652,7 +643,9 @@ public final class PlatformValueMasker {
         List<Method> getters = new ArrayList<>();
         for (Method method : type.getMethods()) {
             if (method.getParameterCount() != 0 || Modifier.isStatic(method.getModifiers())
-                    || method.getDeclaringClass() == Object.class || method.getReturnType() == void.class) {
+                    || method.getDeclaringClass() == Object.class || method.getReturnType() == void.class
+                    || AutoCloseable.class.isAssignableFrom(method.getReturnType())) {
+                // A getter returning a resource opens one (Spring's UrlResource.getInputStream connects): never called.
                 continue;
             }
             String name = method.getName();

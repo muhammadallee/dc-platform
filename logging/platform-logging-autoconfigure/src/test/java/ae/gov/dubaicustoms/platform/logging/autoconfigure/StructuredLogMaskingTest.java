@@ -928,6 +928,33 @@ class StructuredLogMaskingTest {
         String getName();
     }
 
+    /** Stands in for org.hibernate.proxy.HibernateProxy, reached through another interface (Codex Gate H). */
+    public interface ExtendedProxy extends org.hibernate.proxy.HibernateProxy {
+    }
+
+    /** A bean whose getter opens a resource, as Spring's UrlResource.getInputStream connects. */
+    public static final class Opener {
+
+        static final java.util.concurrent.atomic.AtomicInteger OPENED = new java.util.concurrent.atomic.AtomicInteger();
+
+        public java.io.InputStream getInputStream() {
+            OPENED.incrementAndGet();
+            return java.io.InputStream.nullInputStream();
+        }
+
+        public String getDescription() {
+            return "URL [http://example.invalid/x]";
+        }
+    }
+
+    @Test
+    void aGetterReturningAResourceIsNeverCalled() {
+        Opener.OPENED.set(0);
+        assertThat(parse(encode(event("stored").pair("resource", new Opener())))).containsEntry("resource",
+                Map.of("description", "URL [http://example.invalid/x]"));
+        assertThat(Opener.OPENED).hasValue(0);
+    }
+
     @Test
     void aResourceOrAProxyIsItsOwnMaskedTextAndNoGetterRuns() {
         Pooled.READS.set(0);
@@ -940,6 +967,15 @@ class StructuredLogMaskingTest {
                     proxied.incrementAndGet();
                     return "loaded";
                 });
+        java.util.concurrent.atomic.AtomicInteger extended = new java.util.concurrent.atomic.AtomicInteger();
+        class Entity implements ExtendedProxy {
+            public String getName() {
+                extended.incrementAndGet();
+                return "loaded";
+            }
+        }
+        encode(event("stored").pair("entity", new Entity()));
+        assertThat(extended).hasValue(0);
         String line = encode(event("Added connection {} {}", new Pooled(), lazy).pair("pooled", new Pooled())
                 .pair("lazy", lazy).pair("nested", Map.of("conn", new Pooled())));
         assertThat(Pooled.READS).hasValue(0);

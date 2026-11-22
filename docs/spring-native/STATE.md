@@ -8,12 +8,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
 | Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-04-data` |
 | Current phase | 4 — Data (Phase 3 closed 2026-11-21) |
-| Current gate | Phase 4 Gate A: baseline recorded (55 tests, 44 docker-tagged, no skips); lazy-loading spike found HI-0167 (High); scope next |
+| Current gate | Phase 4 Gate B (Gate A done: baseline, scope, carry-over, port plan) |
 | Last commit | see `git log -1 native/phase-04-data` |
-| Open blockers | none; HI-0167 (High, open) is fixed in Phase 4 Gate B |
+| Open blockers | none; HI-0167 (High) and HI-0168 (Medium) are open, both fixed in Phase 4 Gate B |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Phase 4 `scope.md`: carry-over table, removal list, consumer port plan (floor 92). Carried from Phase 3: Hibernate lazy collections and entities logged as values |
+| Next action | Phase 4 Gate B, failing test first: HI-0167 on real Hibernate, then HI-0168; then the zero-config test (AC20) and the harness import check (AC17) |
 
 ## Phase log
 

@@ -6,14 +6,14 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 |---|---|
 | Plan | [`plan.md`](plan.md) **v2** (2026-11-19): target 1.0.0, two iterations, seven capabilities, basic auth only |
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
-| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: none (Phase 3 merged); next `native/phase-04-data` |
+| Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-04-data` |
 | Current phase | 4 — Data (Phase 3 closed 2026-11-21) |
-| Current gate | Phase 4 Gate A (not started) |
-| Last commit | see `git log -1 native/phase-03-logging-observability` |
+| Current gate | Phase 4 Gate A: baseline recorded (55 tests, 44 docker-tagged, no skips); scope next |
+| Last commit | see `git log -1 native/phase-04-data` |
 | Open blockers | none |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Phase 4 Gate A: baseline of the data modules on `develop`, scope and decisions. Carried from Phase 3: Hibernate lazy collections and entities logged as values (closure.md) |
+| Next action | Phase 4 `scope.md`: carry-over table, removal list, consumer port plan (floor 92). Carried from Phase 3: Hibernate lazy collections and entities logged as values |
 
 ## Phase log
 
@@ -23,6 +23,7 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | 1 | `085d752` (`develop`) | PASS | `native/phase-01-closed` | 2026-11-19 |
 | 2 | `516f54c` (`develop`) | PASS | `native/phase-02-closed` | 2026-11-20 |
 | 3 | `a0f58d5` (`develop`) | PASS | `native/phase-03-closed` | 2026-11-21 |
+| 4 | `e9f9b80` (`develop`) | in progress | — | — |
 
 ## Environment notes for resumption
 

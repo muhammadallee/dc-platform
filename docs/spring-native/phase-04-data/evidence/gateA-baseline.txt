@@ -1,0 +1,12 @@
+# Gate A baseline, Spring-native Phase 4: data tests at e9f9b80 (495412d differs only in STATE.md), before any change
+# JDK 25 (Corretto 25.0.3), Maven 3.9.9 offline, -T1. Raw logs in evidence-raw/ (git-ignored), by SHA-256.
+
+1. mvn -o -T1 -B -ntp -pl data/platform-data-jpa-autoconfigure,data/platform-starter-data-jpa,data/platform-starter-data-jpa-oracle -am verify -> exit 0
+   data-jpa-autoconfigure: Tests run: 55, Failures: 0, Errors: 0, Skipped: 0
+   gateA-baseline.log 00b53f1825a1ecc7bd064398b7392c6c9cecd1af83bb69a910758490677bd5a7
+
+2. mvn -o -T1 -B -ntp -Pdocker -pl data/platform-data-jpa-autoconfigure -am verify -> exit 0 (Docker 29.9.2)
+   docker-tagged: Tests run: 44, Failures: 0, Errors: 0, Skipped: 0
+     OracleDialectIT 7, OracleExceptionPathsIT 9, OracleFlywayPostureIT 7, OracleNullabilityCheckIT 1, OracleSmokeIT 3,
+     OracleTimeoutDefaultsIT 9, OracleTimeoutLeversIT 4, OracleTransactionRulesIT 3, PostgresParityIT 1
+   gateA-baseline-docker.log 522f34e64ab73e9d8e74d4673525dd5e442e2aca4fcb20ff3f672be87af4e8f6

@@ -30,3 +30,8 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 - Full builds `-T1`, in the foreground, with `-l <log>`. Write scripts and commit messages to files; no heredocs (plan §4.2).
 - Never install or deploy into `~/.m2-baseline` or `~/.m2-native-baseline`.
 - Spikes: `docs/spring-native/phase-00-baseline/spikes/` (`mvn -B -ntp test`, online; outside the reactor).
+- Run folders cleaned 2026-11-22 (owner approved deleting old runs). Ten superseded folders in `~/dc-hardening-runs` were
+  deleted. One was cited: `phase-01/core-errors-20261104-114003` (v3 Phase 8 regression). It was deleted after a faulty
+  citation check; its committed `assertions.tsv` and `run-identity.txt` under
+  `docs/production-readiness/phase-08-final/evidence/d133-regressions/phase-01/` remain, its raw logs are lost. Before
+  deleting a run, look for its timestamp in file names and contents, dashed and compact.

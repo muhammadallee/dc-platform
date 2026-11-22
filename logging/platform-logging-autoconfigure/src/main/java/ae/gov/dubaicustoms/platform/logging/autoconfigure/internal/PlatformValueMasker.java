@@ -1,5 +1,6 @@
 package ae.gov.dubaicustoms.platform.logging.autoconfigure.internal;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -41,8 +42,9 @@ import org.springframework.boot.json.WritableJson;
  * <p>Every value is turned into a JSON-safe copy by one walk ({@link #sanitize}), used both for JSON members and for
  * the arguments of a message (Codex phase 3 round 1): maps keep their keys and lists their order, so a credential name
  * at any depth masks its whole value; a record becomes a map of its components and any other application object a map
- * of its bean properties, so their credential names count too (a resource or proxy, whose getters may do I/O, is its own
- * text instead); JDK value types ({@code UUID}, {@code Path},
+ * of its bean properties, so their credential names count too (a resource or JDK proxy, whose getters may do I/O, is
+ * its own text instead; an entity, Hibernate proxy or unloaded collection is a placeholder and none of its methods
+ * run); JDK value types ({@code UUID}, {@code Path},
  * {@code java.time}, enums…), character data ({@code CharSequence}, {@code char[]}, {@code Character}) and Boot's
  * {@code WritableJson} become masked text; numbers stay numbers unless they are card numbers or match an extra
  * pattern, and a non-finite one becomes text. Each {@code toString()} or getter is called once, under a guard: one that
@@ -62,6 +64,14 @@ public final class PlatformValueMasker {
 
     /** Values one walk visits at most; the rest are masked whole, so a branching structure stays bounded. */
     static final int MAX_NODES = 10_000;
+
+    private static final String ENTITY = "jakarta.persistence.Entity";
+    private static final Set<String> HIBERNATE_PROXY = Set.of("org.hibernate.proxy.HibernateProxy");
+    private static final Set<String> PERSISTENT_COLLECTION =
+            Set.of("org.hibernate.collection.spi.PersistentCollection");
+
+    /** Shown for a Hibernate collection that is not loaded. */
+    private static final String NOT_LOADED = "[not loaded]";
 
     /** Shown for a value whose {@code toString()} or getter throws. */
     static final String UNRENDERABLE = "[unrenderable]";
@@ -373,6 +383,14 @@ public final class PlatformValueMasker {
             if (value == null) {
                 return null;
             }
+            // Before anything could render, iterate or introspect it: each of those loads a JPA value (HI-0167).
+            String entity = entityType(value.getClass());
+            if (entity != null) {
+                return text("[entity " + entity + "]");
+            }
+            if (unloadedCollection(value)) {
+                return text(NOT_LOADED);
+            }
             if (value instanceof CharSequence text) {
                 return text(guarded(text::toString));
             }
@@ -421,7 +439,7 @@ public final class PlatformValueMasker {
                             break;
                         }
                         Map.Entry<?, ?> entry = entries.next();
-                        String key = guarded(() -> String.valueOf(entry.getKey()));
+                        String key = key(entry.getKey(), depth + 1);
                         copy.put(key, copy(key, entry.getValue(), depth + 1));
                     }
                     return copy;
@@ -466,6 +484,16 @@ public final class PlatformValueMasker {
             } finally {
                 ancestors.remove(value);
             }
+        }
+
+        // A map key as text. A simple key is its own text, which is the name credential rules read; any other key is
+        // walked like a value, because its toString() can load a JPA value.
+        private String key(Object key, int depth) {
+            if (key == null || key instanceof CharSequence || key instanceof Number || key instanceof Boolean
+                    || key instanceof Enum<?>) {
+                return render(key);
+            }
+            return String.valueOf(copy(null, key, depth));
         }
 
         // A JDK value type is text; any other object is its bean properties, or its text when it has none.
@@ -632,13 +660,41 @@ public final class PlatformValueMasker {
         return true;
     }
 
-    // A resource (AutoCloseable: connections, statements, sessions, streams) or a proxy (JDK dynamic, Hibernate lazy):
+    // The type name to show for an entity or a Hibernate proxy, or null. By name: logging depends on neither JPA nor
+    // Hibernate. An entity's getters and toString() can load, and a proxy's toString() always does.
+    private static String entityType(Class<?> type) {
+        for (Class<?> each = type; each != null && each != Object.class; each = each.getSuperclass()) {
+            for (Annotation annotation : each.getDeclaredAnnotations()) {
+                if (ENTITY.equals(annotation.annotationType().getName())) {
+                    return each.getSimpleName();
+                }
+            }
+        }
+        if (!implementsAny(type, HIBERNATE_PROXY)) {
+            return null;
+        }
+        // An entity mapped in XML: its proxy extends it.
+        return type.getSuperclass() == Object.class ? type.getSimpleName() : type.getSuperclass().getSimpleName();
+    }
+
+    // A Hibernate collection that is not loaded, or cannot say that it is: iterating, sizing or rendering it loads it.
+    private static boolean unloadedCollection(Object value) {
+        if (!implementsAny(value.getClass(), PERSISTENT_COLLECTION)) {
+            return false;
+        }
+        try {
+            return !Boolean.TRUE.equals(value.getClass().getMethod("wasInitialized").invoke(value));
+        } catch (ReflectiveOperationException unknown) {
+            return true;
+        }
+    }
+
+    // A resource (AutoCloseable: connections, statements, sessions, streams) or a JDK dynamic proxy:
     // never walked, because its getters or iterator may do I/O (Claude, phase 3 Gate H: Hikari's "Added connection"
     // line ran a connection's metadata queries).
     static boolean resource(Object value) {
         Class<?> type = value.getClass();
-        return value instanceof AutoCloseable || Proxy.isProxyClass(type)
-                || implementsAny(type, Set.of("org.hibernate.proxy.HibernateProxy"));
+        return value instanceof AutoCloseable || Proxy.isProxyClass(type);
     }
 
     // Sentinel for a getter or accessor that threw.

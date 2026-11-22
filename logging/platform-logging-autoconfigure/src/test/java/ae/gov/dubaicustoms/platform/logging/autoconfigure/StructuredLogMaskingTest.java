@@ -928,7 +928,7 @@ class StructuredLogMaskingTest {
         String getName();
     }
 
-    /** Stands in for org.hibernate.proxy.HibernateProxy, reached through another interface (Codex Gate H). */
+    /** Hibernate's proxy contract, reached through another interface (Codex Gate H); real proxies: JpaValueMaskingTest. */
     public interface ExtendedProxy extends org.hibernate.proxy.HibernateProxy {
     }
 
@@ -987,6 +987,17 @@ class StructuredLogMaskingTest {
                 });
         java.util.concurrent.atomic.AtomicInteger extended = new java.util.concurrent.atomic.AtomicInteger();
         class Entity implements ExtendedProxy {
+            @Override
+            public Object writeReplace() {
+                return this;
+            }
+
+            @Override
+            public org.hibernate.proxy.LazyInitializer getHibernateLazyInitializer() {
+                extended.incrementAndGet();
+                return null;
+            }
+
             public String getName() {
                 extended.incrementAndGet();
                 return "loaded";

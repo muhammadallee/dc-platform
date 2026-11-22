@@ -50,6 +50,17 @@
       <artifactId>platform-build-tools</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- JpaValueMaskingTest: the masker against real Hibernate proxies and collections (HI-0167). -->
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Reads the JSON lines back in tests; Boot's BasicJsonParser does not undo escapes. -->
     <dependency>
       <groupId>tools.jackson.core</groupId>

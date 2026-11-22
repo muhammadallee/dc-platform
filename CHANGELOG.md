@@ -5,6 +5,12 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 
 ## [Unreleased]
 
+### Spring-native Phase 4: data (`develop`; breaking)
+
+- Logging an `@Entity` instance or Hibernate proxy writes `[entity <Type>]`, and an unloaded Hibernate collection
+  `[not loaded]`, instead of their content: the masker no longer runs queries (HI-0167). Log the identifier or the
+  values you need. A map key that is not a simple value is masked like a value.
+
 ### Spring-native Phase 3: logging + observability (`develop`; breaking)
 
 JSON logs come from Spring Boot's structured logging; service code logs with SLF4J only (D141). Removed, with the

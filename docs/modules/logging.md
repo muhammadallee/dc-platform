@@ -21,11 +21,13 @@ every line and credentials and personal data masked. Your code logs with SLF4J. 
   - Masked text reads `****`.
 - **Structure is kept, so names count.** A map, list, record or bean you log, as a key-value pair or a message argument,
   is written by its structure: a credential name inside it masks its whole value. JDK value types, character data and
-  `Path` are masked text. A resource (`AutoCloseable`: a JDBC connection, a stream) or a proxy (JDK dynamic, Hibernate
-  lazy) is never walked, because its getters may query or load: it is its own `toString()`, masked. A getter that
-  returns a resource (`getInputStream()`) is never called; its property is shown masked. **Known defect (HI-0167):** a Hibernate
-  proxy's `toString()` loads it, and logging an entity or a lazy collection runs queries. Until that is fixed, log
-  an entity's identifier rather than the entity. A raw JSON value
+  `Path` are masked text. A resource (`AutoCloseable`: a JDBC connection, a stream) or a JDK dynamic proxy is
+  never walked, because its getters may query or load: it is its own `toString()`, masked. A getter that
+  returns a resource (`getInputStream()`) is never called; its property is shown masked. 
+  An `@Entity` instance or Hibernate proxy is written as `[entity Customer]` and a collection that is not loaded as
+  `[not loaded]`: none of their methods run, so the masker runs no query. Log the identifier you need. As a message
+  argument (`{}`) such a value can still load, because Logback calls its `toString()` before the platform sees it;
+  pass it as a key-value pair, or pass the identifier. An entity mapped only in XML is recognised only as a proxy. A raw JSON value
   (`WritableJson`) is masked whole. A value whose `toString()` or getter
   throws becomes `[unrenderable]` and costs only its place; a container holding itself, anything deeper than 64 levels
   and anything past 10,000 values in one argument is masked.

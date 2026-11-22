@@ -8,12 +8,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
 | Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-04-data` |
 | Current phase | 4 — Data (Phase 3 closed 2026-11-21) |
-| Current gate | Phase 4 Gate B: HI-0167 fixed at `6c3b238` (review and consumer proof pending); HI-0168 next |
+| Current gate | Phase 4 Gate B: HI-0167 and HI-0168 (`f671411`) fixed, Codex review pending |
 | Last commit | see `git log -1 native/phase-04-data` |
-| Open blockers | none; HI-0168 (Medium) is open, fixed in Phase 4 Gate B |
+| Open blockers | none |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | HI-0168, failing test first (auditor backs off by type); then the zero-config test (AC20) and the harness import check (AC17) |
+| Next action | Rest of Gate B: zero-config test (AC20), harness import check (AC17) and the JPA logging probe (AC18), the docker-tagged suites; then Codex round 1 |
 
 ## Phase log
 

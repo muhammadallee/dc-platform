@@ -911,3 +911,9 @@ One line of context per decision; details live in the commit bodies referenced.
   `addKeyValue` and `dc.platform.logging.redaction.patterns` replace them. (4) The strict MDC allow-list stays and also
   filters key-value pairs. (5) ND13: `management.server.port` defaults to 8081, or 0 when `server.port` is 0. (6) The
   `dependencies` health group is `db,rabbit` (HI-0112). (7) Consumer floor 65.
+- **D142 — Phase 4 data choices (Spring-native Phase 4 Gate A/B, 2026-11-22).** (1) Data keeps its v3 design: no type is
+  removed or added. (2) The log masker never loads a JPA value: an `@Entity` instance or Hibernate proxy is written as
+  `[entity <Type>]` and an unloaded Hibernate collection as `[not loaded]`, recognised by contract name, so logging
+  depends on neither JPA nor Hibernate. Alternatives measured or rejected: rendering with `toString()` loads proxies and
+  collections, and walking only an entity's loaded properties would still run computed getters. Logback's own rendering
+  of message arguments stays HI-0157's limit. (3) The auditor is to back off by type (HI-0168).

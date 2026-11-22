@@ -1,0 +1,9 @@
+# Gate B, HI-0167: the Gate A spike re-run, unchanged, against the fixed masker (6c3b238).
+# Tests at that commit: logging 185, observability 51, errors 106, data 55; full reactor verify exit 0.
+# Not yet shown: the consumer run (AC18, Gate F). Not yet reviewed: Codex (Gate C).
+RESULT proxy            platform  sql=0 initialized false->false out=[entity Customer]
+RESULT proxy            toString  sql=1 initialized false->true out=spike.LazyMaskingSpike$Customer@754de353
+RESULT lazy collection  platform  sql=0 initialized false->false out=[not loaded]
+RESULT lazy collection  toString  sql=1 initialized false->true out=[spike.LazyMaskingSpike$Line@63a7781]
+RESULT entity           platform  sql=0 initialized true->true out=[entity Purchase]
+RESULT entity           toString  sql=0 initialized true->true out=spike.LazyMaskingSpike$Purchase@32b46831

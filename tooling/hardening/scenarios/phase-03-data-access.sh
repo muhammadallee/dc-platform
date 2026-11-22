@@ -8,6 +8,10 @@
 # loopback JWKS issuer and the token on the Prometheus scrape are gone, and the anonymous-scrape check
 # (ac11-anon, expected 401) is dropped: see docs/spring-native/phase-01-scope-cut/scope.md.
 #
+# Spring-native Phase 4 port (docs/spring-native/phase-04-data/scope.md section 9): the recovery poll follows
+# actuator to its own port (ND13); added are AC17 (the probe imports no platform type) and AC18 (logging a JPA
+# value runs no SQL). Floor 92.
+#
 #   repo=$(bash tooling/hardening/native-repo.sh native-NN) && HH_MAVEN_REPO=$repo bash tooling/hardening/scenarios/phase-03-data-access.sh
 #
 # The generated project is not edited: the probe sources and one Flyway migration are added. The schema
@@ -42,8 +46,10 @@ sql() {
 sys_sql() { sql system "$SYSTEM_PW"; }
 http_code_within() { # seconds path : polls a GET until it answers 200 or the bound passes
   local bound=$1 path=$2 deadline=$(( $(date +%s) + $1 ))
+  local base=$HH_BASE
+  case "$path" in /actuator*) base=$HH_MGMT_BASE ;; esac
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${AUTH[@]}" "$HH_BASE$path")" = 200 ] && return 0
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${AUTH[@]}" "$base$path")" = 200 ] && return 0
     sleep 1
   done
   return 1
@@ -74,6 +80,10 @@ hh_step "generate a consumer (data, database=oracle), add the probe and its migr
 hh_generate hardening-data data -Ddatabase=oracle
 hh_add_sources "$HERE/phase-03/probe" ae/gov/dubaicustoms/hardening/probe
 hh_add_migrations "$HERE/phase-03/migration"
+# Contract 12: the consumer probe uses Spring types only.
+if grep -n "^import ae\.gov\.dubaicustoms\.platform" "$HERE/phase-03/probe"/*.java > "$HH_EVIDENCE/probe-platform-imports.txt"; then
+  hh_fail "AC17 the probe imports a platform type (probe-platform-imports.txt)"
+else hh_pass "AC17 the probe imports no platform type"; fi
 cp "$HH_APP_DIR/pom.xml" "$HH_EVIDENCE/generated-pom.xml"
 hh_build_app
 
@@ -189,6 +199,17 @@ for KIND in unique foreign-key not-null check empty-string; do
 done
 hh_http ac3-unique-count GET "/probe/parcels/count?ref=$REF"; hh_expect_status 200
 hh_expect_json "the duplicate was not stored" "b['count'] == 1"
+
+hh_step "AC18 logging a proxy, an entity and a lazy collection runs no SQL and loads nothing"
+hh_http ac18-jpa-log GET /probe/jpa-log; hh_expect_status 200
+hh_expect_json "AC18 no statement while logging, nothing loaded" "b['statements'] == 0 and b['proxyLoaded'] is False and b['collectionLoaded'] is False"
+hh_expect_json "AC18 control: loading the collection is counted" "b['controlStatements'] > 0"
+hh_wait_log '"message":"jpa-values"' 20 || true # records its own failure
+docker logs "$HH_APP_CONTAINER" 2>&1 | grep -F '"message":"jpa-values"' > "$HH_EVIDENCE/ac18-log-line.txt" || true
+for FIELD in '"probeProxy":"[entity HhParcel]"' '"probeEntity":"[entity HhConsignor]"' '"probeCollection":"[not loaded]"'; do
+  if grep -qF "$FIELD" "$HH_EVIDENCE/ac18-log-line.txt"; then hh_pass "AC18 logged as $FIELD"
+  else hh_fail "AC18 log line lacks $FIELD (ac18-log-line.txt)"; fi
+done
 
 hh_step "AC11 Hikari and repository meters; bounded tags, no SQL or ID in a label value"
 scrape ac11-scrape; hh_expect_status 200

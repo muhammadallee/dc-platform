@@ -3,6 +3,9 @@ package ae.gov.dubaicustoms.hardening.probe;
 import jakarta.persistence.EntityManager;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.hibernate.Hibernate;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -54,6 +57,32 @@ public final class DataProbe {
             entityManager.persist(parcel);
             entityManager.flush();
             return parcel.getId();
+        }
+
+        /**
+         * AC18: logs a proxy, an entity and a lazy collection as key-value pairs and reports the statements that ran.
+         * The control then loads the collection, so a counter that counts nothing cannot pass.
+         */
+        @Transactional(readOnly = true)
+        public Map<String, Object> logJpaValues() {
+            HhParcel proxy = entityManager.getReference(HhParcel.class, 1L);
+            HhConsignor entity = entityManager.find(HhConsignor.class, 1L);
+            Statistics statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+            statistics.setStatisticsEnabled(true);
+            try {
+                long before = statistics.getPrepareStatementCount();
+                log.atInfo().setMessage("jpa-values").addKeyValue("probeProxy", proxy).addKeyValue("probeEntity", entity)
+                        .addKeyValue("probeCollection", entity.getParcels()).log();
+                long afterLogging = statistics.getPrepareStatementCount();
+                boolean proxyLoaded = Hibernate.isInitialized(proxy);
+                boolean collectionLoaded = Hibernate.isInitialized(entity.getParcels());
+                Hibernate.initialize(entity.getParcels());
+                return Map.of("statements", afterLogging - before, "proxyLoaded", proxyLoaded,
+                        "collectionLoaded", collectionLoaded,
+                        "controlStatements", statistics.getPrepareStatementCount() - afterLogging);
+            } finally {
+                statistics.setStatisticsEnabled(false);
+            }
         }
 
         /** Takes a connection (transaction begin), holds it, then inserts: pool exhaustion, SIGTERM, silent peer. */
@@ -113,6 +142,11 @@ public final class DataProbe {
                         result.put("currentSchema", rs.getString(2));
                         return result;
                     });
+        }
+
+        @GetMapping("/jpa-log")
+        public Map<String, Object> jpaLog() {
+            return parcels.logJpaValues();
         }
 
         @PostMapping("/hold")

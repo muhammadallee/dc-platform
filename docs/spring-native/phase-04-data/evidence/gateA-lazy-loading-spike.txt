@@ -1,0 +1,13 @@
+# Gate A spike, Spring-native Phase 4 (HI-0167): does logging a JPA value run SQL?
+# PlatformValueMasker as compiled for Phase 3 closure; Hibernate 7.4.13.Final, H2 2.4.240, JDK 25.
+# Source: gateA-lazy-loading-spike.java.txt. platform = masker.sanitize; toString = String.valueOf, as SLF4J
+# renders a message argument. sql = statements run while rendering.
+RESULT proxy            platform  sql=1 initialized false->true out=spike.LazyMaskingSpike$Customer@259195fe
+RESULT proxy            toString  sql=1 initialized false->true out=spike.LazyMaskingSpike$Customer@47eaf55c
+RESULT lazy collection  platform  sql=1 initialized false->true out=[{id=1}]
+RESULT lazy collection  toString  sql=1 initialized false->true out=[spike.LazyMaskingSpike$Line@379f9555]
+RESULT entity           platform  sql=2 initialized true->true out={customer=spike.LazyMaskingSpike$Customer@cdbe995, id=1, lines=[{id=1}]}
+RESULT entity           toString  sql=0 initialized true->true out=spike.LazyMaskingSpike$Purchase@53ba1175
+# The masker loads proxies and collections, and adds 2 queries for an entity. A proxy or collection toString()
+# loads too, so rendering either as text (the HI-0166 rule for proxies) is not a fix. Logback also calls toString()
+# on message arguments before any encoder (HI-0157; read from its code, not measured in this spike).

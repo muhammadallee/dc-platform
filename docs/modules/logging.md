@@ -23,7 +23,9 @@ every line and credentials and personal data masked. Your code logs with SLF4J. 
   is written by its structure: a credential name inside it masks its whole value. JDK value types, character data and
   `Path` are masked text. A resource (`AutoCloseable`: a JDBC connection, a stream) or a proxy (JDK dynamic, Hibernate
   lazy) is never walked, because its getters may query or load: it is its own `toString()`, masked. A getter that
-  returns a resource (`getInputStream()`) is never called; its property is shown masked. A raw JSON value
+  returns a resource (`getInputStream()`) is never called; its property is shown masked. **Known defect (HI-0167):** a Hibernate
+  proxy's `toString()` loads it, and logging an entity or a lazy collection runs queries. Until that is fixed, log
+  an entity's identifier rather than the entity. A raw JSON value
   (`WritableJson`) is masked whole. A value whose `toString()` or getter
   throws becomes `[unrenderable]` and costs only its place; a container holding itself, anything deeper than 64 levels
   and anything past 10,000 values in one argument is masked.

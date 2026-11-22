@@ -1,0 +1,117 @@
+package spike;
+
+import ae.gov.dubaicustoms.platform.logging.autoconfigure.internal.PlatformValueMasker;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import org.hibernate.Hibernate;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+
+/**
+ * Phase 4 Gate A spike: does logging a JPA value through the real platform masker run SQL? Real Hibernate and H2.
+ * Each value is read in a fresh session; SQL is counted only while the value is rendered.
+ */
+public class LazyMaskingSpike {
+
+    static final AtomicInteger SQL = new AtomicInteger();
+
+    @Entity(name = "Customer")
+    public static class Customer {
+        @Id Long id;
+        String name;
+
+        public Long getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    @Entity(name = "Line")
+    public static class Line {
+        @Id Long id;
+        @ManyToOne(fetch = FetchType.LAZY) Purchase purchase;
+
+        public Long getId() {
+            return id;
+        }
+    }
+
+    @Entity(name = "Purchase")
+    public static class Purchase {
+        @Id Long id;
+        @ManyToOne(fetch = FetchType.LAZY) Customer customer;
+        @OneToMany(mappedBy = "purchase") List<Line> lines = new ArrayList<>();
+
+        public Long getId() {
+            return id;
+        }
+
+        public Customer getCustomer() {
+            return customer;
+        }
+
+        public List<Line> getLines() {
+            return lines;
+        }
+    }
+
+    public static void main(String[] args) {
+        try (SessionFactory factory = new Configuration()
+                .addAnnotatedClass(Customer.class).addAnnotatedClass(Line.class).addAnnotatedClass(Purchase.class)
+                .setProperty("hibernate.connection.url", "jdbc:h2:mem:spike;DB_CLOSE_DELAY=-1")
+                .setProperty("hibernate.hbm2ddl.auto", "create")
+                .setStatementInspector(sql -> {
+                    SQL.incrementAndGet();
+                    return sql;
+                })
+                .buildSessionFactory()) {
+            factory.inTransaction(session -> {
+                Customer customer = new Customer();
+                customer.id = 1L;
+                customer.name = "n";
+                session.persist(customer);
+                Purchase purchase = new Purchase();
+                purchase.id = 1L;
+                purchase.customer = customer;
+                session.persist(purchase);
+                Line line = new Line();
+                line.id = 1L;
+                line.purchase = purchase;
+                session.persist(line);
+            });
+            PlatformValueMasker masker = new PlatformValueMasker(List.of());
+            Function<Object, Object> platform = value -> PlatformValueMasker.text(masker.sanitize(null, value));
+            Function<Object, Object> slf4j = String::valueOf;
+
+            measure(factory, "proxy", "platform", s -> s.getReference(Customer.class, 1L), platform);
+            measure(factory, "proxy", "toString", s -> s.getReference(Customer.class, 1L), slf4j);
+            measure(factory, "lazy collection", "platform", s -> s.find(Purchase.class, 1L).lines, platform);
+            measure(factory, "lazy collection", "toString", s -> s.find(Purchase.class, 1L).lines, slf4j);
+            measure(factory, "entity", "platform", s -> s.find(Purchase.class, 1L), platform);
+            measure(factory, "entity", "toString", s -> s.find(Purchase.class, 1L), slf4j);
+        }
+    }
+
+    static void measure(SessionFactory factory, String value, String how, Function<EntityManager, Object> load,
+            Function<Object, Object> render) {
+        try (EntityManager session = factory.createEntityManager()) {
+            Object target = load.apply(session);
+            boolean before = Hibernate.isInitialized(target);
+            SQL.set(0);
+            Object out = render.apply(target);
+            System.out.printf("RESULT %-16s %-9s sql=%d initialized %s->%s out=%.100s%n", value, how, SQL.get(), before,
+                    Hibernate.isInitialized(target), out);
+        }
+    }
+}

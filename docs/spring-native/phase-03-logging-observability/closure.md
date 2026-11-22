@@ -43,3 +43,10 @@ are in [`../../samples/logging-observability/verification.md`](../../samples/log
 | The REST client's own observations | Phase 9 |
 | Other capabilities' book and sample pages still describing removed types (bannered) | HI-0110: each capability phase |
 | Management port without authentication; keep it inside the cluster | ND13; REST API phase (8) for basic auth |
+
+## Correction (2026-11-22, Phase 4 Gate A)
+
+Gate E above records HI-0166 as fixed and resolved, Hibernate proxies included. That is true for resources (JDBC
+connections, streams) and false for Hibernate proxies: their `toString()` loads them. The test used a stand-in interface
+under Hibernate's name, so neither it nor the three Codex passes could show this. A spike on real Hibernate does, and
+also measures the lazy-collection and entity cases carried forward above. The defect is HI-0167 (High), open in Phase 4.

@@ -23,8 +23,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 /*
  * Activates when: JPA (jakarta.persistence.EntityManagerFactory + Spring Data AuditorAware) on the
  *                 classpath AND dc.platform.data.jpa.enabled != false.
- * Backs off when: the user defines the same-named bean (platformAuditorAware / the Flyway checks /
- *                 the Oracle defaults / dataJpaCapabilityDescriptor) or
+ * Backs off when: the user defines the same-named bean (the Flyway checks / the Oracle defaults /
+ *                 dataJpaCapabilityDescriptor), any AuditorAware bean whatever its name, or
  *                 already enables JPA auditing themselves (jpaAuditingHandler present).
  * Beans: platformAuditorAware — AuditorAware<String> that records "system". There is no web security
  *                 capability in iteration 1 of the Spring-native plan; the REST API capability
@@ -62,21 +62,22 @@ public class PlatformDataJpaAutoConfiguration {
         return new CapabilityDescriptor("data-jpa", "ACTIVE", "");
     }
 
-    /** The auditor: every write is audited as {@code "system"}. A service's own bean of this name wins. */
+    /** The auditor: every write is audited as {@code "system"}. A service's own auditor, of any name, wins. */
     @Bean
-    @ConditionalOnMissingBean(name = "platformAuditorAware")
+    @ConditionalOnMissingBean(AuditorAware.class)
     AuditorAware<String> platformAuditorAware() {
         return () -> Optional.of("system");
     }
 
     /*
      * Enables Spring Data JPA auditing, but only once a real EntityManagerFactory is present (the
-     * auditing metamodel needs it); backs off when the user already enabled auditing.
+     * auditing metamodel needs it); backs off when the user already enabled auditing. No auditorAwareRef: Spring
+     * Data then takes the auditor by type, so a service's own is used whatever its name (HI-0168).
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnMissingBean(name = "jpaAuditingHandler")
-    @EnableJpaAuditing(auditorAwareRef = "platformAuditorAware")
+    @EnableJpaAuditing
     static class JpaAuditingConfiguration {
     }
 

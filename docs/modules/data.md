@@ -10,7 +10,8 @@ Hibernate defaults and a Flyway-presence guard, all on by default, all overridab
 
 - **Auditing** — `@CreatedDate`/`@CreatedBy`/`@LastModifiedDate`/`@LastModifiedBy` are populated
   automatically. The platform's auditor always records `"system"` (1.0.0 has no web security); to
-  record a real caller, declare an `AuditorAware<String>` bean named `platformAuditorAware`.
+  record a real caller, declare your own `AuditorAware<String>` bean, with any name: the platform's steps back.
+  With more than one, mark the one to use `@Primary`.
 - **Hibernate defaults** — contributed as standard `spring.jpa.*` values at lowest precedence
   (source `platform-data-jpa-defaults`, visible in `/actuator/env`): `open-in-view=false`, batch
   size 50 with ordered inserts/updates, UTC jdbc time zone. snake_case physical naming is Boot's own

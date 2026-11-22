@@ -10,6 +10,8 @@ versioning: Semantic Versioning on the release train (all artifacts share one ve
 - Logging an `@Entity` instance or Hibernate proxy writes `[entity <Type>]`, and an unloaded Hibernate collection
   `[not loaded]`, instead of their content: the masker no longer runs queries (HI-0167). Log the identifier or the
   values you need. A map key that is not a simple value is masked like a value.
+- A service's `AuditorAware` bean of any name replaces the platform's (HI-0168). Until now one not named
+  `platformAuditorAware` was ignored and `"system"` was recorded. With several, mark one `@Primary`.
 
 ### Spring-native Phase 3: logging + observability (`develop`; breaking)
 

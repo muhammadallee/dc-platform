@@ -10,10 +10,10 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Current phase | 4 — Data (Phase 3 closed 2026-11-21) |
 | Current gate | Phase 4 Gate D: Codex round 1 closed; Gate H docs written (chapter 8, sample, lab "data"); round 2 next |
 | Last commit | see `git log -1 native/phase-04-data` |
-| Open blockers | none |
+| Open blockers | Codex usage limit until 2026-11-23 11:21 (round 2 prompt committed at `1d9e66e`; BLOCKED until it answers, plan §5.3) |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Codex round 2 on the whole phase (default effort); then Gate F (three runs, floor 92), the regressions, the labs; the lab "data" needs ~3 GB of disk for its repository |
+| Next action | After 11:21: run Codex round 2 on `1d9e66e` (default effort, fresh worktree); then Gate F (three runs, floor 92), the regressions and the labs; the lab "data" needs ~3 GB of disk for its repository |
 
 ## Phase log
 

@@ -229,6 +229,110 @@ class JpaValueMaskingTest {
         }
     }
 
+    /** An application number whose text renders what it holds. */
+    public static final class Amount extends Number {
+        private final transient Object entity;
+
+        Amount(Object entity) {
+            this.entity = entity;
+        }
+
+        public Object getEntity() {
+            return entity;
+        }
+
+        @Override
+        public int intValue() {
+            return 1;
+        }
+
+        @Override
+        public long longValue() {
+            return 1;
+        }
+
+        @Override
+        public float floatValue() {
+            return 1;
+        }
+
+        @Override
+        public double doubleValue() {
+            return 1;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(entity);
+        }
+    }
+
+    /** An application exception whose text renders what it holds. */
+    public static final class Rejected extends RuntimeException {
+        private final transient Object entity;
+
+        Rejected(Object entity) {
+            this.entity = entity;
+        }
+
+        @Override
+        public String toString() {
+            return "rejected " + entity;
+        }
+    }
+
+    @Test
+    void textLikeProxiesAndApplicationScalarsNeverRenderAProxy() {
+        // Codex phase 4 round 1 reassessment: a JDK proxy that is text or a path, a number and an exception of the
+        // service's own, each holding an unloaded reference.
+        List<Function<Object, Object>> holders = List.of(
+                proxy -> java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[] {CharSequence.class}, (self, method, args) -> String.valueOf(proxy)),
+                proxy -> java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                        new Class<?>[] {java.nio.file.Path.class}, (self, method, args) -> String.valueOf(proxy)),
+                Amount::new,
+                Rejected::new);
+        for (int i = 0; i < holders.size(); i++) {
+            for (int way = 0; way < 3; way++) {
+                try (EntityManager session = factory.createEntityManager()) {
+                    Customer proxy = session.getReference(Customer.class, 1L);
+                    Object holder = holders.get(i).apply(proxy);
+                    SQL.set(0);
+                    Object out = switch (way) {
+                        case 0 -> masker.sanitizePair("value", holder);
+                        case 1 -> masker.mask(null, holder);
+                        default -> masker.sanitize("outer", List.of(holder));
+                    };
+                    assertThat(SQL).as("holder %d, way %d: %s", i, way, out).hasValue(0);
+                    assertThat(Hibernate.isInitialized(proxy)).as("holder %d, way %d", i, way).isFalse();
+                }
+            }
+        }
+    }
+
+    @Test
+    void aThrowingEntryCostsOnlyItselfAndFloatingKeysArePlain() {
+        Map.Entry<String, String> broken = new Map.Entry<>() {
+            @Override
+            public String getKey() {
+                return "k";
+            }
+
+            @Override
+            public String getValue() {
+                throw new IllegalStateException("password=hunter12");
+            }
+
+            @Override
+            public String setValue(String value) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        String text = PlatformValueMasker.text(masker.sanitize("outer", List.of("keep-me", broken)));
+        assertThat(text).contains("keep-me").contains("k=[unrenderable]").doesNotContain("hunter12");
+        assertThat(PlatformValueMasker.text(masker.sanitize("outer", Map.of(1.5d, "healthy")))).isEqualTo("{1.5=healthy}");
+    }
+
     @Test
     void aKeyThatIsNotAPlainValueMasksItsValue() {
         // Its text is a credential name, which the masker cannot read without calling the key's own code.

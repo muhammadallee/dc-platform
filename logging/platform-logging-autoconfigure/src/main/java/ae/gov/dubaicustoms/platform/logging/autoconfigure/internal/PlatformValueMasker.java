@@ -181,7 +181,7 @@ public final class PlatformValueMasker {
         if (depth(path) > MAX_DEPTH || underCredentialKey(path)) {
             return MASK;
         }
-        if (value instanceof CharSequence text && !jpaValue(value)) {
+        if (value instanceof CharSequence text && plainText(value)) {
             // A snapshot: Boot writes this string, never the original object a second time.
             String snapshot = guarded(text::toString);
             return correlationId(topLevel(path) ? path.name() : null, snapshot) ? snapshot
@@ -224,7 +224,7 @@ public final class PlatformValueMasker {
      * @return the value to write
      */
     public Object sanitizePair(String key, Object value) {
-        if (value instanceof CharSequence text && !jpaValue(value)) {
+        if (value instanceof CharSequence text && plainText(value)) {
             String snapshot = guarded(text::toString);
             return correlationId(key, snapshot) ? snapshot : sanitize(key, snapshot);
         }
@@ -384,33 +384,35 @@ public final class PlatformValueMasker {
             if (value == null) {
                 return null;
             }
-            // Before anything could render, iterate or introspect it: each of those loads a JPA value (HI-0167).
-            String entity = entityType(value.getClass());
-            if (entity != null) {
-                return text("[entity " + entity + "]");
+            // Before anything could render, iterate or introspect it: an entity, a Hibernate proxy or collection, or
+            // a JDK proxy runs code (HI-0167, Codex phase 4 round 1).
+            String opaque = opaque(value);
+            if (opaque != null) {
+                return text(opaque);
             }
-            if (unloadedCollection(value)) {
-                return text(NOT_LOADED);
-            }
+            // A number, path or exception shortcut trusts the JDK's own classes only: an application subclass can
+            // render anything, so it is walked like any other object. Text is its own value by contract, so any
+            // CharSequence that is not opaque is its text (a stated limit, like an object with no properties).
+            Class<?> type = value.getClass();
             if (value instanceof CharSequence text) {
                 return text(guarded(text::toString));
             }
             if (value instanceof char[] chars) {
                 return text(new String(chars));
             }
-            if (value instanceof Character || value instanceof Path || value instanceof Enum<?>
-                    || value instanceof Class<?> || value instanceof Throwable) {
+            if (value instanceof Character || value instanceof Class<?>
+                    || value instanceof Path && jdkClass(type)) {
                 return text(render(value));
+            }
+            if (value instanceof Enum<?> constant) {
+                return text(constant.name());
+            }
+            if (value instanceof Throwable) {
+                return text(jdkClass(type) ? render(value) : "[" + type.getSimpleName() + "]");
             }
             if (value instanceof WritableJson) {
                 // Opaque JSON a service logged: its names may be escaped and its text need not be one value.
                 return MASK;
-            }
-            if (Proxy.isProxyClass(value.getClass())) {
-                // A JDK proxy (a Spring Data projection): every method, toString() too, goes to code that may load or
-                // query. Nothing of it is called.
-                Class<?>[] contracts = value.getClass().getInterfaces();
-                return text("[proxy " + (contracts.length == 0 ? "?" : contracts[0].getSimpleName()) + "]");
             }
             if (value instanceof AutoCloseable) {
                 // A resource's getters can do I/O (a JDBC connection's query the database): it is its own text, masked,
@@ -428,7 +430,7 @@ public final class PlatformValueMasker {
             if (value instanceof Boolean flag) {
                 return scalar(flag, flag.toString());
             }
-            if (value instanceof Number number) {
+            if (value instanceof Number number && jdkClass(type)) {
                 return number(number);
             }
             boolean container = value instanceof Map<?, ?> || value instanceof Iterable<?> || value.getClass().isArray()
@@ -503,14 +505,28 @@ public final class PlatformValueMasker {
         // walked like a value, because its toString() can load or say anything; its name cannot be classified without
         // running application code, so its value is masked (Codex phase 4 round 1).
         private void entry(Map<String, Object> copy, Map.Entry<?, ?> entry, int depth) {
-            Object key = entry.getKey();
-            String simple = simpleKey(key);
-            if (simple != null) {
-                copy.put(simple, copy(simple, entry.getValue(), depth));
+            // An accessor that throws costs only this entry (an application Map.Entry).
+            Object key;
+            try {
+                key = entry.getKey();
+            } catch (RuntimeException | LinkageError unreadable) {
+                copy.put(UNRENDERABLE, MASK);
                 return;
             }
-            budget--;
-            copy.put(String.valueOf(copy(null, key, depth)), MASK);
+            String simple = simpleKey(key);
+            if (simple == null) {
+                budget--;
+                copy.put(String.valueOf(copy(null, key, depth)), MASK);
+                return;
+            }
+            Object value;
+            try {
+                value = entry.getValue();
+            } catch (RuntimeException | LinkageError unreadable) {
+                copy.put(simple, UNRENDERABLE);
+                return;
+            }
+            copy.put(simple, copy(simple, value, depth));
         }
 
         // A JDK value type or a logging library's object is text; any other JDK object is its type name, because its
@@ -708,7 +724,7 @@ public final class PlatformValueMasker {
         if (key == null) {
             return "null";
         }
-        if (jpaValue(key)) {
+        if (opaque(key) != null) {
             return null;
         }
         Class<?> type = key.getClass();
@@ -716,16 +732,43 @@ public final class PlatformValueMasker {
             return constant.name();
         }
         if (type == String.class || type == Boolean.class || type == Character.class || type == Integer.class
-                || type == Long.class || type == Short.class || type == Byte.class || type == java.math.BigInteger.class
+                || type == Long.class || type == Short.class || type == Byte.class || type == Float.class
+                || type == Double.class || type == java.math.BigInteger.class
                 || type == java.math.BigDecimal.class || type == java.util.UUID.class) {
             return key.toString();
         }
         return null;
     }
 
-    // An entity, a Hibernate proxy or an unloaded Hibernate collection: none of its methods may run.
-    static boolean jpaValue(Object value) {
-        return entityType(value.getClass()) != null || unloadedCollection(value);
+    // The placeholder for a value none of whose methods may run: an entity, a Hibernate proxy, an unloaded Hibernate
+    // collection, or a JDK proxy (a Spring Data projection), whose every method, toString() too, goes to code that
+    // may load or query. Null for any other value.
+    static String opaque(Object value) {
+        Class<?> type = value.getClass();
+        String entity = entityType(type);
+        if (entity != null) {
+            return "[entity " + entity + "]";
+        }
+        if (unloadedCollection(value)) {
+            return NOT_LOADED;
+        }
+        if (Proxy.isProxyClass(type)) {
+            Class<?>[] contracts = type.getInterfaces();
+            return "[proxy " + (contracts.length == 0 ? "?" : contracts[0].getSimpleName()) + "]";
+        }
+        return null;
+    }
+
+    // A class of the JDK's own (its implementations included): its toString() renders only its own value.
+    static boolean jdkClass(Class<?> type) {
+        String name = type.getName();
+        return name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("jdk.")
+                || name.startsWith("sun.") || name.startsWith("com.sun.");
+    }
+
+    // Text the shortcuts may read directly: anything but an opaque value.
+    private static boolean plainText(Object value) {
+        return opaque(value) == null;
     }
 
     // The type name to show for an entity or a Hibernate proxy, or null. By name: logging depends on neither JPA nor

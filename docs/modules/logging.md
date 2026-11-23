@@ -33,7 +33,8 @@ every line and credentials and personal data masked. Your code logs with SLF4J. 
   (`getInputStream()`) is never called; its property is shown masked.
 - **Limits.** As a message argument (`{}`) an entity or proxy can still load, because Logback calls its `toString()`
   before the platform sees it: pass it as a key-value pair, or pass the identifier. An entity mapped only in XML is
-  recognised only as a proxy. An application object with no bean properties is its own `toString()`. A raw JSON value
+  recognised only as a proxy. An application object with no bean properties, and any `CharSequence`, is its own
+  `toString()`. An application subclass of `Number`, `Path` or an exception is walked or named, never rendered. A raw JSON value
   (`WritableJson`) is masked whole. A value whose `toString()` or getter
   throws becomes `[unrenderable]` and costs only its place; a container holding itself, anything deeper than 64 levels
   and anything past 10,000 values in one argument is masked.

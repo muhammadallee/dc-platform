@@ -505,28 +505,21 @@ public final class PlatformValueMasker {
         // walked like a value, because its toString() can load or say anything; its name cannot be classified without
         // running application code, so its value is masked (Codex phase 4 round 1).
         private void entry(Map<String, Object> copy, Map.Entry<?, ?> entry, int depth) {
-            // An accessor that throws costs only this entry (an application Map.Entry).
-            Object key;
-            try {
-                key = entry.getKey();
-            } catch (RuntimeException | LinkageError unreadable) {
+            // Charged before it is touched, so a map of failing entries still stops at the budget. An accessor that
+            // throws costs only this entry, under the same guard as a getter.
+            budget--;
+            Object key = fetch(entry::getKey);
+            if (key == UNREADABLE) {
                 copy.put(UNRENDERABLE, MASK);
                 return;
             }
             String simple = simpleKey(key);
             if (simple == null) {
-                budget--;
                 copy.put(String.valueOf(copy(null, key, depth)), MASK);
                 return;
             }
-            Object value;
-            try {
-                value = entry.getValue();
-            } catch (RuntimeException | LinkageError unreadable) {
-                copy.put(simple, UNRENDERABLE);
-                return;
-            }
-            copy.put(simple, copy(simple, value, depth));
+            Object value = fetch(entry::getValue);
+            copy.put(simple, value == UNREADABLE ? UNRENDERABLE : copy(simple, value, depth));
         }
 
         // A JDK value type or a logging library's object is text; any other JDK object is its type name, because its
@@ -712,7 +705,7 @@ public final class PlatformValueMasker {
         }
         for (Class<?> value : JDK_VALUES) {
             // TimeZone, Charset and Timestamp come as JDK subclasses.
-            if (value.isAssignableFrom(type) && type.getName().startsWith("java")) {
+            if (value.isAssignableFrom(type) && jdkClass(type)) {
                 return true;
             }
         }
@@ -760,10 +753,11 @@ public final class PlatformValueMasker {
     }
 
     // A class of the JDK's own (its implementations included): its toString() renders only its own value.
+    // Loaded by the JDK itself (the bootstrap or platform loader), not merely named like it: an application may
+    // define javax.example.Amount (Codex phase 4 round 1 verification).
     static boolean jdkClass(Class<?> type) {
-        String name = type.getName();
-        return name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("jdk.")
-                || name.startsWith("sun.") || name.startsWith("com.sun.");
+        ClassLoader loader = type.getClassLoader();
+        return loader == null || loader == ClassLoader.getPlatformClassLoader();
     }
 
     // Text the shortcuts may read directly: anything but an opaque value.
@@ -828,6 +822,20 @@ public final class PlatformValueMasker {
         String bare = name.startsWith("is") ? name.substring(2) : name.substring(3);
         return bare.length() > 1 && Character.isUpperCase(bare.charAt(1)) ? bare
                 : Character.toLowerCase(bare.charAt(0)) + bare.substring(1);
+    }
+
+    // An accessor call under the getters' guard: one that throws is UNREADABLE.
+    private static Object fetch(java.util.function.Supplier<?> accessor) {
+        try {
+            return accessor.get();
+        } catch (VirtualMachineError fatal) {
+            if (fatal instanceof StackOverflowError) {
+                return UNREADABLE;
+            }
+            throw fatal;
+        } catch (Throwable failure) {
+            return UNREADABLE;
+        }
     }
 
     private static Object read(Method accessor, Object target) {

@@ -291,6 +291,7 @@ class JpaValueMaskingTest {
                 proxy -> java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
                         new Class<?>[] {java.nio.file.Path.class}, (self, method, args) -> String.valueOf(proxy)),
                 Amount::new,
+                javax.example.LookalikeAmount::new,
                 Rejected::new);
         for (int i = 0; i < holders.size(); i++) {
             for (int way = 0; way < 3; way++) {
@@ -330,6 +331,52 @@ class JpaValueMaskingTest {
         };
         String text = PlatformValueMasker.text(masker.sanitize("outer", List.of("keep-me", broken)));
         assertThat(text).contains("keep-me").contains("k=[unrenderable]").doesNotContain("hunter12");
+        Map.Entry<String, String> asserting = new Map.Entry<>() {
+            @Override
+            public String getKey() {
+                throw new AssertionError("password=hunter13");
+            }
+
+            @Override
+            public String getValue() {
+                return "v";
+            }
+
+            @Override
+            public String setValue(String value) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        assertThat(PlatformValueMasker.text(masker.sanitize("outer", List.of("keep-me", asserting))))
+                .contains("keep-me").contains("[unrenderable]").doesNotContain("hunter13");
+        // An endless map of failing entries stops at the budget.
+        Map<String, String> endless = new java.util.AbstractMap<>() {
+            @Override
+            public Set<Map.Entry<String, String>> entrySet() {
+                return new java.util.AbstractSet<>() {
+                    @Override
+                    public java.util.Iterator<Map.Entry<String, String>> iterator() {
+                        return new java.util.Iterator<>() {
+                            @Override
+                            public boolean hasNext() {
+                                return true;
+                            }
+
+                            @Override
+                            public Map.Entry<String, String> next() {
+                                return asserting;
+                            }
+                        };
+                    }
+
+                    @Override
+                    public int size() {
+                        return Integer.MAX_VALUE;
+                    }
+                };
+            }
+        };
+        assertThat(PlatformValueMasker.text(masker.sanitize("outer", endless))).contains("****");
         assertThat(PlatformValueMasker.text(masker.sanitize("outer", Map.of(1.5d, "healthy")))).isEqualTo("{1.5=healthy}");
     }
 

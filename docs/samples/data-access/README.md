@@ -12,7 +12,12 @@ A service that stores its data in Oracle gets, without writing any of it:
   concurrent update a **409** with its own code, an unavailable database a retryable **503**. The body never
   names SQL, tables or constraints; the full exception is logged once on the request's trace;
 - **safe migrations**: Flyway never cleans a database, validates before migrating, rejects misnamed files,
-  and refuses out-of-order migrations outside the `local` profile.
+  and refuses out-of-order migrations outside the `local` profile;
+- **logs that never load**: an entity, a Hibernate proxy or an unloaded collection logged as a key-value pair is
+  written as `[entity Order]` or `[not loaded]`, so a log line never runs a query.
+
+The service's code is plain Spring: `JpaRepository`, `@Transactional`, Flyway migrations. It names no platform
+type.
 
 ## When to use / not use
 

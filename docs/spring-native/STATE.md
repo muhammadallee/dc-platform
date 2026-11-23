@@ -8,12 +8,12 @@ Read this first on any restart (plan §4.5). Updated at every gate transition.
 | Baseline | `bdf2845` (`main`), tag `pre-spring-native`; compatibility baseline `~/.m2-native-baseline` (manifest in `phase-00-baseline/evidence/`) |
 | Branch | `develop` (long-running; never merged into `main` by this plan, NC1). Phase branch: `native/phase-04-data` |
 | Current phase | 4 — Data (Phase 3 closed 2026-11-21) |
-| Current gate | Phase 4 Gate D next: Codex round 1 closed at `b362fe3` (review-round-1.md) |
+| Current gate | Phase 4 Gate D: Codex round 1 closed; Gate H docs written (chapter 8, sample, lab "data"); round 2 next |
 | Last commit | see `git log -1 native/phase-04-data` |
 | Open blockers | none |
 | Pending human decisions | ND5 (after the Phase 5 trial), ND11b (Phase 9 Gate A). ND1–ND4, ND6–ND15 answered 2026-11-19 |
 | Known `BLOCKED` (inherited) | Oracle RAC (HD4); OpenShift (HD7 details) |
-| Next action | Consumer trial run on `b362fe3`, then Codex round 2 (whole phase, default effort) |
+| Next action | Codex round 2 on the whole phase (default effort); then Gate F (three runs, floor 92), the regressions, the labs; the lab "data" needs ~3 GB of disk for its repository |
 
 ## Phase log
 

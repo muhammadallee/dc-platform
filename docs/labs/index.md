@@ -25,8 +25,9 @@ export PLATFORM_HOME=/path/to/dc-platform
 |---|---|---|
 | [First service](first-service/index.md) | core + errors | none |
 | [Logs, metrics and a trace](logging-observability/index.md) | logging + observability | none |
+| [Data](data/index.md) | data | Docker (Oracle Free) |
 
-Later labs (data, outbox, messaging) arrive with their capabilities.
+Later labs (outbox, messaging) arrive with their capabilities.
 
 ## Running a lab automatically
 

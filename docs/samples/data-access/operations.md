@@ -13,6 +13,7 @@
 | Oracle down at startup | Exits non-zero in about 10 s naming the connection error | CONSUMER (8–11 s) |
 | Oracle accepts but never answers at startup | Exits non-zero after Flyway's read timeout (10 min) | CONSUMER (608–610 s) |
 | SIGTERM | In-flight transaction completes and commits; pool shut down; exit 143 | CONSUMER |
+| An entity, proxy or lazy collection logged | Written as a placeholder; no statement runs, nothing is loaded | SLICE + CONSUMER |
 
 ## Defaults (lowest precedence; set the key to change it)
 
@@ -28,6 +29,8 @@
 | `spring.flyway.clean-disabled` / `validate-on-migrate` / `out-of-order` / `validate-migration-naming` | `true` / `true` / `false` / `true` | out-of-order is refused outside `local`, however enabled |
 
 ## Health groups
+
+On the management port, 8081 (the application port answers 404 for `/actuator/*`).
 
 | Group | Contains `db`? | Use it for |
 |---|---|---|
@@ -51,14 +54,14 @@
 - **Kill switch:** `dc.platform.data.jpa.enabled=false` turns off the whole capability (defaults, Oracle
   bounds, Flyway checks, auditing, descriptor). Tier: operational, a restart is needed; the service then runs
   on Boot's own defaults (unbounded waits). Break-glass only.
-- **Replace a bean** by defining one of the same name:
+- **Replace the auditor** with your own `AuditorAware` bean, of any name; with several, mark one `@Primary`.
+- **Replace another bean** by defining one of the same name:
 
 | Bean | Replaces |
 |---|---|
 | `platformOracleConnectionDefaults` | the Oracle driver bounds on Hikari pools |
 | `platformOracleFlywayConnectionDefaults` | the Oracle driver bounds on Flyway's own connection |
 | `platformFlywayOutOfOrderGuard` | the out-of-order refusal outside `local` |
-| `platformAuditorAware` | who is recorded in `@CreatedBy` / `@LastModifiedBy` |
 | `dataJpaCapabilityDescriptor` | the capability report entry |
 
 The data error mapping lives in the errors capability: an application `@ExceptionHandler` for a data exception

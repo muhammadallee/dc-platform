@@ -65,6 +65,7 @@ nav:
       - Labs: labs/index.md
       - First service: labs/first-service/index.md
       - Logs, metrics and a trace: labs/logging-observability/index.md
+      - Data: labs/data/index.md
   # The book is long-form teaching material layered over the reference above. Entries are added here
   # as chapters are written; the tree under docs/book/ is scaffolded ahead of them so the
   # DocsLinkCheckTest gate resolves the table of contents in book/index.md.

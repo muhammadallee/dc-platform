@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -180,7 +181,7 @@ public final class PlatformValueMasker {
         if (depth(path) > MAX_DEPTH || underCredentialKey(path)) {
             return MASK;
         }
-        if (value instanceof CharSequence text) {
+        if (value instanceof CharSequence text && !jpaValue(value)) {
             // A snapshot: Boot writes this string, never the original object a second time.
             String snapshot = guarded(text::toString);
             return correlationId(topLevel(path) ? path.name() : null, snapshot) ? snapshot
@@ -223,7 +224,7 @@ public final class PlatformValueMasker {
      * @return the value to write
      */
     public Object sanitizePair(String key, Object value) {
-        if (value instanceof CharSequence text) {
+        if (value instanceof CharSequence text && !jpaValue(value)) {
             String snapshot = guarded(text::toString);
             return correlationId(key, snapshot) ? snapshot : sanitize(key, snapshot);
         }
@@ -405,10 +406,24 @@ public final class PlatformValueMasker {
                 // Opaque JSON a service logged: its names may be escaped and its text need not be one value.
                 return MASK;
             }
-            if (resource(value)) {
-                // Reading a resource or a proxy can do I/O: a JDBC connection's getters query the database, a stream or
-                // a lazy proxy loads. It is its own text, masked, as SLF4J would show it; nothing else of it is called.
+            if (Proxy.isProxyClass(value.getClass())) {
+                // A JDK proxy (a Spring Data projection): every method, toString() too, goes to code that may load or
+                // query. Nothing of it is called.
+                Class<?>[] contracts = value.getClass().getInterfaces();
+                return text("[proxy " + (contracts.length == 0 ? "?" : contracts[0].getSimpleName()) + "]");
+            }
+            if (value instanceof AutoCloseable) {
+                // A resource's getters can do I/O (a JDBC connection's query the database): it is its own text, masked,
+                // as SLF4J would show it; nothing else of it is called.
                 return text(render(value));
+            }
+            if (value instanceof Optional<?> optional) {
+                return copy(name, optional.orElse(null), depth + 1);
+            }
+            if (value instanceof Map.Entry<?, ?> entry && !(value instanceof Record)) {
+                Map<String, Object> copy = new SafeMap();
+                entry(copy, entry, depth + 1);
+                return copy;
             }
             if (value instanceof Boolean flag) {
                 return scalar(flag, flag.toString());
@@ -438,9 +453,7 @@ public final class PlatformValueMasker {
                         if (!entries.hasNext()) {
                             break;
                         }
-                        Map.Entry<?, ?> entry = entries.next();
-                        String key = key(entry.getKey(), depth + 1);
-                        copy.put(key, copy(key, entry.getValue(), depth + 1));
+                        entry(copy, entries.next(), depth + 1);
                     }
                     return copy;
                 }
@@ -486,23 +499,32 @@ public final class PlatformValueMasker {
             }
         }
 
-        // A map key as text. A simple key is its own text, which is the name credential rules read; any other key is
-        // walked like a value, because its toString() can load a JPA value.
-        private String key(Object key, int depth) {
-            if (key == null || key instanceof CharSequence || key instanceof Number || key instanceof Boolean
-                    || key instanceof Enum<?>) {
-                return render(key);
+        // One map entry. A simple key is its own text, which is the name the credential rules read. Any other key is
+        // walked like a value, because its toString() can load or say anything; its name cannot be classified without
+        // running application code, so its value is masked (Codex phase 4 round 1).
+        private void entry(Map<String, Object> copy, Map.Entry<?, ?> entry, int depth) {
+            Object key = entry.getKey();
+            String simple = simpleKey(key);
+            if (simple != null) {
+                copy.put(simple, copy(simple, entry.getValue(), depth));
+                return;
             }
-            return String.valueOf(copy(null, key, depth));
+            budget--;
+            copy.put(String.valueOf(copy(null, key, depth)), MASK);
         }
 
-        // A JDK value type is text; any other object is its bean properties, or its text when it has none.
+        // A JDK value type or a logging library's object is text; any other JDK object is its type name, because its
+        // toString() may render what it holds (an AtomicReference to a proxy loads it). An application object is its
+        // bean properties, or its text when it has none.
         private Object object(String name, Object value, int depth) {
-            String type = value.getClass().getName();
-            if (type.startsWith("java.") || type.startsWith("javax.") || type.startsWith("jdk.")
-                    || type.startsWith("ch.qos.logback.") || type.startsWith("org.apache.logging.")
-                    || type.startsWith("org.slf4j.")) {
+            Class<?> type = value.getClass();
+            String typeName = type.getName();
+            if (jdkValue(type) || typeName.startsWith("ch.qos.logback.") || typeName.startsWith("org.apache.logging.")
+                    || typeName.startsWith("org.slf4j.")) {
                 return text(render(value));
+            }
+            if (typeName.startsWith("java.") || typeName.startsWith("javax.") || typeName.startsWith("jdk.")) {
+                return text("[" + type.getSimpleName() + "]");
             }
             List<Method> getters = getters(value.getClass());
             if (getters.isEmpty()) {
@@ -660,6 +682,52 @@ public final class PlatformValueMasker {
         return true;
     }
 
+    // The JDK classes whose text is their value and holds no other object: their toString() is safe to call.
+    private static final Set<String> JDK_VALUE_PACKAGES = Set.of("java.time", "java.time.chrono", "java.time.zone");
+    private static final Set<Class<?>> JDK_VALUES = Set.of(java.util.UUID.class, java.util.Locale.class,
+            java.util.Currency.class, java.util.Date.class, java.sql.Date.class, java.sql.Timestamp.class,
+            java.sql.Time.class, java.util.TimeZone.class, java.net.URI.class, java.net.URL.class,
+            java.util.regex.Pattern.class, java.nio.charset.Charset.class, StackTraceElement.class,
+            java.util.OptionalInt.class, java.util.OptionalLong.class, java.util.OptionalDouble.class);
+
+    private static boolean jdkValue(Class<?> type) {
+        if (JDK_VALUES.contains(type) || JDK_VALUE_PACKAGES.contains(type.getPackageName())) {
+            return true;
+        }
+        for (Class<?> value : JDK_VALUES) {
+            // TimeZone, Charset and Timestamp come as JDK subclasses.
+            if (value.isAssignableFrom(type) && type.getName().startsWith("java")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // A map key that is a plain value: its text, read without calling application code; null for any other key.
+    private static String simpleKey(Object key) {
+        if (key == null) {
+            return "null";
+        }
+        if (jpaValue(key)) {
+            return null;
+        }
+        Class<?> type = key.getClass();
+        if (key instanceof Enum<?> constant) {
+            return constant.name();
+        }
+        if (type == String.class || type == Boolean.class || type == Character.class || type == Integer.class
+                || type == Long.class || type == Short.class || type == Byte.class || type == java.math.BigInteger.class
+                || type == java.math.BigDecimal.class || type == java.util.UUID.class) {
+            return key.toString();
+        }
+        return null;
+    }
+
+    // An entity, a Hibernate proxy or an unloaded Hibernate collection: none of its methods may run.
+    static boolean jpaValue(Object value) {
+        return entityType(value.getClass()) != null || unloadedCollection(value);
+    }
+
     // The type name to show for an entity or a Hibernate proxy, or null. By name: logging depends on neither JPA nor
     // Hibernate. An entity's getters and toString() can load, and a proxy's toString() always does.
     private static String entityType(Class<?> type) {
@@ -687,14 +755,6 @@ public final class PlatformValueMasker {
         } catch (ReflectiveOperationException unknown) {
             return true;
         }
-    }
-
-    // A resource (AutoCloseable: connections, statements, sessions, streams) or a JDK dynamic proxy:
-    // never walked, because its getters or iterator may do I/O (Claude, phase 3 Gate H: Hikari's "Added connection"
-    // line ran a connection's metadata queries).
-    static boolean resource(Object value) {
-        Class<?> type = value.getClass();
-        return value instanceof AutoCloseable || Proxy.isProxyClass(type);
     }
 
     // Sentinel for a getter or accessor that threw.

@@ -42,6 +42,12 @@ property keys. The consumer probe imports no platform type. This phase confirms 
    | An uninitialised persistent collection | a fixed "not loaded" placeholder | `iterator()`, `size()`, `toString()` |
    | An initialised persistent collection | its elements, each under these rules | — |
    | An `@Entity` instance | a fixed placeholder with its type name | getters (a computed one can load), `toString()` (a generated one can load) |
+   | A JDK proxy (a Spring Data projection) | a fixed placeholder with its interface name | every method |
+   | Any other JDK object, unless a value type | its type name; `Optional` and `Map.Entry` are walked into | `toString()` |
+   | A map key that is not a plain value | its walked text, with its value masked | `toString()` |
+
+   *Amended at Gate C (Codex round 1, findings 1–4):* the last three rows, and the JPA check runs before every text
+   shortcut.
 
    A service logs an entity's identifier or a record of what it needs. The guarantee covers what the masker does.
    Logback renders a message argument with `toString()` before any encoder (HI-0157), so a proxy or collection passed
@@ -95,7 +101,7 @@ and these changes:
 | AC17 | The consumer probe imports no platform type, asserted by the harness | CONSUMER |
 | AC18 | The masker runs no SQL and initialises nothing for a proxy, an uninitialised collection or an entity, as a key-value pair and nested in a map, record or bean; on real Hibernate, not a stand-in | SLICE + CONSUMER |
 | AC19 | A service's `AuditorAware` bean under any name is the one that audits; the platform's steps back | SLICE |
-| AC20 | With the starter and a datasource only: migrations run, auditing records `"system"`, and every default is in effect | SLICE |
+| AC20 | With the starter and a datasource only: migrations run, auditing records `"system"`, and every default is in effect. The slice proves the defaults; the starter's own classpath is proven by the golden path, which generates a service with the starter alone, checks `spring-boot-flyway` is packaged and that Flyway applied the migration (amended at Gate C, round 1 finding 7) | SLICE + build |
 | AC21 | The lab "data" passes the lab runner: H2, then Oracle Free, then the database stopped mid-request | LAB |
 
 ## 6. Carry-over table

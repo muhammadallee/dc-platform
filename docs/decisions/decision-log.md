@@ -917,3 +917,7 @@ One line of context per decision; details live in the commit bodies referenced.
   depends on neither JPA nor Hibernate. Alternatives measured or rejected: rendering with `toString()` loads proxies and
   collections, and walking only an entity's loaded properties would still run computed getters. Logback's own rendering
   of message arguments stays HI-0157's limit. (3) The auditor is to back off by type (HI-0168).
+  *Amended at Gate C (Codex round 1):* the masker calls `toString()` only on JDK value types, character data, logging
+  objects, resources and property-less application objects; any other JDK object is its type name, a JDK proxy is
+  `[proxy <Interface>]`, `Optional` and `Map.Entry` are walked into, and a map key that is not a plain value masks
+  its value. Narrowing the rendered set was chosen over handling each wrapper type found.

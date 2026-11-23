@@ -35,6 +35,35 @@ public final class DataProbe {
 
     }
 
+    /** AC18: the three values nested in a record. */
+    public record Trio(Object proxy, Object entity, Object collection) {
+    }
+
+    /** AC18: the three values nested in a bean. */
+    public static final class Box {
+        private final Object proxy;
+        private final Object entity;
+        private final Object collection;
+
+        Box(Object proxy, Object entity, Object collection) {
+            this.proxy = proxy;
+            this.entity = entity;
+            this.collection = collection;
+        }
+
+        public Object getProxy() {
+            return proxy;
+        }
+
+        public Object getEntity() {
+            return entity;
+        }
+
+        public Object getCollection() {
+            return collection;
+        }
+    }
+
     @Service
     public static class ParcelService {
 
@@ -71,8 +100,14 @@ public final class DataProbe {
             statistics.setStatisticsEnabled(true);
             try {
                 long before = statistics.getPrepareStatementCount();
+                Object parcels = entity.getParcels();
                 log.atInfo().setMessage("jpa-values").addKeyValue("probeProxy", proxy).addKeyValue("probeEntity", entity)
-                        .addKeyValue("probeCollection", entity.getParcels()).log();
+                        .addKeyValue("probeCollection", parcels)
+                        .addKeyValue("probeMap", Map.of("proxy", proxy, "entity", entity, "collection", parcels))
+                        .addKeyValue("probeList", java.util.List.of(proxy, entity, parcels))
+                        .addKeyValue("probeRecord", new Trio(proxy, entity, parcels))
+                        .addKeyValue("probeBean", new Box(proxy, entity, parcels))
+                        .addKeyValue("probeOptional", java.util.Optional.of(proxy)).log();
                 long afterLogging = statistics.getPrepareStatementCount();
                 boolean proxyLoaded = Hibernate.isInitialized(proxy);
                 boolean collectionLoaded = Hibernate.isInitialized(entity.getParcels());

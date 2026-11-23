@@ -80,10 +80,18 @@ hh_step "generate a consumer (data, database=oracle), add the probe and its migr
 hh_generate hardening-data data -Ddatabase=oracle
 hh_add_sources "$HERE/phase-03/probe" ae/gov/dubaicustoms/hardening/probe
 hh_add_migrations "$HERE/phase-03/migration"
-# Contract 12: the consumer probe uses Spring types only.
-if grep -n "^import ae\.gov\.dubaicustoms\.platform" "$HERE/phase-03/probe"/*.java > "$HH_EVIDENCE/probe-platform-imports.txt"; then
-  hh_fail "AC17 the probe imports a platform type (probe-platform-imports.txt)"
-else hh_pass "AC17 the probe imports no platform type"; fi
+# Contract 12: the probe and the generated service's own code use Spring types only. Any reference counts: an
+# import (static too, indented too) or a fully qualified name. grep: 0 found, 1 none, anything else a failed scan.
+set +e
+grep -rnE "ae\.gov\.dubaicustoms\.platform" "$HERE/phase-03/probe" "$HH_APP_DIR/src/main/java" \
+    > "$HH_EVIDENCE/probe-platform-imports.txt" 2>&1
+SCAN=$?
+set -e
+case $SCAN in
+  1) hh_pass "AC17 the probe and the service's code name no platform type" ;;
+  0) hh_fail "AC17 a platform type is named (probe-platform-imports.txt)" ;;
+  *) hh_fail "AC17 the scan failed with status $SCAN (probe-platform-imports.txt)" ;;
+esac
 cp "$HH_APP_DIR/pom.xml" "$HH_EVIDENCE/generated-pom.xml"
 hh_build_app
 
@@ -209,6 +217,12 @@ docker logs "$HH_APP_CONTAINER" 2>&1 | grep -F '"message":"jpa-values"' > "$HH_E
 for FIELD in '"probeProxy":"[entity HhParcel]"' '"probeEntity":"[entity HhConsignor]"' '"probeCollection":"[not loaded]"'; do
   if grep -qF "$FIELD" "$HH_EVIDENCE/ac18-log-line.txt"; then hh_pass "AC18 logged as $FIELD"
   else hh_fail "AC18 log line lacks $FIELD (ac18-log-line.txt)"; fi
+done
+# Nested: in a map, a list, a record, a bean, and the proxy in an Optional too (DataProbe.logJpaValues).
+for EXPECT in '[entity HhParcel]:6' '[entity HhConsignor]:5' '[not loaded]:5'; do
+  N=$(grep -oF "${EXPECT%:*}" "$HH_EVIDENCE/ac18-log-line.txt" | wc -l | tr -d ' ')
+  if [ "$N" = "${EXPECT##*:}" ]; then hh_pass "AC18 ${EXPECT%:*} written $N times: directly and nested"
+  else hh_fail "AC18 ${EXPECT%:*} written $N times, expected ${EXPECT##*:} (ac18-log-line.txt)"; fi
 done
 
 hh_step "AC11 Hikari and repository meters; bounded tags, no SQL or ID in a label value"

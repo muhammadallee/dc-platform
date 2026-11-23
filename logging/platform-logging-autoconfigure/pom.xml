@@ -61,6 +61,12 @@
       <artifactId>h2</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- A real Spring Data projection over a Hibernate proxy (Codex phase 4 round 1). -->
+    <dependency>
+      <groupId>org.springframework.data</groupId>
+      <artifactId>spring-data-commons</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Reads the JSON lines back in tests; Boot's BasicJsonParser does not undo escapes. -->
     <dependency>
       <groupId>tools.jackson.core</groupId>

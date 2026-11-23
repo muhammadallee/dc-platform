@@ -78,6 +78,47 @@ class JpaValueMaskingTest {
         }
     }
 
+    /** An entity that is also text: its proxy must not reach a CharSequence shortcut. */
+    @Entity(name = "Code")
+    public static class Code implements CharSequence {
+        @Id
+        Long id;
+        String text;
+
+        @Override
+        public int length() {
+            return text.length();
+        }
+
+        @Override
+        public char charAt(int index) {
+            return text.charAt(index);
+        }
+
+        @Override
+        public CharSequence subSequence(int start, int end) {
+            return text.subSequence(start, end);
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+    }
+
+    /** A Spring Data interface projection. */
+    public interface CustomerView {
+        String getName();
+    }
+
+    /** A map key whose text is a credential name. */
+    record Key(String name) {
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
     record Holder(Object value) {
     }
 
@@ -97,6 +138,7 @@ class JpaValueMaskingTest {
     static void database() {
         factory = new Configuration()
                 .addAnnotatedClass(Customer.class).addAnnotatedClass(Line.class).addAnnotatedClass(Purchase.class)
+                .addAnnotatedClass(Code.class)
                 .setProperty("hibernate.connection.url", "jdbc:h2:mem:jpa-masking;DB_CLOSE_DELAY=-1")
                 .setProperty("hibernate.hbm2ddl.auto", "create")
                 .setStatementInspector(sql -> {
@@ -117,6 +159,10 @@ class JpaValueMaskingTest {
             line.id = 1L;
             line.purchase = purchase;
             session.persist(line);
+            Code code = new Code();
+            code.id = 1L;
+            code.text = "code-value";
+            session.persist(code);
         });
     }
 
@@ -152,6 +198,47 @@ class JpaValueMaskingTest {
     }
 
     @Test
+    void aProxyThatIsTextIsNeverRenderedThroughATextShortcut() {
+        neverLoaded(session -> session.getReference(Code.class, 1L), "[entity Code]", false);
+    }
+
+    @Test
+    void aSpringDataProjectionOverAProxyIsNamedAndNothingOfItRuns() {
+        try (EntityManager session = factory.createEntityManager()) {
+            Customer proxy = session.getReference(Customer.class, 1L);
+            CustomerView view = new org.springframework.data.projection.SpelAwareProxyProjectionFactory()
+                    .createProjection(CustomerView.class, proxy);
+            SQL.set(0);
+            assertThat(PlatformValueMasker.text(masker.sanitizePair("view", view))).isEqualTo("[proxy CustomerView]");
+            assertThat(PlatformValueMasker.text(masker.mask(null, Map.of("view", view))))
+                    .isEqualTo("{view=[proxy CustomerView]}");
+            assertThat(SQL).hasValue(0);
+            assertThat(Hibernate.isInitialized(proxy)).isFalse();
+        }
+    }
+
+    @Test
+    void aJdkObjectHoldingAProxyIsItsTypeName() {
+        try (EntityManager session = factory.createEntityManager()) {
+            Customer proxy = session.getReference(Customer.class, 1L);
+            SQL.set(0);
+            assertThat(PlatformValueMasker.text(masker.sanitizePair("held",
+                    new java.util.concurrent.atomic.AtomicReference<>(proxy)))).isEqualTo("[AtomicReference]");
+            assertThat(SQL).hasValue(0);
+            assertThat(Hibernate.isInitialized(proxy)).isFalse();
+        }
+    }
+
+    @Test
+    void aKeyThatIsNotAPlainValueMasksItsValue() {
+        // Its text is a credential name, which the masker cannot read without calling the key's own code.
+        String text = PlatformValueMasker.text(masker.sanitize("outer", Map.of(new Key("password"), "opaque-credential")));
+        assertThat(text).doesNotContain("opaque-credential").contains("****");
+        assertThat(PlatformValueMasker.text(masker.sanitize("outer", Map.of("password", "opaque-credential"))))
+                .doesNotContain("opaque-credential");
+    }
+
+    @Test
     void aMessageArgumentIsFormattedWithoutLoadingIt() {
         // The formatter's part. Logback's appender renders arguments itself before it runs (HI-0157).
         try (EntityManager session = factory.createEntityManager()) {
@@ -177,6 +264,8 @@ class JpaValueMaskingTest {
         ways.add(value -> masker.sanitize("outer", List.of(value)));
         ways.add(value -> masker.sanitize("outer", new Holder(value)));
         ways.add(value -> masker.sanitize("outer", new Bean(value)));
+        ways.add(value -> masker.sanitize("outer", java.util.Optional.of(value)));
+        ways.add(value -> masker.sanitize("outer", Map.entry("inner", value)));
         // Map.of would hash the key, which loads a collection by itself.
         ways.add(value -> {
             Map<Object, String> keyed = new java.util.IdentityHashMap<>();

@@ -542,8 +542,9 @@ class StructuredLogMaskingTest {
         };
         String line = encode(event("probe {} {}", hostile, Map.of(hostileKey, "v")).pair("text", hostile));
         assertThat(line).doesNotContain("hunter10").doesNotContain("hunter11");
+        // A key that is not a plain value masks its value: its name cannot be read (Codex phase 4 round 1).
         assertThat(parse(line)).containsEntry("text", "[unrenderable]")
-                .containsEntry("message", "probe [unrenderable] {[unrenderable]=v}");
+                .containsEntry("message", "probe [unrenderable] {[unrenderable]=****}");
     }
 
     @Test

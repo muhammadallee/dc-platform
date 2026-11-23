@@ -20,14 +20,20 @@ every line and credentials and personal data masked. Your code logs with SLF4J. 
   - **Your own patterns:** `dc.platform.logging.redaction.patterns`, applied to text, numbers and booleans.
   - Masked text reads `****`.
 - **Structure is kept, so names count.** A map, list, record or bean you log, as a key-value pair or a message argument,
-  is written by its structure: a credential name inside it masks its whole value. JDK value types, character data and
-  `Path` are masked text. A resource (`AutoCloseable`: a JDBC connection, a stream) or a JDK dynamic proxy is
-  never walked, because its getters may query or load: it is its own `toString()`, masked. A getter that
-  returns a resource (`getInputStream()`) is never called; its property is shown masked. 
-  An `@Entity` instance or Hibernate proxy is written as `[entity Customer]` and a collection that is not loaded as
-  `[not loaded]`: none of their methods run, so the masker runs no query. Log the identifier you need. As a message
-  argument (`{}`) such a value can still load, because Logback calls its `toString()` before the platform sees it;
-  pass it as a key-value pair, or pass the identifier. An entity mapped only in XML is recognised only as a proxy. A raw JSON value
+  is written by its structure: a credential name inside it masks its whole value. A map key that is not a plain
+  value (a string, a JDK number, a boolean, a character, a UUID or an enum) is shown as its walked text and its value
+  is masked, because its name cannot be read without running its own code. `Optional` and `Map.Entry` are walked into.
+- **What the masker calls `toString()` on**, and nothing else: JDK value types (`java.time`, `UUID`, `URI`, `Locale`,
+  dates and similar), character data, `Path`, a logging library's own objects, a resource (`AutoCloseable`: a JDBC
+  connection, a stream, whose getters can query) and an application object with no bean properties. Any other JDK
+  object is its type name (`[AtomicReference]`): its text could render what it holds.
+- **What runs no method at all:** an `@Entity` instance or Hibernate proxy is `[entity Customer]`, a Hibernate
+  collection that is not loaded is `[not loaded]`, and a JDK proxy, such as a Spring Data projection, is
+  `[proxy CustomerView]`. So logging them runs no query; log the identifier you need. A getter that returns a resource
+  (`getInputStream()`) is never called; its property is shown masked.
+- **Limits.** As a message argument (`{}`) an entity or proxy can still load, because Logback calls its `toString()`
+  before the platform sees it: pass it as a key-value pair, or pass the identifier. An entity mapped only in XML is
+  recognised only as a proxy. An application object with no bean properties is its own `toString()`. A raw JSON value
   (`WritableJson`) is masked whole. A value whose `toString()` or getter
   throws becomes `[unrenderable]` and costs only its place; a container holding itself, anything deeper than 64 levels
   and anything past 10,000 values in one argument is masked.
